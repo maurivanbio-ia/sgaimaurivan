@@ -27,7 +27,7 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -74,6 +74,7 @@ export interface IStorage {
   getEntregasDoMes(): Promise<Entrega[]>;
   getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
   getMonthlyExpiryData(): Promise<Array<{ month: string; count: number }>>;
+  getLicencasByDateRange(startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>>;
 
   // Alert operations
   getAlertConfigs(): Promise<AlertConfig[]>;
@@ -722,6 +723,39 @@ export class DatabaseStorage implements IStorage {
       });
     } catch (error) {
       console.error('Error getting entregas do mês:', error);
+      return [];
+    }
+  }
+
+  async getLicencasByDateRange(startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>> {
+    try {
+      const licencas = await db
+        .select({
+          id: licencasAmbientais.id,
+          tipo: licencasAmbientais.tipo,
+          validade: licencasAmbientais.validade,
+          orgaoEmissor: licencasAmbientais.orgaoEmissor,
+          empreendimentoNome: empreendimentos.nome,
+        })
+        .from(licencasAmbientais)
+        .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
+        .where(
+          and(
+            gte(licencasAmbientais.validade, startDate.toISOString()),
+            lte(licencasAmbientais.validade, endDate.toISOString())
+          )
+        )
+        .orderBy(asc(licencasAmbientais.validade));
+      
+      return licencas.filter(licenca => licenca.validade !== null).map(licenca => ({
+        id: licenca.id,
+        tipo: licenca.tipo,
+        validade: licenca.validade!,
+        empreendimentoNome: licenca.empreendimentoNome || '',
+        orgaoEmissor: licenca.orgaoEmissor || '',
+      }));
+    } catch (error) {
+      console.error('Error getting licenças by date range:', error);
       return [];
     }
   }
