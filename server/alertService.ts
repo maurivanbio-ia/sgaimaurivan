@@ -5,27 +5,27 @@ import { notificationService } from './notificationService';
 import type { AlertConfig, AlertHistory, InsertAlertHistory } from '@shared/schema';
 
 export class AlertService {
-  // Configurações padrão de alertas
+  // Configurações padrão de alertas (apenas email)
   private readonly DEFAULT_CONFIGS = [
     // Licenças
     { tipo: 'licenca', diasAviso: 90, ativo: true, enviarEmail: true, enviarWhatsapp: false },
     { tipo: 'licenca', diasAviso: 60, ativo: true, enviarEmail: true, enviarWhatsapp: false },
-    { tipo: 'licenca', diasAviso: 30, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'licenca', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'licenca', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'licenca', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: true },
+    { tipo: 'licenca', diasAviso: 30, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'licenca', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'licenca', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'licenca', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: false },
     
     // Condicionantes
     { tipo: 'condicionante', diasAviso: 30, ativo: true, enviarEmail: true, enviarWhatsapp: false },
-    { tipo: 'condicionante', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'condicionante', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'condicionante', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: true },
+    { tipo: 'condicionante', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'condicionante', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'condicionante', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: false },
     
     // Entregas
     { tipo: 'entrega', diasAviso: 30, ativo: true, enviarEmail: true, enviarWhatsapp: false },
-    { tipo: 'entrega', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'entrega', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: true },
-    { tipo: 'entrega', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: true },
+    { tipo: 'entrega', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'entrega', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'entrega', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: false },
   ];
 
   // Contatos para alertas
@@ -158,18 +158,7 @@ export class AlertService {
         }
       }
       
-      // Envia WhatsApp se configurado
-      if (config.enviarWhatsapp) {
-        try {
-          await sendWhatsApp(this.WHATSAPP_CONTATO, alertData.whatsappMessage);
-          
-          await this.saveAlertHistory(item.id, config, 'whatsapp', 'enviado');
-          console.log(`WhatsApp enviado para ${config.tipo} ID ${item.id}`);
-        } catch (error) {
-          await this.saveAlertHistory(item.id, config, 'whatsapp', 'erro', (error as Error).message || String(error));
-          console.error(`Erro ao enviar WhatsApp para ${config.tipo} ID ${item.id}:`, (error as Error).message || error);
-        }
-      }
+      // WhatsApp desabilitado
     } catch (error) {
       console.error(`Erro ao enviar alertas para item ${item.id}:`, error);
     }
@@ -409,7 +398,6 @@ Sistema LicençaFácil - EcoBrasil
       const alertData = await this.buildAlertData(licencaTeste, 'licenca', 30);
       
       let emailStatus = '';
-      let whatsappStatus = '';
       
       // Tentar enviar email de teste
       try {
@@ -425,27 +413,15 @@ Sistema LicençaFácil - EcoBrasil
         emailStatus = `❌ Email: Erro - ${(emailError as Error).message}`;
       }
 
-      // Tentar enviar WhatsApp de teste
-      try {
-        const whatsappTestMessage = `🧪 [TESTE DO SISTEMA]\n\n${alertData.whatsappMessage}`;
-        await sendWhatsApp(this.WHATSAPP_CONTATO, whatsappTestMessage);
-        whatsappStatus = '✅ WhatsApp: Enviado com sucesso';
-      } catch (whatsappError) {
-        console.error('Erro no envio do WhatsApp:', whatsappError);
-        whatsappStatus = `❌ WhatsApp: Erro - ${(whatsappError as Error).message}`;
-      }
-
       const message = `Teste de alertas concluído:
 
 ${emailStatus}
-${whatsappStatus}
 
-📧 Destinatário Email: ${this.EMAIL_CONTATO}
-📱 Destinatário WhatsApp: ${this.WHATSAPP_CONTATO}
+📧 Destinatário: ${this.EMAIL_CONTATO}
 
-${emailStatus.includes('❌') || whatsappStatus.includes('❌') ? 
-  '\n⚠️ Há problemas de configuração. Verifique os logs para mais detalhes.' : 
-  '\n🎉 Todos os alertas funcionando perfeitamente!'}`;
+${emailStatus.includes('❌') ? 
+  '\n⚠️ Há problemas de configuração. Verifique se o domínio ecobrasil.bio.br e o remetente noreply@ecobrasil.bio.br estão verificados no SendGrid.' : 
+  '\n🎉 Sistema de alertas funcionando perfeitamente!'}`;
 
       console.log('🧪 Teste de alertas concluído');
       return { 
