@@ -11,6 +11,7 @@ import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
 import { cronService } from "./cronService";
+import { exportService } from "./exportService";
 
 // Login schema
 const loginSchema = z.object({
@@ -440,6 +441,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Test alerts error:", error);
       res.status(500).json({ message: "Erro ao executar teste de alertas" });
+    }
+  });
+
+  // Export routes
+  app.get("/api/export/empreendimentos", requireAuth, async (req, res) => {
+    try {
+      const format = req.query.format as 'csv' | 'excel' || 'excel';
+      const filepath = await exportService.exportEmpreendimentos(format);
+      const filename = `empreendimentos.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      await exportService.sendFileDownload(res, filepath, filename);
+    } catch (error) {
+      console.error("Export empreendimentos error:", error);
+      res.status(500).json({ message: "Erro ao exportar empreendimentos" });
+    }
+  });
+
+  app.get("/api/export/licencas", requireAuth, async (req, res) => {
+    try {
+      const format = req.query.format as 'csv' | 'excel' || 'excel';
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const filepath = await exportService.exportLicencas(format, empreendimentoId);
+      const filename = `licencas${empreendimentoId ? `_empreendimento_${empreendimentoId}` : ''}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      await exportService.sendFileDownload(res, filepath, filename);
+    } catch (error) {
+      console.error("Export licencas error:", error);
+      res.status(500).json({ message: "Erro ao exportar licenças" });
+    }
+  });
+
+  app.get("/api/export/condicionantes", requireAuth, async (req, res) => {
+    try {
+      const format = req.query.format as 'csv' | 'excel' || 'excel';
+      const licencaId = req.query.licencaId ? parseInt(req.query.licencaId as string) : undefined;
+      const filepath = await exportService.exportCondicionantes(format, licencaId);
+      const filename = `condicionantes${licencaId ? `_licenca_${licencaId}` : ''}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      await exportService.sendFileDownload(res, filepath, filename);
+    } catch (error) {
+      console.error("Export condicionantes error:", error);
+      res.status(500).json({ message: "Erro ao exportar condicionantes" });
+    }
+  });
+
+  app.get("/api/export/entregas", requireAuth, async (req, res) => {
+    try {
+      const format = req.query.format as 'csv' | 'excel' || 'excel';
+      const licencaId = req.query.licencaId ? parseInt(req.query.licencaId as string) : undefined;
+      const filepath = await exportService.exportEntregas(format, licencaId);
+      const filename = `entregas${licencaId ? `_licenca_${licencaId}` : ''}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      await exportService.sendFileDownload(res, filepath, filename);
+    } catch (error) {
+      console.error("Export entregas error:", error);
+      res.status(500).json({ message: "Erro ao exportar entregas" });
+    }
+  });
+
+  app.get("/api/export/relatorio-completo", requireAuth, async (req, res) => {
+    try {
+      const format = req.query.format as 'csv' | 'excel' || 'excel';
+      const filepath = await exportService.exportRelatorioCompleto(format);
+      const filename = `relatorio_completo.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      await exportService.sendFileDownload(res, filepath, filename);
+    } catch (error) {
+      console.error("Export relatorio completo error:", error);
+      res.status(500).json({ message: "Erro ao exportar relatório completo" });
     }
   });
 

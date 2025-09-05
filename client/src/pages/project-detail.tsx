@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
 import { Plus, ArrowLeft, Edit, FileText, Calendar, Building, Download, Trash2 } from "lucide-react";
+import { ExportButton } from "@/components/ExportButton";
 import type { EmpreendimentoWithLicencas } from "@shared/schema";
 
 export default function ProjectDetail() {
@@ -70,7 +71,8 @@ export default function ProjectDetail() {
           </h2>
           <p className="text-muted-foreground mt-2">Licenças Ambientais</p>
         </div>
-        <div className="flex space-x-4">
+        <div className="flex space-x-2">
+          <ExportButton entity="licencas" entityId={parseInt(id!)} variant="outline" />
           <Link href={`/empreendimentos/${id}/licencas/nova`}>
             <Button className="font-medium" data-testid="button-new-license">
               <Plus className="mr-2 h-4 w-4" />
