@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { formatDateForInput } from "@/lib/date-utils";
 import { Save, ArrowLeft, Upload, Download, FileText } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import type { LicencaAmbiental } from "@shared/schema";
 import React from "react";
 
@@ -236,35 +237,23 @@ export default function EditLicense() {
                     <FormLabel>
                       {license.arquivoPdf ? "Substituir arquivo (opcional)" : "Arquivo PDF da licença (opcional)"}
                     </FormLabel>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-border border-dashed rounded-md hover:border-primary/50 transition-colors">
-                      <div className="space-y-1 text-center">
-                        <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                        <div className="flex text-sm text-muted-foreground">
-                          <label htmlFor="license-file" className="relative cursor-pointer bg-background rounded-md font-medium text-primary hover:text-primary/80">
-                            <span>
-                              {license.arquivoPdf ? "Faça upload do novo arquivo" : "Faça upload do arquivo"}
-                            </span>
-                            <input 
-                              id="license-file" 
-                              type="file" 
-                              accept=".pdf" 
-                              className="sr-only"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  // TODO: Implement file upload to object storage
-                                  console.log("File selected:", file.name);
-                                  field.onChange(file.name);
-                                }
-                              }}
-                              data-testid="input-file"
-                            />
-                          </label>
-                          <p className="pl-1">ou arraste e solte</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Apenas arquivos PDF até 10MB</p>
-                      </div>
-                    </div>
+                    <ObjectUploader
+                      onGetUploadParameters={async () => {
+                        const response = await apiRequest("POST", "/api/upload/pdf");
+                        const data = await response.json();
+                        // Store filePath for later use
+                        (window as any).__pdfFilePath = data.filePath;
+                        return { method: data.method, url: data.url };
+                      }}
+                      onComplete={(result) => {
+                        // Use the stored filePath instead of the upload URL
+                        const filePath = (window as any).__pdfFilePath;
+                        if (filePath) {
+                          field.onChange(filePath);
+                        }
+                      }}
+                      accept=".pdf"
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
