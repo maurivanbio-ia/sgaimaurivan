@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight } from "lucide-react";
+import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell } from "lucide-react";
 import type { AlertConfig } from "@shared/schema";
 
 export default function AlertConfigPage() {
@@ -41,6 +41,32 @@ export default function AlertConfigPage() {
 
   const handleTestAlerts = () => {
     testAlerts.mutate();
+  };
+
+  const testeNotificacaoMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/notifications/test");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Notificação criada",
+        description: data.message || "Notificação de teste criada com sucesso!",
+      });
+      // Refresh notificações na nav
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao criar notificação de teste",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTestNotificacao = () => {
+    testeNotificacaoMutation.mutate();
   };
 
   const updateConfigMutation = useMutation({
@@ -148,8 +174,8 @@ export default function AlertConfigPage() {
         </CardContent>
       </Card>
 
-      {/* Test Button */}
-      <div className="mb-6">
+      {/* Test Buttons */}
+      <div className="mb-6 flex gap-4">
         <Button 
           onClick={handleTestAlerts}
           disabled={testAlerts.isPending}
@@ -157,7 +183,18 @@ export default function AlertConfigPage() {
           data-testid="button-test-alerts"
         >
           <Play className="mr-2 h-4 w-4" />
-          {testAlerts.isPending ? "Executando..." : "Testar Alertas Agora"}
+          {testAlerts.isPending ? "Executando..." : "Testar Alertas por Email"}
+        </Button>
+        
+        <Button 
+          onClick={handleTestNotificacao}
+          disabled={testeNotificacaoMutation.isPending}
+          variant="outline"
+          className="border-blue-200 text-blue-700 hover:bg-blue-50"
+          data-testid="button-test-notification"
+        >
+          <Bell className="mr-2 h-4 w-4" />
+          {testeNotificacaoMutation.isPending ? "Criando..." : "Criar Notificação de Teste"}
         </Button>
       </div>
 

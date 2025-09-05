@@ -179,6 +179,15 @@ export class NotificationService {
     });
   }
 
+  // Cria notificação de teste para verificar funcionamento
+  async createTestNotification(): Promise<void> {
+    await this.createSystemNotification(
+      "🧪 Teste do Sistema",
+      "Esta é uma notificação de teste para verificar se o sistema está funcionando corretamente. Criado em " + new Date().toLocaleString('pt-BR'),
+      'baixa'
+    );
+  }
+
   // Marca notificação como enviada (quando o alerta foi processado)
   async markNotificationAsSent(notificationId: number): Promise<void> {
     try {

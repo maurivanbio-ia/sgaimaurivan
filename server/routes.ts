@@ -655,6 +655,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint de teste para criar notificação
+  app.post("/api/notifications/test", requireAuth, async (req, res) => {
+    try {
+      await notificationService.createTestNotification();
+      res.json({ message: "Notificação de teste criada com sucesso!" });
+    } catch (error) {
+      console.error("Test notification error:", error);
+      res.status(500).json({ message: "Erro ao criar notificação de teste" });
+    }
+  });
+
   app.get("/api/entregas/mes", requireAuth, async (req, res) => {
     try {
       const entregas = await storage.getEntregasDoMes();
