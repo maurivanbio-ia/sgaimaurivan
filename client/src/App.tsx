@@ -14,6 +14,11 @@ import ProjectDetail from "./pages/project-detail";
 import NewLicense from "./pages/new-license";
 import EditLicense from "./pages/edit-license";
 import AlertConfig from "./pages/alert-config";
+import LicencasAtivas from "./pages/licencas-ativas";
+import LicencasVencer from "./pages/licencas-vencer";
+import LicencasVencidas from "./pages/licencas-vencidas";
+import CondicionantesPendentes from "./pages/condicionantes-pendentes";
+import EntregasMes from "./pages/entregas-mes";
 import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
 
@@ -44,6 +49,11 @@ function Router() {
         <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
         <Route path="/licencas/:id/editar" component={EditLicense} />
         <Route path="/alertas" component={AlertConfig} />
+        <Route path="/licencas/ativas" component={LicencasAtivas} />
+        <Route path="/licencas/vencer" component={LicencasVencer} />
+        <Route path="/licencas/vencidas" component={LicencasVencidas} />
+        <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
+        <Route path="/entregas/mes" component={EntregasMes} />
         <Route component={NotFound} />
       </Switch>
     </div>
