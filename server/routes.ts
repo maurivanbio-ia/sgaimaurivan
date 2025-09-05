@@ -562,6 +562,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Filtered data routes
+  app.get("/api/licencas/ativas", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasByStatus('ativa');
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças ativas error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/licencas/vencer", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasByStatus('expiring');
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças a vencer error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/licencas/vencidas", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasByStatus('expired');
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças vencidas error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/condicionantes/pendentes", requireAuth, async (req, res) => {
+    try {
+      const condicionantes = await storage.getCondicionantesByStatus('pendente');
+      res.json(condicionantes);
+    } catch (error) {
+      console.error("Get condicionantes pendentes error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/entregas/mes", requireAuth, async (req, res) => {
+    try {
+      const entregas = await storage.getEntregasDoMes();
+      res.json(entregas);
+    } catch (error) {
+      console.error("Get entregas do mês error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

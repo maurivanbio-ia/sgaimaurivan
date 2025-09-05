@@ -88,6 +88,10 @@ export interface IStorage {
   markNotificationAsRead(id: number): Promise<Notification>;
   markAllNotificationsAsRead(): Promise<void>;
   updateNotificationStatus(id: number, status: string, enviadoEm?: Date): Promise<Notification>;
+
+  // Filtered data operations
+  getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<LicencaAmbiental[]>;
+  getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<Condicionante[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -579,6 +583,51 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.id, id))
       .returning();
     return updated;
+  }
+
+  // Filtered data operations
+  async getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<LicencaAmbiental[]> {
+    const hoje = new Date();
+    const licencas = await db
+      .select()
+      .from(licencasAmbientais)
+      .orderBy(desc(licencasAmbientais.criadoEm));
+    
+    return licencas.filter(licenca => {
+      const dataVencimento = new Date(licenca.validade);
+      const diffTime = dataVencimento.getTime() - hoje.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (status === 'expired') {
+        return diffDays < 0;
+      } else if (status === 'expiring') {
+        return diffDays >= 0 && diffDays <= 90;
+      } else { // ativa
+        return diffDays > 90;
+      }
+    });
+  }
+
+  async getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<Condicionante[]> {
+    const hoje = new Date();
+    const condicionantes = await db
+      .select()
+      .from(condicionantes)
+      .orderBy(desc(condicionantes.criadoEm));
+    
+    return condicionantes.filter(condicionante => {
+      const dataPrazo = new Date(condicionante.prazo);
+      const diffTime = dataPrazo.getTime() - hoje.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (status === 'vencida') {
+        return diffDays < 0;
+      } else if (status === 'cumprida') {
+        return condicionante.cumprida;
+      } else { // pendente
+        return !condicionante.cumprida && diffDays >= 0;
+      }
+    });
   }
 }
 

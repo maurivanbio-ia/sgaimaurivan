@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { ExportButton } from "@/components/ExportButton";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
 
 export default function Dashboard() {
+  const [, navigate] = useLocation();
+  
   const { data: licenseStats, isLoading: isLoadingLicenses } = useQuery<{ active: number; expiring: number; expired: number }>({
     queryKey: ["/api/stats/licenses"],
   });
@@ -54,7 +56,7 @@ export default function Dashboard() {
       {/* Enhanced KPI Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
         {/* Licenças */}
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/ativas")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-success/10 rounded-md">
@@ -70,7 +72,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/vencer")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-warning/10 rounded-md">
@@ -86,7 +88,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/vencidas")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-destructive/10 rounded-md">
@@ -103,7 +105,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Condicionantes */}
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/condicionantes/pendentes")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-blue-500/10 rounded-md">
@@ -120,7 +122,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Entregas */}
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/entregas/mes")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-purple-500/10 rounded-md">
