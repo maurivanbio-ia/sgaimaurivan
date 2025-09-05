@@ -690,6 +690,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Analyze uploaded PDF and extract license information
+  app.post("/api/analyze-pdf", requireAuth, async (req, res) => {
+    try {
+      const { filePath } = req.body;
+      
+      if (!filePath || !filePath.startsWith("/files/")) {
+        return res.status(400).json({ message: "Caminho do arquivo inválido" });
+      }
+
+      const { ObjectStorageService } = await import("./objectStorage");
+      const { pdfAnalysisService } = await import("./pdfAnalysisService");
+      const objectStorageService = new ObjectStorageService();
+      
+      // Get the full object path
+      const fullObjectPath = objectStorageService.getFullObjectPath(filePath);
+      // Import helper functions from objectStorage
+      const { parseObjectPath, signObjectURL } = await import("./objectStorage");
+      const { bucketName, objectName } = parseObjectPath(fullObjectPath);
+      
+      // Download file temporarily for analysis
+      const tempFilePath = `/tmp/${Date.now()}-${objectName.split('/').pop()}`;
+      
+      // Get signed URL for downloading
+      const downloadUrl = await signObjectURL({
+        bucketName,
+        objectName,
+        method: "GET",
+        ttlSec: 900,
+      });
+
+      // Download file
+      const downloadResponse = await fetch(downloadUrl);
+      if (!downloadResponse.ok) {
+        throw new Error("Falha ao baixar arquivo para análise");
+      }
+
+      const buffer = await downloadResponse.arrayBuffer();
+      const fs = require('fs');
+      fs.writeFileSync(tempFilePath, Buffer.from(buffer));
+
+      try {
+        // Analyze the PDF
+        const analysis = await pdfAnalysisService.analyzePDFFile(tempFilePath);
+        
+        // Clean up temp file
+        fs.unlinkSync(tempFilePath);
+        
+        res.json(analysis);
+      } catch (analysisError) {
+        // Clean up temp file on error
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+        throw analysisError;
+      }
+      
+    } catch (error: any) {
+      console.error("PDF analysis error:", error);
+      res.status(500).json({ 
+        message: "Erro ao analisar PDF",
+        error: error.message 
+      });
+    }
+  });
+
   // Serve uploaded files
   app.get("/files/:filePath(*)", requireAuth, async (req, res) => {
     try {
