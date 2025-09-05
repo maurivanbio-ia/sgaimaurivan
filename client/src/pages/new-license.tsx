@@ -213,25 +213,6 @@ export default function NewLicense() {
                           field.onChange(result.filePath);
                         }
                       }}
-                      enableAnalysis={true}
-                      onAnalysisComplete={(analysis) => {
-                        // Auto-fill form fields with extracted information
-                        if (analysis.numero && !form.getValues("numero")) {
-                          form.setValue("numero", analysis.numero);
-                        }
-                        if (analysis.tipo && !form.getValues("tipo")) {
-                          form.setValue("tipo", analysis.tipo);
-                        }
-                        if (analysis.orgaoEmissor && !form.getValues("orgaoEmissor")) {
-                          form.setValue("orgaoEmissor", analysis.orgaoEmissor);
-                        }
-                        if (analysis.dataEmissao && !form.getValues("dataEmissao")) {
-                          form.setValue("dataEmissao", analysis.dataEmissao);
-                        }
-                        if (analysis.validade && !form.getValues("validade")) {
-                          form.setValue("validade", analysis.validade);
-                        }
-                      }}
                       accept=".pdf"
                     />
                     <FormMessage />
