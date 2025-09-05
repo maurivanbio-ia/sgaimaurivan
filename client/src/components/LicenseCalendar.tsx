@@ -29,6 +29,18 @@ export default function LicenseCalendar() {
   
   const { data: licenses = [], isLoading, error } = useQuery<LicenseEvent[]>({
     queryKey: ["/api/licencas/calendar", startOfMonth.toISOString(), endOfMonth.toISOString()],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/licencas/calendar?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`,
+        {
+          credentials: 'include'
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
     retry: 1,
     refetchOnWindowFocus: false,
   });
