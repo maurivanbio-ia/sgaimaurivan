@@ -4,6 +4,8 @@ import {
   licencasAmbientais,
   condicionantes,
   entregas,
+  alertConfigs,
+  alertHistory,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -16,9 +18,13 @@ import {
   type Entrega,
   type InsertEntrega,
   type LicencaWithDetails,
+  type AlertConfig,
+  type InsertAlertConfig,
+  type AlertHistory,
+  type InsertAlertHistory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -64,6 +70,13 @@ export interface IStorage {
   getEntregaStats(): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
   getEntregasDoMes(): Promise<Entrega[]>;
   getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
+
+  // Alert operations
+  getAlertConfigs(): Promise<AlertConfig[]>;
+  getActiveAlertConfigs(): Promise<AlertConfig[]>;
+  createAlertConfig(config: InsertAlertConfig): Promise<AlertConfig>;
+  createAlertHistory(history: InsertAlertHistory): Promise<AlertHistory>;
+  checkAlertHistory(tipoItem: string, itemId: number, diasAviso: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -324,8 +337,8 @@ export class DatabaseStorage implements IStorage {
       if (licenca.status !== 'ativa') {
         agenda.push({
           tipo: 'Licença',
-          titulo: `${licenca.tipo} - ${licenca.numero}`,
-          prazo: licenca.vencimento,
+          titulo: `${licenca.tipo} - ${licenca.orgaoEmissor}`,
+          prazo: licenca.validade,
           status: licenca.status,
           id: licenca.id,
         });
@@ -347,7 +360,7 @@ export class DatabaseStorage implements IStorage {
     entregas.forEach(entrega => {
       agenda.push({
         tipo: 'Entrega',
-        titulo: entrega.descricao,
+        titulo: entrega.titulo || entrega.descricao,
         prazo: entrega.prazo,
         status: entrega.status,
         id: entrega.id,
@@ -391,6 +404,48 @@ export class DatabaseStorage implements IStorage {
     } else {
       return "ativo";
     }
+  }
+
+  // Alert operations
+  async getAlertConfigs(): Promise<AlertConfig[]> {
+    return db.select().from(alertConfigs).orderBy(asc(alertConfigs.tipo), asc(alertConfigs.diasAviso));
+  }
+
+  async getActiveAlertConfigs(): Promise<AlertConfig[]> {
+    return db.select().from(alertConfigs).where(eq(alertConfigs.ativo, true)).orderBy(asc(alertConfigs.tipo), asc(alertConfigs.diasAviso));
+  }
+
+  async createAlertConfig(config: InsertAlertConfig): Promise<AlertConfig> {
+    const [created] = await db
+      .insert(alertConfigs)
+      .values(config)
+      .returning();
+    return created;
+  }
+
+  async createAlertHistory(history: InsertAlertHistory): Promise<AlertHistory> {
+    const [created] = await db
+      .insert(alertHistory)
+      .values(history)
+      .returning();
+    return created;
+  }
+
+  async checkAlertHistory(tipoItem: string, itemId: number, diasAviso: number): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(alertHistory)
+      .where(
+        and(
+          eq(alertHistory.tipoItem, tipoItem),
+          eq(alertHistory.itemId, itemId),
+          eq(alertHistory.diasAviso, diasAviso),
+          eq(alertHistory.status, 'enviado')
+        )
+      )
+      .limit(1);
+    
+    return !!existing;
   }
 }
 

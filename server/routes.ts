@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
+import { cronService } from "./cronService";
 
 // Login schema
 const loginSchema = z.object({
@@ -58,6 +59,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize on startup
   await initSeedUser();
+  
+  // Initialize alert service
+  console.log('Inicializando serviço de alertas automáticos...');
+  cronService.start();
 
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
@@ -413,6 +418,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get agenda prazos error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Alert routes
+  app.get("/api/alerts/configs", requireAuth, async (req, res) => {
+    try {
+      const configs = await storage.getAlertConfigs();
+      res.json(configs);
+    } catch (error) {
+      console.error("Get alert configs error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/alerts/test", requireAuth, async (req, res) => {
+    try {
+      console.log('Executando teste de alertas...');
+      await cronService.runManualCheck();
+      res.json({ message: "Verificação de alertas executada com sucesso!" });
+    } catch (error) {
+      console.error("Test alerts error:", error);
+      res.status(500).json({ message: "Erro ao executar teste de alertas" });
     }
   });
 
