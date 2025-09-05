@@ -1,13 +1,348 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
-import { Plus, ArrowLeft, Edit, FileText, Calendar, Building, Download, Trash2 } from "lucide-react";
+import { Plus, ArrowLeft, Edit, FileText, Calendar, Building, Download, Trash2, CheckCircle2, Clock, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { ExportButton } from "@/components/ExportButton";
-import type { EmpreendimentoWithLicencas } from "@shared/schema";
+import type { EmpreendimentoWithLicencas, Condicionante } from "@shared/schema";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const condicionanteSchema = z.object({
+  descricao: z.string().min(1, "Descrição é obrigatória"),
+  prazo: z.string().min(1, "Prazo é obrigatório"),
+  status: z.enum(["pendente", "cumprida", "vencida"]),
+  observacoes: z.string().optional(),
+});
+
+type CondicionanteFormData = z.infer<typeof condicionanteSchema>;
+
+function CondicionantesSection({ licenseId }: { licenseId: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCondicionante, setEditingCondicionante] = useState<Condicionante | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const { data: condicionantes = [], isLoading } = useQuery<Condicionante[]>({
+    queryKey: ["/api/licencas", licenseId, "condicionantes"],
+  });
+
+  const form = useForm<CondicionanteFormData>({
+    resolver: zodResolver(condicionanteSchema),
+    defaultValues: {
+      descricao: "",
+      prazo: "",
+      status: "pendente",
+      observacoes: "",
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: CondicionanteFormData) => {
+      const response = await apiRequest("POST", "/api/condicionantes", {
+        ...data,
+        licencaId: licenseId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licenseId, "condicionantes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/condicionantes"] });
+      setDialogOpen(false);
+      form.reset();
+      toast({
+        title: "Condicionante criada",
+        description: "Condicionante adicionada com sucesso!",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<CondicionanteFormData> }) => {
+      const response = await apiRequest("PUT", `/api/condicionantes/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licenseId, "condicionantes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/condicionantes"] });
+      setEditingCondicionante(null);
+      toast({
+        title: "Condicionante atualizada",
+        description: "Status atualizado com sucesso!",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/condicionantes/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licenseId, "condicionantes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/condicionantes"] });
+      toast({
+        title: "Condicionante excluída",
+        description: "Condicionante removida com sucesso!",
+      });
+    },
+  });
+
+  const onSubmit = (data: CondicionanteFormData) => {
+    if (editingCondicionante) {
+      updateMutation.mutate({ id: editingCondicionante.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleEdit = (condicionante: Condicionante) => {
+    setEditingCondicionante(condicionante);
+    form.reset({
+      descricao: condicionante.descricao,
+      prazo: condicionante.prazo,
+      status: condicionante.status as "pendente" | "cumprida" | "vencida",
+      observacoes: condicionante.observacoes || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleStatusChange = (id: number, status: "pendente" | "cumprida" | "vencida") => {
+    updateMutation.mutate({ id, data: { status } });
+  };
+
+  const getCondicionanteStatusIcon = (status: string) => {
+    switch (status) {
+      case 'cumprida': return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'vencida': return <AlertTriangle className="h-4 w-4 text-red-600" />;
+      default: return <Clock className="h-4 w-4 text-yellow-600" />;
+    }
+  };
+
+  const getCondicionanteStatusColor = (status: string) => {
+    switch (status) {
+      case 'cumprida': return 'bg-green-100 text-green-800';
+      case 'vencida': return 'bg-red-100 text-red-800';
+      default: return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
+  return (
+    <div className="mt-4 border-t pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-0 h-auto font-medium text-card-foreground"
+          >
+            {isExpanded ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
+            Condicionantes ({condicionantes.length})
+          </Button>
+          {condicionantes.length > 0 && (
+            <div className="flex gap-1">
+              <Badge variant="outline" className="text-xs">
+                {condicionantes.filter(c => c.status === 'pendente').length} pendentes
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {condicionantes.filter(c => c.status === 'cumprida').length} cumpridas
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {condicionantes.filter(c => c.status === 'vencida').length} vencidas
+              </Badge>
+            </div>
+          )}
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditingCondicionante(null);
+                form.reset();
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Nova
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingCondicionante ? "Editar Condicionante" : "Nova Condicionante"}
+              </DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="descricao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} placeholder="Descrição da condicionante" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="prazo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prazo</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pendente">Pendente</SelectItem>
+                            <SelectItem value="cumprida">Cumprida</SelectItem>
+                            <SelectItem value="vencida">Vencida</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="observacoes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Observações (opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} placeholder="Observações adicionais" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                    {editingCondicionante ? "Atualizar" : "Criar"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+      
+      {isExpanded && (
+        <div className="space-y-2">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando condicionantes...</p>
+          ) : condicionantes.length > 0 ? (
+            condicionantes.map((condicionante) => (
+              <div key={condicionante.id} className="p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {getCondicionanteStatusIcon(condicionante.status)}
+                      <Badge className={`text-xs ${getCondicionanteStatusColor(condicionante.status)}`}>
+                        {condicionante.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Prazo: {formatDate(condicionante.prazo)}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-card-foreground mb-1">
+                      {condicionante.descricao}
+                    </p>
+                    {condicionante.observacoes && (
+                      <p className="text-xs text-muted-foreground">
+                        {condicionante.observacoes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 ml-2">
+                    <Select
+                      value={condicionante.status}
+                      onValueChange={(value) => handleStatusChange(condicionante.id, value)}
+                    >
+                      <SelectTrigger className="h-8 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="cumprida">Cumprida</SelectItem>
+                        <SelectItem value="vencida">Vencida</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEdit(condicionante)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        if (confirm('Tem certeza que deseja excluir esta condicionante?')) {
+                          deleteMutation.mutate(condicionante.id);
+                        }
+                      }}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground py-2">
+              Nenhuma condicionante cadastrada
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -193,6 +528,9 @@ export default function ProjectDetail() {
                     </Link>
                   </div>
                 </div>
+                
+                {/* Condicionantes Management Section */}
+                <CondicionantesSection licenseId={license.id} />
               </CardContent>
             </Card>
           ))}
