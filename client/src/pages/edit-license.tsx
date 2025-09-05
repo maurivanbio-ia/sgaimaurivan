@@ -17,6 +17,7 @@ import type { LicencaAmbiental } from "@shared/schema";
 import React from "react";
 
 const licenseSchema = z.object({
+  numero: z.string().min(1, "Número da licença é obrigatório"),
   tipo: z.string().min(1, "Tipo é obrigatório"),
   orgaoEmissor: z.string().min(1, "Órgão emissor é obrigatório"),
   dataEmissao: z.string().min(1, "Data de emissão é obrigatória"),
@@ -47,6 +48,7 @@ export default function EditLicense() {
   const form = useForm<LicenseFormData>({
     resolver: zodResolver(licenseSchema),
     defaultValues: {
+      numero: "",
       tipo: "",
       orgaoEmissor: "",
       dataEmissao: "",
@@ -59,6 +61,7 @@ export default function EditLicense() {
   React.useEffect(() => {
     if (license) {
       form.reset({
+        numero: license.numero || "",
         tipo: license.tipo,
         orgaoEmissor: license.orgaoEmissor,
         dataEmissao: formatDateForInput(license.dataEmissao),
@@ -126,6 +129,24 @@ export default function EditLicense() {
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="numero"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número da licença *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        placeholder="Ex: LP 001/2024, LI 042/2023, LO 123/2024"
+                        data-testid="input-license-number"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="tipo"
