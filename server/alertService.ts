@@ -135,7 +135,7 @@ export class AlertService {
     diasRestantes: number
   ): Promise<void> {
     try {
-      const alertData = this.buildAlertData(item, config.tipo, diasRestantes);
+      const alertData = await this.buildAlertData(item, config.tipo, diasRestantes);
       
       // Criar notificação interna no sistema
       await this.createInternalNotification(item, config.tipo, diasRestantes);
@@ -175,8 +175,8 @@ export class AlertService {
     }
   }
 
-  // Constrói dados do alerta
-  private buildAlertData(item: any, tipo: string, diasRestantes: number) {
+  // Constrói dados do alerta com informações detalhadas
+  private async buildAlertData(item: any, tipo: string, diasRestantes: number) {
     const tipoLabel = tipo === 'licenca' ? 'Licença' : 
                      tipo === 'condicionante' ? 'Condicionante' : 'Entrega';
     
@@ -187,20 +187,53 @@ export class AlertService {
     const prazoLabel = tipo === 'licenca' ? 'vencimento' : 'prazo';
     const dataField = tipo === 'licenca' ? item.validade : item.prazo;
     const dataFormatada = new Date(dataField).toLocaleDateString('pt-BR');
+
+    // Buscar informações do empreendimento
+    let empreendimento = null;
+    if (item.empreendimentoId) {
+      try {
+        empreendimento = await storage.getEmpreendimento(item.empreendimentoId);
+      } catch (error) {
+        console.error('Erro ao buscar empreendimento:', error);
+      }
+    } else if (tipo === 'condicionante' || tipo === 'entrega') {
+      // Buscar através da licença
+      try {
+        if (item.licencaId) {
+          const licenca = await storage.getLicenca(item.licencaId);
+          if (licenca?.empreendimentoId) {
+            empreendimento = await storage.getEmpreendimento(licenca.empreendimentoId);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar empreendimento via licença:', error);
+      }
+    }
     
     const urgencia = diasRestantes <= 7 ? '🚨 URGENTE' : 
                      diasRestantes <= 15 ? '⚠️ ATENÇÃO' : '📋 AVISO';
     
-    const emailSubject = `${urgencia} - ${tipoLabel} ${diasRestantes === 1 ? 'vence amanhã' : `vence em ${diasRestantes} dias`}`;
+    const nomeEmpreendimento = empreendimento?.nome || 'Não informado';
+    const clienteEmpreendimento = empreendimento?.cliente || 'Não informado';
+    const localizacaoEmpreendimento = empreendimento?.localizacao || 'Não informada';
+    
+    const emailSubject = `${urgencia} - ${tipoLabel} ${diasRestantes === 1 ? 'vence amanhã' : `vence em ${diasRestantes} dias`} - ${nomeEmpreendimento}`;
     
     const emailBody = `
 ${urgencia}
 
-${tipoLabel}: ${titulo}
+EMPREENDIMENTO: ${nomeEmpreendimento}
+Cliente: ${clienteEmpreendimento}
+Localização: ${localizacaoEmpreendimento}
+
+${tipoLabel.toUpperCase()}: ${titulo}
 ${prazoLabel.charAt(0).toUpperCase() + prazoLabel.slice(1)}: ${dataFormatada}
 Dias restantes: ${diasRestantes}
 
+${tipo === 'licenca' ? `Número: ${item.numero || 'N/A'}\nÓrgão Emissor: ${item.orgaoEmissor || 'N/A'}` : ''}
+
 Sistema LicençaFácil - EcoBrasil
+Contato: ecobrasiloficial@gmail.com | WhatsApp: (71) 98780-2223
     `.trim();
     
     const emailHtml = `
@@ -211,19 +244,40 @@ Sistema LicençaFácil - EcoBrasil
   </div>
   
   <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 8px 8px;">
-    <h2 style="color: #00599C; margin-top: 0;">${tipoLabel}</h2>
-    <p style="font-size: 16px; margin: 10px 0;"><strong>${titulo}</strong></p>
+    <!-- Informações do Empreendimento -->
+    <div style="background: #e8f4f8; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #00599C;">
+      <h3 style="margin: 0 0 10px 0; color: #00599C; font-size: 18px;">🏢 Empreendimento</h3>
+      <p style="margin: 5px 0; font-size: 16px;"><strong>${nomeEmpreendimento}</strong></p>
+      <p style="margin: 2px 0; color: #555; font-size: 14px;"><strong>Cliente:</strong> ${clienteEmpreendimento}</p>
+      <p style="margin: 2px 0; color: #555; font-size: 14px;"><strong>Localização:</strong> ${localizacaoEmpreendimento}</p>
+    </div>
+
+    <!-- Informações da Licença/Condicionante/Entrega -->
+    <h2 style="color: #00599C; margin: 0 0 10px 0;">${tipoLabel}</h2>
+    <p style="font-size: 16px; margin: 10px 0; font-weight: 600;">${titulo}</p>
+    
+    ${tipo === 'licenca' ? `
+    <div style="margin: 10px 0;">
+      <p style="margin: 2px 0; color: #555; font-size: 14px;"><strong>Número:</strong> ${item.numero || 'N/A'}</p>
+      <p style="margin: 2px 0; color: #555; font-size: 14px;"><strong>Órgão Emissor:</strong> ${item.orgaoEmissor || 'N/A'}</p>
+    </div>
+    ` : ''}
     
     <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid ${diasRestantes <= 7 ? '#dc3545' : diasRestantes <= 15 ? '#ffc107' : '#6c757d'};">
       <p style="margin: 0;"><strong>${prazoLabel.charAt(0).toUpperCase() + prazoLabel.slice(1)}:</strong> ${dataFormatada}</p>
-      <p style="margin: 5px 0 0 0; color: ${diasRestantes <= 7 ? '#dc3545' : diasRestantes <= 15 ? '#856404' : '#495057'};">
-        <strong>Dias restantes: ${diasRestantes}</strong>
+      <p style="margin: 5px 0 0 0; color: ${diasRestantes <= 7 ? '#dc3545' : diasRestantes <= 15 ? '#856404' : '#495057'}; font-size: 18px;">
+        <strong>⏰ Dias restantes: ${diasRestantes}</strong>
       </p>
     </div>
     
-    <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
-      Este é um alerta automático do sistema LicençaFácil.
-    </p>
+    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+      <p style="margin: 0; font-size: 14px; color: #6c757d;">
+        Este é um alerta automático do sistema LicençaFácil.<br>
+        <strong>Contato EcoBrasil:</strong><br>
+        📧 Email: ecobrasiloficial@gmail.com<br>
+        📱 WhatsApp: (71) 98780-2223
+      </p>
+    </div>
   </div>
 </div>
     `.trim();
@@ -231,11 +285,16 @@ Sistema LicençaFácil - EcoBrasil
     const whatsappMessage = `
 ${urgencia}
 
-${tipoLabel}: ${titulo}
+🏢 EMPREENDIMENTO: ${nomeEmpreendimento}
+👤 Cliente: ${clienteEmpreendimento}
+📍 Local: ${localizacaoEmpreendimento}
+
+${tipoLabel.toUpperCase()}: ${titulo}
 ${prazoLabel.charAt(0).toUpperCase() + prazoLabel.slice(1)}: ${dataFormatada}
-Dias restantes: ${diasRestantes}
+⏰ Dias restantes: ${diasRestantes}
 
 Sistema LicençaFácil - EcoBrasil
+📧 ecobrasiloficial@gmail.com
     `.trim();
     
     return {
@@ -326,6 +385,53 @@ Sistema LicençaFácil - EcoBrasil
     };
     
     await storage.createAlertHistory(alertHistory);
+  }
+
+  // Função de teste de alertas
+  async testAlerts(): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🧪 Executando teste de alertas...');
+
+      // Criar uma licença de teste que vence em 30 dias
+      const dataVencimento = new Date();
+      dataVencimento.setDate(dataVencimento.getDate() + 30);
+
+      const licencaTeste = {
+        id: 999999,
+        tipo: 'Licença de Teste',
+        numero: 'TEST-2025-001',
+        orgaoEmissor: 'Órgão de Teste',
+        validade: dataVencimento.toISOString(),
+        empreendimentoId: null
+      };
+
+      // Simular o envio do alerta
+      const alertData = await this.buildAlertData(licencaTeste, 'licenca', 30);
+      
+      // Enviar email de teste
+      await sendEmail({
+        to: this.EMAIL_CONTATO,
+        subject: `[TESTE] ${alertData.emailSubject}`,
+        text: `[TESTE DO SISTEMA]\n\n${alertData.emailBody}`,
+        html: alertData.emailHtml.replace('<h1 style', '<h1 style="background: #ff9800; color: white;">🧪 TESTE DO SISTEMA</h1><h2 style'),
+      });
+
+      // Enviar WhatsApp de teste
+      const whatsappTestMessage = `🧪 [TESTE DO SISTEMA]\n\n${alertData.whatsappMessage}`;
+      await sendWhatsApp(this.WHATSAPP_CONTATO, whatsappTestMessage);
+
+      console.log('✅ Teste de alertas concluído com sucesso');
+      return { 
+        success: true, 
+        message: `Alertas de teste enviados para:\n📧 Email: ${this.EMAIL_CONTATO}\n📱 WhatsApp: ${this.WHATSAPP_CONTATO}` 
+      };
+    } catch (error) {
+      console.error('❌ Erro no teste de alertas:', error);
+      return { 
+        success: false, 
+        message: `Erro no teste: ${(error as Error).message || String(error)}` 
+      };
+    }
   }
 }
 
