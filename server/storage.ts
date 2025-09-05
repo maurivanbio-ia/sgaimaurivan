@@ -354,47 +354,58 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>> {
-    const [licencas, condicionantes, entregas] = await Promise.all([
+  async getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>> {
+    const [licencas, condicionantes, entregas, empreendimentos] = await Promise.all([
       this.getLicencas(),
       this.getCondicionantes(),
       this.getEntregas(),
+      this.getEmpreendimentos(),
     ]);
 
-    const agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }> = [];
+    const agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }> = [];
     
     // Add licenses with upcoming expiration
     licencas.forEach(licenca => {
       if (licenca.status !== 'ativa') {
+        const empreendimento = empreendimentos.find(e => e.id === licenca.empreendimentoId);
         agenda.push({
           tipo: 'Licença',
           titulo: `${licenca.tipo} - ${licenca.orgaoEmissor}`,
           prazo: licenca.validade,
           status: licenca.status,
           id: licenca.id,
+          empreendimento: empreendimento?.nome,
+          orgaoEmissor: licenca.orgaoEmissor,
         });
       }
     });
 
     // Add condicionantes
     condicionantes.forEach(condicionante => {
+      // Find the license and empreendimento for this condicionante
+      const licenca = licencas.find(l => l.id === condicionante.licencaId);
+      const empreendimento = licenca ? empreendimentos.find(e => e.id === licenca.empreendimentoId) : undefined;
       agenda.push({
         tipo: 'Condicionante',
         titulo: condicionante.descricao,
         prazo: condicionante.prazo,
         status: condicionante.status,
         id: condicionante.id,
+        empreendimento: empreendimento?.nome,
+        orgaoEmissor: licenca?.orgaoEmissor,
       });
     });
 
     // Add entregas
     entregas.forEach(entrega => {
+      const empreendimento = empreendimentos.find(e => e.id === entrega.empreendimentoId);
       agenda.push({
         tipo: 'Entrega',
         titulo: entrega.titulo || entrega.descricao || '',
         prazo: entrega.prazo,
         status: entrega.status,
         id: entrega.id,
+        empreendimento: empreendimento?.nome,
       });
     });
 

@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
@@ -21,7 +22,7 @@ export default function Dashboard() {
     queryKey: ["/api/stats/entregas"],
   });
 
-  const { data: agenda, isLoading: isLoadingAgenda } = useQuery<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number }>>({
+  const { data: agenda, isLoading: isLoadingAgenda } = useQuery<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>>({
     queryKey: ["/api/agenda/prazos"],
   });
 
@@ -278,62 +279,105 @@ export default function Dashboard() {
                   };
                   
                   return (
-                    <div key={index} className={`border-l-4 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${urgencyInfo.color}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="flex items-center gap-2">
-                              {getItemIcon()}
-                              <Badge variant="outline" className={`text-xs font-medium ${
-                                item.tipo === 'Licença' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                item.tipo === 'Condicionante' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              }`}>
-                                {item.tipo}
+                    <TooltipProvider key={index}>
+                      <div className={`border-l-4 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${urgencyInfo.color}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="cursor-help">
+                                      {getItemIcon()}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <div className="text-sm">
+                                      <div className="font-semibold mb-1">{item.tipo}</div>
+                                      {item.empreendimento && (
+                                        <div className="text-muted-foreground">
+                                          <span className="font-medium">Empreendimento:</span> {item.empreendimento}
+                                        </div>
+                                      )}
+                                      {item.orgaoEmissor && (
+                                        <div className="text-muted-foreground">
+                                          <span className="font-medium">Órgão:</span> {item.orgaoEmissor}
+                                        </div>
+                                      )}
+                                      <div className="text-muted-foreground">
+                                        <span className="font-medium">Prazo:</span> {prazoDate.toLocaleDateString('pt-BR')}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        <span className="font-medium">Status:</span> {item.status === 'a_vencer' ? 'vencendo' : item.status}
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Badge variant="outline" className={`text-xs font-medium ${
+                                  item.tipo === 'Licença' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  item.tipo === 'Condicionante' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
+                                  {item.tipo}
+                                </Badge>
+                              </div>
+                              <Badge className={`text-xs font-medium border ${getStatusColor()}`}>
+                                {item.status === 'a_vencer' ? 'vencendo' : item.status}
                               </Badge>
                             </div>
-                            <Badge className={`text-xs font-medium border ${getStatusColor()}`}>
-                              {item.status === 'a_vencer' ? 'vencendo' : item.status}
-                            </Badge>
-                          </div>
-                          
-                          <h4 className={`text-sm font-semibold ${urgencyInfo.textColor} mb-1 line-clamp-2`}>
-                            {item.titulo}
-                          </h4>
-                          
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>{prazoDate.toLocaleDateString('pt-BR')}</span>
-                            </div>
-                            <div className={`flex items-center gap-1 font-medium ${
-                              urgencyInfo.urgency === 'vencido' ? 'text-red-600' :
-                              urgencyInfo.urgency === 'critico' ? 'text-orange-600' :
-                              urgencyInfo.urgency === 'alerta' ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              <Clock className="h-3 w-3" />
-                              <span>{urgencyInfo.days}</span>
+                            
+                            <h4 className={`text-sm font-semibold ${urgencyInfo.textColor} mb-1 line-clamp-2`}>
+                              {item.titulo}
+                            </h4>
+                            
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{prazoDate.toLocaleDateString('pt-BR')}</span>
+                              </div>
+                              <div className={`flex items-center gap-1 font-medium ${
+                                urgencyInfo.urgency === 'vencido' ? 'text-red-600' :
+                                urgencyInfo.urgency === 'critico' ? 'text-orange-600' :
+                                urgencyInfo.urgency === 'alerta' ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`}>
+                                <Clock className="h-3 w-3" />
+                                <span>{urgencyInfo.days}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="ml-3">
-                          {urgencyInfo.urgency === 'vencido' && (
-                            <AlertTriangle className="h-5 w-5 text-red-500" />
-                          )}
-                          {urgencyInfo.urgency === 'critico' && (
-                            <AlertTriangle className="h-5 w-5 text-orange-500" />
-                          )}
-                          {urgencyInfo.urgency === 'alerta' && (
-                            <Clock className="h-5 w-5 text-yellow-500" />
-                          )}
-                          {urgencyInfo.urgency === 'normal' && (
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                          )}
+                          
+                          <div className="ml-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-help">
+                                  {urgencyInfo.urgency === 'vencido' && (
+                                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                                  )}
+                                  {urgencyInfo.urgency === 'critico' && (
+                                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                  )}
+                                  {urgencyInfo.urgency === 'alerta' && (
+                                    <Clock className="h-5 w-5 text-yellow-500" />
+                                  )}
+                                  {urgencyInfo.urgency === 'normal' && (
+                                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="text-sm">
+                                  {urgencyInfo.urgency === 'vencido' && 'Prazo vencido!'}
+                                  {urgencyInfo.urgency === 'critico' && 'Atenção: Prazo crítico'}
+                                  {urgencyInfo.urgency === 'alerta' && 'Prazo próximo'}
+                                  {urgencyInfo.urgency === 'normal' && 'Prazo dentro do normal'}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </TooltipProvider>
                   );
                 })
               )}
