@@ -20,9 +20,7 @@ export default function ProjectDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/empreendimentos/${id}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/empreendimentos/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });

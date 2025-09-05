@@ -8,6 +8,7 @@ import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import Projects from "./pages/projects";
 import NewProject from "./pages/new-project";
+import EditProject from "./pages/edit-project";
 import ProjectDetail from "./pages/project-detail";
 import NewLicense from "./pages/new-license";
 import EditLicense from "./pages/edit-license";
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/empreendimentos" component={Projects} />
         <Route path="/empreendimentos/novo" component={NewProject} />
+        <Route path="/empreendimentos/:id/editar" component={EditProject} />
         <Route path="/empreendimentos/:id" component={ProjectDetail} />
         <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
         <Route path="/licencas/:id/editar" component={EditLicense} />
