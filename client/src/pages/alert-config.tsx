@@ -204,53 +204,6 @@ export default function AlertConfigPage() {
         ))}
       </div>
 
-      {/* Schedule Information */}
-      <Card className="mt-6 bg-gray-50 dark:bg-gray-900">
-        <CardHeader>
-          <CardTitle className="text-lg">Cronograma de Alertas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">
-                Licenças Ambientais
-              </h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• 90 dias: Email</li>
-                <li>• 60 dias: Email</li>
-                <li>• 30 dias: Email + WhatsApp</li>
-                <li>• 15 dias: Email + WhatsApp</li>
-                <li>• 7 dias: Email + WhatsApp</li>
-                <li>• 1 dia: Email + WhatsApp</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">
-                Condicionantes
-              </h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• 30 dias: Email</li>
-                <li>• 15 dias: Email + WhatsApp</li>
-                <li>• 7 dias: Email + WhatsApp</li>
-                <li>• 1 dia: Email + WhatsApp</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-purple-700 dark:text-purple-400 mb-2">
-                Entregas
-              </h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• 30 dias: Email</li>
-                <li>• 15 dias: Email + WhatsApp</li>
-                <li>• 7 dias: Email + WhatsApp</li>
-                <li>• 1 dia: Email + WhatsApp</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
