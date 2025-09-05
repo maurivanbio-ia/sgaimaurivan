@@ -79,6 +79,7 @@ export interface IStorage {
   getAlertConfigs(): Promise<AlertConfig[]>;
   getActiveAlertConfigs(): Promise<AlertConfig[]>;
   createAlertConfig(config: InsertAlertConfig): Promise<AlertConfig>;
+  updateAlertConfig(id: number, updates: Partial<InsertAlertConfig>): Promise<AlertConfig>;
   createAlertHistory(history: InsertAlertHistory): Promise<AlertHistory>;
   checkAlertHistory(tipoItem: string, itemId: number, diasAviso: number): Promise<boolean>;
 
@@ -510,6 +511,15 @@ export class DatabaseStorage implements IStorage {
       .values(config)
       .returning();
     return created;
+  }
+
+  async updateAlertConfig(id: number, updates: Partial<InsertAlertConfig>): Promise<AlertConfig> {
+    const [updated] = await db
+      .update(alertConfigs)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(eq(alertConfigs.id, id))
+      .returning();
+    return updated;
   }
 
   async createAlertHistory(history: InsertAlertHistory): Promise<AlertHistory> {

@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Settings, Mail, MessageCircle, Calendar } from "lucide-react";
+import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import type { AlertConfig } from "@shared/schema";
 
 export default function AlertConfigPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
 
   const { data: configs = [], isLoading } = useQuery<AlertConfig[]>({
     queryKey: ["/api/alerts/configs"],
@@ -39,6 +41,48 @@ export default function AlertConfigPage() {
 
   const handleTestAlerts = () => {
     testAlerts.mutate();
+  };
+
+  const updateConfigMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: Partial<AlertConfig> }) => {
+      const response = await apiRequest("PUT", `/api/alerts/configs/${id}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alerts/configs"] });
+      toast({
+        title: "Sucesso",
+        description: "Configuração atualizada com sucesso!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar configuração. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleToggleExpanded = (tipo: string) => {
+    setExpandedTypes(prev => ({
+      ...prev,
+      [tipo]: !prev[tipo]
+    }));
+  };
+
+  const handleEmailToggle = (config: AlertConfig) => {
+    updateConfigMutation.mutate({
+      id: config.id,
+      updates: { enviarEmail: !config.enviarEmail }
+    });
+  };
+
+  const handleWhatsAppToggle = (config: AlertConfig) => {
+    updateConfigMutation.mutate({
+      id: config.id,
+      updates: { enviarWhatsapp: !config.enviarWhatsapp }
+    });
   };
 
   const getTypeLabel = (tipo: string) => {
@@ -121,86 +165,106 @@ export default function AlertConfigPage() {
       </div>
 
       {/* Alert Configurations */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {Object.entries(groupedConfigs).map(([tipo, tipoConfigs]) => (
-          <Card key={tipo} className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                {getTypeIcon(tipo)}
-                <span>{getTypeLabel(tipo)}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {tipoConfigs
-                  .sort((a, b) => a.diasAviso - b.diasAviso)
-                  .map((config) => (
-                    <div 
-                      key={config.id}
-                      className="border rounded-lg p-4 bg-card"
-                      data-testid={`config-${config.tipo}-${config.diasAviso}`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <Badge 
-                            variant={config.diasAviso <= 7 ? "destructive" : 
-                                   config.diasAviso <= 15 ? "default" : "secondary"}
-                          >
-                            {config.diasAviso} dias
-                          </Badge>
-                          {config.ativo ? (
-                            <Badge variant="outline" className="text-green-600 border-green-300">
-                              Ativo
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">
-                              Inativo
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center space-x-1">
-                            <Mail className="h-3 w-3" />
-                            <span>Email</span>
-                          </div>
-                          <Switch 
-                            checked={config.enviarEmail}
-                            disabled
-                            data-testid={`switch-email-${config.id}`}
-                          />
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center space-x-1">
-                            <MessageCircle className="h-3 w-3" />
-                            <span>WhatsApp</span>
-                          </div>
-                          <Switch 
-                            checked={config.enviarWhatsapp}
-                            disabled
-                            data-testid={`switch-whatsapp-${config.id}`}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="mt-3 text-xs text-muted-foreground">
-                        {config.enviarEmail && config.enviarWhatsapp 
-                          ? "Email + WhatsApp"
-                          : config.enviarEmail 
-                          ? "Apenas email"
-                          : config.enviarWhatsapp 
-                          ? "Apenas WhatsApp"
-                          : "Desabilitado"
-                        }
-                      </div>
+          <Collapsible 
+            key={tipo} 
+            open={expandedTypes[tipo]} 
+            onOpenChange={() => handleToggleExpanded(tipo)}
+          >
+            <Card className="shadow-sm">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      {getTypeIcon(tipo)}
+                      <span>{getTypeLabel(tipo)}</span>
                     </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
+                    {expandedTypes[tipo] ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {tipoConfigs
+                      .sort((a, b) => a.diasAviso - b.diasAviso)
+                      .map((config) => (
+                        <div 
+                          key={config.id}
+                          className="border rounded-lg p-4 bg-card/50"
+                          data-testid={`config-${config.tipo}-${config.diasAviso}`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <Badge 
+                                variant={config.diasAviso <= 7 ? "destructive" : 
+                                       config.diasAviso <= 15 ? "default" : "secondary"}
+                              >
+                                {config.diasAviso} dias
+                              </Badge>
+                              {config.ativo ? (
+                                <Badge variant="outline" className="text-green-600 border-green-300">
+                                  Ativo
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  Inativo
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Mail className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium">Email</span>
+                              </div>
+                              <Switch 
+                                checked={config.enviarEmail}
+                                onCheckedChange={() => handleEmailToggle(config)}
+                                disabled={updateConfigMutation.isPending}
+                                data-testid={`switch-email-${config.id}`}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <MessageCircle className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium">WhatsApp</span>
+                              </div>
+                              <Switch 
+                                checked={config.enviarWhatsapp}
+                                onCheckedChange={() => handleWhatsAppToggle(config)}
+                                disabled={updateConfigMutation.isPending}
+                                data-testid={`switch-whatsapp-${config.id}`}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="mt-3 text-xs text-muted-foreground">
+                            {config.enviarEmail && config.enviarWhatsapp 
+                              ? "Email + WhatsApp"
+                              : config.enviarEmail 
+                              ? "Apenas email"
+                              : config.enviarWhatsapp 
+                              ? "Apenas WhatsApp"
+                              : "Desabilitado"
+                            }
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         ))}
       </div>
 
