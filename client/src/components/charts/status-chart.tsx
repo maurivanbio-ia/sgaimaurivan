@@ -34,9 +34,9 @@ export default function StatusChart({ stats }: StatusChartProps) {
           {
             data: [stats.active, stats.expiring, stats.expired],
             backgroundColor: [
-              "hsl(145, 63%, 20%)", // success
-              "hsl(145, 67%, 12%)", // warning
-              "hsl(0, 84%, 60%)", // destructive
+              "hsl(120, 60%, 50%)", // Ativas - verde
+              "hsl(45, 100%, 50%)", // A Vencer - amarelo
+              "hsl(0, 100%, 50%)", // Vencidas - vermelho
             ],
             borderWidth: 0,
           },
