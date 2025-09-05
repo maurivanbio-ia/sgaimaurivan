@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
+import { RefreshButton } from "@/components/RefreshButton";
 import LicenseCalendar from "@/components/LicenseCalendar";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
 
@@ -51,7 +52,10 @@ export default function Dashboard() {
           <h2 className="text-3xl font-bold text-card-foreground">Painel Geral</h2>
           <p className="text-muted-foreground mt-2">Visão geral do sistema de gestão ambiental</p>
         </div>
-        <ExportButton entity="relatorio-completo" variant="default" />
+        <div className="flex gap-3">
+          <RefreshButton variant="default" size="default" />
+          <ExportButton entity="relatorio-completo" variant="outline" />
+        </div>
       </div>
 
       {/* License Calendar Section */}

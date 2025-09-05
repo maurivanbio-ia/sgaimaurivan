@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RefreshButton } from "@/components/RefreshButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -153,9 +154,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                     {items.length} {items.length === 1 ? 'item encontrado' : 'itens encontrados'}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  Atualizado em {new Date().toLocaleString('pt-BR')}
-                </div>
+                <RefreshButton size="sm" variant="ghost" />
               </div>
             </CardContent>
           </Card>

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building, Plus, User, MapPin, Bus, Eye, Map } from "lucide-react";
 import { ExportButton } from "@/components/ExportButton";
+import { RefreshButton } from "@/components/RefreshButton";
 import MapComponent from "@/components/MapComponent";
 import type { Empreendimento } from "@shared/schema";
 
@@ -28,7 +29,8 @@ export default function Projects() {
           <h2 className="text-3xl font-bold text-card-foreground">Empreendimentos</h2>
           <p className="text-muted-foreground mt-2">Gerencie os empreendimentos cadastrados</p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex gap-2">
+          <RefreshButton />
           <ExportButton entity="empreendimentos" />
           <Link href="/empreendimentos/novo">
             <Button className="font-medium" data-testid="button-new-project">
