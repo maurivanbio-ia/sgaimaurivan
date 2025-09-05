@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
-import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar } from "lucide-react";
+import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
 
 export default function Dashboard() {
   const { data: licenseStats, isLoading: isLoadingLicenses } = useQuery<{ active: number; expiring: number; expired: number }>({
@@ -224,43 +225,117 @@ export default function Dashboard() {
           <CardContent className="pt-0">
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {prazos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum prazo próximo
-                </p>
+                <div className="text-center py-8">
+                  <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum prazo próximo
+                  </p>
+                </div>
               ) : (
-                prazos.slice(0, 10).map((item, index) => (
-                  <div key={index} className="border rounded-lg p-3 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            item.tipo === 'Licença' ? 'bg-blue-100 text-blue-700' :
-                            item.tipo === 'Condicionante' ? 'bg-purple-100 text-purple-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
-                            {item.tipo}
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            item.status === 'vencida' || item.status === 'vencido' || item.status === 'atrasada' 
-                              ? 'bg-destructive/10 text-destructive' :
-                            item.status === 'vencendo' || item.status === 'a_vencer' 
-                              ? 'bg-warning/10 text-warning' :
-                              'bg-muted text-muted-foreground'
-                          }`}>
-                            {item.status}
-                          </span>
+                prazos.slice(0, 10).map((item, index) => {
+                  const prazoDate = new Date(item.prazo);
+                  const today = new Date();
+                  const diffTime = prazoDate.getTime() - today.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  
+                  const getUrgencyInfo = () => {
+                    if (diffDays < 0) {
+                      return { urgency: 'vencido', color: 'bg-red-50 border-red-200', textColor: 'text-red-900', days: 'Vencido' };
+                    } else if (diffDays <= 7) {
+                      return { urgency: 'critico', color: 'bg-orange-50 border-orange-200', textColor: 'text-orange-900', days: `${diffDays} dia${diffDays !== 1 ? 's' : ''}` };
+                    } else if (diffDays <= 30) {
+                      return { urgency: 'alerta', color: 'bg-yellow-50 border-yellow-200', textColor: 'text-yellow-900', days: `${diffDays} dias` };
+                    } else {
+                      return { urgency: 'normal', color: 'bg-green-50 border-green-200', textColor: 'text-green-900', days: `${diffDays} dias` };
+                    }
+                  };
+                  
+                  const urgencyInfo = getUrgencyInfo();
+                  
+                  const getItemIcon = () => {
+                    switch (item.tipo) {
+                      case 'Licença':
+                        return <ShieldCheck className="h-5 w-5 text-blue-600" />;
+                      case 'Condicionante':
+                        return <CheckCircle2 className="h-5 w-5 text-purple-600" />;
+                      case 'Entrega':
+                        return <Truck className="h-5 w-5 text-emerald-600" />;
+                      default:
+                        return <FileText className="h-5 w-5 text-gray-600" />;
+                    }
+                  };
+                  
+                  const getStatusColor = () => {
+                    if (item.status === 'vencida' || item.status === 'vencido' || item.status === 'atrasada') {
+                      return 'bg-red-100 text-red-800 border-red-200';
+                    } else if (item.status === 'vencendo' || item.status === 'a_vencer' || item.status === 'pendente') {
+                      return 'bg-orange-100 text-orange-800 border-orange-200';
+                    } else if (item.status === 'cumprida' || item.status === 'entregue' || item.status === 'ativa') {
+                      return 'bg-green-100 text-green-800 border-green-200';
+                    } else {
+                      return 'bg-gray-100 text-gray-800 border-gray-200';
+                    }
+                  };
+                  
+                  return (
+                    <div key={index} className={`border-l-4 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${urgencyInfo.color}`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="flex items-center gap-2">
+                              {getItemIcon()}
+                              <Badge variant="outline" className={`text-xs font-medium ${
+                                item.tipo === 'Licença' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                item.tipo === 'Condicionante' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}>
+                                {item.tipo}
+                              </Badge>
+                            </div>
+                            <Badge className={`text-xs font-medium border ${getStatusColor()}`}>
+                              {item.status === 'a_vencer' ? 'vencendo' : item.status}
+                            </Badge>
+                          </div>
+                          
+                          <h4 className={`text-sm font-semibold ${urgencyInfo.textColor} mb-1 line-clamp-2`}>
+                            {item.titulo}
+                          </h4>
+                          
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>{prazoDate.toLocaleDateString('pt-BR')}</span>
+                            </div>
+                            <div className={`flex items-center gap-1 font-medium ${
+                              urgencyInfo.urgency === 'vencido' ? 'text-red-600' :
+                              urgencyInfo.urgency === 'critico' ? 'text-orange-600' :
+                              urgencyInfo.urgency === 'alerta' ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              <Clock className="h-3 w-3" />
+                              <span>{urgencyInfo.days}</span>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm font-medium text-card-foreground truncate">
-                          {item.titulo}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(item.prazo).toLocaleDateString('pt-BR')}
-                        </p>
+                        
+                        <div className="ml-3">
+                          {urgencyInfo.urgency === 'vencido' && (
+                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                          )}
+                          {urgencyInfo.urgency === 'critico' && (
+                            <AlertTriangle className="h-5 w-5 text-orange-500" />
+                          )}
+                          {urgencyInfo.urgency === 'alerta' && (
+                            <Clock className="h-5 w-5 text-yellow-500" />
+                          )}
+                          {urgencyInfo.urgency === 'normal' && (
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          )}
+                        </div>
                       </div>
-                      <Clock className="h-4 w-4 text-muted-foreground mt-1" />
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
