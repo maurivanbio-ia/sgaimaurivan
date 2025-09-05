@@ -486,6 +486,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/alerts/configs/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const { enviarEmail, enviarWhatsapp, ativo } = req.body;
+      
+      const updates: any = {};
+      if (typeof enviarEmail === 'boolean') updates.enviarEmail = enviarEmail;
+      if (typeof enviarWhatsapp === 'boolean') updates.enviarWhatsapp = enviarWhatsapp;
+      if (typeof ativo === 'boolean') updates.ativo = ativo;
+
+      const updatedConfig = await storage.updateAlertConfig(id, updates);
+      res.json(updatedConfig);
+    } catch (error) {
+      console.error("Update alert config error:", error);
+      res.status(500).json({ message: "Erro ao atualizar configuração" });
+    }
+  });
+
   app.post("/api/alerts/test", requireAuth, async (req, res) => {
     try {
       console.log('Executando teste de alertas...');
