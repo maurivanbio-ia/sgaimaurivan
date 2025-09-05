@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDateForInput } from "@/lib/date-utils";
 import { Save, ArrowLeft, Upload, Download, FileText } from "lucide-react";
 import type { LicencaAmbiental } from "@shared/schema";
+import React from "react";
 
 const licenseSchema = z.object({
   tipo: z.string().min(1, "Tipo é obrigatório"),

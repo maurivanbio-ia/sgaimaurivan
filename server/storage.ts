@@ -2,6 +2,8 @@ import {
   users,
   empreendimentos,
   licencasAmbientais,
+  condicionantes,
+  entregas,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -9,6 +11,11 @@ import {
   type LicencaAmbiental,
   type InsertLicencaAmbiental,
   type EmpreendimentoWithLicencas,
+  type Condicionante,
+  type InsertCondicionante,
+  type Entrega,
+  type InsertEntrega,
+  type LicencaWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc } from "drizzle-orm";
@@ -35,8 +42,28 @@ export interface IStorage {
   updateLicenca(id: number, licenca: Partial<InsertLicencaAmbiental>): Promise<LicencaAmbiental>;
   deleteLicenca(id: number): Promise<void>;
 
-  // Stats
+  // Condicionante operations
+  getCondicionantes(): Promise<Condicionante[]>;
+  getCondicionante(id: number): Promise<Condicionante | undefined>;
+  getCondicionantesByLicenca(licencaId: number): Promise<Condicionante[]>;
+  createCondicionante(condicionante: InsertCondicionante): Promise<Condicionante>;
+  updateCondicionante(id: number, condicionante: Partial<InsertCondicionante>): Promise<Condicionante>;
+  deleteCondicionante(id: number): Promise<void>;
+
+  // Entrega operations
+  getEntregas(): Promise<Entrega[]>;
+  getEntrega(id: number): Promise<Entrega | undefined>;
+  getEntregasByLicenca(licencaId: number): Promise<Entrega[]>;
+  createEntrega(entrega: InsertEntrega): Promise<Entrega>;
+  updateEntrega(id: number, entrega: Partial<InsertEntrega>): Promise<Entrega>;
+  deleteEntrega(id: number): Promise<void>;
+
+  // Enhanced Stats
   getLicenseStats(): Promise<{ active: number; expiring: number; expired: number }>;
+  getCondicionanteStats(): Promise<{ pendentes: number; cumpridas: number; vencidas: number }>;
+  getEntregaStats(): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
+  getEntregasDoMes(): Promise<Entrega[]>;
+  getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -120,7 +147,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateLicenca(id: number, licenca: Partial<InsertLicencaAmbiental>): Promise<LicencaAmbiental> {
-    const updateData = { ...licenca };
+    const updateData: any = { ...licenca };
     if (licenca.validade) {
       updateData.status = this.calculateLicenseStatus(licenca.validade);
     }
@@ -137,7 +164,97 @@ export class DatabaseStorage implements IStorage {
     await db.delete(licencasAmbientais).where(eq(licencasAmbientais.id, id));
   }
 
-  // Stats
+  // Condicionante operations
+  async getCondicionantes(): Promise<Condicionante[]> {
+    return db.select().from(condicionantes).orderBy(desc(condicionantes.criadoEm));
+  }
+
+  async getCondicionante(id: number): Promise<Condicionante | undefined> {
+    const [condicionante] = await db.select().from(condicionantes).where(eq(condicionantes.id, id));
+    return condicionante || undefined;
+  }
+
+  async getCondicionantesByLicenca(licencaId: number): Promise<Condicionante[]> {
+    return db
+      .select()
+      .from(condicionantes)
+      .where(eq(condicionantes.licencaId, licencaId))
+      .orderBy(asc(condicionantes.prazo));
+  }
+
+  async createCondicionante(condicionante: InsertCondicionante): Promise<Condicionante> {
+    const status = this.calculateCondicionanteStatus(condicionante.prazo);
+    const [created] = await db
+      .insert(condicionantes)
+      .values({ ...condicionante, status })
+      .returning();
+    return created;
+  }
+
+  async updateCondicionante(id: number, condicionante: Partial<InsertCondicionante>): Promise<Condicionante> {
+    const updateData: any = { ...condicionante, atualizadoEm: new Date() };
+    if (condicionante.prazo) {
+      updateData.status = this.calculateCondicionanteStatus(condicionante.prazo);
+    }
+    
+    const [updated] = await db
+      .update(condicionantes)
+      .set(updateData)
+      .where(eq(condicionantes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCondicionante(id: number): Promise<void> {
+    await db.delete(condicionantes).where(eq(condicionantes.id, id));
+  }
+
+  // Entrega operations
+  async getEntregas(): Promise<Entrega[]> {
+    return db.select().from(entregas).orderBy(desc(entregas.criadoEm));
+  }
+
+  async getEntrega(id: number): Promise<Entrega | undefined> {
+    const [entrega] = await db.select().from(entregas).where(eq(entregas.id, id));
+    return entrega || undefined;
+  }
+
+  async getEntregasByLicenca(licencaId: number): Promise<Entrega[]> {
+    return db
+      .select()
+      .from(entregas)
+      .where(eq(entregas.licencaId, licencaId))
+      .orderBy(asc(entregas.prazo));
+  }
+
+  async createEntrega(entrega: InsertEntrega): Promise<Entrega> {
+    const status = this.calculateEntregaStatus(entrega.prazo);
+    const [created] = await db
+      .insert(entregas)
+      .values({ ...entrega, status })
+      .returning();
+    return created;
+  }
+
+  async updateEntrega(id: number, entrega: Partial<InsertEntrega>): Promise<Entrega> {
+    const updateData: any = { ...entrega, atualizadoEm: new Date() };
+    if (entrega.prazo) {
+      updateData.status = this.calculateEntregaStatus(entrega.prazo);
+    }
+    
+    const [updated] = await db
+      .update(entregas)
+      .set(updateData)
+      .where(eq(entregas.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEntrega(id: number): Promise<void> {
+    await db.delete(entregas).where(eq(entregas.id, id));
+  }
+
+  // Enhanced Stats
   async getLicenseStats(): Promise<{ active: number; expiring: number; expired: number }> {
     const licencas = await this.getLicencas();
     const now = new Date();
@@ -161,6 +278,104 @@ export class DatabaseStorage implements IStorage {
     });
 
     return { active, expiring, expired };
+  }
+
+  async getCondicionanteStats(): Promise<{ pendentes: number; cumpridas: number; vencidas: number }> {
+    const condicionantes = await this.getCondicionantes();
+    return {
+      pendentes: condicionantes.filter(c => c.status === 'pendente').length,
+      cumpridas: condicionantes.filter(c => c.status === 'cumprida').length,
+      vencidas: condicionantes.filter(c => c.status === 'vencida').length,
+    };
+  }
+
+  async getEntregaStats(): Promise<{ pendentes: number; entregues: number; atrasadas: number }> {
+    const entregas = await this.getEntregas();
+    return {
+      pendentes: entregas.filter(e => e.status === 'pendente').length,
+      entregues: entregas.filter(e => e.status === 'entregue').length,
+      atrasadas: entregas.filter(e => e.status === 'atrasada').length,
+    };
+  }
+
+  async getEntregasDoMes(): Promise<Entrega[]> {
+    const entregas = await this.getEntregas();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return entregas.filter(entrega => {
+      const prazo = new Date(entrega.prazo);
+      return prazo >= startOfMonth && prazo <= endOfMonth;
+    });
+  }
+
+  async getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>> {
+    const [licencas, condicionantes, entregas] = await Promise.all([
+      this.getLicencas(),
+      this.getCondicionantes(),
+      this.getEntregas(),
+    ]);
+
+    const agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }> = [];
+    
+    // Add licenses with upcoming expiration
+    licencas.forEach(licenca => {
+      if (licenca.status !== 'ativa') {
+        agenda.push({
+          tipo: 'Licença',
+          titulo: `${licenca.tipo} - ${licenca.numero}`,
+          prazo: licenca.vencimento,
+          status: licenca.status,
+          id: licenca.id,
+        });
+      }
+    });
+
+    // Add condicionantes
+    condicionantes.forEach(condicionante => {
+      agenda.push({
+        tipo: 'Condicionante',
+        titulo: condicionante.descricao,
+        prazo: condicionante.prazo,
+        status: condicionante.status,
+        id: condicionante.id,
+      });
+    });
+
+    // Add entregas
+    entregas.forEach(entrega => {
+      agenda.push({
+        tipo: 'Entrega',
+        titulo: entrega.descricao,
+        prazo: entrega.prazo,
+        status: entrega.status,
+        id: entrega.id,
+      });
+    });
+
+    // Sort by prazo (closest first)
+    return agenda.sort((a, b) => new Date(a.prazo).getTime() - new Date(b.prazo).getTime());
+  }
+
+  private calculateCondicionanteStatus(prazo: string): string {
+    const now = new Date();
+    const prazoDate = new Date(prazo);
+    
+    if (prazoDate < now) {
+      return 'vencida';
+    }
+    return 'pendente';
+  }
+
+  private calculateEntregaStatus(prazo: string): string {
+    const now = new Date();
+    const prazoDate = new Date(prazo);
+    
+    if (prazoDate < now) {
+      return 'atrasada';
+    }
+    return 'pendente';
   }
 
   private calculateLicenseStatus(validade: string): string {
