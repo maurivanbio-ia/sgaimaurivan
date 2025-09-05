@@ -1,19 +1,23 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, Brain } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ObjectUploaderProps {
   maxFileSize?: number;
   onGetUploadParameters: () => Promise<{
     method: "PUT";
     url: string;
+    filePath?: string;
   }>;
-  onComplete?: (result: { uploadURL: string }) => void;
+  onComplete?: (result: { uploadURL: string; filePath?: string }) => void;
   buttonClassName?: string;
   children?: ReactNode;
   accept?: string;
+  enableAnalysis?: boolean;
+  onAnalysisComplete?: (analysis: any) => void;
 }
 
 /**
@@ -39,7 +43,9 @@ export function ObjectUploader({
   onComplete,
   buttonClassName,
   children,
-  accept = ".pdf"
+  accept = ".pdf",
+  enableAnalysis = false,
+  onAnalysisComplete
 }: ObjectUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
@@ -57,7 +63,8 @@ export function ObjectUploader({
     setIsUploading(true);
     try {
       // Get upload URL
-      const { method, url } = await onGetUploadParameters();
+      const uploadParams = await onGetUploadParameters();
+      const { method, url, filePath } = uploadParams;
 
       // Upload file
       const response = await fetch(url, {
@@ -74,13 +81,42 @@ export function ObjectUploader({
 
       // Call completion callback
       if (onComplete) {
-        onComplete({ uploadURL: url });
+        onComplete({ uploadURL: url, filePath });
       }
 
       toast({
         title: "Upload realizado",
         description: "Arquivo enviado com sucesso!",
       });
+
+      // If analysis is enabled and we have a filePath, analyze the PDF
+      if (enableAnalysis && filePath && accept.includes('.pdf')) {
+        try {
+          toast({
+            title: "Analisando PDF...",
+            description: "Extraindo informações do documento automaticamente.",
+          });
+
+          const analysisResponse = await apiRequest("POST", "/api/analyze-pdf", { filePath });
+          const analysis = await analysisResponse.json();
+
+          if (analysis && onAnalysisComplete) {
+            onAnalysisComplete(analysis);
+            
+            toast({
+              title: "Análise concluída!",
+              description: `Informações extraídas com ${Math.round(analysis.confidence * 100)}% de confiança.`,
+            });
+          }
+        } catch (analysisError) {
+          console.error("Analysis error:", analysisError);
+          toast({
+            title: "Análise falhou",
+            description: "Não foi possível extrair informações do PDF automaticamente.",
+            variant: "destructive",
+          });
+        }
+      }
 
     } catch (error) {
       console.error("Upload error:", error);
@@ -118,7 +154,19 @@ export function ObjectUploader({
           <p className="pl-1">ou arraste e solte</p>
         </div>
         <p className="text-xs text-muted-foreground">
-          {isUploading ? "Enviando arquivo..." : `Apenas arquivos PDF até ${Math.round(maxFileSize / 1024 / 1024)}MB`}
+          {isUploading ? (
+            enableAnalysis ? "Enviando e analisando arquivo..." : "Enviando arquivo..."
+          ) : (
+            <>
+              Apenas arquivos PDF até {Math.round(maxFileSize / 1024 / 1024)}MB
+              {enableAnalysis && (
+                <span className="flex items-center justify-center mt-1 text-blue-600">
+                  <Brain className="h-3 w-3 mr-1" />
+                  Análise automática ativada
+                </span>
+              )}
+            </>
+          )}
         </p>
       </div>
     </div>

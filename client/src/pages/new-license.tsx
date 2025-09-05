@@ -202,15 +202,34 @@ export default function NewLicense() {
                       onGetUploadParameters={async () => {
                         const response = await apiRequest("POST", "/api/upload/pdf");
                         const data = await response.json();
-                        // Store filePath for later use
-                        (window as any).__pdfFilePath = data.filePath;
-                        return { method: data.method, url: data.url };
+                        return { 
+                          method: data.method, 
+                          url: data.url, 
+                          filePath: data.filePath 
+                        };
                       }}
                       onComplete={(result) => {
-                        // Use the stored filePath instead of the upload URL
-                        const filePath = (window as any).__pdfFilePath;
-                        if (filePath) {
-                          field.onChange(filePath);
+                        if (result.filePath) {
+                          field.onChange(result.filePath);
+                        }
+                      }}
+                      enableAnalysis={true}
+                      onAnalysisComplete={(analysis) => {
+                        // Auto-fill form fields with extracted information
+                        if (analysis.numero && !form.getValues("numero")) {
+                          form.setValue("numero", analysis.numero);
+                        }
+                        if (analysis.tipo && !form.getValues("tipo")) {
+                          form.setValue("tipo", analysis.tipo);
+                        }
+                        if (analysis.orgaoEmissor && !form.getValues("orgaoEmissor")) {
+                          form.setValue("orgaoEmissor", analysis.orgaoEmissor);
+                        }
+                        if (analysis.dataEmissao && !form.getValues("dataEmissao")) {
+                          form.setValue("dataEmissao", analysis.dataEmissao);
+                        }
+                        if (analysis.validade && !form.getValues("validade")) {
+                          form.setValue("validade", analysis.validade);
                         }
                       }}
                       accept=".pdf"
