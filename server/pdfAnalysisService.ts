@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import fs from "fs";
-import pdf from "pdf-parse";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const DEFAULT_MODEL_STR = "gpt-5";
@@ -27,6 +26,8 @@ export class PDFAnalysisService {
   // Extrai texto do PDF
   async extractTextFromPDF(filePath: string): Promise<string> {
     try {
+      // Importação dinâmica para evitar problemas de inicialização
+      const pdf = (await import("pdf-parse")).default;
       const dataBuffer = fs.readFileSync(filePath);
       const data = await pdf(dataBuffer);
       return data.text;
