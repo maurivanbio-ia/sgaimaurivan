@@ -200,11 +200,13 @@ export default function LicenseCalendar() {
                           className={`
                             relative p-2 h-20 border border-border hover:bg-muted/50 transition-colors cursor-default
                             ${!isCurrentMonth ? 'text-muted-foreground bg-muted/20' : ''}
-                            ${isToday ? 'bg-primary/10 border-primary' : ''}
+                            ${isToday ? 'bg-gradient-to-br from-primary/20 to-primary/10 border-2 border-primary shadow-lg ring-2 ring-primary/30' : ''}
                           `}
                           data-testid={`calendar-day-${day.getDate()}`}
                         >
-                          <div className="text-sm font-medium mb-1">
+                          <div className={`text-sm font-medium mb-1 ${
+                            isToday ? 'text-primary font-bold text-base bg-primary/10 rounded-full w-6 h-6 flex items-center justify-center' : ''
+                          }`}>
                             {day.getDate()}
                           </div>
                           
