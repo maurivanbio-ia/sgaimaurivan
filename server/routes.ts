@@ -534,8 +534,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/alerts/test", requireAuth, async (req, res) => {
     try {
       console.log('Executando teste de alertas...');
-      await cronService.runManualCheck();
-      res.json({ message: "Verificação de alertas executada com sucesso!" });
+      const result = await alertService.testAlerts();
+      
+      if (result.success) {
+        res.json({ message: result.message });
+      } else {
+        res.status(500).json({ message: result.message });
+      }
     } catch (error) {
       console.error("Test alerts error:", error);
       res.status(500).json({ message: "Erro ao executar teste de alertas" });
