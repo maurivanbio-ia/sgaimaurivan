@@ -1,18 +1,51 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
-import { Plus, ArrowLeft, Edit, FileText, Calendar, Building, Download } from "lucide-react";
+import { Plus, ArrowLeft, Edit, FileText, Calendar, Building, Download, Trash2 } from "lucide-react";
 import type { EmpreendimentoWithLicencas } from "@shared/schema";
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const { data: project, isLoading } = useQuery<EmpreendimentoWithLicencas>({
     queryKey: ["/api/empreendimentos", id],
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/empreendimentos/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      toast({
+        title: "Empreendimento excluído",
+        description: "O empreendimento foi excluído com sucesso.",
+      });
+      setLocation("/empreendimentos");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message || "Não foi possível excluir o empreendimento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = () => {
+    if (confirm(`Tem certeza que deseja excluir o empreendimento "${project?.nome}"? Esta ação não pode ser desfeita.`)) {
+      deleteMutation.mutate();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -46,6 +79,22 @@ export default function ProjectDetail() {
               Nova Licença
             </Button>
           </Link>
+          <Link href={`/empreendimentos/${id}/editar`}>
+            <Button variant="outline" className="font-medium" data-testid="button-edit-project">
+              <Edit className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          </Link>
+          <Button 
+            variant="destructive" 
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="font-medium"
+            data-testid="button-delete-project"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+          </Button>
           <Button 
             variant="outline" 
             onClick={() => setLocation("/empreendimentos")}
