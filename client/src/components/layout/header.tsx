@@ -2,6 +2,9 @@ import { Link, useLocation } from "wouter";
 import { useLogout } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { GlobalSearch } from "@/components/global-search";
+import { NotificationsCenter } from "@/components/notifications-center";
 
 export default function Header() {
   const [location, navigate] = useLocation(); // << agora temos navigate
@@ -43,6 +46,10 @@ export default function Header() {
               className="h-8 mr-4"
             />
             <h1 className="text-xl font-semibold text-primary">LicençaFácil</h1>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <GlobalSearch />
           </div>
 
           <nav className="hidden md:flex space-x-8">
@@ -94,6 +101,11 @@ export default function Header() {
               Sair
             </Button>
           </nav>
+
+          <div className="flex items-center space-x-2">
+            <NotificationsCenter />
+            <ThemeToggle />
+          </div>
 
           <div className="md:hidden">
             <Button variant="ghost" size="sm">

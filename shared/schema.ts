@@ -70,6 +70,19 @@ export const alertConfigs = pgTable("alert_configs", {
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
 
+// Notifications table for alert history  
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  tipo: text("tipo").notNull(), // licenca, condicionante, entrega
+  titulo: text("titulo").notNull(),
+  mensagem: text("mensagem").notNull(),
+  canal: text("canal").notNull(), // email, whatsapp, ambos
+  status: text("status").notNull().default("pendente"), // pendente, enviado, erro
+  lida: boolean("lida").notNull().default(false),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  enviadoEm: timestamp("enviado_em"),
+});
+
 // Alert history table
 export const alertHistory = pgTable("alert_history", {
   id: serial("id").primaryKey(),
@@ -160,6 +173,12 @@ export const insertAlertHistorySchema = createInsertSchema(alertHistory).omit({
   criadoEm: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  criadoEm: true,
+  enviadoEm: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -175,6 +194,8 @@ export type InsertAlertConfig = z.infer<typeof insertAlertConfigSchema>;
 export type AlertConfig = typeof alertConfigs.$inferSelect;
 export type InsertAlertHistory = z.infer<typeof insertAlertHistorySchema>;
 export type AlertHistory = typeof alertHistory.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
 
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {

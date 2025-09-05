@@ -6,6 +6,7 @@ import {
   entregas,
   alertConfigs,
   alertHistory,
+  notifications,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -22,6 +23,8 @@ import {
   type InsertAlertConfig,
   type AlertHistory,
   type InsertAlertHistory,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and } from "drizzle-orm";
@@ -78,6 +81,13 @@ export interface IStorage {
   createAlertConfig(config: InsertAlertConfig): Promise<AlertConfig>;
   createAlertHistory(history: InsertAlertHistory): Promise<AlertHistory>;
   checkAlertHistory(tipoItem: string, itemId: number, diasAviso: number): Promise<boolean>;
+
+  // Notification operations
+  getNotifications(): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<Notification>;
+  markAllNotificationsAsRead(): Promise<void>;
+  updateNotificationStatus(id: number, status: string, enviadoEm?: Date): Promise<Notification>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -529,6 +539,46 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return !!existing;
+  }
+
+  // Notification operations
+  async getNotifications(): Promise<Notification[]> {
+    return db.select().from(notifications).orderBy(desc(notifications.criadoEm));
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [created] = await db.insert(notifications).values(notification).returning();
+    return created;
+  }
+
+  async markNotificationAsRead(id: number): Promise<Notification> {
+    const [updated] = await db
+      .update(notifications)
+      .set({ lida: true })
+      .where(eq(notifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async markAllNotificationsAsRead(): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ lida: true })
+      .where(eq(notifications.lida, false));
+  }
+
+  async updateNotificationStatus(id: number, status: string, enviadoEm?: Date): Promise<Notification> {
+    const updateData: any = { status };
+    if (enviadoEm) {
+      updateData.enviadoEm = enviadoEm;
+    }
+    
+    const [updated] = await db
+      .update(notifications)
+      .set(updateData)
+      .where(eq(notifications.id, id))
+      .returning();
+    return updated;
   }
 }
 
