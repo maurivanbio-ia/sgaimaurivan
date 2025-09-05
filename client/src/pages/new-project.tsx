@@ -15,6 +15,8 @@ import { Save, ArrowLeft } from "lucide-react";
 const projectSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
   cliente: z.string().min(1, "Cliente é obrigatório"),
+  clienteEmail: z.string().email("Email inválido").optional().or(z.literal("")),
+  clienteTelefone: z.string().optional(),
   localizacao: z.string().min(1, "Localização é obrigatória"),
   latitude: z.string().optional().refine((val) => {
     if (!val) return true;
@@ -41,6 +43,8 @@ export default function NewProject() {
     defaultValues: {
       nome: "",
       cliente: "",
+      clienteEmail: "",
+      clienteTelefone: "",
       localizacao: "",
       latitude: "",
       longitude: "",
@@ -120,6 +124,45 @@ export default function NewProject() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="clienteEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email do Cliente</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type="email"
+                          placeholder="cliente@empresa.com"
+                          data-testid="input-client-email"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="clienteTelefone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone/WhatsApp do Cliente</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="(71) 98780-2223"
+                          data-testid="input-client-phone"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
