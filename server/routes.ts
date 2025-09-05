@@ -184,6 +184,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Filtered data routes (must be before /:id routes)
+  app.get("/api/licencas/ativas", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasByStatus('ativa');
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças ativas error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/licencas/vencer", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasByStatus('expiring');
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças a vencer error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/licencas/vencidas", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasByStatus('expired');
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças vencidas error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -239,6 +270,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Filtered condicionantes route (must be before /:id routes)
+  app.get("/api/condicionantes/pendentes", requireAuth, async (req, res) => {
+    try {
+      const condicionantes = await storage.getCondicionantesByStatus('pendente');
+      res.json(condicionantes);
+    } catch (error) {
+      console.error("Get condicionantes pendentes error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -559,47 +601,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Create notification error:", error);
       res.status(400).json({ message: "Invalid request" });
-    }
-  });
-
-  // Filtered data routes
-  app.get("/api/licencas/ativas", requireAuth, async (req, res) => {
-    try {
-      const licencas = await storage.getLicencasByStatus('ativa');
-      res.json(licencas);
-    } catch (error) {
-      console.error("Get licenças ativas error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/licencas/vencer", requireAuth, async (req, res) => {
-    try {
-      const licencas = await storage.getLicencasByStatus('expiring');
-      res.json(licencas);
-    } catch (error) {
-      console.error("Get licenças a vencer error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/licencas/vencidas", requireAuth, async (req, res) => {
-    try {
-      const licencas = await storage.getLicencasByStatus('expired');
-      res.json(licencas);
-    } catch (error) {
-      console.error("Get licenças vencidas error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/condicionantes/pendentes", requireAuth, async (req, res) => {
-    try {
-      const condicionantes = await storage.getCondicionantesByStatus('pendente');
-      res.json(condicionantes);
-    } catch (error) {
-      console.error("Get condicionantes pendentes error:", error);
-      res.status(500).json({ message: "Internal server error" });
     }
   });
 

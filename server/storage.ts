@@ -92,6 +92,7 @@ export interface IStorage {
   // Filtered data operations
   getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<LicencaAmbiental[]>;
   getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<Condicionante[]>;
+  getEntregasDoMes(): Promise<Entrega[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -638,6 +639,28 @@ export class DatabaseStorage implements IStorage {
       });
     } catch (error) {
       console.error('Error getting condicionantes by status:', error);
+      return [];
+    }
+  }
+
+  async getEntregasDoMes(): Promise<Entrega[]> {
+    try {
+      const hoje = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      
+      const entregas = await db
+        .select()
+        .from(entregas)
+        .orderBy(desc(entregas.criadoEm));
+      
+      return entregas.filter(entrega => {
+        if (!entrega.prazo) return false;
+        const dataPrazo = new Date(entrega.prazo);
+        return dataPrazo >= inicioMes && dataPrazo <= fimMes;
+      });
+    } catch (error) {
+      console.error('Error getting entregas do mês:', error);
       return [];
     }
   }
