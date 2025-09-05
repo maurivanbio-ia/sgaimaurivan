@@ -42,6 +42,7 @@ export default function ExpiryChart() {
             label: "Vencimentos",
             data: counts,
             backgroundColor: "hsl(205, 85%, 31%)",
+            hoverBackgroundColor: "hsl(205, 85%, 25%)",
             borderRadius: 4,
           },
         ],
@@ -61,6 +62,17 @@ export default function ExpiryChart() {
           legend: {
             display: false,
           },
+          tooltip: {
+            callbacks: {
+              title: function(context: any) {
+                return `${context[0].label} de 2024`;
+              },
+              label: function(context: any) {
+                const value = context.parsed.y || 0;
+                return `${value} ${value === 1 ? 'vencimento' : 'vencimentos'}`;
+              }
+            }
+          }
         },
       },
     });

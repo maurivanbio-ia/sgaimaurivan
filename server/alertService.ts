@@ -1,6 +1,7 @@
 import { storage } from './storage';
 import { sendEmail } from './emailService';
 import { sendWhatsApp } from './whatsappService';
+import { notificationService } from './notificationService';
 import type { AlertConfig, AlertHistory, InsertAlertHistory } from '@shared/schema';
 
 export class AlertService {
@@ -136,6 +137,9 @@ export class AlertService {
     try {
       const alertData = this.buildAlertData(item, config.tipo, diasRestantes);
       
+      // Criar notificação interna no sistema
+      await this.createInternalNotification(item, config.tipo, diasRestantes);
+      
       // Envia email se configurado
       if (config.enviarEmail) {
         try {
@@ -240,6 +244,66 @@ Sistema LicençaFácil - EcoBrasil
       emailHtml,
       whatsappMessage,
     };
+  }
+
+  // Cria notificação interna no sistema
+  private async createInternalNotification(
+    item: any,
+    tipo: string,
+    diasRestantes: number
+  ): Promise<void> {
+    try {
+      const dateField = tipo === 'licenca' ? item.validade : item.prazo;
+      const dataVencimento = new Date(dateField);
+      
+      // Buscar dados do empreendimento relacionado
+      const empreendimento = item.empreendimentoId ? 
+        await storage.getEmpreendimento(item.empreendimentoId) : null;
+      const nomeEmpreendimento = empreendimento?.nome || 'N/A';
+      
+      // Buscar dados da licença se for condicionante ou entrega
+      let numeroLicenca = 'N/A';
+      if (tipo === 'licenca') {
+        numeroLicenca = (item as any).numero || 'N/A';
+      } else if (item.licencaId) {
+        const licenca = await storage.getLicenca(item.licencaId);
+        numeroLicenca = licenca?.numero || 'N/A';
+      }
+      
+      switch (tipo) {
+        case 'licenca':
+          await notificationService.createLicenseExpiryNotification(
+            item.id,
+            nomeEmpreendimento,
+            numeroLicenca,
+            dataVencimento,
+            diasRestantes
+          );
+          break;
+        case 'condicionante':
+          await notificationService.createCondicionanteExpiryNotification(
+            item.id,
+            item.descricao || 'Condicionante',
+            nomeEmpreendimento,
+            numeroLicenca,
+            dataVencimento,
+            diasRestantes
+          );
+          break;
+        case 'entrega':
+          await notificationService.createEntregaExpiryNotification(
+            item.id,
+            item.titulo || item.descricao || 'Entrega',
+            nomeEmpreendimento,
+            numeroLicenca,
+            dataVencimento,
+            diasRestantes
+          );
+          break;
+      }
+    } catch (error) {
+      console.error(`Erro ao criar notificação interna para ${tipo} ID ${item.id}:`, error);
+    }
   }
 
   // Salva histórico de alerta

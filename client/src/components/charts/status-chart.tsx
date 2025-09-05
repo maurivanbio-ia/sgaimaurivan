@@ -34,9 +34,9 @@ export default function StatusChart({ stats }: StatusChartProps) {
           {
             data: [stats.active, stats.expiring, stats.expired],
             backgroundColor: [
-              "hsl(120, 60%, 50%)", // Ativas - verde
-              "hsl(45, 100%, 50%)", // A Vencer - amarelo
-              "hsl(0, 100%, 50%)", // Vencidas - vermelho
+              "hsl(142, 76%, 36%)", // Ativas - verde atualizado
+              "hsl(43, 96%, 56%)", // A Vencer - laranja
+              "hsl(0, 84%, 60%)", // Vencidas - vermelho
             ],
             borderWidth: 0,
           },
@@ -48,7 +48,22 @@ export default function StatusChart({ stats }: StatusChartProps) {
         plugins: {
           legend: {
             position: "bottom",
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+            },
           },
+          tooltip: {
+            callbacks: {
+              label: function(context: any) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
         },
       },
     });
