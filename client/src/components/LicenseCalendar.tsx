@@ -27,15 +27,10 @@ export default function LicenseCalendar() {
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
   
-  const { data: licenses = [], isLoading } = useQuery<LicenseEvent[]>({
+  const { data: licenses = [], isLoading, error } = useQuery<LicenseEvent[]>({
     queryKey: ["/api/licencas/calendar", startOfMonth.toISOString(), endOfMonth.toISOString()],
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/licencas/calendar?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch');
-      return response.json();
-    }
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   const licensesByDate = useMemo(() => {
@@ -138,6 +133,10 @@ export default function LicenseCalendar() {
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="text-muted-foreground">Carregando calendário...</div>
+          </div>
+        ) : error ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="text-destructive">Erro ao carregar licenças: {error.message}</div>
           </div>
         ) : (
           <TooltipProvider>

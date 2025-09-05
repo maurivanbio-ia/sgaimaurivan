@@ -215,6 +215,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/licencas/calendar", requireAuth, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate e endDate são obrigatórios" });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ message: "Datas inválidas" });
+      }
+
+      const licencas = await storage.getLicencasByDateRange(start, end);
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças calendar error:", error);
+      res.status(500).json({ message: "Erro ao buscar licenças do calendário" });
+    }
+  });
+
   app.get("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -472,29 +495,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get monthly expiry data error:", error);
       res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/licencas/calendar", requireAuth, async (req, res) => {
-    try {
-      const { startDate, endDate } = req.query;
-      
-      if (!startDate || !endDate) {
-        return res.status(400).json({ message: "startDate e endDate são obrigatórios" });
-      }
-
-      const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
-      
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return res.status(400).json({ message: "Datas inválidas" });
-      }
-
-      const licencas = await storage.getLicencasByDateRange(start, end);
-      res.json(licencas);
-    } catch (error) {
-      console.error("Get licenças calendar error:", error);
-      res.status(500).json({ message: "Erro ao buscar licenças do calendário" });
     }
   });
 
