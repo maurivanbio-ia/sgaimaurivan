@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, Building, FileText, Package } from "lucide-react";
+import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
 import type { LicencaAmbiental, Condicionante, Entrega } from "@shared/schema";
 
@@ -21,7 +22,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
     queryKey: [apiEndpoint],
   });
 
-  const getStatusBadge = (item: any) => {
+  const getStatusInfo = (item: any) => {
     const hoje = new Date();
     
     if (type === 'licenca') {
@@ -29,33 +30,69 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
       const diffDays = Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays < 0) {
-        return <Badge variant="destructive">Vencida</Badge>;
+        return { 
+          badge: <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" />Vencida</Badge>,
+          color: "text-red-600",
+          bgColor: "bg-red-50 border-red-200"
+        };
       } else if (diffDays <= 90) {
-        return <Badge variant="secondary" className="bg-orange-100 text-orange-800">A Vencer</Badge>;
+        return { 
+          badge: <Badge className="bg-amber-100 text-amber-800 border-amber-200 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />A Vencer ({diffDays} dias)</Badge>,
+          color: "text-amber-600",
+          bgColor: "bg-amber-50 border-amber-200"
+        };
       } else {
-        return <Badge variant="default" className="bg-green-100 text-green-800">Ativa</Badge>;
+        return { 
+          badge: <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Ativa</Badge>,
+          color: "text-green-600",
+          bgColor: "bg-green-50 border-green-200"
+        };
       }
     } else if (type === 'condicionante') {
       const dataPrazo = new Date(item.prazo);
       const diffDays = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (item.cumprida) {
-        return <Badge variant="default" className="bg-green-100 text-green-800">Cumprida</Badge>;
+        return { 
+          badge: <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Cumprida</Badge>,
+          color: "text-green-600",
+          bgColor: "bg-green-50 border-green-200"
+        };
       } else if (diffDays < 0) {
-        return <Badge variant="destructive">Vencida</Badge>;
+        return { 
+          badge: <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" />Vencida</Badge>,
+          color: "text-red-600",
+          bgColor: "bg-red-50 border-red-200"
+        };
       } else {
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Pendente</Badge>;
+        return { 
+          badge: <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1"><Clock className="h-3 w-3" />Pendente ({diffDays} dias)</Badge>,
+          color: "text-blue-600",
+          bgColor: "bg-blue-50 border-blue-200"
+        };
       }
     } else { // entrega
       const dataPrazo = new Date(item.prazo);
       const diffDays = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (item.entregue) {
-        return <Badge variant="default" className="bg-green-100 text-green-800">Entregue</Badge>;
+        return { 
+          badge: <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Entregue</Badge>,
+          color: "text-green-600",
+          bgColor: "bg-green-50 border-green-200"
+        };
       } else if (diffDays < 0) {
-        return <Badge variant="destructive">Atrasada</Badge>;
+        return { 
+          badge: <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" />Atrasada</Badge>,
+          color: "text-red-600",
+          bgColor: "bg-red-50 border-red-200"
+        };
       } else {
-        return <Badge variant="secondary" className="bg-purple-100 text-purple-800">Pendente</Badge>;
+        return { 
+          badge: <Badge className="bg-purple-100 text-purple-800 border-purple-200 flex items-center gap-1"><Clock className="h-3 w-3" />Pendente ({diffDays} dias)</Badge>,
+          color: "text-purple-600",
+          bgColor: "bg-purple-50 border-purple-200"
+        };
       }
     }
   };
@@ -81,117 +118,191 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center gap-4 mb-6">
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => navigate("/")}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-card-foreground">{title}</h1>
-          <p className="text-muted-foreground mt-1">{description}</p>
-        </div>
-      </div>
-
-      {items.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <div className="flex flex-col items-center gap-4">
-              {getIcon()}
-              <h3 className="text-lg font-medium text-muted-foreground">
-                {emptyMessage || `Nenhum item encontrado`}
-              </h3>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => navigate("/")}
+            className="shadow-sm border-2 hover:shadow-md transition-all"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                {getIcon()}
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {items.length} {items.length === 1 ? 'item encontrado' : 'itens encontrados'}
-            </p>
+            <p className="text-gray-600">{description}</p>
           </div>
+        </div>
 
-          <div className="grid gap-4">
-            {items.map((item: any) => (
-              <Card key={item.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        {getIcon()}
-                        <h3 className="font-medium text-lg">
-                          {type === 'licenca' ? `${item.tipo} - ${item.orgaoEmissor}` :
-                           type === 'condicionante' ? item.descricao :
-                           item.titulo || item.descricao}
-                        </h3>
-                        {getStatusBadge(item)}
+        {/* Stats */}
+        <div className="mb-6">
+          <Card className="shadow-sm border-0 bg-white/70 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {items.length} {items.length === 1 ? 'item encontrado' : 'itens encontrados'}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Atualizado em {new Date().toLocaleString('pt-BR')}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Content */}
+        {items.length === 0 ? (
+          <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
+            <CardContent className="text-center py-16">
+              <div className="flex flex-col items-center gap-4">
+                <div className="p-4 bg-gray-100 rounded-full">
+                  {getIcon()}
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {emptyMessage || `Nenhum item encontrado`}
+                  </h3>
+                  <p className="text-gray-500 text-sm">
+                    Não há {type === 'licenca' ? 'licenças' : type === 'condicionante' ? 'condicionantes' : 'entregas'} nesta categoria no momento.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {items.map((item: any) => {
+              const statusInfo = getStatusInfo(item);
+              return (
+                <Card key={item.id} className={`shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:scale-[1.01] ${statusInfo.bgColor}`}>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className={`p-2 rounded-lg ${statusInfo.bgColor}`}>
+                            {getIcon()}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg text-gray-900 leading-tight">
+                              {type === 'licenca' ? item.tipo :
+                               type === 'condicionante' ? item.descricao :
+                               item.titulo || item.descricao}
+                            </h3>
+                            {type === 'licenca' && (
+                              <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+                                <Building className="h-3 w-3" />
+                                {item.orgaoEmissor}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          {statusInfo.badge}
+                        </div>
                       </div>
+
+                      <Separator className="my-4" />
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                      {/* Details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {type === 'licenca' && (
                           <>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Data de Emissão</p>
-                              <p className="font-medium">{formatDate(item.dataEmissao)}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Calendar className="h-3 w-3" />
+                                Data de Emissão
+                              </div>
+                              <p className="font-semibold text-gray-900">{formatDate(item.dataEmissao)}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Validade</p>
-                              <p className="font-medium">{formatDate(item.validade)}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Calendar className="h-3 w-3" />
+                                Validade
+                              </div>
+                              <p className={`font-semibold ${statusInfo.color}`}>{formatDate(item.validade)}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Status</p>
-                              <p className="font-medium">{item.status}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Hash className="h-3 w-3" />
+                                ID da Licença
+                              </div>
+                              <p className="font-mono text-sm text-gray-900">#{item.id}</p>
                             </div>
                           </>
                         )}
                         
                         {type === 'condicionante' && (
                           <>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Prazo</p>
-                              <p className="font-medium">{formatDate(item.prazo)}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Calendar className="h-3 w-3" />
+                                Prazo
+                              </div>
+                              <p className={`font-semibold ${statusInfo.color}`}>{formatDate(item.prazo)}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Periodicidade</p>
-                              <p className="font-medium">{item.periodicidade}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Clock className="h-3 w-3" />
+                                Periodicidade
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.periodicidade || 'Não informado'}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Cumprida</p>
-                              <p className="font-medium">{item.cumprida ? 'Sim' : 'Não'}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Hash className="h-3 w-3" />
+                                ID da Condicionante
+                              </div>
+                              <p className="font-mono text-sm text-gray-900">#{item.id}</p>
                             </div>
                           </>
                         )}
                         
                         {type === 'entrega' && (
                           <>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Prazo</p>
-                              <p className="font-medium">{formatDate(item.prazo)}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Calendar className="h-3 w-3" />
+                                Prazo
+                              </div>
+                              <p className={`font-semibold ${statusInfo.color}`}>{formatDate(item.prazo)}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Responsável</p>
-                              <p className="font-medium">{item.responsavel || 'Não informado'}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <User className="h-3 w-3" />
+                                Responsável
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.responsavel || 'Não informado'}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Entregue</p>
-                              <p className="font-medium">{item.entregue ? 'Sim' : 'Não'}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Hash className="h-3 w-3" />
+                                ID da Entrega
+                              </div>
+                              <p className="font-mono text-sm text-gray-900">#{item.id}</p>
                             </div>
                           </>
                         )}
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
