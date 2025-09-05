@@ -161,6 +161,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEmpreendimento(id: number): Promise<void> {
+    // Exclusão em cascata: primeiro busca todas as licenças do empreendimento
+    const licencasDoEmpreendimento = await db
+      .select({ id: licencasAmbientais.id })
+      .from(licencasAmbientais)
+      .where(eq(licencasAmbientais.empreendimentoId, id));
+    
+    // Para cada licença, delete condicionantes e entregas associadas
+    for (const licenca of licencasDoEmpreendimento) {
+      // Delete condicionantes da licença
+      await db.delete(condicionantes).where(eq(condicionantes.licencaId, licenca.id));
+      // Delete entregas da licença
+      await db.delete(entregas).where(eq(entregas.licencaId, licenca.id));
+    }
+    
+    // Delete todas as licenças do empreendimento
+    await db.delete(licencasAmbientais).where(eq(licencasAmbientais.empreendimentoId, id));
+    
+    // Finalmente delete o empreendimento
     await db.delete(empreendimentos).where(eq(empreendimentos.id, id));
   }
 
@@ -208,6 +226,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteLicenca(id: number): Promise<void> {
+    // Exclusão em cascata: primeiro delete condicionantes e entregas associadas
+    await db.delete(condicionantes).where(eq(condicionantes.licencaId, id));
+    await db.delete(entregas).where(eq(entregas.licencaId, id));
+    
+    // Depois delete a licença
     await db.delete(licencasAmbientais).where(eq(licencasAmbientais.id, id));
   }
 

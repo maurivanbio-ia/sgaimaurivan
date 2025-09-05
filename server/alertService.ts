@@ -262,12 +262,12 @@ Sistema LicençaFácil - EcoBrasil
       const nomeEmpreendimento = empreendimento?.nome || 'N/A';
       
       // Buscar dados da licença se for condicionante ou entrega
-      let numeroLicenca = 'N/A';
+      let tipoLicenca = 'N/A';
       if (tipo === 'licenca') {
-        numeroLicenca = (item as any).numero || 'N/A';
+        tipoLicenca = item.tipo || 'N/A';
       } else if (item.licencaId) {
         const licenca = await storage.getLicenca(item.licencaId);
-        numeroLicenca = licenca?.numero || 'N/A';
+        tipoLicenca = licenca?.tipo || 'N/A';
       }
       
       switch (tipo) {
@@ -275,7 +275,7 @@ Sistema LicençaFácil - EcoBrasil
           await notificationService.createLicenseExpiryNotification(
             item.id,
             nomeEmpreendimento,
-            numeroLicenca,
+            tipoLicenca,
             dataVencimento,
             diasRestantes
           );
@@ -285,7 +285,7 @@ Sistema LicençaFácil - EcoBrasil
             item.id,
             item.descricao || 'Condicionante',
             nomeEmpreendimento,
-            numeroLicenca,
+            tipoLicenca,
             dataVencimento,
             diasRestantes
           );
@@ -295,7 +295,7 @@ Sistema LicençaFácil - EcoBrasil
             item.id,
             item.titulo || item.descricao || 'Entrega',
             nomeEmpreendimento,
-            numeroLicenca,
+            tipoLicenca,
             dataVencimento,
             diasRestantes
           );
