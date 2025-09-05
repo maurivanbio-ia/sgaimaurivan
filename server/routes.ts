@@ -14,6 +14,7 @@ import bcrypt from "bcrypt";
 import { cronService } from "./cronService";
 import { exportService } from "./exportService";
 import { alertService } from "./alertService";
+import { notificationService } from "./notificationService";
 
 // Login schema
 const loginSchema = z.object({
@@ -673,6 +674,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get entregas do mês error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // File upload routes
+  app.post("/api/upload/pdf", requireAuth, async (req, res) => {
+    try {
+      const { ObjectStorageService } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      const { uploadUrl, filePath } = await objectStorageService.getPdfUploadURL();
+      res.json({ method: "PUT", url: uploadUrl, filePath });
+    } catch (error) {
+      console.error("Get PDF upload URL error:", error);
+      res.status(500).json({ message: "Erro ao obter URL de upload" });
+    }
+  });
+
+  // Serve uploaded files
+  app.get("/files/:filePath(*)", requireAuth, async (req, res) => {
+    try {
+      const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      const fullObjectPath = objectStorageService.getFullObjectPath(req.path);
+      await objectStorageService.downloadFile(fullObjectPath, res);
+    } catch (error: any) {
+      console.error("Download file error:", error);
+      const { ObjectNotFoundError } = await import("./objectStorage");
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ message: "Arquivo não encontrado" });
+      }
+      return res.status(500).json({ message: "Erro ao baixar arquivo" });
     }
   });
 
