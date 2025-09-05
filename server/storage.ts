@@ -114,11 +114,17 @@ export class DatabaseStorage implements IStorage {
     const [empreendimento] = await db.select().from(empreendimentos).where(eq(empreendimentos.id, id));
     if (!empreendimento) return undefined;
 
-    const licencas = await db
+    const licencasData = await db
       .select()
       .from(licencasAmbientais)
       .where(eq(licencasAmbientais.empreendimentoId, id))
       .orderBy(desc(licencasAmbientais.criadoEm));
+
+    // Recalcula status das licenças baseado na data atual
+    const licencas = licencasData.map(licenca => ({
+      ...licenca,
+      status: this.calculateLicenseStatus(licenca.validade)
+    }));
 
     return { ...empreendimento, licencas };
   }
@@ -143,12 +149,22 @@ export class DatabaseStorage implements IStorage {
 
   // Licenca operations
   async getLicencas(): Promise<LicencaAmbiental[]> {
-    return db.select().from(licencasAmbientais).orderBy(desc(licencasAmbientais.criadoEm));
+    const licencas = await db.select().from(licencasAmbientais).orderBy(desc(licencasAmbientais.criadoEm));
+    // Recalcula status baseado na data atual
+    return licencas.map(licenca => ({
+      ...licenca,
+      status: this.calculateLicenseStatus(licenca.validade)
+    }));
   }
 
   async getLicenca(id: number): Promise<LicencaAmbiental | undefined> {
     const [licenca] = await db.select().from(licencasAmbientais).where(eq(licencasAmbientais.id, id));
-    return licenca || undefined;
+    if (!licenca) return undefined;
+    // Recalcula status baseado na data atual
+    return {
+      ...licenca,
+      status: this.calculateLicenseStatus(licenca.validade)
+    };
   }
 
   async createLicenca(licenca: InsertLicencaAmbiental): Promise<LicencaAmbiental> {
@@ -180,20 +196,35 @@ export class DatabaseStorage implements IStorage {
 
   // Condicionante operations
   async getCondicionantes(): Promise<Condicionante[]> {
-    return db.select().from(condicionantes).orderBy(desc(condicionantes.criadoEm));
+    const condicionantesData = await db.select().from(condicionantes).orderBy(desc(condicionantes.criadoEm));
+    // Recalcula status baseado na data atual
+    return condicionantesData.map(condicionante => ({
+      ...condicionante,
+      status: this.calculateCondicionanteStatus(condicionante.prazo)
+    }));
   }
 
   async getCondicionante(id: number): Promise<Condicionante | undefined> {
     const [condicionante] = await db.select().from(condicionantes).where(eq(condicionantes.id, id));
-    return condicionante || undefined;
+    if (!condicionante) return undefined;
+    // Recalcula status baseado na data atual
+    return {
+      ...condicionante,
+      status: this.calculateCondicionanteStatus(condicionante.prazo)
+    };
   }
 
   async getCondicionantesByLicenca(licencaId: number): Promise<Condicionante[]> {
-    return db
+    const condicionantesData = await db
       .select()
       .from(condicionantes)
       .where(eq(condicionantes.licencaId, licencaId))
       .orderBy(asc(condicionantes.prazo));
+    // Recalcula status baseado na data atual
+    return condicionantesData.map(condicionante => ({
+      ...condicionante,
+      status: this.calculateCondicionanteStatus(condicionante.prazo)
+    }));
   }
 
   async createCondicionante(condicionante: InsertCondicionante): Promise<Condicionante> {
@@ -225,12 +256,22 @@ export class DatabaseStorage implements IStorage {
 
   // Entrega operations
   async getEntregas(): Promise<Entrega[]> {
-    return db.select().from(entregas).orderBy(desc(entregas.criadoEm));
+    const entregasData = await db.select().from(entregas).orderBy(desc(entregas.criadoEm));
+    // Recalcula status baseado na data atual
+    return entregasData.map(entrega => ({
+      ...entrega,
+      status: this.calculateEntregaStatus(entrega.prazo)
+    }));
   }
 
   async getEntrega(id: number): Promise<Entrega | undefined> {
     const [entrega] = await db.select().from(entregas).where(eq(entregas.id, id));
-    return entrega || undefined;
+    if (!entrega) return undefined;
+    // Recalcula status baseado na data atual
+    return {
+      ...entrega,
+      status: this.calculateEntregaStatus(entrega.prazo)
+    };
   }
 
   async getEntregasByLicenca(licencaId: number): Promise<Entrega[]> {
