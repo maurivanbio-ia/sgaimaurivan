@@ -587,47 +587,59 @@ export class DatabaseStorage implements IStorage {
 
   // Filtered data operations
   async getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<LicencaAmbiental[]> {
-    const hoje = new Date();
-    const licencas = await db
-      .select()
-      .from(licencasAmbientais)
-      .orderBy(desc(licencasAmbientais.criadoEm));
-    
-    return licencas.filter(licenca => {
-      const dataVencimento = new Date(licenca.validade);
-      const diffTime = dataVencimento.getTime() - hoje.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    try {
+      const hoje = new Date();
+      const licencas = await db
+        .select()
+        .from(licencasAmbientais)
+        .orderBy(desc(licencasAmbientais.criadoEm));
       
-      if (status === 'expired') {
-        return diffDays < 0;
-      } else if (status === 'expiring') {
-        return diffDays >= 0 && diffDays <= 90;
-      } else { // ativa
-        return diffDays > 90;
-      }
-    });
+      return licencas.filter(licenca => {
+        if (!licenca.validade) return false;
+        const dataVencimento = new Date(licenca.validade);
+        const diffTime = dataVencimento.getTime() - hoje.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (status === 'expired') {
+          return diffDays < 0;
+        } else if (status === 'expiring') {
+          return diffDays >= 0 && diffDays <= 90;
+        } else { // ativa
+          return diffDays > 90;
+        }
+      });
+    } catch (error) {
+      console.error('Error getting licenças by status:', error);
+      return [];
+    }
   }
 
   async getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<Condicionante[]> {
-    const hoje = new Date();
-    const condicionantes = await db
-      .select()
-      .from(condicionantes)
-      .orderBy(desc(condicionantes.criadoEm));
-    
-    return condicionantes.filter(condicionante => {
-      const dataPrazo = new Date(condicionante.prazo);
-      const diffTime = dataPrazo.getTime() - hoje.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    try {
+      const hoje = new Date();
+      const condicionantes = await db
+        .select()
+        .from(condicionantes)
+        .orderBy(desc(condicionantes.criadoEm));
       
-      if (status === 'vencida') {
-        return diffDays < 0;
-      } else if (status === 'cumprida') {
-        return condicionante.cumprida;
-      } else { // pendente
-        return !condicionante.cumprida && diffDays >= 0;
-      }
-    });
+      return condicionantes.filter(condicionante => {
+        if (!condicionante.prazo) return false;
+        const dataPrazo = new Date(condicionante.prazo);
+        const diffTime = dataPrazo.getTime() - hoje.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (status === 'vencida') {
+          return diffDays < 0;
+        } else if (status === 'cumprida') {
+          return condicionante.cumprida;
+        } else { // pendente
+          return !condicionante.cumprida && diffDays >= 0;
+        }
+      });
+    } catch (error) {
+      console.error('Error getting condicionantes by status:', error);
+      return [];
+    }
   }
 }
 
