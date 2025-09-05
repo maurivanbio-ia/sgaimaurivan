@@ -34,8 +34,19 @@ export async function sendEmail(emailData: EmailData): Promise<void> {
 
     await sgMail.send(msg);
     console.log(`Email enviado com sucesso para ${emailData.to}`);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao enviar email:', error);
+    
+    // Tratamento específico para erros do SendGrid
+    if (error.code === 403) {
+      const detailedError = new Error(`SendGrid Forbidden (403): Verifique se:
+1. O domínio 'ecobrasil.bio.br' está verificado no SendGrid
+2. O email 'noreply@ecobrasil.bio.br' está configurado como remetente verificado
+3. A API Key tem permissões de envio
+Erro original: ${error.message}`);
+      throw detailedError;
+    }
+    
     throw error;
   }
 }
