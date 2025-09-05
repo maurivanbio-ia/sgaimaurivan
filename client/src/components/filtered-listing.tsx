@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash } from "lucide-react";
+import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ interface FilteredListingProps {
 export function FilteredListing({ title, description, apiEndpoint, type, emptyMessage }: FilteredListingProps) {
   const [, navigate] = useLocation();
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: items = [], isLoading } = useQuery<any[]>({
     queryKey: [apiEndpoint],
   });
 
@@ -208,8 +208,23 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                             )}
                           </div>
                         </div>
-                        <div className="ml-4">
+                        <div className="ml-4 flex items-center gap-2">
                           {statusInfo.badge}
+                          {/* Ícone de email para licenças vencendo ou vencidas */}
+                          {type === 'licenca' && (statusInfo.color === 'text-amber-600' || statusInfo.color === 'text-red-600') && item.empreendimentoClienteEmail && (
+                            <button
+                              onClick={() => {
+                                const subject = `ATENÇÃO: ${statusInfo.color === 'text-red-600' ? 'Licença Vencida' : 'Licença a Vencer'} - ${item.tipo}`;
+                                const body = `Prezado(a) ${item.empreendimentoCliente},\n\nInformamos que a ${item.tipo} do empreendimento ${item.empreendimentoNome} ${statusInfo.color === 'text-red-600' ? 'venceu' : 'vencerá em breve'}.\n\nDetalhes:\n- Empreendimento: ${item.empreendimentoNome}\n- Tipo de Licença: ${item.tipo}\n- Órgão Emissor: ${item.orgaoEmissor}\n- Data de Validade: ${formatDate(item.validade)}\n- Localização: ${item.empreendimentoLocalizacao}\n\nSolicitamos a renovação com urgência para manter a conformidade ambiental.\n\nAtenciosamente,\nEcoBrasil`;
+                                window.location.href = `mailto:${item.empreendimentoClienteEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                              }}
+                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                              title={`Enviar email para ${item.empreendimentoClienteEmail}`}
+                              data-testid={`button-email-${item.id}`}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -219,6 +234,21 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {type === 'licenca' && (
                           <>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Building className="h-3 w-3" />
+                                Empreendimento
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.empreendimentoNome}</p>
+                              <p className="text-sm text-gray-600">{item.empreendimentoCliente}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <MapPin className="h-3 w-3" />
+                                Localização
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.empreendimentoLocalizacao}</p>
+                            </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
                                 <Calendar className="h-3 w-3" />
@@ -240,6 +270,20 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                               </div>
                               <p className="font-mono text-sm text-gray-900">#{item.id}</p>
                             </div>
+                            {(item.empreendimentoClienteEmail || item.empreendimentoClienteTelefone) && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                  <User className="h-3 w-3" />
+                                  Contato do Cliente
+                                </div>
+                                {item.empreendimentoClienteEmail && (
+                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteEmail}</p>
+                                )}
+                                {item.empreendimentoClienteTelefone && (
+                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteTelefone}</p>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                         
@@ -247,17 +291,26 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                           <>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Building className="h-3 w-3" />
+                                Empreendimento
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.empreendimentoNome}</p>
+                              <p className="text-sm text-gray-600">{item.empreendimentoCliente}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <FileText className="h-3 w-3" />
+                                Licença Relacionada
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.licencaTipo}</p>
+                              <p className="text-sm text-gray-600">{item.licencaOrgaoEmissor}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
                                 <Calendar className="h-3 w-3" />
                                 Prazo
                               </div>
                               <p className={`font-semibold ${statusInfo.color}`}>{formatDate(item.prazo)}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
-                                <Clock className="h-3 w-3" />
-                                Periodicidade
-                              </div>
-                              <p className="font-semibold text-gray-900">{item.periodicidade || 'Não informado'}</p>
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
@@ -266,11 +319,41 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                               </div>
                               <p className="font-mono text-sm text-gray-900">#{item.id}</p>
                             </div>
+                            {(item.empreendimentoClienteEmail || item.empreendimentoClienteTelefone) && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                  <User className="h-3 w-3" />
+                                  Contato do Cliente
+                                </div>
+                                {item.empreendimentoClienteEmail && (
+                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteEmail}</p>
+                                )}
+                                {item.empreendimentoClienteTelefone && (
+                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteTelefone}</p>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                         
                         {type === 'entrega' && (
                           <>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <Building className="h-3 w-3" />
+                                Empreendimento
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.empreendimentoNome}</p>
+                              <p className="text-sm text-gray-600">{item.empreendimentoCliente}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <FileText className="h-3 w-3" />
+                                Licença Relacionada
+                              </div>
+                              <p className="font-semibold text-gray-900">{item.licencaTipo}</p>
+                              <p className="text-sm text-gray-600">{item.licencaOrgaoEmissor}</p>
+                            </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
                                 <Calendar className="h-3 w-3" />
@@ -280,18 +363,25 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
-                                <User className="h-3 w-3" />
-                                Responsável
-                              </div>
-                              <p className="font-semibold text-gray-900">{item.responsavel || 'Não informado'}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
                                 <Hash className="h-3 w-3" />
                                 ID da Entrega
                               </div>
                               <p className="font-mono text-sm text-gray-900">#{item.id}</p>
                             </div>
+                            {(item.empreendimentoClienteEmail || item.empreendimentoClienteTelefone) && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                  <User className="h-3 w-3" />
+                                  Contato do Cliente
+                                </div>
+                                {item.empreendimentoClienteEmail && (
+                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteEmail}</p>
+                                )}
+                                {item.empreendimentoClienteTelefone && (
+                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteTelefone}</p>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

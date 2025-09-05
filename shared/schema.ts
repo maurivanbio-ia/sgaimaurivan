@@ -15,6 +15,8 @@ export const empreendimentos = pgTable("empreendimentos", {
   id: serial("id").primaryKey(),
   nome: text("nome").notNull(),
   cliente: text("cliente").notNull(),
+  clienteEmail: text("cliente_email"),
+  clienteTelefone: text("cliente_telefone"),
   localizacao: text("localizacao").notNull(),
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
