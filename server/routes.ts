@@ -1,7 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertEmpreendimentoSchema, insertLicencaAmbientalSchema } from "@shared/schema";
+import { 
+  insertEmpreendimentoSchema, 
+  insertLicencaAmbientalSchema,
+  insertCondicionanteSchema,
+  insertEntregaSchema
+} from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
@@ -220,13 +225,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stats route
+  // Condicionante routes
+  app.get("/api/condicionantes", requireAuth, async (req, res) => {
+    try {
+      const condicionantes = await storage.getCondicionantes();
+      res.json(condicionantes);
+    } catch (error) {
+      console.error("Get condicionantes error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/condicionantes/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const condicionante = await storage.getCondicionante(id);
+      if (!condicionante) {
+        return res.status(404).json({ message: "Condicionante not found" });
+      }
+      res.json(condicionante);
+    } catch (error) {
+      console.error("Get condicionante error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/licencas/:licencaId/condicionantes", requireAuth, async (req, res) => {
+    try {
+      const licencaId = parseInt(req.params.licencaId);
+      const condicionantes = await storage.getCondicionantesByLicenca(licencaId);
+      res.json(condicionantes);
+    } catch (error) {
+      console.error("Get condicionantes by licenca error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/condicionantes", requireAuth, async (req, res) => {
+    try {
+      const data = insertCondicionanteSchema.parse(req.body);
+      const condicionante = await storage.createCondicionante(data);
+      res.status(201).json(condicionante);
+    } catch (error) {
+      console.error("Create condicionante error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.put("/api/condicionantes/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertCondicionanteSchema.partial().parse(req.body);
+      const condicionante = await storage.updateCondicionante(id, data);
+      res.json(condicionante);
+    } catch (error) {
+      console.error("Update condicionante error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.delete("/api/condicionantes/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCondicionante(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete condicionante error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Entrega routes
+  app.get("/api/entregas", requireAuth, async (req, res) => {
+    try {
+      const entregas = await storage.getEntregas();
+      res.json(entregas);
+    } catch (error) {
+      console.error("Get entregas error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/entregas/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entrega = await storage.getEntrega(id);
+      if (!entrega) {
+        return res.status(404).json({ message: "Entrega not found" });
+      }
+      res.json(entrega);
+    } catch (error) {
+      console.error("Get entrega error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
+    try {
+      const licencaId = parseInt(req.params.licencaId);
+      const entregas = await storage.getEntregasByLicenca(licencaId);
+      res.json(entregas);
+    } catch (error) {
+      console.error("Get entregas by licenca error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/entregas", requireAuth, async (req, res) => {
+    try {
+      const data = insertEntregaSchema.parse(req.body);
+      const entrega = await storage.createEntrega(data);
+      res.status(201).json(entrega);
+    } catch (error) {
+      console.error("Create entrega error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.put("/api/entregas/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertEntregaSchema.partial().parse(req.body);
+      const entrega = await storage.updateEntrega(id, data);
+      res.json(entrega);
+    } catch (error) {
+      console.error("Update entrega error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.delete("/api/entregas/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteEntrega(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete entrega error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Enhanced Stats routes
   app.get("/api/stats/licenses", requireAuth, async (req, res) => {
     try {
       const stats = await storage.getLicenseStats();
       res.json(stats);
     } catch (error) {
       console.error("Get license stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/stats/condicionantes", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getCondicionanteStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Get condicionante stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/stats/entregas", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getEntregaStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Get entrega stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/entregas/mes", requireAuth, async (req, res) => {
+    try {
+      const entregas = await storage.getEntregasDoMes();
+      res.json(entregas);
+    } catch (error) {
+      console.error("Get entregas do mês error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/agenda/prazos", requireAuth, async (req, res) => {
+    try {
+      const agenda = await storage.getAgendaPrazos();
+      res.json(agenda);
+    } catch (error) {
+      console.error("Get agenda prazos error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
