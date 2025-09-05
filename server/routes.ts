@@ -422,6 +422,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/stats/expiry-monthly", requireAuth, async (req, res) => {
+    try {
+      const monthlyData = await storage.getMonthlyExpiryData();
+      res.json(monthlyData);
+    } catch (error) {
+      console.error("Get monthly expiry data error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Alert routes
   app.get("/api/alerts/configs", requireAuth, async (req, res) => {
     try {

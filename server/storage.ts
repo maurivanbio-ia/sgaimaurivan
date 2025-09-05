@@ -70,6 +70,7 @@ export interface IStorage {
   getEntregaStats(): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
   getEntregasDoMes(): Promise<Entrega[]>;
   getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
+  getMonthlyExpiryData(): Promise<Array<{ month: string; count: number }>>;
 
   // Alert operations
   getAlertConfigs(): Promise<AlertConfig[]>;
@@ -311,6 +312,36 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getMonthlyExpiryData(): Promise<Array<{ month: string; count: number }>> {
+    const licencas = await this.getLicencas();
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    
+    // Create array for next 12 months starting from current month
+    const monthlyData: Array<{ month: string; count: number }> = [];
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
+    for (let i = 0; i < 12; i++) {
+      const targetDate = new Date(currentYear, now.getMonth() + i, 1);
+      const monthName = monthNames[targetDate.getMonth()];
+      const year = targetDate.getFullYear();
+      
+      // Count licences expiring in this month
+      const count = licencas.filter(licenca => {
+        const validadeDate = new Date(licenca.validade);
+        return validadeDate.getMonth() === targetDate.getMonth() && 
+               validadeDate.getFullYear() === year;
+      }).length;
+      
+      monthlyData.push({
+        month: year === currentYear ? monthName : `${monthName}/${year.toString().slice(-2)}`,
+        count
+      });
+    }
+    
+    return monthlyData;
+  }
+
   async getEntregasDoMes(): Promise<Entrega[]> {
     const entregas = await this.getEntregas();
     const now = new Date();
@@ -360,7 +391,7 @@ export class DatabaseStorage implements IStorage {
     entregas.forEach(entrega => {
       agenda.push({
         tipo: 'Entrega',
-        titulo: entrega.titulo || entrega.descricao,
+        titulo: entrega.titulo || entrega.descricao || '',
         prazo: entrega.prazo,
         status: entrega.status,
         id: entrega.id,
