@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, date, timestamp, serial, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, date, timestamp, serial, boolean, integer, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -16,6 +16,8 @@ export const empreendimentos = pgTable("empreendimentos", {
   nome: text("nome").notNull(),
   cliente: text("cliente").notNull(),
   localizacao: text("localizacao").notNull(),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
   responsavelInterno: text("responsavel_interno").notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   criadoPor: serial("criado_por").references(() => users.id).notNull(),

@@ -17,6 +17,16 @@ const projectSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
   cliente: z.string().min(1, "Cliente é obrigatório"),
   localizacao: z.string().min(1, "Localização é obrigatória"),
+  latitude: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= -90 && num <= 90;
+  }, "Latitude deve estar entre -90 e 90"),
+  longitude: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= -180 && num <= 180;
+  }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
 });
 
@@ -38,6 +48,8 @@ export default function EditProject() {
       nome: "",
       cliente: "",
       localizacao: "",
+      latitude: "",
+      longitude: "",
       responsavelInterno: "",
     },
   });
@@ -49,6 +61,8 @@ export default function EditProject() {
         nome: project.nome,
         cliente: project.cliente,
         localizacao: project.localizacao,
+        latitude: project.latitude || "",
+        longitude: project.longitude || "",
         responsavelInterno: project.responsavelInterno,
       });
     }
@@ -161,6 +175,44 @@ export default function EditProject() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="latitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="Ex: -12.345678"
+                          data-testid="input-latitude"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="longitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="Ex: -38.123456"
+                          data-testid="input-longitude"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
