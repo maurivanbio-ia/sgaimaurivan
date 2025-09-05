@@ -115,7 +115,7 @@ export default function Login() {
           
           <div className="mt-6 text-center">
             <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-              <p className="font-medium mb-1">Demonstração</p>
+              <p className="font-medium mb-1">Criado por EcoIA - Inteligência Ambiental</p>
               
             </div>
           </div>
