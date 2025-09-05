@@ -79,10 +79,8 @@ export default function AlertConfigPage() {
   };
 
   const handleWhatsAppToggle = (config: AlertConfig) => {
-    updateConfigMutation.mutate({
-      id: config.id,
-      updates: { enviarWhatsapp: !config.enviarWhatsapp }
-    });
+    // WhatsApp desabilitado - não faz nada
+    return;
   };
 
   const getTypeLabel = (tipo: string) => {
@@ -124,7 +122,7 @@ export default function AlertConfigPage() {
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-card-foreground">Configurações de Alertas</h2>
         <p className="text-muted-foreground mt-2">
-          Gerencie os alertas automáticos para WhatsApp e email
+          Gerencie os alertas automáticos por email
         </p>
       </div>
 
@@ -235,25 +233,21 @@ export default function AlertConfigPage() {
                             
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
-                                <MessageCircle className="h-4 w-4 text-green-600" />
-                                <span className="text-sm font-medium">WhatsApp</span>
+                                <MessageCircle className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm font-medium text-gray-500">WhatsApp (Desabilitado)</span>
                               </div>
                               <Switch 
-                                checked={config.enviarWhatsapp}
-                                onCheckedChange={() => handleWhatsAppToggle(config)}
-                                disabled={updateConfigMutation.isPending}
+                                checked={false}
+                                onCheckedChange={() => {}}
+                                disabled={true}
                                 data-testid={`switch-whatsapp-${config.id}`}
                               />
                             </div>
                           </div>
                           
                           <div className="mt-3 text-xs text-muted-foreground">
-                            {config.enviarEmail && config.enviarWhatsapp 
-                              ? "Email + WhatsApp"
-                              : config.enviarEmail 
-                              ? "Apenas email"
-                              : config.enviarWhatsapp 
-                              ? "Apenas WhatsApp"
+                            {config.enviarEmail 
+                              ? "Ativo (Email)"
                               : "Desabilitado"
                             }
                           </div>
