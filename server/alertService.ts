@@ -29,7 +29,7 @@ export class AlertService {
   ];
 
   // Contatos para alertas
-  private readonly EMAIL_CONTATO = 'ecobrasil@ecobrasil.bio.br';
+  private readonly EMAIL_CONTATO = 'ecobrasiloficial@gmail.com';
   private readonly WHATSAPP_CONTATO = '+5571987802223';
 
   // Inicializa configurações padrão de alertas
