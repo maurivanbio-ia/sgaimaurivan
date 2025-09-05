@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Header() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation(); // << agora temos navigate
   const logout = useLogout();
   const { toast } = useToast();
 
@@ -15,6 +15,8 @@ export default function Header() {
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
+      // O redirecionamento para login será automático devido ao App.tsx
+      // que redireciona quando !isAuthenticated
     } catch (error) {
       toast({
         title: "Erro",
@@ -42,7 +44,7 @@ export default function Header() {
             />
             <h1 className="text-xl font-semibold text-primary">LicençaFácil</h1>
           </div>
-          
+
           <nav className="hidden md:flex space-x-8">
             <Link href="/">
               <Button
@@ -92,7 +94,7 @@ export default function Header() {
               Sair
             </Button>
           </nav>
-          
+
           <div className="md:hidden">
             <Button variant="ghost" size="sm">
               <i className="fas fa-bars" />

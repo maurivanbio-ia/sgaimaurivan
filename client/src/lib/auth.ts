@@ -43,7 +43,9 @@ export function useLogout() {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Remove o usuário do cache e invalida todas as queries
+      queryClient.setQueryData(["/api/auth/user"], null);
+      queryClient.clear(); // Limpa todo o cache para evitar dados stale
     },
   });
 }
