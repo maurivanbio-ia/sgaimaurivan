@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building, Plus, User, MapPin, Bus, Eye } from "lucide-react";
+import { ExportButton } from "@/components/ExportButton";
 import type { Empreendimento } from "@shared/schema";
 
 export default function Projects() {
@@ -25,12 +26,15 @@ export default function Projects() {
           <h2 className="text-3xl font-bold text-card-foreground">Empreendimentos</h2>
           <p className="text-muted-foreground mt-2">Gerencie os empreendimentos cadastrados</p>
         </div>
-        <Link href="/empreendimentos/novo">
-          <Button className="font-medium" data-testid="button-new-project">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Empreendimento
-          </Button>
-        </Link>
+        <div className="flex space-x-2">
+          <ExportButton entity="empreendimentos" />
+          <Link href="/empreendimentos/novo">
+            <Button className="font-medium" data-testid="button-new-project">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Empreendimento
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {projects && projects.length > 0 ? (

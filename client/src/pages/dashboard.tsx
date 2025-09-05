@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
+import { ExportButton } from "@/components/ExportButton";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar } from "lucide-react";
 
 export default function Dashboard() {
@@ -40,9 +41,12 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-card-foreground">Painel Geral</h2>
-        <p className="text-muted-foreground mt-2">Visão geral do sistema de gestão ambiental</p>
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-card-foreground">Painel Geral</h2>
+          <p className="text-muted-foreground mt-2">Visão geral do sistema de gestão ambiental</p>
+        </div>
+        <ExportButton entity="relatorio-completo" variant="default" />
       </div>
 
       {/* Enhanced KPI Stats Cards */}
