@@ -408,28 +408,55 @@ Sistema LicençaFácil - EcoBrasil
       // Simular o envio do alerta
       const alertData = await this.buildAlertData(licencaTeste, 'licenca', 30);
       
-      // Enviar email de teste
-      await sendEmail({
-        to: this.EMAIL_CONTATO,
-        subject: `[TESTE] ${alertData.emailSubject}`,
-        text: `[TESTE DO SISTEMA]\n\n${alertData.emailBody}`,
-        html: alertData.emailHtml.replace('<h1 style', '<h1 style="background: #ff9800; color: white;">🧪 TESTE DO SISTEMA</h1><h2 style'),
-      });
+      let emailStatus = '';
+      let whatsappStatus = '';
+      
+      // Tentar enviar email de teste
+      try {
+        await sendEmail({
+          to: this.EMAIL_CONTATO,
+          subject: `[TESTE] ${alertData.emailSubject}`,
+          text: `[TESTE DO SISTEMA]\n\n${alertData.emailBody}`,
+          html: alertData.emailHtml.replace('<h1 style', '<h1 style="background: #ff9800; color: white;">🧪 TESTE DO SISTEMA</h1><h2 style'),
+        });
+        emailStatus = '✅ Email: Enviado com sucesso';
+      } catch (emailError) {
+        console.error('Erro no envio do email:', emailError);
+        emailStatus = `❌ Email: Erro - ${(emailError as Error).message}`;
+      }
 
-      // Enviar WhatsApp de teste
-      const whatsappTestMessage = `🧪 [TESTE DO SISTEMA]\n\n${alertData.whatsappMessage}`;
-      await sendWhatsApp(this.WHATSAPP_CONTATO, whatsappTestMessage);
+      // Tentar enviar WhatsApp de teste
+      try {
+        const whatsappTestMessage = `🧪 [TESTE DO SISTEMA]\n\n${alertData.whatsappMessage}`;
+        await sendWhatsApp(this.WHATSAPP_CONTATO, whatsappTestMessage);
+        whatsappStatus = '✅ WhatsApp: Enviado com sucesso';
+      } catch (whatsappError) {
+        console.error('Erro no envio do WhatsApp:', whatsappError);
+        whatsappStatus = `❌ WhatsApp: Erro - ${(whatsappError as Error).message}`;
+      }
 
-      console.log('✅ Teste de alertas concluído com sucesso');
+      const message = `Teste de alertas concluído:
+
+${emailStatus}
+${whatsappStatus}
+
+📧 Destinatário Email: ${this.EMAIL_CONTATO}
+📱 Destinatário WhatsApp: ${this.WHATSAPP_CONTATO}
+
+${emailStatus.includes('❌') || whatsappStatus.includes('❌') ? 
+  '\n⚠️ Há problemas de configuração. Verifique os logs para mais detalhes.' : 
+  '\n🎉 Todos os alertas funcionando perfeitamente!'}`;
+
+      console.log('🧪 Teste de alertas concluído');
       return { 
         success: true, 
-        message: `Alertas de teste enviados para:\n📧 Email: ${this.EMAIL_CONTATO}\n📱 WhatsApp: ${this.WHATSAPP_CONTATO}` 
+        message 
       };
     } catch (error) {
       console.error('❌ Erro no teste de alertas:', error);
       return { 
         success: false, 
-        message: `Erro no teste: ${(error as Error).message || String(error)}` 
+        message: `Erro geral no teste: ${(error as Error).message || String(error)}` 
       };
     }
   }
