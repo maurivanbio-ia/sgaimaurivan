@@ -12,6 +12,7 @@ import EditProject from "./pages/edit-project";
 import ProjectDetail from "./pages/project-detail";
 import NewLicense from "./pages/new-license";
 import EditLicense from "./pages/edit-license";
+import AlertConfig from "./pages/alert-config";
 import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
 
@@ -41,6 +42,7 @@ function Router() {
         <Route path="/empreendimentos/:id" component={ProjectDetail} />
         <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
         <Route path="/licencas/:id/editar" component={EditLicense} />
+        <Route path="/alertas" component={AlertConfig} />
         <Route component={NotFound} />
       </Switch>
     </div>

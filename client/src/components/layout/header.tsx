@@ -70,6 +70,19 @@ export default function Header() {
                 Empreendimentos
               </Button>
             </Link>
+            <Link href="/alertas">
+              <Button
+                variant="ghost"
+                className={`px-1 py-4 text-sm font-medium ${
+                  isActive("/alertas")
+                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
+                    : "text-muted-foreground hover:text-primary"
+                }`}
+                data-testid="nav-alerts"
+              >
+                Alertas
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               onClick={handleLogout}
