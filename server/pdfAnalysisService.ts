@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import fs from "fs";
-const pdf = require("pdf-parse");
+import pdf from "pdf-parse";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const DEFAULT_MODEL_STR = "gpt-5";
@@ -135,7 +135,7 @@ export class PDFAnalysisService {
         .filter((c: any) => c.descricao && typeof c.descricao === 'string')
         .map((c: any) => ({
           descricao: c.descricao.trim(),
-          prazo: c.prazo && this.isValidDate(c.prazo) ? c.prazo : undefined
+          prazo: c.prazo && typeof c.prazo === 'string' && this.isValidDate(c.prazo) ? c.prazo : undefined
         }))
         .slice(0, 20); // Limitar a 20 condicionantes
     }
