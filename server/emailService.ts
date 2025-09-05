@@ -11,15 +11,15 @@ interface EmailData {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'maurivan.bio@gmail.com',
-    pass: 'pglerlkstgcynoug' // Senha de app do Google (sem espaços)
+    user: 'ecobrasiloficial@gmail.com',
+    pass: 'ehlbnyjqzxmzsjbg' // Senha de app do Google (sem espaços)
   }
 });
 
 export async function sendEmail(emailData: EmailData): Promise<void> {
   try {
     const mailOptions = {
-      from: 'maurivan.bio@gmail.com', // Email remetente
+      from: 'ecobrasiloficial@gmail.com', // Email remetente
       to: emailData.to,
       subject: emailData.subject,
       text: emailData.text,
