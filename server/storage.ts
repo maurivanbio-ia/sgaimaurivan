@@ -618,23 +618,23 @@ export class DatabaseStorage implements IStorage {
   async getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<Condicionante[]> {
     try {
       const hoje = new Date();
-      const condicionantes = await db
+      const condicionantesList = await db
         .select()
         .from(condicionantes)
         .orderBy(desc(condicionantes.criadoEm));
       
-      return condicionantes.filter(condicionante => {
+      return condicionantesList.filter(condicionante => {
         if (!condicionante.prazo) return false;
         const dataPrazo = new Date(condicionante.prazo);
         const diffTime = dataPrazo.getTime() - hoje.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         if (status === 'vencida') {
-          return diffDays < 0;
+          return condicionante.status === 'vencida' || (condicionante.status === 'pendente' && diffDays < 0);
         } else if (status === 'cumprida') {
-          return condicionante.cumprida;
+          return condicionante.status === 'cumprida';
         } else { // pendente
-          return !condicionante.cumprida && diffDays >= 0;
+          return condicionante.status === 'pendente' && diffDays >= 0;
         }
       });
     } catch (error) {

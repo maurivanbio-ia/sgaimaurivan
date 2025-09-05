@@ -52,13 +52,13 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
       const dataPrazo = new Date(item.prazo);
       const diffDays = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
-      if (item.cumprida) {
+      if (item.status === 'cumprida') {
         return { 
           badge: <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Cumprida</Badge>,
           color: "text-green-600",
           bgColor: "bg-green-50 border-green-200"
         };
-      } else if (diffDays < 0) {
+      } else if (item.status === 'vencida' || diffDays < 0) {
         return { 
           badge: <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" />Vencida</Badge>,
           color: "text-red-600",
@@ -75,13 +75,13 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
       const dataPrazo = new Date(item.prazo);
       const diffDays = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
-      if (item.entregue) {
+      if (item.status === 'entregue') {
         return { 
           badge: <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Entregue</Badge>,
           color: "text-green-600",
           bgColor: "bg-green-50 border-green-200"
         };
-      } else if (diffDays < 0) {
+      } else if (item.status === 'atrasada' || diffDays < 0) {
         return { 
           badge: <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" />Atrasada</Badge>,
           color: "text-red-600",
