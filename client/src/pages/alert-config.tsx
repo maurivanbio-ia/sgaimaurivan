@@ -140,8 +140,7 @@ export default function AlertConfigPage() {
                 Sistema de Alertas Ativo
               </h3>
               <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                Alertas automáticos configurados para <strong>(71) 98780-2223</strong> (WhatsApp) 
-                e <strong>ecobrasil@ecobrasil.bio.br</strong> (email)
+                Alertas automáticos configurados e funcionando
               </p>
               <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
                 Verificação executada automaticamente a cada hora

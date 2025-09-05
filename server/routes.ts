@@ -13,6 +13,7 @@ import session from "express-session";
 import bcrypt from "bcrypt";
 import { cronService } from "./cronService";
 import { exportService } from "./exportService";
+import { alertService } from "./alertService";
 
 // Login schema
 const loginSchema = z.object({
