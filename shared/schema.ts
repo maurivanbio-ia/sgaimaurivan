@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, date, timestamp, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, date, timestamp, serial, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -54,6 +54,32 @@ export const entregas = pgTable("entregas", {
   licencaId: serial("licenca_id").references(() => licencasAmbientais.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// Alert configurations table
+export const alertConfigs = pgTable("alert_configs", {
+  id: serial("id").primaryKey(),
+  tipo: text("tipo").notNull(), // licenca, condicionante, entrega
+  diasAviso: integer("dias_aviso").notNull(), // 90, 60, 30, 15, 7, 1
+  ativo: boolean("ativo").notNull().default(true),
+  enviarEmail: boolean("enviar_email").notNull().default(true),
+  enviarWhatsapp: boolean("enviar_whatsapp").notNull().default(false),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// Alert history table
+export const alertHistory = pgTable("alert_history", {
+  id: serial("id").primaryKey(),
+  tipoItem: text("tipo_item").notNull(), // licenca, condicionante, entrega
+  itemId: integer("item_id").notNull(),
+  diasAviso: integer("dias_aviso").notNull(),
+  tipoNotificacao: text("tipo_notificacao").notNull(), // email, whatsapp
+  status: text("status").notNull(), // enviado, erro, pendente
+  tentativas: integer("tentativas").notNull().default(0),
+  ultimaTentativa: timestamp("ultima_tentativa"),
+  erro: text("erro"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
 // Relations
@@ -121,6 +147,17 @@ export const insertEntregaSchema = createInsertSchema(entregas).omit({
   atualizadoEm: true,
 });
 
+export const insertAlertConfigSchema = createInsertSchema(alertConfigs).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertAlertHistorySchema = createInsertSchema(alertHistory).omit({
+  id: true,
+  criadoEm: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -132,6 +169,10 @@ export type InsertCondicionante = z.infer<typeof insertCondicionanteSchema>;
 export type Condicionante = typeof condicionantes.$inferSelect;
 export type InsertEntrega = z.infer<typeof insertEntregaSchema>;
 export type Entrega = typeof entregas.$inferSelect;
+export type InsertAlertConfig = z.infer<typeof insertAlertConfigSchema>;
+export type AlertConfig = typeof alertConfigs.$inferSelect;
+export type InsertAlertHistory = z.infer<typeof insertAlertHistorySchema>;
+export type AlertHistory = typeof alertHistory.$inferSelect;
 
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
