@@ -50,8 +50,8 @@ export function GlobalSearch() {
     // Empreendimentos
     if (empreendimentos && Array.isArray(empreendimentos)) {
       empreendimentos.forEach((emp: any) => {
-        if (emp.nome.toLowerCase().includes(query.toLowerCase()) ||
-            emp.cliente.toLowerCase().includes(query.toLowerCase())) {
+        if ((emp.nome && emp.nome.toLowerCase().includes(query.toLowerCase())) ||
+            (emp.cliente && emp.cliente.toLowerCase().includes(query.toLowerCase()))) {
           searchResults.push({
             id: emp.id,
             type: 'empreendimento',
@@ -65,14 +65,14 @@ export function GlobalSearch() {
     // Licenças
     if (licencas && Array.isArray(licencas)) {
       licencas.forEach((lic: any) => {
-        if (lic.numero.toLowerCase().includes(query.toLowerCase()) ||
-            lic.tipo.toLowerCase().includes(query.toLowerCase()) ||
-            lic.orgaoEmissor.toLowerCase().includes(query.toLowerCase())) {
+        if ((lic.numero && lic.numero.toLowerCase().includes(query.toLowerCase())) ||
+            (lic.tipo && lic.tipo.toLowerCase().includes(query.toLowerCase())) ||
+            (lic.orgaoEmissor && lic.orgaoEmissor.toLowerCase().includes(query.toLowerCase()))) {
           searchResults.push({
             id: lic.id,
             type: 'licenca',
-            title: `${lic.tipo} - ${lic.numero}`,
-            subtitle: `Órgão: ${lic.orgaoEmissor}`,
+            title: `${lic.tipo || 'Licença'} - ${lic.numero || 'N/A'}`,
+            subtitle: `Órgão: ${lic.orgaoEmissor || 'N/A'}`,
             status: lic.status,
           });
         }
@@ -82,7 +82,7 @@ export function GlobalSearch() {
     // Condicionantes
     if (condicionantes && Array.isArray(condicionantes)) {
       condicionantes.forEach((cond: any) => {
-        if (cond.descricao.toLowerCase().includes(query.toLowerCase())) {
+        if (cond.descricao && cond.descricao.toLowerCase().includes(query.toLowerCase())) {
           searchResults.push({
             id: cond.id,
             type: 'condicionante',
