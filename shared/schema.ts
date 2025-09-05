@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, date, timestamp, serial, boolean, integer, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, date, timestamp, serial, boolean, integer, decimal, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -78,9 +78,11 @@ export const notifications = pgTable("notifications", {
   tipo: text("tipo").notNull(), // licenca, condicionante, entrega
   titulo: text("titulo").notNull(),
   mensagem: text("mensagem").notNull(),
-  canal: text("canal").notNull(), // email, whatsapp, ambos
+  canal: text("canal").notNull(), // email, whatsapp, ambos, sistema
   status: text("status").notNull().default("pendente"), // pendente, enviado, erro
   lida: boolean("lida").notNull().default(false),
+  itemId: integer("item_id"), // ID do item relacionado (opcional)
+  metadados: json("metadados").default({}), // Dados adicionais em JSON
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   enviadoEm: timestamp("enviado_em"),
 });
