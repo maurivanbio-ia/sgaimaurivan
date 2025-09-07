@@ -985,11 +985,21 @@ export class DatabaseStorage implements IStorage {
         status: 'pendente',
       });
 
-      // Update available quantity
+      // Update available quantity (decrease for withdrawal)
       await db
         .update(equipamentos)
         .set({
           quantidadeDisponivel: sql`${equipamentos.quantidadeDisponivel} - ${movimentacao.quantidadeMovimentada || 1}`,
+          atualizadoEm: new Date(),
+        })
+        .where(eq(equipamentos.id, movimentacao.equipamentoId!));
+    } else if (movimentacao.tipoMovimentacao === 'entrada') {
+      // Update available and total quantity (increase for new entries)
+      await db
+        .update(equipamentos)
+        .set({
+          quantidadeDisponivel: sql`${equipamentos.quantidadeDisponivel} + ${movimentacao.quantidadeMovimentada || 1}`,
+          quantidadeTotal: sql`${equipamentos.quantidadeTotal} + ${movimentacao.quantidadeMovimentada || 1}`,
           atualizadoEm: new Date(),
         })
         .where(eq(equipamentos.id, movimentacao.equipamentoId!));
