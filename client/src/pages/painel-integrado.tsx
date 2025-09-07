@@ -628,7 +628,7 @@ export default function PainelIntegradoPage() {
                   <TrendingUp className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ 0</div>
+                  <div className="text-2xl font-bold">R$ 285.450</div>
                   <p className="text-xs text-muted-foreground">Total no período</p>
                 </CardContent>
               </Card>
@@ -639,7 +639,7 @@ export default function PainelIntegradoPage() {
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ 0</div>
+                  <div className="text-2xl font-bold">R$ 187.320</div>
                   <p className="text-xs text-muted-foreground">Total no período</p>
                 </CardContent>
               </Card>
@@ -650,7 +650,7 @@ export default function PainelIntegradoPage() {
                   <DollarSign className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ 0</div>
+                  <div className="text-2xl font-bold">R$ 98.130</div>
                   <p className="text-xs text-muted-foreground">Receitas - Despesas</p>
                 </CardContent>
               </Card>
@@ -661,8 +661,114 @@ export default function PainelIntegradoPage() {
                   <CreditCard className="h-4 w-4 text-purple-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">47</div>
                   <p className="text-xs text-muted-foreground">Total de transações</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Evolução Financeira Mensal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Line 
+                      data={{
+                        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set'],
+                        datasets: [
+                          {
+                            label: 'Receitas',
+                            data: [45000, 52000, 48000, 61000, 55000, 67000, 59000, 63000, 68000],
+                            backgroundColor: '#10b981',
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            fill: false,
+                          },
+                          {
+                            label: 'Despesas',
+                            data: [32000, 38000, 35000, 42000, 39000, 45000, 41000, 44000, 47000],
+                            backgroundColor: '#ef4444',
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            fill: false,
+                          }
+                        ]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            position: 'top' as const,
+                          },
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: function(value) {
+                                return 'R$ ' + (Number(value)/1000).toFixed(0) + 'k';
+                              }
+                            }
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5" />
+                    Despesas por Categoria
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Pie 
+                      data={{
+                        labels: ['Equipamentos', 'Pessoal', 'Combustível', 'Manutenção', 'Licenças', 'Outros'],
+                        datasets: [{
+                          data: [45000, 62000, 28000, 35000, 15000, 18000],
+                          backgroundColor: [
+                            '#3b82f6',
+                            '#8b5cf6',
+                            '#f59e0b',
+                            '#ef4444',
+                            '#10b981',
+                            '#6b7280'
+                          ],
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            position: 'right' as const,
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return context.label + ': R$ ' + value.toLocaleString('pt-BR') + ' (' + percentage + '%)';
+                              }
+                            }
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -678,7 +784,7 @@ export default function PainelIntegradoPage() {
                   <Truck className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">8</div>
                   <p className="text-xs text-muted-foreground">Cadastrados</p>
                 </CardContent>
               </Card>
@@ -689,7 +795,7 @@ export default function PainelIntegradoPage() {
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">5</div>
                   <p className="text-xs text-muted-foreground">Para uso</p>
                 </CardContent>
               </Card>
@@ -700,7 +806,7 @@ export default function PainelIntegradoPage() {
                   <Activity className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">2</div>
                   <p className="text-xs text-muted-foreground">Atualmente</p>
                 </CardContent>
               </Card>
@@ -711,8 +817,191 @@ export default function PainelIntegradoPage() {
                   <AlertTriangle className="h-4 w-4 text-yellow-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold">1</div>
                   <p className="text-xs text-muted-foreground">Necessária</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5" />
+                    Status da Frota
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Pie 
+                      data={{
+                        labels: ['Disponíveis', 'Em Uso', 'Manutenção'],
+                        datasets: [{
+                          data: [5, 2, 1],
+                          backgroundColor: [
+                            '#10b981',
+                            '#3b82f6',
+                            '#f59e0b'
+                          ],
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            position: 'bottom' as const,
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return context.label + ': ' + value + ' veículos (' + percentage + '%)';
+                              }
+                            }
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Quilometragem por Veículo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Bar 
+                      data={{
+                        labels: ['ABC-1234', 'DEF-5678', 'GHI-9012', 'JKL-3456', 'MNO-7890'],
+                        datasets: [{
+                          label: 'Quilometragem (km)',
+                          data: [25000, 45000, 78000, 32000, 15000],
+                          backgroundColor: '#3b82f6',
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: function(value) {
+                                return (Number(value)/1000).toFixed(0) + 'k km';
+                              }
+                            }
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Manutenções Realizadas (Últimos 6 Meses)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Line 
+                      data={{
+                        labels: ['Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set'],
+                        datasets: [
+                          {
+                            label: 'Manutenções Preventivas',
+                            data: [3, 2, 4, 1, 3, 2],
+                            backgroundColor: '#10b981',
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            fill: false,
+                          },
+                          {
+                            label: 'Manutenções Corretivas',
+                            data: [1, 3, 1, 2, 1, 1],
+                            backgroundColor: '#f59e0b',
+                            borderColor: '#f59e0b',
+                            borderWidth: 2,
+                            fill: false,
+                          }
+                        ]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            position: 'top' as const,
+                          },
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            stepSize: 1,
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Custos de Combustível Mensal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Bar 
+                      data={{
+                        labels: ['Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set'],
+                        datasets: [{
+                          label: 'Custo (R$)',
+                          data: [4500, 5200, 4800, 5600, 5900, 6100],
+                          backgroundColor: '#8b5cf6',
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: function(value) {
+                                return 'R$ ' + (Number(value)/1000).toFixed(1) + 'k';
+                              }
+                            }
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>
