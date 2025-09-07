@@ -1,0 +1,114 @@
+✅ MÓDULO DE FROTA – Plataforma EcoBrasil (Versão Final)
+🔹 1. Cadastro Detalhado de Veículos
+
+Campos obrigatórios no formulário de cadastro:
+
+Campo	Tipo	Observações
+ID do Veículo	Autogerado	Interno
+Tipo de veículo	Dropdown	Carro, caminhonete, moto, etc.
+Marca / Modelo / Ano	Texto	Ex: Toyota Hilux 2021
+Placa	Texto	Validação automática
+Renavam	Texto	Opcional
+Categoria	Dropdown	Próprio ou Alugado
+Contrato de aluguel	Upload PDF	Visível apenas se alugado
+Laudo de vistoria (PDF)	Upload PDF	Exigido antes de iniciar uso
+IPVA Atualizado?	Booleano (Sim / Não)	Campo obrigatório
+Comprovante do IPVA	Upload PDF	Validação documental
+Data de aquisição/início do aluguel	Data	
+Data prevista de devolução (se alugado)	Data	
+Empreendimento vinculado	Dropdown com busca	Obrigatório
+Situação atual	Dropdown	Disponível, Em uso, Em manutenção, Inativo
+Responsável atual	Seleção de colaborador	Em uso ou pendente de devolução
+🔹 2. Gestão Documental e Fiscal
+
+Documentos associados ao veículo:
+
+📄 Contrato de aluguel (PDF)
+
+📄 Laudo de vistoria (PDF)
+
+📄 Comprovante de IPVA (PDF)
+
+📄 Termo de uso do condutor (opcional)
+
+Alertas e verificações automáticas:
+
+❗ IPVA em atraso (campo visual + alerta no painel)
+
+📅 Vencimento de vistoria ou seguro
+
+🔧 Manutenção preventiva agendada
+
+🔹 3. Dashboard de Frota (na Aba Painel)
+
+Nova seção "Frota" com gráficos interativos:
+
+🚗 Total de veículos
+
+🟩 Disponíveis
+
+🟥 Em manutenção
+
+🛠️ Aguardando vistoria
+
+📄 IPVA em atraso
+
+📊 Comparativo por empreendimento: uso, KM rodado, custo
+
+Funcionalidade interativa:
+
+Clicando em qualquer ícone/gráfico, uma tabela detalhada é exibida com os dados correspondentes.
+
+🔹 4. Controle de Uso / Deslocamento
+
+Cada deslocamento será registrado com:
+
+Campo	Exemplo
+Veículo utilizado	Toyota Hilux
+Colaborador	João Silva
+Empreendimento destino	UHE Belo Monte
+Tipo de uso	Campo
+Datas de saída e retorno	01/09 – 04/09
+KM inicial e final	52.000 km → 52.730 km
+Combustível abastecido	56 L
+Valor do combustível	R$ 350,00
+Comprovante de abastecimento	Upload (PDF/JPG)
+Observações	"Rachadura no para-brisa"
+🔹 5. Manutenção e Checklists
+
+Sistema de abertura de ordem de manutenção:
+
+Data, motivo, valor estimado, empresa
+
+Upload de orçamento/NF
+
+Checklist de entrega e retorno com campos:
+
+OK / Regular / Avariado
+
+Itens obrigatórios: pneus, óleo, luzes, avarias externas
+
+🔹 6. Relatórios, Auditoria e Exportações
+
+Histórico por veículo completo: uso, manutenções, IPVA
+
+Relatório por projeto: tempo de uso, custos totais, eficiência
+
+Exportação para Excel e PDF com um clique
+
+Sistema auditável com data/hora e ID de quem fez cada movimentação
+
+🔹 7. Banco de Dados (Campos-chave adicionais)
+veiculos
+Campo	Tipo
+id	UUID
+tipo_veiculo	string
+placa	string
+renavam	string
+categoria	string (próprio/alugado)
+contrato_pdf	file
+vistoria_pdf	file
+ipva_atualizado	boolean
+ipva_comprovante_pdf	file
+status	string
+empreendimento_id	foreign key
