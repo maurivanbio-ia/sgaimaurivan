@@ -111,7 +111,7 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
       setor: "",
       prioridade: "media",
       responsavel: "",
-      empreendimento: "",
+      empreendimento: "nenhum",
       observacoes: "",
     },
   });
@@ -122,7 +122,7 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
       const demandaData = {
         ...data,
         // Remove empreendimento field and add empreendimentoId and responsavelId
-        empreendimentoId: data.empreendimento ? parseInt(data.empreendimento) : null,
+        empreendimentoId: data.empreendimento && data.empreendimento !== "nenhum" ? parseInt(data.empreendimento) : null,
         responsavelId: 1, // Default to user ID 1 for now
         criadoPor: 1, // Default to user ID 1 for now
       };
@@ -254,7 +254,7 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="nenhum">Nenhum</SelectItem>
                     {empreendimentos.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.nome}
