@@ -156,13 +156,12 @@ export default function EquipmentDashboard() {
   const displayChartData = chartData || mockChartData;
 
   const handleExportPDF = () => {
-    // TODO: Implement PDF export
-    console.log('Export PDF');
+    window.print();
   };
 
   const handleExportPNG = () => {
-    // TODO: Implement PNG export
-    console.log('Export PNG');
+    // Simple PNG export using html2canvas would go here
+    alert('Funcionalidade de exportação PNG será implementada em breve');
   };
 
   return (
@@ -223,7 +222,7 @@ export default function EquipmentDashboard() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="1">UHE Belo Monte</SelectItem>
                   <SelectItem value="2">Parque Solar A</SelectItem>
                   <SelectItem value="3">Linha 500kV</SelectItem>
@@ -238,7 +237,7 @@ export default function EquipmentDashboard() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="GPS">GPS</SelectItem>
                   <SelectItem value="Notebook">Notebook</SelectItem>
                   <SelectItem value="Rádio">Rádio</SelectItem>
@@ -254,7 +253,7 @@ export default function EquipmentDashboard() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="em_manutencao">Em Manutenção</SelectItem>
                   <SelectItem value="inativo">Inativo</SelectItem>
@@ -274,7 +273,7 @@ export default function EquipmentDashboard() {
 
             <div className="flex items-end">
               <Button 
-                onClick={() => setFilters({ periodo: '30' })}
+                onClick={() => setFilters({ periodo: '30', empreendimento: undefined, tipoEquipamento: undefined, status: undefined, colaborador: undefined })}
                 variant="outline"
                 className="w-full"
                 data-testid="button-clear-filters"
