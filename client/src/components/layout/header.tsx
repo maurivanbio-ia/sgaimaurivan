@@ -53,19 +53,7 @@ export default function Header() {
           </div>
 
           <nav className="hidden md:flex space-x-8">
-            <Link href="/">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-dashboard"
-              >
-                Painel
-              </Button>
-            </Link>
+            
             <Link href="/empreendimentos">
               <Button
                 variant="ghost"
