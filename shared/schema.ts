@@ -209,52 +209,6 @@ export const equipamentosRelations = relations(equipamentos, ({ one, many }) => 
   pendencias: many(pendencias),
 }));
 
-export const demandasRelations = relations(demandas, ({ one, many }) => ({
-  empreendimento: one(empreendimentos, {
-    fields: [demandas.empreendimentoId],
-    references: [empreendimentos.id],
-  }),
-  responsavel: one(users, {
-    fields: [demandas.responsavelId],
-    references: [users.id],
-  }),
-  criadoPorUser: one(users, {
-    fields: [demandas.criadoPor],
-    references: [users.id],
-  }),
-  comentarios: many(comentariosDemandas),
-  subtarefas: many(subtarefasDemandas),
-  historico: many(historicoDemandasMovimentacoes),
-}));
-
-export const comentariosDemandasRelations = relations(comentariosDemandas, ({ one }) => ({
-  demanda: one(demandas, {
-    fields: [comentariosDemandas.demandaId],
-    references: [demandas.id],
-  }),
-  autor: one(users, {
-    fields: [comentariosDemandas.autorId],
-    references: [users.id],
-  }),
-}));
-
-export const subtarefasDemandasRelations = relations(subtarefasDemandas, ({ one }) => ({
-  demanda: one(demandas, {
-    fields: [subtarefasDemandas.demandaId],
-    references: [demandas.id],
-  }),
-}));
-
-export const historicoDemandasMovimentacoesRelations = relations(historicoDemandasMovimentacoes, ({ one }) => ({
-  demanda: one(demandas, {
-    fields: [historicoDemandasMovimentacoes.demandaId],
-    references: [demandas.id],
-  }),
-  usuario: one(users, {
-    fields: [historicoDemandasMovimentacoes.usuarioId],
-    references: [users.id],
-  }),
-}));
 
 export const movimentacoesRelations = relations(movimentacoes, ({ one }) => ({
   equipamento: one(equipamentos, {
@@ -334,6 +288,54 @@ export const historicoDemandasMovimentacoes = pgTable("historico_demandas_movime
   descricao: text("descricao"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
+
+// Relations for demandas tables
+export const demandasRelations = relations(demandas, ({ one, many }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [demandas.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  responsavel: one(users, {
+    fields: [demandas.responsavelId],
+    references: [users.id],
+  }),
+  criadoPorUser: one(users, {
+    fields: [demandas.criadoPor],
+    references: [users.id],
+  }),
+  comentarios: many(comentariosDemandas),
+  subtarefas: many(subtarefasDemandas),
+  historico: many(historicoDemandasMovimentacoes),
+}));
+
+export const comentariosDemandasRelations = relations(comentariosDemandas, ({ one }) => ({
+  demanda: one(demandas, {
+    fields: [comentariosDemandas.demandaId],
+    references: [demandas.id],
+  }),
+  autor: one(users, {
+    fields: [comentariosDemandas.autorId],
+    references: [users.id],
+  }),
+}));
+
+export const subtarefasDemandasRelations = relations(subtarefasDemandas, ({ one }) => ({
+  demanda: one(demandas, {
+    fields: [subtarefasDemandas.demandaId],
+    references: [demandas.id],
+  }),
+}));
+
+export const historicoDemandasMovimentacoesRelations = relations(historicoDemandasMovimentacoes, ({ one }) => ({
+  demanda: one(demandas, {
+    fields: [historicoDemandasMovimentacoes.demandaId],
+    references: [demandas.id],
+  }),
+  usuario: one(users, {
+    fields: [historicoDemandasMovimentacoes.usuarioId],
+    references: [users.id],
+  }),
+}));
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
