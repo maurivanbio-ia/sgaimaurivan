@@ -77,14 +77,11 @@ export default function NewEquipamento() {
       const payload = {
         ...data,
         dataAquisicao: data.dataAquisicao,
-        proximaManutencao: data.proximaManutencao || null,
+        proximaManutencao: data.proximaManutencao || undefined,
         valorAquisicao: data.valorAquisicao ? parseFloat(data.valorAquisicao as string) : null,
         vidaUtilEstimada: data.vidaUtilEstimada ? parseInt(data.vidaUtilEstimada.toString()) : null,
       };
-      return apiRequest("/api/equipamentos", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      return apiRequest("/api/equipamentos", "POST", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipamentos"] });
