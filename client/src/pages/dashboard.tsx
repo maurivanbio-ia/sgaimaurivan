@@ -1,18 +1,38 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import LicenseCalendar from "@/components/LicenseCalendar";
-import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
+import { 
+  CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, 
+  CheckCircle2, AlertTriangle, ShieldCheck, Truck, Activity, Wrench, TrendingUp, 
+  BarChart3, PieChart, Users, MapPin, Filter, Download
+} from "lucide-react";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart as RechartsPieChart, Pie, Cell, LineChart, Line
+} from 'recharts';
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
+  const [activeView, setActiveView] = useState<string>("licencas");
+  const [equipmentFilters, setEquipmentFilters] = useState({
+    periodo: '30',
+    empreendimento: undefined,
+    tipoEquipamento: undefined,
+    status: undefined,
+    colaborador: undefined
+  });
   
   const { data: licenseStats, isLoading: isLoadingLicenses } = useQuery<{ active: number; expiring: number; expired: number }>({
     queryKey: ["/api/stats/licenses"],
@@ -28,6 +48,29 @@ export default function Dashboard() {
 
   const { data: agenda, isLoading: isLoadingAgenda } = useQuery<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>>({
     queryKey: ["/api/agenda/prazos"],
+  });
+
+  // Equipment queries
+  const { data: equipmentStats, isLoading: isLoadingEquipmentStats } = useQuery<{
+    totalEquipamentos: number;
+    emUso: number;
+    emManutencao: number;
+    pendenciasVencidas: number;
+    movimentacoesMes: number;
+  }>({
+    queryKey: ["/api/equipamentos/dashboard/stats", equipmentFilters],
+    enabled: activeView === "equipamentos"
+  });
+
+  const { data: equipmentCharts, isLoading: isLoadingEquipmentCharts } = useQuery<{
+    statusDistribution: { name: string; value: number; color: string }[];
+    equipmentByType: { tipo: string; quantidade: number }[];
+    monthlyMovements: { mes: string; retiradas: number; devolucoes: number; manutencoes: number }[];
+    projectDistribution: { projeto: string; ativo: number; manutencao: number; inativo: number }[];
+    topUsers: { usuario: string; movimentacoes: number }[];
+  }>({
+    queryKey: ["/api/equipamentos/dashboard/charts", equipmentFilters],
+    enabled: activeView === "equipamentos"
   });
 
   const isLoading = isLoadingLicenses || isLoadingCondicionantes || isLoadingEntregas || isLoadingAgenda;
@@ -58,10 +101,25 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* License Calendar Section */}
-      <div className="mb-8">
-        <LicenseCalendar />
-      </div>
+      {/* View Selector Tabs */}
+      <Tabs value={activeView} onValueChange={setActiveView} className="mb-8">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="licencas" data-testid="tab-licencas">
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            Licenças
+          </TabsTrigger>
+          <TabsTrigger value="equipamentos" data-testid="tab-equipamentos">
+            <Package className="h-4 w-4 mr-2" />
+            Equipamentos
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Licenses View */}
+        <TabsContent value="licencas" className="space-y-8">
+          {/* License Calendar Section */}
+          <div>
+            <LicenseCalendar />
+          </div>
 
       {/* Enhanced KPI Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
@@ -418,6 +476,14 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* Equipment View */}
+        <TabsContent value="equipamentos" className="space-y-8">
+          {/* Equipment Dashboard Content */}
+          <div>Equipment dashboard content will go here</div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
