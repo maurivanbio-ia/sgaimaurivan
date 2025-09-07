@@ -106,6 +106,19 @@ export default function Header() {
                 Demandas
               </Button>
             </Link>
+            <Link href="/financeiro">
+              <Button
+                variant="ghost"
+                className={`px-1 py-4 text-sm font-medium ${
+                  isActive("/financeiro")
+                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
+                    : "text-muted-foreground hover:text-primary"
+                }`}
+                data-testid="nav-financeiro"
+              >
+                Financeiro
+              </Button>
+            </Link>
             <Link href="/alertas">
               <Button
                 variant="ghost"
