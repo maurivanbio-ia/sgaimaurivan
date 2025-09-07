@@ -80,17 +80,17 @@ export default function Header() {
                 Equipamentos
               </Button>
             </Link>
-            <Link href="/equipamentos/painel">
+            <Link href="/demandas">
               <Button
                 variant="ghost"
                 className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/equipamentos/painel")
+                  isActive("/demandas")
                     ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
                     : "text-muted-foreground hover:text-primary"
                 }`}
-                data-testid="nav-painel-equipamentos"
+                data-testid="nav-demandas"
               >
-                Painel
+                Demandas
               </Button>
             </Link>
             <Link href="/alertas">

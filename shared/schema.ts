@@ -209,6 +209,53 @@ export const equipamentosRelations = relations(equipamentos, ({ one, many }) => 
   pendencias: many(pendencias),
 }));
 
+export const demandasRelations = relations(demandas, ({ one, many }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [demandas.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  responsavel: one(users, {
+    fields: [demandas.responsavelId],
+    references: [users.id],
+  }),
+  criadoPorUser: one(users, {
+    fields: [demandas.criadoPor],
+    references: [users.id],
+  }),
+  comentarios: many(comentariosDemandas),
+  subtarefas: many(subtarefasDemandas),
+  historico: many(historicoDemandasMovimentacoes),
+}));
+
+export const comentariosDemandasRelations = relations(comentariosDemandas, ({ one }) => ({
+  demanda: one(demandas, {
+    fields: [comentariosDemandas.demandaId],
+    references: [demandas.id],
+  }),
+  autor: one(users, {
+    fields: [comentariosDemandas.autorId],
+    references: [users.id],
+  }),
+}));
+
+export const subtarefasDemandasRelations = relations(subtarefasDemandas, ({ one }) => ({
+  demanda: one(demandas, {
+    fields: [subtarefasDemandas.demandaId],
+    references: [demandas.id],
+  }),
+}));
+
+export const historicoDemandasMovimentacoesRelations = relations(historicoDemandasMovimentacoes, ({ one }) => ({
+  demanda: one(demandas, {
+    fields: [historicoDemandasMovimentacoes.demandaId],
+    references: [demandas.id],
+  }),
+  usuario: one(users, {
+    fields: [historicoDemandasMovimentacoes.usuarioId],
+    references: [users.id],
+  }),
+}));
+
 export const movimentacoesRelations = relations(movimentacoes, ({ one }) => ({
   equipamento: one(equipamentos, {
     fields: [movimentacoes.equipamentoId],
@@ -234,6 +281,59 @@ export const pendenciasRelations = relations(pendencias, ({ one }) => ({
     references: [movimentacoes.id],
   }),
 }));
+
+// Demandas table - Sistema Kanban para gerenciamento de demandas
+export const demandas = pgTable("demandas", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  setor: text("setor").notNull(), // Ex: Fauna, RH, Licenciamento, Engenharia
+  status: text("status").notNull().default("a_fazer"), // a_fazer, em_andamento, em_revisao, concluido, cancelado
+  prioridade: text("prioridade").notNull().default("media"), // baixa, media, alta
+  dataEntrega: date("data_entrega").notNull(),
+  dataConclusao: date("data_conclusao"),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id),
+  responsavelId: serial("responsavel_id").references(() => users.id).notNull(),
+  anexos: text("anexos").array(), // URLs dos arquivos anexados
+  tags: text("tags").array(), // Tags opcionais
+  tempoEstimado: integer("tempo_estimado"), // em horas
+  tempoReal: integer("tempo_real"), // em horas
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+});
+
+// Comentários das demandas
+export const comentariosDemandas = pgTable("comentarios_demandas", {
+  id: serial("id").primaryKey(),
+  demandaId: serial("demanda_id").references(() => demandas.id).notNull(),
+  autorId: serial("autor_id").references(() => users.id).notNull(),
+  comentario: text("comentario").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Subtarefas das demandas
+export const subtarefasDemandas = pgTable("subtarefas_demandas", {
+  id: serial("id").primaryKey(),
+  demandaId: serial("demanda_id").references(() => demandas.id).notNull(),
+  titulo: text("titulo").notNull(),
+  concluida: boolean("concluida").default(false).notNull(),
+  ordem: integer("ordem").default(0).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Histórico de movimentações das demandas (audit trail)
+export const historicoDemandasMovimentacoes = pgTable("historico_demandas_movimentacoes", {
+  id: serial("id").primaryKey(),
+  demandaId: serial("demanda_id").references(() => demandas.id).notNull(),
+  usuarioId: serial("usuario_id").references(() => users.id).notNull(),
+  acao: text("acao").notNull(), // criou, moveu, comentou, anexou, etc.
+  statusAnterior: text("status_anterior"),
+  statusNovo: text("status_novo"),
+  descricao: text("descricao"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -292,11 +392,42 @@ export const insertMovimentacaoSchema = createInsertSchema(movimentacoes).omit({
   criadoEm: true,
 });
 
+export const insertDemandaSchema = createInsertSchema(demandas).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertComentarioDemandaSchema = createInsertSchema(comentariosDemandas).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertSubtarefaDemandaSchema = createInsertSchema(subtarefasDemandas).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertHistoricoMovimentacaoSchema = createInsertSchema(historicoDemandasMovimentacoes).omit({
+  id: true,
+  criadoEm: true,
+});
+
 export const insertPendenciaSchema = createInsertSchema(pendencias).omit({
   id: true,
   criadoEm: true,
   resolvidoEm: true,
 });
+
+// Demandas types
+export type InsertDemanda = z.infer<typeof insertDemandaSchema>;
+export type Demanda = typeof demandas.$inferSelect;
+export type InsertComentarioDemanda = z.infer<typeof insertComentarioDemandaSchema>;
+export type ComentarioDemanda = typeof comentariosDemandas.$inferSelect;
+export type InsertSubtarefaDemanda = z.infer<typeof insertSubtarefaDemandaSchema>;
+export type SubtarefaDemanda = typeof subtarefasDemandas.$inferSelect;
+export type InsertHistoricoMovimentacao = z.infer<typeof insertHistoricoMovimentacaoSchema>;
+export type HistoricoMovimentacao = typeof historicoDemandasMovimentacoes.$inferSelect;
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
