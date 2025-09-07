@@ -110,12 +110,14 @@ export const equipamentos = pgTable("equipamentos", {
   tipoEquipamento: text("tipo_equipamento").notNull(),
   marca: text("marca").notNull(),
   modelo: text("modelo").notNull(),
+  marcaModelo: text("marca_modelo"), // Campo combinado marca e modelo
   dataAquisicao: date("data_aquisicao").notNull(),
   quantidadeTotal: integer("quantidade_total").notNull().default(1), // Quantidade total do equipamento
   quantidadeDisponivel: integer("quantidade_disponivel").notNull().default(1), // Quantidade disponível
-  status: text("status").notNull().default("ativo"), // ativo, inativo, obsoleto, em_avaliacao
-  localizacaoAtual: text("localizacao_atual").notNull().default("escritorio"), // escritorio, cliente, colaborador
-  localizacaoPadrao: text("localizacao_padrao").notNull().default("escritorio"), // Localização padrão do equipamento
+  status: text("status").notNull().default("funcionando"), // funcionando, com_defeito, manutencao, descartado
+  localizacaoAtual: text("localizacao_atual").notNull().default("sede"), // sede, cliente, colaborador
+  localizacaoPadrao: text("localizacao_padrao").notNull().default("sede"), // Localização padrão do equipamento
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id), // Empreendimento vinculado
   responsavelAtual: text("responsavel_atual"), // Nome do responsável atual
   observacoesGerais: text("observacoes_gerais"),
   qrCode: text("qr_code"), // Hash único para QR Code
@@ -123,6 +125,7 @@ export const equipamentos = pgTable("equipamentos", {
   frequenciaManutencao: text("frequencia_manutencao"), // trimestral, semestral, anual
   vidaUtilEstimada: integer("vida_util_estimada"), // em anos
   valorAquisicao: decimal("valor_aquisicao", { precision: 10, scale: 2 }),
+  historicoMovimentacoes: text("historico_movimentacoes").array(), // Array de movimentações
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: serial("criado_por").references(() => users.id).notNull(),
@@ -204,6 +207,10 @@ export const equipamentosRelations = relations(equipamentos, ({ one, many }) => 
   criadoPorUser: one(users, {
     fields: [equipamentos.criadoPor],
     references: [users.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [equipamentos.empreendimentoId],
+    references: [empreendimentos.id],
   }),
   movimentacoes: many(movimentacoes),
   pendencias: many(pendencias),

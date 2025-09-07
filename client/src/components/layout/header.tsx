@@ -67,6 +67,19 @@ export default function Header() {
                 Empreendimentos
               </Button>
             </Link>
+            <Link href="/painel">
+              <Button
+                variant="ghost"
+                className={`px-1 py-4 text-sm font-medium ${
+                  isActive("/painel")
+                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
+                    : "text-muted-foreground hover:text-primary"
+                }`}
+                data-testid="nav-painel"
+              >
+                Painel
+              </Button>
+            </Link>
             <Link href="/equipamentos">
               <Button
                 variant="ghost"
