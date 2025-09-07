@@ -881,8 +881,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(movimentacoes).where(eq(movimentacoes.equipamentoId, id));
     
     // Then delete the equipamento
-    const result = await db.delete(equipamentos).where(eq(equipamentos.id, id));
-    return result.changes > 0;
+    const result = await db.delete(equipamentos).where(eq(equipamentos.id, id)).returning();
+    return result.length > 0;
   }
 
   async searchEquipamentos(filters: { query?: string; status?: string; tipo?: string; localizacao?: string }): Promise<Equipamento[]> {
@@ -913,11 +913,12 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(equipamentos.localizacaoAtual, filters.localizacao));
     }
 
+    let finalQuery = query;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      finalQuery = finalQuery.where(and(...conditions));
     }
 
-    return await query.orderBy(desc(equipamentos.criadoEm));
+    return await finalQuery.orderBy(desc(equipamentos.criadoEm));
   }
 
   async getEquipamentosStats(): Promise<{
@@ -991,7 +992,7 @@ export class DatabaseStorage implements IStorage {
           quantidadeDisponivel: sql`${equipamentos.quantidadeDisponivel} - ${movimentacao.quantidadeMovimentada || 1}`,
           atualizadoEm: new Date(),
         })
-        .where(eq(equipamentos.id, movimentacao.equipamentoId));
+        .where(eq(equipamentos.id, movimentacao.equipamentoId!));
     }
 
     return created;

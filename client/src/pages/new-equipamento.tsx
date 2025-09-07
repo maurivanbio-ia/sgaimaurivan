@@ -18,6 +18,8 @@ import { insertEquipamentoSchema } from "@shared/schema";
 const equipamentoFormSchema = insertEquipamentoSchema.extend({
   proximaManutencao: z.string().optional(),
   dataAquisicao: z.string().min(1, "Data de aquisição é obrigatória"),
+  quantidadeTotal: z.number().min(1, "Quantidade deve ser pelo menos 1").default(1),
+  quantidadeDisponivel: z.number().min(0, "Quantidade disponível deve ser pelo menos 0").default(1),
 }).omit({
   qrCode: true,
   criadoPor: true,
@@ -51,12 +53,16 @@ export default function NewEquipamento() {
     resolver: zodResolver(equipamentoFormSchema),
     defaultValues: {
       numeroPatrimonio: "",
+      nome: "",
       tipoEquipamento: "",
       marca: "",
       modelo: "",
       dataAquisicao: "",
-      status: "funcionando",
+      quantidadeTotal: 1,
+      quantidadeDisponivel: 1,
+      status: "ativo",
       localizacaoAtual: "escritorio",
+      localizacaoPadrao: "escritorio",
       responsavelAtual: "",
       observacoesGerais: "",
       proximaManutencao: "",
@@ -144,6 +150,24 @@ export default function NewEquipamento() {
                             {...field}
                             placeholder="Ex: EQ-2024-001"
                             data-testid="input-numero-patrimonio"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="nome"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Equipamento *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Ex: Microscópio Biológico"
+                            data-testid="input-nome"
                           />
                         </FormControl>
                         <FormMessage />
@@ -270,12 +294,61 @@ export default function NewEquipamento() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="funcionando">Funcionando</SelectItem>
-                            <SelectItem value="com_defeito">Com Defeito</SelectItem>
+                            <SelectItem value="ativo">Ativo</SelectItem>
+                            <SelectItem value="inativo">Inativo</SelectItem>
                             <SelectItem value="em_manutencao">Em Manutenção</SelectItem>
-                            <SelectItem value="descartado">Descartado</SelectItem>
+                            <SelectItem value="obsoleto">Obsoleto</SelectItem>
+                            <SelectItem value="em_avaliacao">Em Avaliação</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="quantidadeTotal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade Total *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min="1"
+                            placeholder="1"
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1;
+                              field.onChange(value);
+                              // Auto-set available quantity to total when creating
+                              form.setValue('quantidadeDisponivel', value);
+                            }}
+                            data-testid="input-quantidade-total"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="quantidadeDisponivel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade Disponível *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min="0"
+                            max={form.watch('quantidadeTotal')}
+                            placeholder="1"
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            data-testid="input-quantidade-disponivel"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -290,6 +363,29 @@ export default function NewEquipamento() {
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-localizacao">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="escritorio">Escritório</SelectItem>
+                            <SelectItem value="cliente">Cliente</SelectItem>
+                            <SelectItem value="colaborador">Colaborador</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="localizacaoPadrao"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Localização Padrão</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-localizacao-padrao">
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>

@@ -721,6 +721,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/equipamentos/stats", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getEquipamentosStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting equipment stats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/equipamentos/search", requireAuth, async (req, res) => {
+    try {
+      const { query, status, tipo, localizacao } = req.query;
+      const filters = {
+        query: query as string,
+        status: status as string,
+        tipo: tipo as string,
+        localizacao: localizacao as string,
+      };
+      const equipamentos = await storage.searchEquipamentos(filters);
+      res.json(equipamentos);
+    } catch (error) {
+      console.error("Error searching equipamentos:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/equipamentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -820,28 +847,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const movimentacaoData = insertMovimentacaoSchema.parse(req.body);
       
-      const movimentacao = await storage.createMovimentacao({
-        ...movimentacaoData,
-        criadoPor: req.session.userId!
-      });
-      
-      res.status(201).json(movimentacao);
+      // Check if it's a return movement with pending items
+      if (req.body.tipoMovimentacao === 'devolucao' && req.body.pendenciaIds?.length) {
+        const movimentacao = await storage.processReturnMovement({
+          ...movimentacaoData,
+          criadoPor: req.session.userId!
+        }, req.body.pendenciaIds);
+        res.status(201).json(movimentacao);
+      } else {
+        const movimentacao = await storage.createMovimentacao({
+          ...movimentacaoData,
+          criadoPor: req.session.userId!
+        });
+        res.status(201).json(movimentacao);
+      }
     } catch (error) {
       console.error("Create movimentacao error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
-  // Equipamentos stats routes
-  app.get("/api/stats/equipamentos", requireAuth, async (req, res) => {
+  // Pendency routes
+  app.get("/api/equipamentos/:id/pendencias", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getEquipamentosStats();
-      res.json(stats);
+      const equipamentoId = parseInt(req.params.id);
+      if (isNaN(equipamentoId)) {
+        return res.status(400).json({ message: "ID de equipamento inválido" });
+      }
+      
+      const pendencias = await storage.getPendenciasByEquipamento(equipamentoId);
+      res.json(pendencias);
     } catch (error) {
-      console.error("Get equipamentos stats error:", error);
+      console.error("Error getting pendencias:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  app.get("/api/pendencias", requireAuth, async (req, res) => {
+    try {
+      const pendencias = await storage.getPendenciasAtivas();
+      res.json(pendencias);
+    } catch (error) {
+      console.error("Error getting active pendencias:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Keep the existing stats route unchanged as it's already using the new method
 
   // Equipamentos search route
   app.get("/api/equipamentos/search", requireAuth, async (req, res) => {
