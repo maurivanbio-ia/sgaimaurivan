@@ -10,6 +10,10 @@ import {
   equipamentos,
   movimentacoes,
   pendencias,
+  demandas,
+  comentariosDemandas,
+  subtarefasDemandas,
+  historicoDemandasMovimentacoes,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -37,6 +41,14 @@ import {
   type InsertPendencia,
   type PendenciaWithDetails,
   type EquipamentoWithDetails,
+  type Demanda,
+  type InsertDemanda,
+  type ComentarioDemanda,
+  type InsertComentarioDemanda,
+  type SubtarefaDemanda,
+  type InsertSubtarefaDemanda,
+  type HistoricoMovimentacao,
+  type InsertHistoricoMovimentacao,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
@@ -134,6 +146,33 @@ export interface IStorage {
   getMovimentacoesByEquipamento(equipamentoId: number): Promise<Movimentacao[]>;
   createMovimentacao(movimentacao: InsertMovimentacao): Promise<Movimentacao>;
   processReturnMovement(movimentacao: InsertMovimentacao, pendenciaIds: number[]): Promise<Movimentacao>;
+
+  // Demandas operations
+  getDemandas(filters?: {
+    setor?: string;
+    responsavel?: string;
+    empreendimento?: string;
+    prioridade?: string;
+    status?: string;
+    search?: string;
+  }): Promise<Demanda[]>;
+  getDemandaById(id: number): Promise<Demanda | undefined>;
+  createDemanda(demanda: InsertDemanda): Promise<Demanda>;
+  updateDemanda(id: number, updates: Partial<Demanda>): Promise<Demanda | undefined>;
+  deleteDemanda(id: number): Promise<boolean>;
+  getDemandasStats(): Promise<{
+    total: number;
+    concluidas: number;
+    emAndamento: number;
+    atrasadas: number;
+    porSetor: Array<{ setor: string; count: number }>;
+  }>;
+  getDemandasChartData(): Promise<{
+    statusChart: Array<{ status: string; count: number }>;
+    prioridadeChart: Array<{ prioridade: string; count: number }>;
+    setorChart: Array<{ setor: string; count: number }>;
+    evolucaoChart: Array<{ periodo: string; concluidas: number; novas: number }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1066,6 +1105,175 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(equipamentos.id, pendencia.equipamentoId));
     }
+  }
+
+  // Demandas operations
+  async getDemandas(filters?: {
+    setor?: string;
+    responsavel?: string;
+    empreendimento?: string;
+    prioridade?: string;
+    status?: string;
+    search?: string;
+  }): Promise<Demanda[]> {
+    let query = db.select().from(demandas);
+    const conditions = [];
+    
+    if (filters?.setor && filters.setor !== "todos") {
+      conditions.push(eq(demandas.setor, filters.setor));
+    }
+    
+    if (filters?.prioridade && filters.prioridade !== "todas") {
+      conditions.push(eq(demandas.prioridade, filters.prioridade));
+    }
+    
+    if (filters?.status) {
+      conditions.push(eq(demandas.status, filters.status));
+    }
+    
+    if (filters?.search) {
+      conditions.push(
+        or(
+          ilike(demandas.titulo, `%${filters.search}%`),
+          ilike(demandas.descricao, `%${filters.search}%`),
+          ilike(demandas.setor, `%${filters.search}%`)
+        )
+      );
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(desc(demandas.criadoEm));
+  }
+
+  async getDemandaById(id: number): Promise<Demanda | undefined> {
+    const [demanda] = await db.select().from(demandas).where(eq(demandas.id, id));
+    return demanda || undefined;
+  }
+
+  async createDemanda(demanda: InsertDemanda): Promise<Demanda> {
+    const [created] = await db.insert(demandas).values(demanda).returning();
+    return created;
+  }
+
+  async updateDemanda(id: number, updates: Partial<Demanda>): Promise<Demanda | undefined> {
+    const [updated] = await db
+      .update(demandas)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(eq(demandas.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDemanda(id: number): Promise<boolean> {
+    const result = await db.delete(demandas).where(eq(demandas.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getDemandasStats(): Promise<{
+    total: number;
+    concluidas: number;
+    emAndamento: number;
+    atrasadas: number;
+    porSetor: Array<{ setor: string; count: number }>;
+  }> {
+    const today = new Date();
+    
+    // Get all demandas for processing
+    const allDemandas = await db.select().from(demandas);
+    
+    const total = allDemandas.length;
+    const concluidas = allDemandas.filter(d => d.status === "concluido").length;
+    const emAndamento = allDemandas.filter(d => d.status === "em_andamento").length;
+    const atrasadas = allDemandas.filter(d => 
+      d.status !== "concluido" && 
+      d.status !== "cancelado" && 
+      new Date(d.dataEntrega) < today
+    ).length;
+    
+    // Count by setor
+    const setorMap = new Map<string, number>();
+    allDemandas.forEach(d => {
+      setorMap.set(d.setor, (setorMap.get(d.setor) || 0) + 1);
+    });
+    
+    const porSetor = Array.from(setorMap.entries()).map(([setor, count]) => ({ setor, count }));
+    
+    return {
+      total,
+      concluidas,
+      emAndamento,
+      atrasadas,
+      porSetor,
+    };
+  }
+
+  async getDemandasChartData(): Promise<{
+    statusChart: Array<{ status: string; count: number }>;
+    prioridadeChart: Array<{ prioridade: string; count: number }>;
+    setorChart: Array<{ setor: string; count: number }>;
+    evolucaoChart: Array<{ periodo: string; concluidas: number; novas: number }>;
+  }> {
+    const allDemandas = await db.select().from(demandas);
+    
+    // Status chart
+    const statusMap = new Map<string, number>();
+    allDemandas.forEach(d => {
+      statusMap.set(d.status, (statusMap.get(d.status) || 0) + 1);
+    });
+    const statusChart = Array.from(statusMap.entries()).map(([status, count]) => ({ status, count }));
+    
+    // Priority chart
+    const prioridadeMap = new Map<string, number>();
+    allDemandas.forEach(d => {
+      prioridadeMap.set(d.prioridade, (prioridadeMap.get(d.prioridade) || 0) + 1);
+    });
+    const prioridadeChart = Array.from(prioridadeMap.entries()).map(([prioridade, count]) => ({ prioridade, count }));
+    
+    // Setor chart (top 10)
+    const setorMap = new Map<string, number>();
+    allDemandas.forEach(d => {
+      setorMap.set(d.setor, (setorMap.get(d.setor) || 0) + 1);
+    });
+    const setorChart = Array.from(setorMap.entries())
+      .map(([setor, count]) => ({ setor, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    
+    // Evolution chart (last 6 months)
+    const evolucaoChart: Array<{ periodo: string; concluidas: number; novas: number }> = [];
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const nextDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      
+      const concluidas = allDemandas.filter(d => 
+        d.dataConclusao && 
+        new Date(d.dataConclusao) >= date && 
+        new Date(d.dataConclusao) < nextDate
+      ).length;
+      
+      const novas = allDemandas.filter(d => 
+        new Date(d.criadoEm) >= date && 
+        new Date(d.criadoEm) < nextDate
+      ).length;
+      
+      evolucaoChart.push({
+        periodo: date.toLocaleDateString('pt-BR', { month: 'short' }),
+        concluidas,
+        novas
+      });
+    }
+    
+    return {
+      statusChart,
+      prioridadeChart,
+      setorChart,
+      evolucaoChart,
+    };
   }
 }
 

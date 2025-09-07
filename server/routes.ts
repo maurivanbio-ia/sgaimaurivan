@@ -1050,6 +1050,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==== DEMANDAS ROUTES ====
+
+  // Get all demandas with filters
+  app.get('/api/demandas', async (req, res) => {
+    try {
+      const filters = {
+        setor: req.query.setor as string,
+        responsavel: req.query.responsavel as string,
+        empreendimento: req.query.empreendimento as string,
+        prioridade: req.query.prioridade as string,
+        status: req.query.status as string,
+        search: req.query.search as string,
+      };
+      
+      // Clean undefined values
+      Object.keys(filters).forEach(key => {
+        if (filters[key as keyof typeof filters] === undefined) {
+          delete filters[key as keyof typeof filters];
+        }
+      });
+      
+      const demandas = await storage.getDemandas(filters);
+      res.json(demandas);
+    } catch (error) {
+      console.error('Error fetching demandas:', error);
+      res.status(500).json({ error: 'Failed to fetch demandas' });
+    }
+  });
+
+  // Get demandas statistics for dashboard
+  app.get('/api/demandas/dashboard/stats', async (req, res) => {
+    try {
+      const stats = await storage.getDemandasStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching demandas stats:', error);
+      res.status(500).json({ error: 'Failed to fetch demandas statistics' });
+    }
+  });
+
+  // Get demandas chart data for dashboard
+  app.get('/api/demandas/dashboard/charts', async (req, res) => {
+    try {
+      const chartData = await storage.getDemandasChartData();
+      res.json(chartData);
+    } catch (error) {
+      console.error('Error fetching demandas charts:', error);
+      res.status(500).json({ error: 'Failed to fetch demandas chart data' });
+    }
+  });
+
+  // Create new demanda
+  app.post('/api/demandas', async (req, res) => {
+    try {
+      const demanda = await storage.createDemanda(req.body);
+      res.status(201).json(demanda);
+    } catch (error) {
+      console.error('Error creating demanda:', error);
+      res.status(500).json({ error: 'Failed to create demanda' });
+    }
+  });
+
+  // Update demanda
+  app.patch('/api/demandas/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid demanda ID' });
+      }
+      
+      const demanda = await storage.updateDemanda(id, req.body);
+      if (!demanda) {
+        return res.status(404).json({ error: 'Demanda not found' });
+      }
+      
+      res.json(demanda);
+    } catch (error) {
+      console.error('Error updating demanda:', error);
+      res.status(500).json({ error: 'Failed to update demanda' });
+    }
+  });
+
+  // ==== END DEMANDAS ROUTES ====
+
   const httpServer = createServer(app);
   return httpServer;
 }
