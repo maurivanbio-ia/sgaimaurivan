@@ -9,8 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
 import { 
   Plus, 
   Search, 
@@ -24,12 +33,17 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Demanda, InsertDemanda } from "@shared/schema";
+import { createInsertSchema } from "drizzle-zod";
+import { demandas } from "@shared/schema";
+import * as z from "zod";
 
 // Status mapping
 const STATUS_CONFIG = {
@@ -59,6 +73,322 @@ const SETORES = [
   "Meio Ambiente",
   "Administrativo"
 ];
+
+// Create form schema for Nova Demanda
+const novaDemandaSchema = z.object({
+  titulo: z.string().min(3, "Título deve ter pelo menos 3 caracteres"),
+  descricao: z.string().min(10, "Descrição deve ter pelo menos 10 caracteres"),
+  setor: z.string().min(1, "Setor é obrigatório"),
+  prioridade: z.enum(["baixa", "media", "alta"], { required_error: "Prioridade é obrigatória" }),
+  responsavel: z.string().min(2, "Responsável deve ter pelo menos 2 caracteres"),
+  empreendimento: z.string().optional(),
+  dataEntrega: z.date({ required_error: "Data de entrega é obrigatória" }),
+  observacoes: z.string().optional(),
+  tempoEstimado: z.number().optional(),
+});
+
+type NovaDemandaFormData = z.infer<typeof novaDemandaSchema>;
+
+// Nova Demanda Form Component
+interface NovaDemandaFormProps {
+  onSuccess: () => void;
+}
+
+function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const form = useForm<NovaDemandaFormData>({
+    resolver: zodResolver(novaDemandaSchema),
+    defaultValues: {
+      titulo: "",
+      descricao: "",
+      setor: "",
+      prioridade: "media",
+      responsavel: "",
+      empreendimento: "",
+      observacoes: "",
+    },
+  });
+
+  const createDemandaMutation = useMutation({
+    mutationFn: async (data: NovaDemandaFormData) => {
+      return apiRequest("POST", "/api/demandas", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      toast({
+        title: "Demanda criada",
+        description: "Nova demanda foi criada com sucesso!",
+      });
+      form.reset();
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar a demanda. Tente novamente.",
+        variant: "destructive",
+      });
+      console.error("Erro ao criar demanda:", error);
+    },
+  });
+
+  const onSubmit = (data: NovaDemandaFormData) => {
+    createDemandaMutation.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="titulo"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Título da Demanda *</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Ex: Elaboração do RCA para UHE..."
+                    {...field}
+                    data-testid="input-titulo"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="setor"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Setor *</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-setor">
+                      <SelectValue placeholder="Selecione o setor" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {SETORES.map((setor) => (
+                      <SelectItem key={setor} value={setor}>
+                        {setor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="prioridade"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Prioridade *</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-prioridade">
+                      <SelectValue placeholder="Selecione a prioridade" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="responsavel"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Responsável *</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Nome do responsável"
+                    {...field}
+                    data-testid="input-responsavel"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="empreendimento"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Empreendimento</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Nome do empreendimento (opcional)"
+                    {...field}
+                    data-testid="input-empreendimento"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Vincule a demanda a um empreendimento específico
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dataEntrega"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Data de Entrega *</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        data-testid="button-data-entrega"
+                      >
+                        {field.value ? (
+                          format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                        ) : (
+                          <span>Selecione a data de entrega</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormDescription>
+                  Data prevista para entrega final da demanda
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="tempoEstimado"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tempo Estimado (horas)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 40"
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                    data-testid="input-tempo-estimado"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Estimativa de horas necessárias para conclusão
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <FormField
+            control={form.control}
+            name="descricao"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descrição Detalhada *</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Descreva detalhadamente a demanda, objetivos, metodologia e entregaveis esperados..."
+                    className="min-h-[120px] resize-none"
+                    {...field}
+                    data-testid="textarea-descricao"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Inclua todos os detalhes relevantes, objetivos e entregaveis esperados
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="observacoes"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Observações</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Observações adicionais, recursos necessários, restrições..."
+                    className="min-h-[80px] resize-none"
+                    {...field}
+                    data-testid="textarea-observacoes"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Informações complementares sobre a demanda
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => form.reset()}
+            data-testid="button-cancelar"
+          >
+            Limpar
+          </Button>
+          <Button
+            type="submit"
+            disabled={createDemandaMutation.isPending}
+            data-testid="button-criar-demanda"
+          >
+            {createDemandaMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Criando...
+              </>
+            ) : (
+              "Criar Demanda"
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
 
 interface DemandaCardProps {
   demanda: Demanda;
@@ -245,10 +575,7 @@ export default function DemandasPage() {
   // Update demanda status mutation
   const updateDemandaMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return apiRequest(`/api/demandas/${id}`, {
-        method: "PATCH",
-        body: { status }
-      });
+      return apiRequest("PATCH", `/api/demandas/${id}`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
@@ -326,13 +653,13 @@ export default function DemandasPage() {
                 Nova Demanda
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Nova Demanda</DialogTitle>
               </DialogHeader>
-              <div className="text-center py-8 text-muted-foreground">
-                Formulário de criação será implementado em breve
-              </div>
+              <NovaDemandaForm onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['/api/demandas'] });
+              }} />
             </DialogContent>
           </Dialog>
         </div>
