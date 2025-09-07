@@ -480,8 +480,263 @@ export default function Dashboard() {
 
         {/* Equipment View */}
         <TabsContent value="equipamentos" className="space-y-8">
-          {/* Equipment Dashboard Content */}
-          <div>Equipment dashboard content will go here</div>
+          {/* Equipment Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros de Equipamentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Período</label>
+                  <Select value={equipmentFilters.periodo} onValueChange={(value) => setEquipmentFilters({...equipmentFilters, periodo: value})}>
+                    <SelectTrigger data-testid="equipment-filter-periodo">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 dias</SelectItem>
+                      <SelectItem value="30">30 dias</SelectItem>
+                      <SelectItem value="90">90 dias</SelectItem>
+                      <SelectItem value="personalizado">Personalizado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Empreendimento</label>
+                  <Select value={equipmentFilters.empreendimento} onValueChange={(value) => setEquipmentFilters({...equipmentFilters, empreendimento: value})}>
+                    <SelectTrigger data-testid="equipment-filter-empreendimento">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="1">UHE Belo Monte</SelectItem>
+                      <SelectItem value="2">Parque Solar A</SelectItem>
+                      <SelectItem value="3">Linha 500kV</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Tipo</label>
+                  <Select value={equipmentFilters.tipoEquipamento} onValueChange={(value) => setEquipmentFilters({...equipmentFilters, tipoEquipamento: value})}>
+                    <SelectTrigger data-testid="equipment-filter-tipo">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="GPS">GPS</SelectItem>
+                      <SelectItem value="Notebook">Notebook</SelectItem>
+                      <SelectItem value="Rádio">Rádio</SelectItem>
+                      <SelectItem value="Drone">Drone</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Status</label>
+                  <Select value={equipmentFilters.status} onValueChange={(value) => setEquipmentFilters({...equipmentFilters, status: value})}>
+                    <SelectTrigger data-testid="equipment-filter-status">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="em_manutencao">Em Manutenção</SelectItem>
+                      <SelectItem value="inativo">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Colaborador</label>
+                  <Input 
+                    placeholder="Nome do colaborador"
+                    value={equipmentFilters.colaborador || ''}
+                    onChange={(e) => setEquipmentFilters({...equipmentFilters, colaborador: e.target.value})}
+                    data-testid="equipment-filter-colaborador"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <Button 
+                    onClick={() => setEquipmentFilters({ periodo: '30', empreendimento: undefined, tipoEquipamento: undefined, status: undefined, colaborador: undefined })}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="equipment-button-clear-filters"
+                  >
+                    Limpar
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Equipment KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <Card data-testid="equipment-card-total">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total de Equipamentos
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{equipmentStats?.totalEquipamentos || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Cadastrados no sistema
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="equipment-card-em-uso">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Em Uso
+                </CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{equipmentStats?.emUso || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Atualmente alocados
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="equipment-card-manutencao">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Em Manutenção
+                </CardTitle>
+                <Wrench className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{equipmentStats?.emManutencao || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Aguardando reparo
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="equipment-card-pendencias">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Devoluções Atrasadas
+                </CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">{equipmentStats?.pendenciasVencidas || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Há mais de 7 dias
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="equipment-card-movimentacoes">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Movimentações do Mês
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{equipmentStats?.movimentacoesMes || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Total no período
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Equipment Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Status Distribution */}
+            <Card data-testid="equipment-chart-status">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  Status dos Equipamentos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={equipmentCharts?.statusDistribution || []}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={120}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {(equipmentCharts?.statusDistribution || []).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {(equipmentCharts?.statusDistribution || []).map((item, index) => (
+                    <Badge key={index} variant="outline" className="flex items-center gap-1">
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      {item.name}: {item.value}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Equipment by Type */}
+            <Card data-testid="equipment-chart-types">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Equipamentos por Tipo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={equipmentCharts?.equipmentByType || []} layout="horizontal">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="tipo" type="category" width={80} />
+                    <RechartsTooltip />
+                    <Bar dataKey="quantidade" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Movements */}
+            <Card data-testid="equipment-chart-movements" className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Movimentações Mensais</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={equipmentCharts?.monthlyMovements || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" />
+                    <YAxis />
+                    <RechartsTooltip />
+                    <Line type="monotone" dataKey="retiradas" stroke="#3b82f6" name="Retiradas" />
+                    <Line type="monotone" dataKey="devolucoes" stroke="#10b981" name="Devoluções" />
+                    <Line type="monotone" dataKey="manutencoes" stroke="#f59e0b" name="Manutenções" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
