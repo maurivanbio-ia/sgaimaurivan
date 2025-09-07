@@ -25,7 +25,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Eye, Plus, Search, QrCode, Edit, ArrowLeft, Save, Trash2 } from "lucide-react";
 import type { Equipamento } from "@shared/schema";
 
@@ -392,6 +392,19 @@ function VerEquipamento() {
     },
   });
 
+  if (!id) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardHeader><CardTitle>Equipamento não encontrado</CardTitle></CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate("/equipamentos")}>Voltar à lista</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-8">
@@ -495,15 +508,11 @@ type FormValues = z.infer<typeof formSchema>;
 
 function EditarEquipamento() {
   const [, navigate] = useLocation();
-  const [match, params] = useRoute<{ id: string }>("/equipamentos/:id/editar");
-  const id = params?.id;
+  const [, params] = useRoute<{ id: string }>("/equipamentos/:id/editar");
+  const id = params?.id; // não redireciona automaticamente para evitar falsos 404
   const qc = useQueryClient();
   const { toast } = useToast();
   const [deleteOpen, setDeleteOpen] = useState(false);
-
-  useEffect(() => {
-    if (!match || !id) navigate("/equipamentos");
-  }, [match, id, navigate]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     enabled: Boolean(id),
@@ -516,7 +525,7 @@ function EditarEquipamento() {
   });
 
   const {
-    control, handleSubmit, reset, register, setValue, watch,
+    control, handleSubmit, reset, register, watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -621,6 +630,19 @@ function EditarEquipamento() {
 
   const FieldError = ({ msg }: { msg?: string }) =>
     msg ? <p className="text-xs text-red-600 mt-1">{msg}</p> : null;
+
+  if (!id) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardHeader><CardTitle>Rota inválida</CardTitle></CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate("/equipamentos")}>Voltar</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -909,7 +931,26 @@ function QREquipamento() {
 }
 
 // =====================================================
+// NOVO (placeholder) : /equipamentos/novo
+// =====================================================
+function NovoEquipamento() {
+  const [, navigate] = useLocation();
+  return (
+    <div className="container mx-auto py-8">
+      <Card>
+        <CardHeader><CardTitle>Novo Equipamento</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p>Formulário de criação em desenvolvimento.</p>
+          <Button onClick={() => navigate("/equipamentos")}>Voltar</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// =====================================================
 // MÓDULO / EXPORT ÚNICO COM ROTAS
+//  Correção: rotas mais específicas ANTES das genéricas
 // =====================================================
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -927,10 +968,12 @@ const queryClient = new QueryClient({
 function EquipamentosRoutes() {
   return (
     <Switch>
-      <Route path="/equipamentos" component={EquipamentosList} />
-      <Route path="/equipamentos/:id" component={VerEquipamento} />
+      {/* Coloque as rotas mais específicas primeiro */}
       <Route path="/equipamentos/:id/editar" component={EditarEquipamento} />
       <Route path="/equipamentos/:id/qr" component={QREquipamento} />
+      <Route path="/equipamentos/novo" component={NovoEquipamento} />
+      <Route path="/equipamentos/:id" component={VerEquipamento} />
+      <Route path="/equipamentos" component={EquipamentosList} />
       {/* fallback simples */}
       <Route>
         <div className="container mx-auto py-8">
