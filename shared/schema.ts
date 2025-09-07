@@ -102,6 +102,46 @@ export const alertHistory = pgTable("alert_history", {
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
+// Equipamentos table
+export const equipamentos = pgTable("equipamentos", {
+  id: serial("id").primaryKey(),
+  numeroPatrimonio: text("numero_patrimonio").notNull().unique(),
+  tipoEquipamento: text("tipo_equipamento").notNull(),
+  marca: text("marca").notNull(),
+  modelo: text("modelo").notNull(),
+  dataAquisicao: date("data_aquisicao").notNull(),
+  status: text("status").notNull().default("funcionando"), // funcionando, com_defeito, em_manutencao, descartado
+  localizacaoAtual: text("localizacao_atual").notNull().default("escritorio"), // escritorio, cliente, colaborador
+  responsavelAtual: text("responsavel_atual"), // Nome do responsável atual
+  observacoesGerais: text("observacoes_gerais"),
+  qrCode: text("qr_code"), // Hash único para QR Code
+  proximaManutencao: date("proxima_manutencao"),
+  frequenciaManutencao: text("frequencia_manutencao"), // trimestral, semestral, anual
+  vidaUtilEstimada: integer("vida_util_estimada"), // em anos
+  valorAquisicao: decimal("valor_aquisicao", { precision: 10, scale: 2 }),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+});
+
+// Movimentacoes table
+export const movimentacoes = pgTable("movimentacoes", {
+  id: serial("id").primaryKey(),
+  equipamentoId: serial("equipamento_id").references(() => equipamentos.id).notNull(),
+  tipoMovimentacao: text("tipo_movimentacao").notNull(), // entrada, retirada, devolucao, manutencao
+  dataHora: timestamp("data_hora").defaultNow().notNull(),
+  responsavelAcao: text("responsavel_acao").notNull(),
+  finalidadeMovimentacao: text("finalidade_movimentacao"),
+  observacoes: text("observacoes"),
+  comprovante: text("comprovante"), // Path do arquivo de comprovante
+  localizacaoOrigem: text("localizacao_origem"),
+  localizacaoDestino: text("localizacao_destino"),
+  statusAnterior: text("status_anterior"),
+  statusPosterior: text("status_posterior"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   empreendimentos: many(empreendimentos),
@@ -135,6 +175,25 @@ export const entregasRelations = relations(entregas, ({ one }) => ({
   licenca: one(licencasAmbientais, {
     fields: [entregas.licencaId],
     references: [licencasAmbientais.id],
+  }),
+}));
+
+export const equipamentosRelations = relations(equipamentos, ({ one, many }) => ({
+  criadoPorUser: one(users, {
+    fields: [equipamentos.criadoPor],
+    references: [users.id],
+  }),
+  movimentacoes: many(movimentacoes),
+}));
+
+export const movimentacoesRelations = relations(movimentacoes, ({ one }) => ({
+  equipamento: one(equipamentos, {
+    fields: [movimentacoes.equipamentoId],
+    references: [equipamentos.id],
+  }),
+  criadoPorUser: one(users, {
+    fields: [movimentacoes.criadoPor],
+    references: [users.id],
   }),
 }));
 
@@ -184,6 +243,17 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   enviadoEm: true,
 });
 
+export const insertEquipamentoSchema = createInsertSchema(equipamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertMovimentacaoSchema = createInsertSchema(movimentacoes).omit({
+  id: true,
+  criadoEm: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -201,6 +271,10 @@ export type InsertAlertHistory = z.infer<typeof insertAlertHistorySchema>;
 export type AlertHistory = typeof alertHistory.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertEquipamento = z.infer<typeof insertEquipamentoSchema>;
+export type Equipamento = typeof equipamentos.$inferSelect;
+export type InsertMovimentacao = z.infer<typeof insertMovimentacaoSchema>;
+export type Movimentacao = typeof movimentacoes.$inferSelect;
 
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
@@ -210,4 +284,12 @@ export type EmpreendimentoWithLicencas = Empreendimento & {
 export type LicencaWithDetails = LicencaAmbiental & {
   condicionantes: Condicionante[];
   entregas: Entrega[];
+};
+
+export type EquipamentoWithMovimentacoes = Equipamento & {
+  movimentacoes: Movimentacao[];
+};
+
+export type MovimentacaoWithDetails = Movimentacao & {
+  equipamento: Equipamento;
 };
