@@ -132,11 +132,10 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
     },
     onSuccess: () => {
       // Force complete refresh of demandas
-      queryClient.removeQueries({ 
+      queryClient.invalidateQueries({ 
         predicate: (query) => 
           Array.isArray(query.queryKey) && query.queryKey[0] === "/api/demandas" 
       });
-      refetch(); // Force immediate refetch
       toast({
         title: "Demanda criada",
         description: "Nova demanda foi criada com sucesso!",
