@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,9 +88,28 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   });
 
   // Fetch categorias for dropdown  
-  const { data: categorias = [] } = useQuery<CategoriaFinanceira[]>({
+  // Auto-initialize categories if empty and fetch categories
+  const { data: categorias = [], refetch: refetchCategorias } = useQuery<CategoriaFinanceira[]>({
     queryKey: ["/api/categorias-financeiras"],
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
+
+  // Initialize categories if empty
+  const initCategoriesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/categorias-financeiras/init");
+    },
+    onSuccess: () => {
+      refetchCategorias();
+    },
+  });
+
+  // Auto-initialize categories on mount if empty
+  React.useEffect(() => {
+    if (categorias.length === 0) {
+      initCategoriesMutation.mutate();
+    }
+  }, [categorias.length]);
 
   const form = useForm<NovoLancamentoFormData>({
     resolver: zodResolver(novoLancamentoSchema),
@@ -191,15 +210,27 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
                 <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
                   <FormControl>
                     <SelectTrigger data-testid="select-categoria">
-                      <SelectValue placeholder="Selecione a categoria" />
+                      <SelectValue placeholder={categorias.length === 0 ? "Carregando categorias..." : "Selecione a categoria"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {categorias.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id.toString()}>
-                        {cat.nome}
+                    {categorias.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        {initCategoriesMutation.isPending ? "Inicializando categorias..." : "Carregando categorias..."}
                       </SelectItem>
-                    ))}
+                    ) : (
+                      categorias.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: cat.cor }}
+                            />
+                            {cat.nome} ({cat.tipo})
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
