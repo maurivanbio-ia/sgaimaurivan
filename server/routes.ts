@@ -980,7 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(sql`MIN(${movimentacoes.criadoEm})`);
       
       // Process monthly movements data
-      const monthsData = {};
+      const monthsData: Record<string, { mes: string; retiradas: number; devolucoes: number; manutencoes: number }> = {};
       monthlyMovements.forEach(item => {
         if (!monthsData[item.mes]) {
           monthsData[item.mes] = { mes: item.mes, retiradas: 0, devolucoes: 0, manutencoes: 0 };
