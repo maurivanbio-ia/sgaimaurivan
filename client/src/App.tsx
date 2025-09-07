@@ -24,6 +24,7 @@ import NewEquipamento from "./pages/new-equipamento";
 import EquipamentoDetail from "./pages/equipamento-detail";
 import EquipmentDashboard from "./pages/equipment-dashboard";
 import Demandas from "./pages/demandas";
+import Financeiro from "./pages/financeiro";
 import PainelIntegrado from "./pages/painel-integrado";
 import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
@@ -66,6 +67,7 @@ function Router() {
         <Route path="/equipamentos/novo" component={NewEquipamento} />
         <Route path="/equipamentos/:id" component={EquipamentoDetail} />
         <Route path="/demandas" component={Demandas} />
+        <Route path="/financeiro" component={Financeiro} />
         <Route component={NotFound} />
       </Switch>
     </div>
