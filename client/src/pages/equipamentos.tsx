@@ -25,7 +25,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Eye, Plus, Search, QrCode, Edit, ArrowLeft, Save, Trash2 } from "lucide-react";
 import type { Equipamento } from "@shared/schema";
 
@@ -620,9 +620,9 @@ function EditarEquipamento() {
       status: v.status,
       localizacaoAtual: v.localizacaoAtual,
       responsavelAtual: v.responsavelAtual?.trim() || null,
-      dataAquisicao: v.dataAquisicao || null,           // YYYY-MM-DD
+      dataAquisicao: v.dataAquisicao,           // YYYY-MM-DD
       proximaManutencao: v.proximaManutencao || null,   // YYYY-MM-DD
-      valorAquisicao: v.valorAquisicao ?? null,
+      valorAquisicao: v.valorAquisicao !== null && v.valorAquisicao !== undefined ? String(v.valorAquisicao) : null,
       ...(v.observacoes !== undefined ? { observacoes: v.observacoes } : {}),
     };
     return updateMutation.mutateAsync(payload);
