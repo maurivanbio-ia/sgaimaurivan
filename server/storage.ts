@@ -14,6 +14,10 @@ import {
   comentariosDemandas,
   subtarefasDemandas,
   historicoDemandasMovimentacoes,
+  categoriasFinanceiras,
+  financeiroLancamentos,
+  solicitacoesRecursos,
+  orcamentos,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -49,6 +53,14 @@ import {
   type InsertSubtarefaDemanda,
   type HistoricoMovimentacao,
   type InsertHistoricoMovimentacao,
+  type CategoriaFinanceira,
+  type InsertCategoriaFinanceira,
+  type FinanceiroLancamento,
+  type InsertFinanceiroLancamento,
+  type SolicitacaoRecurso,
+  type InsertSolicitacaoRecurso,
+  type Orcamento,
+  type InsertOrcamento,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
@@ -172,6 +184,48 @@ export interface IStorage {
     prioridadeChart: Array<{ prioridade: string; count: number }>;
     setorChart: Array<{ setor: string; count: number }>;
     evolucaoChart: Array<{ periodo: string; concluidas: number; novas: number }>;
+  }>;
+
+  // Financial operations
+  getCategorias(): Promise<CategoriaFinanceira[]>;
+  createCategoria(categoria: InsertCategoriaFinanceira): Promise<CategoriaFinanceira>;
+  updateCategoria(id: number, categoria: Partial<InsertCategoriaFinanceira>): Promise<CategoriaFinanceira>;
+  deleteCategoria(id: number): Promise<boolean>;
+  
+  getLancamentos(filters?: {
+    tipo?: string;
+    status?: string;
+    empreendimentoId?: number;
+    categoriaId?: number;
+    search?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<FinanceiroLancamento[]>;
+  createLancamento(lancamento: InsertFinanceiroLancamento): Promise<FinanceiroLancamento>;
+  updateLancamento(id: number, lancamento: Partial<InsertFinanceiroLancamento>): Promise<FinanceiroLancamento>;
+  deleteLancamento(id: number): Promise<boolean>;
+  
+  getSolicitacoes(filters?: { 
+    status?: string; 
+    solicitanteId?: number; 
+    empreendimentoId?: number; 
+  }): Promise<SolicitacaoRecurso[]>;
+  createSolicitacao(solicitacao: InsertSolicitacaoRecurso): Promise<SolicitacaoRecurso>;
+  updateSolicitacao(id: number, solicitacao: Partial<InsertSolicitacaoRecurso>): Promise<SolicitacaoRecurso>;
+  deleteSolicitacao(id: number): Promise<boolean>;
+  
+  getOrcamentos(filters?: { empreendimentoId?: number; periodo?: string }): Promise<Orcamento[]>;
+  createOrcamento(orcamento: InsertOrcamento): Promise<Orcamento>;
+  updateOrcamento(id: number, orcamento: Partial<InsertOrcamento>): Promise<Orcamento>;
+  deleteOrcamento(id: number): Promise<boolean>;
+  
+  getFinancialStats(): Promise<{
+    totalReceitas: number;
+    totalDespesas: number;
+    totalPendente: number;
+    saldoAtual: number;
+    porCategoria: Array<{ categoria: string; valor: number }>;
+    porEmpreendimento: Array<{ empreendimento: string; valor: number }>;
   }>;
 }
 
@@ -1273,6 +1327,232 @@ export class DatabaseStorage implements IStorage {
       prioridadeChart,
       setorChart,
       evolucaoChart,
+    };
+  }
+
+  // =============================================
+  // FINANCIAL OPERATIONS
+  // =============================================
+
+  // Categoria operations
+  async getCategorias(): Promise<CategoriaFinanceira[]> {
+    return await db.select().from(categoriasFinanceiras).orderBy(asc(categoriasFinanceiras.nome));
+  }
+
+  async createCategoria(categoria: InsertCategoriaFinanceira): Promise<CategoriaFinanceira> {
+    const [newCategoria] = await db.insert(categoriasFinanceiras).values(categoria).returning();
+    return newCategoria;
+  }
+
+  async updateCategoria(id: number, categoria: Partial<InsertCategoriaFinanceira>): Promise<CategoriaFinanceira> {
+    const [updated] = await db
+      .update(categoriasFinanceiras)
+      .set(categoria)
+      .where(eq(categoriasFinanceiras.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCategoria(id: number): Promise<boolean> {
+    const result = await db.delete(categoriasFinanceiras).where(eq(categoriasFinanceiras.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Lancamento operations
+  async getLancamentos(filters?: {
+    tipo?: string;
+    status?: string;
+    empreendimentoId?: number;
+    categoriaId?: number;
+    search?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<FinanceiroLancamento[]> {
+    const conditions = [];
+
+    if (filters?.tipo && filters.tipo !== 'todos') {
+      conditions.push(eq(financeiroLancamentos.tipo, filters.tipo));
+    }
+    if (filters?.status && filters.status !== 'todos') {
+      conditions.push(eq(financeiroLancamentos.status, filters.status));
+    }
+    if (filters?.empreendimentoId) {
+      conditions.push(eq(financeiroLancamentos.empreendimentoId, filters.empreendimentoId));
+    }
+    if (filters?.categoriaId) {
+      conditions.push(eq(financeiroLancamentos.categoriaId, filters.categoriaId));
+    }
+    if (filters?.search) {
+      conditions.push(ilike(financeiroLancamentos.descricao, `%${filters.search}%`));
+    }
+
+    let query = db.select().from(financeiroLancamentos);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(desc(financeiroLancamentos.data));
+  }
+
+  async createLancamento(lancamento: InsertFinanceiroLancamento): Promise<FinanceiroLancamento> {
+    const [newLancamento] = await db.insert(financeiroLancamentos).values(lancamento).returning();
+    return newLancamento;
+  }
+
+  async updateLancamento(id: number, lancamento: Partial<InsertFinanceiroLancamento>): Promise<FinanceiroLancamento> {
+    const [updated] = await db
+      .update(financeiroLancamentos)
+      .set({
+        ...lancamento,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(financeiroLancamentos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLancamento(id: number): Promise<boolean> {
+    const result = await db.delete(financeiroLancamentos).where(eq(financeiroLancamentos.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Solicitacao operations
+  async getSolicitacoes(filters?: { 
+    status?: string; 
+    solicitanteId?: number; 
+    empreendimentoId?: number; 
+  }): Promise<SolicitacaoRecurso[]> {
+    const conditions = [];
+
+    if (filters?.status && filters.status !== 'todos') {
+      conditions.push(eq(solicitacoesRecursos.status, filters.status));
+    }
+    if (filters?.solicitanteId) {
+      conditions.push(eq(solicitacoesRecursos.solicitanteId, filters.solicitanteId));
+    }
+    if (filters?.empreendimentoId) {
+      conditions.push(eq(solicitacoesRecursos.empreendimentoId, filters.empreendimentoId));
+    }
+
+    let query = db.select().from(solicitacoesRecursos);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(solicitacoesRecursos.criadoEm));
+  }
+
+  async createSolicitacao(solicitacao: InsertSolicitacaoRecurso): Promise<SolicitacaoRecurso> {
+    const [newSolicitacao] = await db.insert(solicitacoesRecursos).values(solicitacao).returning();
+    return newSolicitacao;
+  }
+
+  async updateSolicitacao(id: number, solicitacao: Partial<InsertSolicitacaoRecurso>): Promise<SolicitacaoRecurso> {
+    const [updated] = await db
+      .update(solicitacoesRecursos)
+      .set(solicitacao)
+      .where(eq(solicitacoesRecursos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSolicitacao(id: number): Promise<boolean> {
+    const result = await db.delete(solicitacoesRecursos).where(eq(solicitacoesRecursos.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Orcamento operations
+  async getOrcamentos(filters?: { empreendimentoId?: number; periodo?: string }): Promise<Orcamento[]> {
+    const conditions = [];
+
+    if (filters?.empreendimentoId) {
+      conditions.push(eq(orcamentos.empreendimentoId, filters.empreendimentoId));
+    }
+    if (filters?.periodo) {
+      conditions.push(eq(orcamentos.periodo, filters.periodo));
+    }
+
+    let query = db.select().from(orcamentos);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(orcamentos.criadoEm));
+  }
+
+  async createOrcamento(orcamento: InsertOrcamento): Promise<Orcamento> {
+    const [newOrcamento] = await db.insert(orcamentos).values(orcamento).returning();
+    return newOrcamento;
+  }
+
+  async updateOrcamento(id: number, orcamento: Partial<InsertOrcamento>): Promise<Orcamento> {
+    const [updated] = await db
+      .update(orcamentos)
+      .set({
+        ...orcamento,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(orcamentos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteOrcamento(id: number): Promise<boolean> {
+    const result = await db.delete(orcamentos).where(eq(orcamentos.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Financial statistics
+  async getFinancialStats(): Promise<{
+    totalReceitas: number;
+    totalDespesas: number;
+    totalPendente: number;
+    saldoAtual: number;
+    porCategoria: Array<{ categoria: string; valor: number }>;
+    porEmpreendimento: Array<{ empreendimento: string; valor: number }>;
+  }> {
+    // Get all paid transactions
+    const lancamentos = await db.select().from(financeiroLancamentos);
+    
+    const totalReceitas = lancamentos
+      .filter(l => l.tipo === "receita" && l.status === "pago")
+      .reduce((sum, l) => sum + Number(l.valor), 0);
+
+    const totalDespesas = lancamentos
+      .filter(l => l.tipo === "despesa" && l.status === "pago")
+      .reduce((sum, l) => sum + Number(l.valor), 0);
+
+    const totalPendente = lancamentos
+      .filter(l => l.status === "aguardando")
+      .reduce((sum, l) => sum + Number(l.valor), 0);
+
+    const saldoAtual = totalReceitas - totalDespesas;
+
+    // Get categories and empreendimentos for breakdown
+    const categorias = await db.select().from(categoriasFinanceiras);
+    const empreendimentosList = await db.select().from(empreendimentos);
+
+    const porCategoria = categorias.map(cat => {
+      const valor = lancamentos
+        .filter(l => l.categoriaId === cat.id && l.status === "pago")
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      return { categoria: cat.nome, valor };
+    }).filter(item => item.valor > 0);
+
+    const porEmpreendimento = empreendimentosList.map(emp => {
+      const valor = lancamentos
+        .filter(l => l.empreendimentoId === emp.id && l.status === "pago")
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      return { empreendimento: emp.nome, valor };
+    }).filter(item => item.valor > 0);
+
+    return {
+      totalReceitas,
+      totalDespesas,
+      totalPendente,
+      saldoAtual,
+      porCategoria,
+      porEmpreendimento,
     };
   }
 }
