@@ -7,6 +7,8 @@ import {
   alertConfigs,
   alertHistory,
   notifications,
+  equipamentos,
+  movimentacoes,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -25,9 +27,14 @@ import {
   type InsertAlertHistory,
   type Notification,
   type InsertNotification,
+  type Equipamento,
+  type InsertEquipamento,
+  type Movimentacao,
+  type InsertMovimentacao,
+  type EquipamentoWithMovimentacoes,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, like, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -95,6 +102,21 @@ export interface IStorage {
   getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<any[]>;
   getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<any[]>;
   getEntregasDoMes(): Promise<any[]>;
+
+  // Equipamento operations
+  getEquipamentos(): Promise<Equipamento[]>;
+  getEquipamento(id: number): Promise<EquipamentoWithMovimentacoes | undefined>;
+  getEquipamentoByQrCode(qrCode: string): Promise<Equipamento | undefined>;
+  createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento>;
+  updateEquipamento(id: number, equipamento: Partial<InsertEquipamento>): Promise<Equipamento>;
+  deleteEquipamento(id: number): Promise<boolean>;
+  searchEquipamentos(filters: { query?: string; status?: string; tipo?: string; localizacao?: string }): Promise<Equipamento[]>;
+  getEquipamentosStats(): Promise<{ total: number; funcionando: number; comDefeito: number; emManutencao: number; descartado: number; }>;
+
+  // Movimentacao operations
+  getMovimentacoes(): Promise<Movimentacao[]>;
+  getMovimentacoesByEquipamento(equipamentoId: number): Promise<Movimentacao[]>;
+  createMovimentacao(movimentacao: InsertMovimentacao): Promise<Movimentacao>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -781,6 +803,140 @@ export class DatabaseStorage implements IStorage {
       console.error('Error getting licenças by date range:', error);
       return [];
     }
+  }
+  // Equipamento operations
+  async getEquipamentos(): Promise<Equipamento[]> {
+    return await db
+      .select()
+      .from(equipamentos)
+      .orderBy(desc(equipamentos.criadoEm));
+  }
+
+  async getEquipamento(id: number): Promise<EquipamentoWithMovimentacoes | undefined> {
+    const [equipamento] = await db
+      .select()
+      .from(equipamentos)
+      .where(eq(equipamentos.id, id));
+      
+    if (!equipamento) {
+      return undefined;
+    }
+
+    const movimentacoesList = await db
+      .select()
+      .from(movimentacoes)
+      .where(eq(movimentacoes.equipamentoId, id))
+      .orderBy(desc(movimentacoes.dataHora));
+
+    return {
+      ...equipamento,
+      movimentacoes: movimentacoesList,
+    };
+  }
+
+  async getEquipamentoByQrCode(qrCode: string): Promise<Equipamento | undefined> {
+    const [equipamento] = await db
+      .select()
+      .from(equipamentos)
+      .where(eq(equipamentos.qrCode, qrCode));
+    return equipamento || undefined;
+  }
+
+  async createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento> {
+    const [created] = await db
+      .insert(equipamentos)
+      .values(equipamento)
+      .returning();
+    return created;
+  }
+
+  async updateEquipamento(id: number, updates: Partial<InsertEquipamento>): Promise<Equipamento> {
+    const [updated] = await db
+      .update(equipamentos)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(eq(equipamentos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEquipamento(id: number): Promise<boolean> {
+    // First delete associated movimentacoes
+    await db.delete(movimentacoes).where(eq(movimentacoes.equipamentoId, id));
+    
+    // Then delete the equipamento
+    const result = await db.delete(equipamentos).where(eq(equipamentos.id, id));
+    return result.changes > 0;
+  }
+
+  async searchEquipamentos(filters: { query?: string; status?: string; tipo?: string; localizacao?: string }): Promise<Equipamento[]> {
+    let query = db.select().from(equipamentos);
+    const conditions = [];
+
+    if (filters.query) {
+      conditions.push(
+        or(
+          like(equipamentos.numeroPatrimonio, `%${filters.query}%`),
+          like(equipamentos.marca, `%${filters.query}%`),
+          like(equipamentos.modelo, `%${filters.query}%`)
+        )
+      );
+    }
+
+    if (filters.status) {
+      conditions.push(eq(equipamentos.status, filters.status));
+    }
+
+    if (filters.tipo) {
+      conditions.push(eq(equipamentos.tipoEquipamento, filters.tipo));
+    }
+
+    if (filters.localizacao) {
+      conditions.push(eq(equipamentos.localizacaoAtual, filters.localizacao));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(equipamentos.criadoEm));
+  }
+
+  async getEquipamentosStats(): Promise<{ total: number; funcionando: number; comDefeito: number; emManutencao: number; descartado: number; }> {
+    const allEquipamentos = await db.select().from(equipamentos);
+    
+    const stats = {
+      total: allEquipamentos.length,
+      funcionando: allEquipamentos.filter(e => e.status === 'funcionando').length,
+      comDefeito: allEquipamentos.filter(e => e.status === 'com_defeito').length,
+      emManutencao: allEquipamentos.filter(e => e.status === 'em_manutencao').length,
+      descartado: allEquipamentos.filter(e => e.status === 'descartado').length,
+    };
+    
+    return stats;
+  }
+
+  // Movimentacao operations
+  async getMovimentacoes(): Promise<Movimentacao[]> {
+    return await db
+      .select()
+      .from(movimentacoes)
+      .orderBy(desc(movimentacoes.dataHora));
+  }
+
+  async getMovimentacoesByEquipamento(equipamentoId: number): Promise<Movimentacao[]> {
+    return await db
+      .select()
+      .from(movimentacoes)
+      .where(eq(movimentacoes.equipamentoId, equipamentoId))
+      .orderBy(desc(movimentacoes.dataHora));
+  }
+
+  async createMovimentacao(movimentacao: InsertMovimentacao): Promise<Movimentacao> {
+    const [created] = await db
+      .insert(movimentacoes)
+      .values(movimentacao)
+      .returning();
+    return created;
   }
 }
 

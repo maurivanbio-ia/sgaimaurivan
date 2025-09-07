@@ -6,7 +6,9 @@ import {
   insertLicencaAmbientalSchema,
   insertCondicionanteSchema,
   insertEntregaSchema,
-  insertNotificationSchema
+  insertNotificationSchema,
+  insertEquipamentoSchema,
+  insertMovimentacaoSchema
 } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -705,6 +707,171 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Arquivo não encontrado" });
       }
       return res.status(500).json({ message: "Erro ao baixar arquivo" });
+    }
+  });
+
+  // Equipamentos routes
+  app.get("/api/equipamentos", requireAuth, async (req, res) => {
+    try {
+      const equipamentos = await storage.getEquipamentos();
+      res.json(equipamentos);
+    } catch (error) {
+      console.error("Get equipamentos error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/equipamentos/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const equipamento = await storage.getEquipamento(id);
+      if (!equipamento) {
+        return res.status(404).json({ message: "Equipamento not found" });
+      }
+      res.json(equipamento);
+    } catch (error) {
+      console.error("Get equipamento error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/equipamentos/:id/movimentacoes", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const movimentacoes = await storage.getMovimentacoesByEquipamento(id);
+      res.json(movimentacoes);
+    } catch (error) {
+      console.error("Get movimentacoes error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/equipamentos", requireAuth, async (req, res) => {
+    try {
+      const equipamentoData = insertEquipamentoSchema.parse(req.body);
+      
+      // Generate QR Code hash
+      const qrCode = `EQ-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      
+      const equipamento = await storage.createEquipamento({
+        ...equipamentoData,
+        qrCode,
+        criadoPor: req.session.userId!
+      });
+      
+      res.status(201).json(equipamento);
+    } catch (error: any) {
+      console.error("Create equipamento error:", error);
+      if (error.message?.includes('duplicate key')) {
+        res.status(400).json({ message: "Número de patrimônio já existe" });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.patch("/api/equipamentos/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = insertEquipamentoSchema.partial().parse(req.body);
+      
+      const equipamento = await storage.updateEquipamento(id, updates);
+      if (!equipamento) {
+        return res.status(404).json({ message: "Equipamento not found" });
+      }
+      
+      res.json(equipamento);
+    } catch (error: any) {
+      console.error("Update equipamento error:", error);
+      if (error.message?.includes('duplicate key')) {
+        res.status(400).json({ message: "Número de patrimônio já existe" });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.delete("/api/equipamentos/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteEquipamento(id);
+      if (!success) {
+        return res.status(404).json({ message: "Equipamento not found" });
+      }
+      res.json({ message: "Equipamento deleted successfully" });
+    } catch (error) {
+      console.error("Delete equipamento error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Movimentacoes routes
+  app.get("/api/movimentacoes", requireAuth, async (req, res) => {
+    try {
+      const movimentacoes = await storage.getMovimentacoes();
+      res.json(movimentacoes);
+    } catch (error) {
+      console.error("Get movimentacoes error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/movimentacoes", requireAuth, async (req, res) => {
+    try {
+      const movimentacaoData = insertMovimentacaoSchema.parse(req.body);
+      
+      const movimentacao = await storage.createMovimentacao({
+        ...movimentacaoData,
+        criadoPor: req.session.userId!
+      });
+      
+      res.status(201).json(movimentacao);
+    } catch (error) {
+      console.error("Create movimentacao error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Equipamentos stats routes
+  app.get("/api/stats/equipamentos", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getEquipamentosStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Get equipamentos stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Equipamentos search route
+  app.get("/api/equipamentos/search", requireAuth, async (req, res) => {
+    try {
+      const { q, status, tipo, localizacao } = req.query;
+      const equipamentos = await storage.searchEquipamentos({
+        query: q as string,
+        status: status as string,
+        tipo: tipo as string,
+        localizacao: localizacao as string,
+      });
+      res.json(equipamentos);
+    } catch (error) {
+      console.error("Search equipamentos error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // QR Code route
+  app.get("/api/equipamentos/qr/:qrCode", requireAuth, async (req, res) => {
+    try {
+      const { qrCode } = req.params;
+      const equipamento = await storage.getEquipamentoByQrCode(qrCode);
+      if (!equipamento) {
+        return res.status(404).json({ message: "Equipamento not found" });
+      }
+      res.json(equipamento);
+    } catch (error) {
+      console.error("Get equipamento by QR error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
