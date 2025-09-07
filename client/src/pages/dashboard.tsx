@@ -26,7 +26,13 @@ import {
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [activeView, setActiveView] = useState<string>("licencas");
-  const [equipmentFilters, setEquipmentFilters] = useState({
+  const [equipmentFilters, setEquipmentFilters] = useState<{
+    periodo: string;
+    empreendimento?: string;
+    tipoEquipamento?: string;
+    status?: string;
+    colaborador?: string;
+  }>({
     periodo: '30',
     empreendimento: undefined,
     tipoEquipamento: undefined,
