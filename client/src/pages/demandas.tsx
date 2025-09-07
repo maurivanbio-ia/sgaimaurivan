@@ -40,7 +40,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Demanda, InsertDemanda } from "@shared/schema";
+import type { Demanda, InsertDemanda, Empreendimento } from "@shared/schema";
 import { createInsertSchema } from "drizzle-zod";
 import { demandas } from "@shared/schema";
 import * as z from "zod";
@@ -98,6 +98,11 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch empreendimentos for dropdown
+  const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
+    queryKey: ["/api/empreendimentos"],
+  });
+
   const form = useForm<NovaDemandaFormData>({
     resolver: zodResolver(novaDemandaSchema),
     defaultValues: {
@@ -113,7 +118,17 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
 
   const createDemandaMutation = useMutation({
     mutationFn: async (data: NovaDemandaFormData) => {
-      return apiRequest("POST", "/api/demandas", data);
+      // Transform the data to match the database schema
+      const demandaData = {
+        ...data,
+        // Remove empreendimento field and add empreendimentoId and responsavelId
+        empreendimentoId: data.empreendimento ? parseInt(data.empreendimento) : null,
+        responsavelId: 1, // Default to user ID 1 for now
+        criadoPor: 1, // Default to user ID 1 for now
+      };
+      // Remove the original empreendimento field
+      delete demandaData.empreendimento;
+      return apiRequest("POST", "/api/demandas", demandaData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
@@ -232,13 +247,21 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Empreendimento</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Nome do empreendimento (opcional)"
-                    {...field}
-                    data-testid="input-empreendimento"
-                  />
-                </FormControl>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-empreendimento">
+                      <SelectValue placeholder="Selecione o empreendimento" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="">Nenhum</SelectItem>
+                    {empreendimentos.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id.toString()}>
+                        {emp.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormDescription>
                   Vincule a demanda a um empreendimento específico
                 </FormDescription>
