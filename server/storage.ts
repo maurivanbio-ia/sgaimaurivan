@@ -9,6 +9,7 @@ import {
   notifications,
   equipamentos,
   movimentacoes,
+  pendencias,
   type User,
   type InsertUser,
   type Empreendimento,
@@ -32,9 +33,13 @@ import {
   type Movimentacao,
   type InsertMovimentacao,
   type EquipamentoWithMovimentacoes,
+  type Pendencia,
+  type InsertPendencia,
+  type PendenciaWithDetails,
+  type EquipamentoWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gte, lte, like, or } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -111,12 +116,24 @@ export interface IStorage {
   updateEquipamento(id: number, equipamento: Partial<InsertEquipamento>): Promise<Equipamento>;
   deleteEquipamento(id: number): Promise<boolean>;
   searchEquipamentos(filters: { query?: string; status?: string; tipo?: string; localizacao?: string }): Promise<Equipamento[]>;
-  getEquipamentosStats(): Promise<{ total: number; funcionando: number; comDefeito: number; emManutencao: number; descartado: number; }>;
+  getEquipamentosStats(): Promise<{
+    totalEquipamentos: number;
+    totalDisponivel: number;
+    totalPendente: number;
+    totalManutencao: number;
+  }>;
+  
+  // Pendencia operations
+  createPendencia(pendencia: InsertPendencia): Promise<Pendencia>;
+  getPendenciasByEquipamento(equipamentoId: number): Promise<Pendencia[]>;
+  getPendenciasAtivas(): Promise<Pendencia[]>;
+  resolvePendencia(pendenciaId: number, movimentacaoDevolucaoId: number): Promise<void>;
 
   // Movimentacao operations
   getMovimentacoes(): Promise<Movimentacao[]>;
   getMovimentacoesByEquipamento(equipamentoId: number): Promise<Movimentacao[]>;
   createMovimentacao(movimentacao: InsertMovimentacao): Promise<Movimentacao>;
+  processReturnMovement(movimentacao: InsertMovimentacao, pendenciaIds: number[]): Promise<Movimentacao>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -875,9 +892,11 @@ export class DatabaseStorage implements IStorage {
     if (filters.query) {
       conditions.push(
         or(
-          like(equipamentos.numeroPatrimonio, `%${filters.query}%`),
-          like(equipamentos.marca, `%${filters.query}%`),
-          like(equipamentos.modelo, `%${filters.query}%`)
+          ilike(equipamentos.numeroPatrimonio, `%${filters.query}%`),
+          ilike(equipamentos.nome, `%${filters.query}%`),
+          ilike(equipamentos.marca, `%${filters.query}%`),
+          ilike(equipamentos.modelo, `%${filters.query}%`),
+          ilike(equipamentos.tipoEquipamento, `%${filters.query}%`)
         )
       );
     }
@@ -901,18 +920,34 @@ export class DatabaseStorage implements IStorage {
     return await query.orderBy(desc(equipamentos.criadoEm));
   }
 
-  async getEquipamentosStats(): Promise<{ total: number; funcionando: number; comDefeito: number; emManutencao: number; descartado: number; }> {
-    const allEquipamentos = await db.select().from(equipamentos);
-    
-    const stats = {
-      total: allEquipamentos.length,
-      funcionando: allEquipamentos.filter(e => e.status === 'funcionando').length,
-      comDefeito: allEquipamentos.filter(e => e.status === 'com_defeito').length,
-      emManutencao: allEquipamentos.filter(e => e.status === 'em_manutencao').length,
-      descartado: allEquipamentos.filter(e => e.status === 'descartado').length,
+  async getEquipamentosStats(): Promise<{
+    totalEquipamentos: number;
+    totalDisponivel: number;
+    totalPendente: number;
+    totalManutencao: number;
+  }> {
+    const [equipmentStats] = await db
+      .select({
+        totalEquipamentos: sql<number>`COUNT(*)`,
+        totalDisponivel: sql<number>`SUM(${equipamentos.quantidadeDisponivel})`,
+        totalManutencao: sql<number>`COUNT(CASE WHEN ${equipamentos.status} = 'em_manutencao' THEN 1 END)`,
+      })
+      .from(equipamentos)
+      .where(ne(equipamentos.status, 'inativo'));
+
+    const [pendingStats] = await db
+      .select({
+        totalPendente: sql<number>`COALESCE(SUM(${pendencias.quantidadePendente}), 0)`,
+      })
+      .from(pendencias)
+      .where(eq(pendencias.status, 'pendente'));
+
+    return {
+      totalEquipamentos: equipmentStats?.totalEquipamentos || 0,
+      totalDisponivel: equipmentStats?.totalDisponivel || 0,
+      totalPendente: pendingStats?.totalPendente || 0,
+      totalManutencao: equipmentStats?.totalManutencao || 0,
     };
-    
-    return stats;
   }
 
   // Movimentacao operations
@@ -936,7 +971,90 @@ export class DatabaseStorage implements IStorage {
       .insert(movimentacoes)
       .values(movimentacao)
       .returning();
+
+    // Update equipment availability based on movement type
+    if (movimentacao.tipoMovimentacao === 'retirada') {
+      // Create pendency for withdrawal
+      await this.createPendencia({
+        equipamentoId: movimentacao.equipamentoId,
+        movimentacaoRetiradaId: created.id,
+        quantidadePendente: movimentacao.quantidadeMovimentada || 1,
+        responsavelPendente: movimentacao.responsavelAcao,
+        dataRetirada: created.dataHora,
+        status: 'pendente',
+      });
+
+      // Update available quantity
+      await db
+        .update(equipamentos)
+        .set({
+          quantidadeDisponivel: sql`${equipamentos.quantidadeDisponivel} - ${movimentacao.quantidadeMovimentada || 1}`,
+          atualizadoEm: new Date(),
+        })
+        .where(eq(equipamentos.id, movimentacao.equipamentoId));
+    }
+
     return created;
+  }
+
+  async processReturnMovement(movimentacao: InsertMovimentacao, pendenciaIds: number[]): Promise<Movimentacao> {
+    const [created] = await db
+      .insert(movimentacoes)
+      .values(movimentacao)
+      .returning();
+
+    // Resolve pendencies
+    for (const pendenciaId of pendenciaIds) {
+      await this.resolvePendencia(pendenciaId, created.id);
+    }
+
+    return created;
+  }
+
+  // Pendencia operations
+  async createPendencia(pendencia: InsertPendencia): Promise<Pendencia> {
+    const [created] = await db.insert(pendencias).values(pendencia).returning();
+    return created;
+  }
+
+  async getPendenciasByEquipamento(equipamentoId: number): Promise<Pendencia[]> {
+    return await db
+      .select()
+      .from(pendencias)
+      .where(eq(pendencias.equipamentoId, equipamentoId))
+      .orderBy(desc(pendencias.criadoEm));
+  }
+
+  async getPendenciasAtivas(): Promise<Pendencia[]> {
+    return await db
+      .select()
+      .from(pendencias)
+      .where(eq(pendencias.status, 'pendente'))
+      .orderBy(desc(pendencias.dataRetirada));
+  }
+
+  async resolvePendencia(pendenciaId: number, movimentacaoDevolucaoId: number): Promise<void> {
+    // Update pendency as resolved
+    const [pendencia] = await db
+      .update(pendencias)
+      .set({
+        status: 'devolvido',
+        movimentacaoDevolucaoId: movimentacaoDevolucaoId,
+        resolvidoEm: new Date(),
+      })
+      .where(eq(pendencias.id, pendenciaId))
+      .returning();
+
+    // Update equipment available quantity
+    if (pendencia) {
+      await db
+        .update(equipamentos)
+        .set({
+          quantidadeDisponivel: sql`${equipamentos.quantidadeDisponivel} + ${pendencia.quantidadePendente}`,
+          atualizadoEm: new Date(),
+        })
+        .where(eq(equipamentos.id, pendencia.equipamentoId));
+    }
   }
 }
 

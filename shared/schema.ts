@@ -106,12 +106,16 @@ export const alertHistory = pgTable("alert_history", {
 export const equipamentos = pgTable("equipamentos", {
   id: serial("id").primaryKey(),
   numeroPatrimonio: text("numero_patrimonio").notNull().unique(),
+  nome: text("nome").notNull(), // Nome/título do equipamento
   tipoEquipamento: text("tipo_equipamento").notNull(),
   marca: text("marca").notNull(),
   modelo: text("modelo").notNull(),
   dataAquisicao: date("data_aquisicao").notNull(),
-  status: text("status").notNull().default("funcionando"), // funcionando, com_defeito, em_manutencao, descartado
+  quantidadeTotal: integer("quantidade_total").notNull().default(1), // Quantidade total do equipamento
+  quantidadeDisponivel: integer("quantidade_disponivel").notNull().default(1), // Quantidade disponível
+  status: text("status").notNull().default("ativo"), // ativo, inativo, obsoleto, em_avaliacao
   localizacaoAtual: text("localizacao_atual").notNull().default("escritorio"), // escritorio, cliente, colaborador
+  localizacaoPadrao: text("localizacao_padrao").notNull().default("escritorio"), // Localização padrão do equipamento
   responsavelAtual: text("responsavel_atual"), // Nome do responsável atual
   observacoesGerais: text("observacoes_gerais"),
   qrCode: text("qr_code"), // Hash único para QR Code
@@ -128,9 +132,10 @@ export const equipamentos = pgTable("equipamentos", {
 export const movimentacoes = pgTable("movimentacoes", {
   id: serial("id").primaryKey(),
   equipamentoId: serial("equipamento_id").references(() => equipamentos.id).notNull(),
-  tipoMovimentacao: text("tipo_movimentacao").notNull(), // entrada, retirada, devolucao, manutencao
+  tipoMovimentacao: text("tipo_movimentacao").notNull(), // entrada, retirada, devolucao, manutencao, descarte
   dataHora: timestamp("data_hora").defaultNow().notNull(),
   responsavelAcao: text("responsavel_acao").notNull(),
+  quantidadeMovimentada: integer("quantidade_movimentada").notNull().default(1), // Quantidade movimentada
   finalidadeMovimentacao: text("finalidade_movimentacao"),
   observacoes: text("observacoes"),
   comprovante: text("comprovante"), // Path do arquivo de comprovante
@@ -138,8 +143,25 @@ export const movimentacoes = pgTable("movimentacoes", {
   localizacaoDestino: text("localizacao_destino"),
   statusAnterior: text("status_anterior"),
   statusPosterior: text("status_posterior"),
+  statusMomento: text("status_momento"), // funcionando, com_defeito, avaria_leve, manutencao_programada
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   criadoPor: serial("criado_por").references(() => users.id).notNull(),
+});
+
+// Pendencias table - Para controlar retiradas pendentes de devolução
+export const pendencias = pgTable("pendencias", {
+  id: serial("id").primaryKey(),
+  equipamentoId: serial("equipamento_id").references(() => equipamentos.id).notNull(),
+  movimentacaoRetiradaId: serial("movimentacao_retirada_id").references(() => movimentacoes.id).notNull(),
+  movimentacaoDevolucaoId: serial("movimentacao_devolucao_id").references(() => movimentacoes.id),
+  quantidadePendente: integer("quantidade_pendente").notNull(),
+  responsavelPendente: text("responsavel_pendente").notNull(),
+  dataRetirada: timestamp("data_retirada").notNull(),
+  prazoRetorno: date("prazo_retorno"), // Prazo esperado para retorno
+  status: text("status").notNull().default("pendente"), // pendente, devolvido, vencido
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  resolvidoEm: timestamp("resolvido_em"),
 });
 
 // Relations
@@ -184,6 +206,7 @@ export const equipamentosRelations = relations(equipamentos, ({ one, many }) => 
     references: [users.id],
   }),
   movimentacoes: many(movimentacoes),
+  pendencias: many(pendencias),
 }));
 
 export const movimentacoesRelations = relations(movimentacoes, ({ one }) => ({
@@ -194,6 +217,21 @@ export const movimentacoesRelations = relations(movimentacoes, ({ one }) => ({
   criadoPorUser: one(users, {
     fields: [movimentacoes.criadoPor],
     references: [users.id],
+  }),
+}));
+
+export const pendenciasRelations = relations(pendencias, ({ one }) => ({
+  equipamento: one(equipamentos, {
+    fields: [pendencias.equipamentoId],
+    references: [equipamentos.id],
+  }),
+  movimentacaoRetirada: one(movimentacoes, {
+    fields: [pendencias.movimentacaoRetiradaId],
+    references: [movimentacoes.id],
+  }),
+  movimentacaoDevolucao: one(movimentacoes, {
+    fields: [pendencias.movimentacaoDevolucaoId],
+    references: [movimentacoes.id],
   }),
 }));
 
@@ -254,6 +292,12 @@ export const insertMovimentacaoSchema = createInsertSchema(movimentacoes).omit({
   criadoEm: true,
 });
 
+export const insertPendenciaSchema = createInsertSchema(pendencias).omit({
+  id: true,
+  criadoEm: true,
+  resolvidoEm: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -275,6 +319,8 @@ export type InsertEquipamento = z.infer<typeof insertEquipamentoSchema>;
 export type Equipamento = typeof equipamentos.$inferSelect;
 export type InsertMovimentacao = z.infer<typeof insertMovimentacaoSchema>;
 export type Movimentacao = typeof movimentacoes.$inferSelect;
+export type InsertPendencia = z.infer<typeof insertPendenciaSchema>;
+export type Pendencia = typeof pendencias.$inferSelect;
 
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
@@ -288,6 +334,17 @@ export type LicencaWithDetails = LicencaAmbiental & {
 
 export type EquipamentoWithMovimentacoes = Equipamento & {
   movimentacoes: Movimentacao[];
+};
+
+export type EquipamentoWithDetails = Equipamento & {
+  movimentacoes: Movimentacao[];
+  pendencias: Pendencia[];
+};
+
+export type PendenciaWithDetails = Pendencia & {
+  equipamento: Equipamento;
+  movimentacaoRetirada: Movimentacao;
+  movimentacaoDevolucao?: Movimentacao;
 };
 
 export type MovimentacaoWithDetails = Movimentacao & {
