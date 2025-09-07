@@ -209,7 +209,6 @@ export default function Login() {
         {/* EcoBrasil branding for info cards */}
         <div className="mt-6 text-center">
           <div className="text-xs text-white/80 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 inline-block">
-            <p className="font-medium">Sistema completo para gestão ambiental empresarial</p>
           </div>
         </div>
       </div>
