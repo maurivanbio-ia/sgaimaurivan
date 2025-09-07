@@ -8,8 +8,13 @@ import {
   insertEntregaSchema,
   insertNotificationSchema,
   insertEquipamentoSchema,
-  insertMovimentacaoSchema
+  insertMovimentacaoSchema,
+  equipamentos,
+  movimentacoes,
+  pendencias
 } from "@shared/schema";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
@@ -893,7 +898,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Keep the existing stats route unchanged as it's already using the new method
+  // Dashboard endpoints for equipment analytics
+  app.get("/api/equipamentos/dashboard/stats", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getEquipamentosStats();
+      
+      // Calculate additional metrics
+      const [pendenciesResult] = await db
+        .select({
+          pendenciasVencidas: sql<number>`COUNT(CASE WHEN ${pendencias.status} = 'pendente' AND ${pendencias.prazoRetorno} < CURRENT_DATE THEN 1 END)`,
+        })
+        .from(pendencias);
+
+      const [movementsResult] = await db
+        .select({
+          movimentacoesMes: sql<number>`COUNT(*)`,
+        })
+        .from(movimentacoes)
+        .where(sql`${movimentacoes.criadoEm} >= date_trunc('month', CURRENT_DATE)`);
+      
+      const dashboardStats = {
+        totalEquipamentos: stats.totalEquipamentos,
+        emUso: stats.totalEquipamentos - stats.totalDisponivel,
+        emManutencao: stats.totalManutencao,
+        pendenciasVencidas: pendenciesResult?.pendenciasVencidas || 0,
+        movimentacoesMes: movementsResult?.movimentacoesMes || 0,
+      };
+      
+      res.json(dashboardStats);
+    } catch (error) {
+      console.error("Error getting dashboard stats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/equipamentos/dashboard/charts", requireAuth, async (req, res) => {
+    try {
+      // Status distribution
+      const statusDistribution = await db
+        .select({
+          status: equipamentos.status,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(equipamentos)
+        .groupBy(equipamentos.status);
+      
+      const statusData = statusDistribution.map(item => ({
+        name: item.status === 'ativo' ? 'Ativo' : 
+              item.status === 'em_manutencao' ? 'Em Manutenção' :
+              item.status === 'inativo' ? 'Inativo' :
+              item.status === 'obsoleto' ? 'Obsoleto' :
+              item.status === 'em_avaliacao' ? 'Em Avaliação' : item.status,
+        value: item.count,
+        color: item.status === 'ativo' ? '#10b981' :
+               item.status === 'em_manutencao' ? '#f59e0b' :
+               item.status === 'inativo' ? '#6b7280' :
+               item.status === 'obsoleto' ? '#ef4444' :
+               item.status === 'em_avaliacao' ? '#8b5cf6' : '#6b7280'
+      }));
+      
+      // Equipment by type
+      const equipmentByType = await db
+        .select({
+          tipo: equipamentos.tipoEquipamento,
+          quantidade: sql<number>`COUNT(*)`,
+        })
+        .from(equipamentos)
+        .groupBy(equipamentos.tipoEquipamento)
+        .orderBy(sql`COUNT(*) DESC`);
+      
+      // Monthly movements (last 6 months)
+      const monthlyMovements = await db
+        .select({
+          mes: sql<string>`TO_CHAR(${movimentacoes.criadoEm}, 'Mon')`,
+          tipoMovimentacao: movimentacoes.tipoMovimentacao,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(movimentacoes)
+        .where(sql`${movimentacoes.criadoEm} >= CURRENT_DATE - INTERVAL '6 months'`)
+        .groupBy(sql`TO_CHAR(${movimentacoes.criadoEm}, 'Mon')`, movimentacoes.tipoMovimentacao)
+        .orderBy(sql`MIN(${movimentacoes.criadoEm})`);
+      
+      // Process monthly movements data
+      const monthsData = {};
+      monthlyMovements.forEach(item => {
+        if (!monthsData[item.mes]) {
+          monthsData[item.mes] = { mes: item.mes, retiradas: 0, devolucoes: 0, manutencoes: 0 };
+        }
+        if (item.tipoMovimentacao === 'retirada') monthsData[item.mes].retiradas = item.count;
+        if (item.tipoMovimentacao === 'devolucao') monthsData[item.mes].devolucoes = item.count;
+        if (item.tipoMovimentacao === 'manutencao') monthsData[item.mes].manutencoes = item.count;
+      });
+      
+      // Top users by movements
+      const topUsers = await db
+        .select({
+          usuario: movimentacoes.responsavelAcao,
+          movimentacoes: sql<number>`COUNT(*)`,
+        })
+        .from(movimentacoes)
+        .where(sql`${movimentacoes.criadoEm} >= CURRENT_DATE - INTERVAL '3 months'`)
+        .groupBy(movimentacoes.responsavelAcao)
+        .orderBy(sql`COUNT(*) DESC`)
+        .limit(5);
+      
+      const chartData = {
+        statusDistribution: statusData,
+        equipmentByType: equipmentByType,
+        monthlyMovements: Object.values(monthsData),
+        projectDistribution: [], // TODO: Implement when project integration is complete
+        damageReturns: [], // TODO: Implement damage tracking
+        topUsers: topUsers,
+      };
+      
+      res.json(chartData);
+    } catch (error) {
+      console.error("Error getting chart data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   // Equipamentos search route
   app.get("/api/equipamentos/search", requireAuth, async (req, res) => {

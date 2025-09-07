@@ -472,7 +472,7 @@ export default function NewEquipamento() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Frequência de Manutenção</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-frequencia-manutencao">
                               <SelectValue />
