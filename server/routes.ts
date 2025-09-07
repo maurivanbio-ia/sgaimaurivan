@@ -1134,6 +1134,260 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== END DEMANDAS ROUTES ====
 
+  // =============================================
+  // FINANCIAL MODULE ROUTES
+  // =============================================
+
+  // Categorias Financeiras routes
+  app.get('/api/categorias-financeiras', async (req, res) => {
+    try {
+      const categorias = await storage.getCategorias();
+      res.json(categorias);
+    } catch (error) {
+      console.error('Error fetching categorias:', error);
+      res.status(500).json({ error: 'Failed to fetch categorias' });
+    }
+  });
+
+  app.post('/api/categorias-financeiras', async (req, res) => {
+    try {
+      const categoria = await storage.createCategoria(req.body);
+      res.status(201).json(categoria);
+    } catch (error) {
+      console.error('Error creating categoria:', error);
+      res.status(500).json({ error: 'Failed to create categoria' });
+    }
+  });
+
+  app.put('/api/categorias-financeiras/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid categoria ID' });
+      }
+      const categoria = await storage.updateCategoria(id, req.body);
+      res.json(categoria);
+    } catch (error) {
+      console.error('Error updating categoria:', error);
+      res.status(500).json({ error: 'Failed to update categoria' });
+    }
+  });
+
+  app.delete('/api/categorias-financeiras/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid categoria ID' });
+      }
+      const deleted = await storage.deleteCategoria(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Categoria not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting categoria:', error);
+      res.status(500).json({ error: 'Failed to delete categoria' });
+    }
+  });
+
+  // Lançamentos Financeiros routes
+  app.get('/api/financeiro/lancamentos', async (req, res) => {
+    try {
+      const filters = {
+        tipo: req.query.tipo as string,
+        status: req.query.status as string,
+        empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
+        categoriaId: req.query.categoriaId ? parseInt(req.query.categoriaId as string) : undefined,
+        search: req.query.search as string,
+      };
+      const lancamentos = await storage.getLancamentos(filters);
+      res.json(lancamentos);
+    } catch (error) {
+      console.error('Error fetching lancamentos:', error);
+      res.status(500).json({ error: 'Failed to fetch lancamentos' });
+    }
+  });
+
+  app.post('/api/financeiro/lancamentos', async (req, res) => {
+    try {
+      // Add created by user info to the request
+      const lancamentoData = {
+        ...req.body,
+        criadoPor: req.session?.userId || 1, // Default to user ID 1 for now
+      };
+      const lancamento = await storage.createLancamento(lancamentoData);
+      res.status(201).json(lancamento);
+    } catch (error) {
+      console.error('Error creating lancamento:', error);
+      res.status(500).json({ error: 'Failed to create lancamento' });
+    }
+  });
+
+  app.put('/api/financeiro/lancamentos/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid lancamento ID' });
+      }
+      const lancamento = await storage.updateLancamento(id, req.body);
+      res.json(lancamento);
+    } catch (error) {
+      console.error('Error updating lancamento:', error);
+      res.status(500).json({ error: 'Failed to update lancamento' });
+    }
+  });
+
+  app.delete('/api/financeiro/lancamentos/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid lancamento ID' });
+      }
+      const deleted = await storage.deleteLancamento(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Lancamento not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting lancamento:', error);
+      res.status(500).json({ error: 'Failed to delete lancamento' });
+    }
+  });
+
+  // Solicitações de Recursos routes
+  app.get('/api/solicitacoes-recursos', async (req, res) => {
+    try {
+      const filters = {
+        status: req.query.status as string,
+        solicitanteId: req.query.solicitanteId ? parseInt(req.query.solicitanteId as string) : undefined,
+        empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
+      };
+      const solicitacoes = await storage.getSolicitacoes(filters);
+      res.json(solicitacoes);
+    } catch (error) {
+      console.error('Error fetching solicitacoes:', error);
+      res.status(500).json({ error: 'Failed to fetch solicitacoes' });
+    }
+  });
+
+  app.post('/api/solicitacoes-recursos', async (req, res) => {
+    try {
+      const solicitacaoData = {
+        ...req.body,
+        solicitanteId: req.session?.userId || 1, // Default to user ID 1 for now
+      };
+      const solicitacao = await storage.createSolicitacao(solicitacaoData);
+      res.status(201).json(solicitacao);
+    } catch (error) {
+      console.error('Error creating solicitacao:', error);
+      res.status(500).json({ error: 'Failed to create solicitacao' });
+    }
+  });
+
+  app.put('/api/solicitacoes-recursos/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid solicitacao ID' });
+      }
+      const solicitacao = await storage.updateSolicitacao(id, req.body);
+      res.json(solicitacao);
+    } catch (error) {
+      console.error('Error updating solicitacao:', error);
+      res.status(500).json({ error: 'Failed to update solicitacao' });
+    }
+  });
+
+  app.delete('/api/solicitacoes-recursos/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid solicitacao ID' });
+      }
+      const deleted = await storage.deleteSolicitacao(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Solicitacao not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting solicitacao:', error);
+      res.status(500).json({ error: 'Failed to delete solicitacao' });
+    }
+  });
+
+  // Orçamentos routes
+  app.get('/api/orcamentos', async (req, res) => {
+    try {
+      const filters = {
+        empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
+        periodo: req.query.periodo as string,
+      };
+      const orcamentos = await storage.getOrcamentos(filters);
+      res.json(orcamentos);
+    } catch (error) {
+      console.error('Error fetching orcamentos:', error);
+      res.status(500).json({ error: 'Failed to fetch orcamentos' });
+    }
+  });
+
+  app.post('/api/orcamentos', async (req, res) => {
+    try {
+      const orcamentoData = {
+        ...req.body,
+        criadoPor: req.session?.userId || 1, // Default to user ID 1 for now
+      };
+      const orcamento = await storage.createOrcamento(orcamentoData);
+      res.status(201).json(orcamento);
+    } catch (error) {
+      console.error('Error creating orcamento:', error);
+      res.status(500).json({ error: 'Failed to create orcamento' });
+    }
+  });
+
+  app.put('/api/orcamentos/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid orcamento ID' });
+      }
+      const orcamento = await storage.updateOrcamento(id, req.body);
+      res.json(orcamento);
+    } catch (error) {
+      console.error('Error updating orcamento:', error);
+      res.status(500).json({ error: 'Failed to update orcamento' });
+    }
+  });
+
+  app.delete('/api/orcamentos/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid orcamento ID' });
+      }
+      const deleted = await storage.deleteOrcamento(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Orcamento not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting orcamento:', error);
+      res.status(500).json({ error: 'Failed to delete orcamento' });
+    }
+  });
+
+  // Financial Statistics route
+  app.get('/api/financeiro/stats', async (req, res) => {
+    try {
+      const stats = await storage.getFinancialStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching financial stats:', error);
+      res.status(500).json({ error: 'Failed to fetch financial stats' });
+    }
+  });
+
+  // ==== END FINANCIAL ROUTES ====
+
   const httpServer = createServer(app);
   return httpServer;
 }
