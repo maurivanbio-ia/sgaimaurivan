@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -215,7 +215,7 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
                   </FormControl>
                   <SelectContent>
                     {categorias.length === 0 ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="loading" disabled>
                         {initCategoriesMutation.isPending ? "Inicializando categorias..." : "Carregando categorias..."}
                       </SelectItem>
                     ) : (

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Building, Wrench, Kanban, ArrowRight } from "lucide-react";
+import { Loader2, Building, Wrench, Kanban, ArrowRight, DollarSign, Truck } from "lucide-react";
 import amazonBackground from "@assets/ChatGPT Image 5 de set. de 2025, 10_28_07_1757078897714.png";
 
 export default function Login() {
@@ -196,6 +196,47 @@ export default function Login() {
                 <div className="flex-grow">
                   <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Painel de Demandas</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Organize tarefas por setor, colaborador e prioridade em quadros visuais Kanban integrados.</p>
+                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
+                    <span className="text-xs font-medium mr-2">Saiba mais</span>
+                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          {/* Financeiro Card */}
+          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-financeiro">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <DollarSign className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="flex-grow">
+                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Gestão Financeira</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Controle orçamentos, lançamentos e recursos financeiros dos projetos com dashboards analíticos.</p>
+                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
+                    <span className="text-xs font-medium mr-2">Saiba mais</span>
+                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Frota Card */}
+          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-frota">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Truck className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="flex-grow">
+                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Gestão de Frota</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Monitore veículos, agendamentos, manutenções e custos operacionais da frota empresarial.</p>
                   <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
                     <span className="text-xs font-medium mr-2">Saiba mais</span>
                     <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
