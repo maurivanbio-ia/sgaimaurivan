@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   BarChart3, 
   PieChart, 
@@ -88,13 +89,15 @@ const statusColors = {
   atrasadas: "#ef4444",
 };
 
-function LicencasPanel() {
+function LicencasPanel({ empreendimentoId }: { empreendimentoId?: string }) {
   const { data: stats } = useQuery<LicenseStats>({
-    queryKey: ["/api/stats/licenses"],
+    queryKey: ["/api/stats/licenses", empreendimentoId],
+    enabled: !!empreendimentoId,
   });
 
   const { data: monthlyData } = useQuery({
-    queryKey: ["/api/stats/expiry-monthly"],
+    queryKey: ["/api/stats/expiry-monthly", empreendimentoId],
+    enabled: !!empreendimentoId,
   });
 
   if (!stats) {
@@ -195,9 +198,10 @@ function LicencasPanel() {
   );
 }
 
-function EquipamentosPanel() {
+function EquipamentosPanel({ empreendimentoId }: { empreendimentoId?: string }) {
   const { data: stats } = useQuery<EquipmentStats>({
-    queryKey: ["/api/equipamentos/dashboard/stats"],
+    queryKey: ["/api/equipamentos/dashboard/stats", empreendimentoId],
+    enabled: !!empreendimentoId,
   });
 
   const { data: chartData } = useQuery({
@@ -382,9 +386,10 @@ function FinanceiroPanel() {
   );
 }
 
-function FrotaPanel() {
+function FrotaPanel({ empreendimentoId }: { empreendimentoId?: string }) {
   const { data: stats } = useQuery({
-    queryKey: ["/api/frota/dashboard/stats"],
+    queryKey: ["/api/frota/dashboard/stats", empreendimentoId],
+    enabled: !!empreendimentoId,
   });
 
   if (!stats) {
@@ -453,13 +458,15 @@ function FrotaPanel() {
   );
 }
 
-function DemandasPanel() {
+function DemandasPanel({ empreendimentoId }: { empreendimentoId?: string }) {
   const { data: stats } = useQuery<DemandasStats>({
-    queryKey: ["/api/demandas/dashboard/stats"],
+    queryKey: ["/api/demandas/dashboard/stats", empreendimentoId],
+    enabled: !!empreendimentoId,
   });
 
   const { data: chartData } = useQuery({
-    queryKey: ["/api/demandas/dashboard/charts"],
+    queryKey: ["/api/demandas/dashboard/charts", empreendimentoId],
+    enabled: !!empreendimentoId,
   });
 
   if (!stats) {
@@ -570,6 +577,17 @@ function DemandasPanel() {
 }
 
 export default function PainelIntegradoPage() {
+  const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>("");
+
+  const { data: empreendimentos } = useQuery({
+    queryKey: ["/api/empreendimentos"],
+  });
+
+  // Auto-select first empreendimento if available and none selected
+  if (empreendimentos?.length > 0 && !selectedEmpreendimento) {
+    setSelectedEmpreendimento(empreendimentos[0].id.toString());
+  }
+
   return (
     <div className="container mx-auto py-8 space-y-6" data-testid="page-painel-integrado">
       {/* Header */}
@@ -581,6 +599,29 @@ export default function PainelIntegradoPage() {
           Visão consolidada dos indicadores principais da plataforma
         </p>
       </div>
+
+      {/* Empreendimento Selector */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium min-w-fit">
+              Empreendimento:
+            </label>
+            <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
+              <SelectTrigger className="w-[300px]" data-testid="select-empreendimento">
+                <SelectValue placeholder="Selecione um empreendimento" />
+              </SelectTrigger>
+              <SelectContent>
+                {empreendimentos?.map((emp: any) => (
+                  <SelectItem key={emp.id} value={emp.id.toString()}>
+                    {emp.nome} - {emp.cliente}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Integrated Dashboard with Tabs */}
       <Tabs defaultValue="licencas" className="w-full">
@@ -608,15 +649,15 @@ export default function PainelIntegradoPage() {
         </TabsList>
 
         <TabsContent value="licencas" className="mt-6">
-          <LicencasPanel />
+          <LicencasPanel empreendimentoId={selectedEmpreendimento} />
         </TabsContent>
 
         <TabsContent value="equipamentos" className="mt-6">
-          <EquipamentosPanel />
+          <EquipamentosPanel empreendimentoId={selectedEmpreendimento} />
         </TabsContent>
 
         <TabsContent value="demandas" className="mt-6">
-          <DemandasPanel />
+          <DemandasPanel empreendimentoId={selectedEmpreendimento} />
         </TabsContent>
 
         <TabsContent value="financeiro" className="mt-6">
