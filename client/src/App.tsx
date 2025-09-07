@@ -24,6 +24,7 @@ import NewEquipamento from "./pages/new-equipamento";
 import EquipamentoDetail from "./pages/equipamento-detail";
 import EquipmentDashboard from "./pages/equipment-dashboard";
 import Demandas from "./pages/demandas";
+import PainelIntegrado from "./pages/painel-integrado";
 import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
 
@@ -59,6 +60,7 @@ function Router() {
         <Route path="/licencas/vencidas" component={LicencasVencidas} />
         <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
         <Route path="/entregas/mes" component={EntregasMes} />
+        <Route path="/painel" component={PainelIntegrado} />
         <Route path="/equipamentos" component={Equipamentos} />
         <Route path="/equipamentos/painel" component={EquipmentDashboard} />
         <Route path="/equipamentos/novo" component={NewEquipamento} />
