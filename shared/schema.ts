@@ -428,6 +428,137 @@ export const insertPendenciaSchema = createInsertSchema(pendencias).omit({
   resolvidoEm: true,
 });
 
+// =============================================
+// FINANCIAL MODULE SCHEMA
+// =============================================
+
+// Categorias Financeiras
+export const categoriasFinanceiras = pgTable("categorias_financeiras", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(), // Ex: Aluguel, Veículo, Hospedagem, Material, Combustivel, Alimentação
+  tipo: text("tipo").notNull(), // receita, despesa
+  cor: text("cor").notNull().default("#3b82f6"), // Cor para visualização no dashboard
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Lançamentos Financeiros
+export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
+  id: serial("id").primaryKey(),
+  tipo: text("tipo").notNull(), // receita, despesa, reembolso, solicitacao_recurso
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  categoriaId: serial("categoria_id").references(() => categoriasFinanceiras.id).notNull(),
+  valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
+  data: date("data").notNull(),
+  descricao: text("descricao").notNull(),
+  status: text("status").notNull().default("aguardando"), // aguardando, aprovado, pago, recusado
+  comprovanteUrl: text("comprovante_url"), // URL do arquivo de comprovante
+  observacoes: text("observacoes"),
+  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// Solicitações de Recursos
+export const solicitacoesRecursos = pgTable("solicitacoes_recursos", {
+  id: serial("id").primaryKey(),
+  solicitanteId: serial("solicitante_id").references(() => users.id).notNull(),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
+  justificativa: text("justificativa").notNull(),
+  tipoGasto: text("tipo_gasto").notNull(), // Ex: material, equipamento, viagem, etc.
+  prazoDesejado: date("prazo_desejado"),
+  status: text("status").notNull().default("pendente"), // pendente, aprovado, recusado, solicitar_ajuste
+  diretorId: serial("diretor_id").references(() => users.id), // Quem aprovou/recusou
+  decisao: text("decisao"), // aprovado, recusado, solicitar_ajuste
+  comentarioDiretor: text("comentario_diretor"),
+  aprovadomEm: timestamp("aprovado_em"),
+  comprovanteUrl: text("comprovante_url"), // Orçamento ou comprovante anexado
+  data: date("data").defaultNow().notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Orçamentos por Empreendimento
+export const orcamentos = pgTable("orcamentos", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  valorOrcamento: decimal("valor_orcamento", { precision: 12, scale: 2 }).notNull(),
+  periodo: text("periodo").notNull(), // Ex: "2024", "2024-Q1", "2024-01" 
+  descricao: text("descricao"),
+  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// Relations for financial tables
+export const categoriasFinanceirasRelations = relations(categoriasFinanceiras, ({ many }) => ({
+  lancamentos: many(financeiroLancamentos),
+}));
+
+export const financeiroLancamentosRelations = relations(financeiroLancamentos, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [financeiroLancamentos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  categoria: one(categoriasFinanceiras, {
+    fields: [financeiroLancamentos.categoriaId],
+    references: [categoriasFinanceiras.id],
+  }),
+  criadoPorUser: one(users, {
+    fields: [financeiroLancamentos.criadoPor],
+    references: [users.id],
+  }),
+}));
+
+export const solicitacoesRecursosRelations = relations(solicitacoesRecursos, ({ one }) => ({
+  solicitante: one(users, {
+    fields: [solicitacoesRecursos.solicitanteId],
+    references: [users.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [solicitacoesRecursos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  diretor: one(users, {
+    fields: [solicitacoesRecursos.diretorId],
+    references: [users.id],
+  }),
+}));
+
+export const orcamentosRelations = relations(orcamentos, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [orcamentos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  criadoPorUser: one(users, {
+    fields: [orcamentos.criadoPor],
+    references: [users.id],
+  }),
+}));
+
+// Financial insert schemas
+export const insertCategoriaFinanceiraSchema = createInsertSchema(categoriasFinanceiras).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertFinanceiroLancamentoSchema = createInsertSchema(financeiroLancamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertSolicitacaoRecursoSchema = createInsertSchema(solicitacoesRecursos).omit({
+  id: true,
+  criadoEm: true,
+  aprovadomEm: true,
+});
+
+export const insertOrcamentoSchema = createInsertSchema(orcamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
 // Demandas types
 export type InsertDemanda = z.infer<typeof insertDemandaSchema>;
 export type Demanda = typeof demandas.$inferSelect;
@@ -437,6 +568,16 @@ export type InsertSubtarefaDemanda = z.infer<typeof insertSubtarefaDemandaSchema
 export type SubtarefaDemanda = typeof subtarefasDemandas.$inferSelect;
 export type InsertHistoricoMovimentacao = z.infer<typeof insertHistoricoMovimentacaoSchema>;
 export type HistoricoMovimentacao = typeof historicoDemandasMovimentacoes.$inferSelect;
+
+// Financial types
+export type InsertCategoriaFinanceira = z.infer<typeof insertCategoriaFinanceiraSchema>;
+export type CategoriaFinanceira = typeof categoriasFinanceiras.$inferSelect;
+export type InsertFinanceiroLancamento = z.infer<typeof insertFinanceiroLancamentoSchema>;
+export type FinanceiroLancamento = typeof financeiroLancamentos.$inferSelect;
+export type InsertSolicitacaoRecurso = z.infer<typeof insertSolicitacaoRecursoSchema>;
+export type SolicitacaoRecurso = typeof solicitacoesRecursos.$inferSelect;
+export type InsertOrcamento = z.infer<typeof insertOrcamentoSchema>;
+export type Orcamento = typeof orcamentos.$inferSelect;
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
