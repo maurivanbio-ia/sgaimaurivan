@@ -81,7 +81,7 @@ export default function NewEquipamento() {
         valorAquisicao: data.valorAquisicao ? parseFloat(data.valorAquisicao as string) : null,
         vidaUtilEstimada: data.vidaUtilEstimada ? parseInt(data.vidaUtilEstimada.toString()) : null,
       };
-      return apiRequest("/api/equipamentos", "POST", payload);
+      return apiRequest("POST", "/api/equipamentos", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipamentos"] });
