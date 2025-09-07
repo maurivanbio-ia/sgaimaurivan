@@ -131,7 +131,12 @@ function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
       return apiRequest("POST", "/api/demandas", demandaData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      // Force complete refresh of demandas
+      queryClient.removeQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && query.queryKey[0] === "/api/demandas" 
+      });
+      refetch(); // Force immediate refetch
       toast({
         title: "Demanda criada",
         description: "Nova demanda foi criada com sucesso!",
@@ -577,10 +582,10 @@ function KanbanColumn({ status, title, demandas, icon: Icon }: KanbanColumnProps
 
 export default function DemandasPage() {
   const [filters, setFilters] = useState({
-    setor: "",
+    setor: "todos",
     responsavel: "",
-    empreendimento: "",
-    prioridade: "",
+    empreendimento: "todos",
+    prioridade: "todas",
     search: ""
   });
   
@@ -591,8 +596,10 @@ export default function DemandasPage() {
   const sensors = useSensors(useSensor(PointerSensor));
 
   // Fetch demandas
-  const { data: demandas = [], isLoading } = useQuery<Demanda[]>({
+  const { data: demandas = [], isLoading, refetch } = useQuery<Demanda[]>({
     queryKey: ["/api/demandas", filters],
+    staleTime: 0, // Always refetch to ensure fresh data
+    gcTime: 0, // Don't cache the results
   });
 
   // Update demanda status mutation
