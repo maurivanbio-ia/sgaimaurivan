@@ -576,11 +576,27 @@ function DemandasPanel({ empreendimentoId }: { empreendimentoId?: string }) {
   );
 }
 
+interface EmpreendimentoDetailed {
+  id: number;
+  nome: string;
+  cliente: string;
+  localizacao: string;
+  tipo: string;
+  situacao: string;
+  criadoEm: string;
+}
+
 export default function PainelIntegradoPage() {
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>("");
 
   const { data: empreendimentos } = useQuery({
     queryKey: ["/api/empreendimentos"],
+  });
+
+  // Fetch detailed information about selected empreendimento
+  const { data: empreendimentoDetail } = useQuery<EmpreendimentoDetailed>({
+    queryKey: ["/api/empreendimentos", selectedEmpreendimento],
+    enabled: !!selectedEmpreendimento,
   });
 
   // Auto-select first empreendimento if available and none selected
@@ -622,6 +638,63 @@ export default function PainelIntegradoPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Empreendimento Information Panel */}
+      {empreendimentoDetail && (
+        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <CardTitle className="text-2xl text-primary mb-3">
+                  📍 {empreendimentoDetail.nome}
+                </CardTitle>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-600" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Cliente</p>
+                      <p className="font-medium">{empreendimentoDetail.cliente}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-green-600" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Localização</p>
+                      <p className="font-medium">{empreendimentoDetail.localizacao}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-purple-600" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tipo</p>
+                      <p className="font-medium">{empreendimentoDetail.tipo}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-orange-600" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <Badge variant={empreendimentoDetail.situacao === 'Ativo' ? 'default' : 'secondary'}>
+                        {empreendimentoDetail.situacao}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right ml-6">
+                <p className="text-sm text-muted-foreground">Projeto criado em:</p>
+                <p className="font-semibold text-lg">
+                  {new Date(empreendimentoDetail.criadoEm).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Integrated Dashboard with Tabs */}
       <Tabs defaultValue="licencas" className="w-full">
