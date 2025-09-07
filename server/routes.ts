@@ -449,7 +449,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced Stats routes
   app.get("/api/stats/licenses", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getLicenseStats();
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const stats = await storage.getLicenseStats(empreendimentoId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Get license stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Enhanced Stats routes with empreendimento filter
+  app.get("/api/stats/licenses/:empreendimentoId", requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const stats = await storage.getLicenseStats(empreendimentoId);
       res.json(stats);
     } catch (error) {
       console.error("Get license stats error:", error);
@@ -499,7 +512,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/expiry-monthly", requireAuth, async (req, res) => {
     try {
-      const monthlyData = await storage.getMonthlyExpiryData();
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const monthlyData = await storage.getMonthlyExpiryData(empreendimentoId);
+      res.json(monthlyData);
+    } catch (error) {
+      console.error("Get monthly expiry data error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/stats/expiry-monthly/:empreendimentoId", requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const monthlyData = await storage.getMonthlyExpiryData(empreendimentoId);
       res.json(monthlyData);
     } catch (error) {
       console.error("Get monthly expiry data error:", error);
@@ -901,9 +926,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard endpoints for equipment analytics
   app.get("/api/equipamentos/dashboard/stats", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getEquipamentosStats();
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const stats = await storage.getEquipamentosStats(empreendimentoId);
       
       // Calculate additional metrics
+      const [pendenciesResult] = await db
+        .select({
+          pendenciasVencidas: sql<number>`COUNT(CASE WHEN ${pendencias.status} = 'pendente' AND ${pendencias.prazoRetorno} < CURRENT_DATE THEN 1 END)`,
+        })
+        .from(pendencias);
+
+      const [movementsResult] = await db
+        .select({
+          movimentacoesMes: sql<number>`COUNT(*)`,
+        })
+        .from(movimentacoes)
+        .where(sql`${movimentacoes.criadoEm} >= date_trunc('month', CURRENT_DATE)`);
+      
+      const dashboardStats = {
+        totalEquipamentos: stats.totalEquipamentos,
+        emUso: stats.totalEquipamentos - stats.totalDisponivel,
+        emManutencao: stats.totalManutencao,
+        pendenciasVencidas: pendenciesResult?.pendenciasVencidas || 0,
+        movimentacoesMes: movementsResult?.movimentacoesMes || 0,
+      };
+      
+      res.json(dashboardStats);
+    } catch (error) {
+      console.error("Error getting dashboard stats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/equipamentos/dashboard/stats/:empreendimentoId", requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const stats = await storage.getEquipamentosStats(empreendimentoId);
+      
+      // Calculate additional metrics with filter
       const [pendenciesResult] = await db
         .select({
           pendenciasVencidas: sql<number>`COUNT(CASE WHEN ${pendencias.status} = 'pendente' AND ${pendencias.prazoRetorno} < CURRENT_DATE THEN 1 END)`,
@@ -1082,7 +1142,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get demandas statistics for dashboard
   app.get('/api/demandas/dashboard/stats', async (req, res) => {
     try {
-      const stats = await storage.getDemandasStats();
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const stats = await storage.getDemandasStats(empreendimentoId);
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching demandas stats:', error);
+      res.status(500).json({ error: 'Failed to fetch demandas statistics' });
+    }
+  });
+
+  app.get('/api/demandas/dashboard/stats/:empreendimentoId', async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const stats = await storage.getDemandasStats(empreendimentoId);
       res.json(stats);
     } catch (error) {
       console.error('Error fetching demandas stats:', error);
@@ -1093,7 +1165,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get demandas chart data for dashboard
   app.get('/api/demandas/dashboard/charts', async (req, res) => {
     try {
-      const chartData = await storage.getDemandasChartData();
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const chartData = await storage.getDemandasChartData(empreendimentoId);
+      res.json(chartData);
+    } catch (error) {
+      console.error('Error fetching demandas charts:', error);
+      res.status(500).json({ error: 'Failed to fetch demandas chart data' });
+    }
+  });
+
+  app.get('/api/demandas/dashboard/charts/:empreendimentoId', async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const chartData = await storage.getDemandasChartData(empreendimentoId);
       res.json(chartData);
     } catch (error) {
       console.error('Error fetching demandas charts:', error);
