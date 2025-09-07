@@ -19,6 +19,9 @@ import LicencasVencer from "./pages/licencas-vencer";
 import LicencasVencidas from "./pages/licencas-vencidas";
 import CondicionantesPendentes from "./pages/condicionantes-pendentes";
 import EntregasMes from "./pages/entregas-mes";
+import Equipamentos from "./pages/equipamentos";
+import NewEquipamento from "./pages/new-equipamento";
+import EquipamentoDetail from "./pages/equipamento-detail";
 import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
 
@@ -54,6 +57,9 @@ function Router() {
         <Route path="/licencas/vencidas" component={LicencasVencidas} />
         <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
         <Route path="/entregas/mes" component={EntregasMes} />
+        <Route path="/equipamentos" component={Equipamentos} />
+        <Route path="/equipamentos/novo" component={NewEquipamento} />
+        <Route path="/equipamentos/:id" component={EquipamentoDetail} />
         <Route component={NotFound} />
       </Switch>
     </div>
