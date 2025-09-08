@@ -39,21 +39,35 @@ export default function Header() {
     <header className="bg-card border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <img 
-              src="http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png" 
-              alt="EcoBrasil Logo" 
-              className="h-8 mr-4"
-            />
-            <h1 className="text-xl font-semibold text-primary">LicençaFácil</h1>
-          </div>
+          <Link href="/">
+            <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
+              <img 
+                src="http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png" 
+                alt="EcoBrasil Logo" 
+                className="h-8 mr-4"
+              />
+              <h1 className="text-xl font-semibold text-primary">LicençaFácil</h1>
+            </div>
+          </Link>
 
           <div className="flex items-center space-x-4">
             <GlobalSearch />
           </div>
 
           <nav className="hidden md:flex space-x-8">
-            
+            <Link href="/">
+              <Button
+                variant="ghost"
+                className={`px-1 py-4 text-sm font-medium ${
+                  isActive("/")
+                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
+                    : "text-muted-foreground hover:text-primary"
+                }`}
+                data-testid="nav-dashboard"
+              >
+                Dashboard
+              </Button>
+            </Link>
             <Link href="/empreendimentos">
               <Button
                 variant="ghost"
