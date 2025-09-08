@@ -61,8 +61,7 @@ function Router() {
         <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
         <Route path="/entregas/mes" component={EntregasMes} />
         <Route path="/painel" component={PainelIntegrado} />
-        <Route path="/equipamentos/painel" component={EquipmentDashboard} />
-        <Route path="/equipamentos" component={EquipamentosModule} />
+        <Route path="/equipamentos/:rest*" component={EquipamentosModule} />
         <Route path="/demandas" component={Demandas} />
         <Route path="/financeiro" component={Financeiro} />
         <Route path="/frota" component={Frota} />
