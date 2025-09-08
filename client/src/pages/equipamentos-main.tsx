@@ -5,6 +5,7 @@ import NovoEquipamento from "./equipamentos-novo";
 import VerEquipamento from "./equipamentos-ver";
 import EditarEquipamento from "./equipamentos-editar";
 import QREquipamento from "./equipamentos-qr";
+import PainelESG from "./equipamentos-painel";
 
 // Create a separate query client for the equipamentos module
 const equipamentosQueryClient = new QueryClient({
@@ -24,6 +25,7 @@ function EquipamentosRoutes() {
   return (
     <Switch>
       {/* Most specific routes first */}
+      <Route path="/equipamentos/painel" component={PainelESG} />
       <Route path="/equipamentos/novo" component={NovoEquipamento} />
       <Route path="/equipamentos/:id/editar" component={EditarEquipamento} />
       <Route path="/equipamentos/:id/qr" component={QREquipamento} />

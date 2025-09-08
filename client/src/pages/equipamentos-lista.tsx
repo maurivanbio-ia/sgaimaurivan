@@ -504,7 +504,7 @@ export default function EquipamentosLista() {
                           <TableCell>
                             <div className="text-sm">{formatDate(equipamento.dataAquisicao)}</div>
                           </TableCell>
-                        <TableCell>
+                          <TableCell>
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               asChild
@@ -537,9 +537,10 @@ export default function EquipamentosLista() {
                               </Link>
                             </Button>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
