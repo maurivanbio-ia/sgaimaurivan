@@ -19,7 +19,7 @@ import LicencasVencer from "./pages/licencas-vencer";
 import LicencasVencidas from "./pages/licencas-vencidas";
 import CondicionantesPendentes from "./pages/condicionantes-pendentes";
 import EntregasMes from "./pages/entregas-mes";
-import EquipamentosModule from "./pages/equipamentos";
+import EquipamentosMain from "./pages/equipamentos-main";
 import EquipmentDashboard from "./pages/equipment-dashboard";
 import Demandas from "./pages/demandas";
 import Financeiro from "./pages/financeiro";
@@ -61,7 +61,7 @@ function Router() {
         <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
         <Route path="/entregas/mes" component={EntregasMes} />
         <Route path="/painel" component={PainelIntegrado} />
-        <Route path="/equipamentos/:rest*" component={EquipamentosModule} />
+        <Route path="/equipamentos/:rest*" component={EquipamentosMain} />
         <Route path="/demandas" component={Demandas} />
         <Route path="/financeiro" component={Financeiro} />
         <Route path="/frota" component={Frota} />
