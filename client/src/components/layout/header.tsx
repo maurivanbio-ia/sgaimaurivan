@@ -9,6 +9,16 @@ import { GlobalSearch } from "@/components/global-search";
 import { NotificationsCenter } from "@/components/notifications-center";
 import { cn } from "@/lib/utils"; // se não tiver, troque por classnames ou remova o cn
 
+// Import navigation icons
+import dashboardIcon from "@assets/DASHBOARD_1757346300554.png";
+import empreendimentosIcon from "@assets/EMPREENDIMENTOS_1757346300560.png";
+import painelIcon from "@assets/PAINEL_1757346300560.png";
+import equipamentosIcon from "@assets/EQUIPAMENTOS_1757346300561.png";
+import demandasIcon from "@assets/DEMANDAS_1757346300561.png";
+import financeiroIcon from "@assets/FINANCEIRO_1757346300562.png";
+import frotaIcon from "@assets/FROTA_1757346300562.png";
+import alertasIcon from "@assets/ALERTA_1757346300562.png";
+
 export default function Header() {
   const [location] = useLocation();
   const logout = useLogout();
@@ -43,14 +53,14 @@ export default function Header() {
   };
 
   const NAV = [
-    { href: "/", label: "Dashboard", testid: "nav-dashboard", icon: "📊" },
-    { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects", icon: "🏗️" },
-    { href: "/painel", label: "Painel", testid: "nav-painel", icon: "📈" },
-    { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos", icon: "🔬" },
-    { href: "/demandas", label: "Demandas", testid: "nav-demandas", icon: "📋" },
-    { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro", icon: "💰" },
-    { href: "/frota", label: "Frota", testid: "nav-frota", icon: "🚗" },
-    { href: "/alertas", label: "Alertas", testid: "nav-alerts", icon: "🔔" },
+    { href: "/", label: "Dashboard", testid: "nav-dashboard", icon: dashboardIcon },
+    { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects", icon: empreendimentosIcon },
+    { href: "/painel", label: "Painel", testid: "nav-painel", icon: painelIcon },
+    { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos", icon: equipamentosIcon },
+    { href: "/demandas", label: "Demandas", testid: "nav-demandas", icon: demandasIcon },
+    { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro", icon: financeiroIcon },
+    { href: "/frota", label: "Frota", testid: "nav-frota", icon: frotaIcon },
+    { href: "/alertas", label: "Alertas", testid: "nav-alerts", icon: alertasIcon },
   ];
 
   return (
@@ -111,7 +121,12 @@ export default function Header() {
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className="flex items-center gap-2"
                 >
-                  <span className="text-base">{item.icon}</span>
+                  <img 
+                    src={item.icon} 
+                    alt={`${item.label} icon`}
+                    className="w-4 h-4"
+                    loading="lazy"
+                  />
                   {item.label}
                 </Link>
               </Button>
@@ -185,7 +200,12 @@ export default function Header() {
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className="flex items-center gap-2"
                 >
-                  <span className="text-base">{item.icon}</span>
+                  <img 
+                    src={item.icon} 
+                    alt={`${item.label} icon`}
+                    className="w-4 h-4"
+                    loading="lazy"
+                  />
                   {item.label}
                 </Link>
               </Button>
