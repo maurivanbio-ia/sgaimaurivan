@@ -1,3 +1,5 @@
+// src/components/Header.tsx
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useLogout } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -5,27 +7,32 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationsCenter } from "@/components/notifications-center";
+import { cn } from "@/lib/utils"; // se não tiver, troque por classnames ou remova o cn
 
 export default function Header() {
-  const [location, navigate] = useLocation(); // << agora temos navigate
+  const [location] = useLocation();
   const logout = useLogout();
   const { toast } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
+      setIsLoggingOut(true);
       await logout.mutateAsync();
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
-      // O redirecionamento para login será automático devido ao App.tsx
-      // que redireciona quando !isAuthenticated
-    } catch (error) {
+      // App.tsx deve redirecionar ao detectar !isAuthenticated
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Erro ao fazer logout. Tente novamente.",
+        description: error?.message ?? "Erro ao fazer logout. Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -35,150 +42,163 @@ export default function Header() {
     return false;
   };
 
+  const NAV = [
+    { href: "/", label: "Dashboard", testid: "nav-dashboard" },
+    { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects" },
+    { href: "/painel", label: "Painel", testid: "nav-painel" },
+    { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos" },
+    { href: "/demandas", label: "Demandas", testid: "nav-demandas" },
+    { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro" },
+    { href: "/frota", label: "Frota", testid: "nav-frota" },
+    { href: "/alertas", label: "Alertas", testid: "nav-alerts" },
+  ];
+
   return (
     <header className="bg-card border-b border-border shadow-sm">
+      {/* A11y: Skip link */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-primary text-primary-foreground rounded px-3 py-1"
+      >
+        Pular para o conteúdo
+      </a>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Link href="/">
-            <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
-              <img 
-                src="http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png" 
-                alt="EcoBrasil Logo" 
-                className="h-8 mr-4"
-              />
-              <h1 className="text-xl font-semibold text-primary">LicençaFácil</h1>
-            </div>
+          {/* Logo como link simples (sem button dentro) e com asset seguro */}
+          <Link
+            href="/"
+            aria-label="Ir para o início"
+            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <img
+              src="https://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png"
+              alt="EcoBrasil"
+              className="h-8 mr-3"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+            <span className="text-xl font-semibold text-primary">LicençaFácil</span>
           </Link>
 
-          <div className="flex items-center space-x-4">
+          {/* Busca desktop */}
+          <div className="hidden md:flex items-center space-x-4">
             <GlobalSearch />
           </div>
 
-          <nav className="hidden md:flex space-x-8">
-            <Link href="/">
+          {/* Navegação desktop */}
+          <nav
+            className="hidden md:flex space-x-2"
+            role="navigation"
+            aria-label="Navegação principal"
+          >
+            {NAV.map((item) => (
               <Button
+                key={item.href}
                 variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/")
+                asChild
+                className={cn(
+                  "px-1 py-4 text-sm font-medium",
+                  isActive(item.href)
                     ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
                     : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-dashboard"
+                )}
+                data-testid={item.testid}
               >
-                Dashboard
+                <Link
+                  href={item.href}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
               </Button>
-            </Link>
-            <Link href="/empreendimentos">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/empreendimentos")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-projects"
-              >
-                Empreendimentos
-              </Button>
-            </Link>
-            <Link href="/painel">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/painel")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-painel"
-              >
-                Painel
-              </Button>
-            </Link>
-            <Link href="/equipamentos">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/equipamentos")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-equipamentos"
-              >
-                Equipamentos
-              </Button>
-            </Link>
-            <Link href="/demandas">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/demandas")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-demandas"
-              >
-                Demandas
-              </Button>
-            </Link>
-            <Link href="/financeiro">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/financeiro")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-financeiro"
-              >
-                Financeiro
-              </Button>
-            </Link>
-            <Link href="/frota">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/frota")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-frota"
-              >
-                Frota
-              </Button>
-            </Link>
-            <Link href="/alertas">
-              <Button
-                variant="ghost"
-                className={`px-1 py-4 text-sm font-medium ${
-                  isActive("/alertas")
-                    ? "text-primary border-b-2 border-primary bg-transparent hover:bg-transparent"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-testid="nav-alerts"
-              >
-                Alertas
-              </Button>
-            </Link>
+            ))}
+
             <Button
               variant="ghost"
               onClick={handleLogout}
               className="text-muted-foreground hover:text-destructive px-1 py-4 text-sm font-medium"
               data-testid="button-logout"
+              disabled={isLoggingOut}
             >
-              Sair
+              {isLoggingOut ? "Saindo..." : "Sair"}
             </Button>
           </nav>
 
+          {/* Ações (sempre visíveis) + Menu mobile */}
           <div className="flex items-center space-x-2">
             <NotificationsCenter />
             <ThemeToggle />
-          </div>
 
-          <div className="md:hidden">
-            <Button variant="ghost" size="sm">
-              <i className="fas fa-bars" />
-            </Button>
+            <div className="md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Abrir menu"
+                aria-controls="mobile-menu"
+                aria-expanded={mobileOpen}
+                onClick={() => setMobileOpen((v) => !v)}
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </Button>
+            </div>
           </div>
+        </div>
+
+        {/* Busca mobile */}
+        <div className="md:hidden py-2">
+          <GlobalSearch />
+        </div>
+
+        {/* Menu mobile colapsável (sem libs extras) */}
+        <div
+          id="mobile-menu"
+          className={cn(
+            "md:hidden border-t border-border",
+            mobileOpen ? "block" : "hidden"
+          )}
+        >
+          <nav className="py-2 flex flex-col space-y-1" aria-label="Menu móvel">
+            {NAV.map((item) => (
+              <Button
+                key={item.href}
+                variant={isActive(item.href) ? "secondary" : "ghost"}
+                asChild
+                className="justify-start"
+                data-testid={`${item.testid}-mobile`}
+                onClick={() => setMobileOpen(false)}
+              >
+                <Link
+                  href={item.href}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              </Button>
+            ))}
+
+            <Button
+              variant="ghost"
+              className="justify-start text-destructive"
+              onClick={() => {
+                setMobileOpen(false);
+                void handleLogout();
+              }}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? "Saindo..." : "Sair"}
+            </Button>
+          </nav>
         </div>
       </div>
     </header>
