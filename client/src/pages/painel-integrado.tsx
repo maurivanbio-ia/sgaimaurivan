@@ -54,14 +54,6 @@ interface LicenseStats {
   expired: number;
 }
 
-interface EquipmentStats {
-  total: number;
-  disponivel: number;
-  retirado: number;
-  manutencao: number;
-  porCategoria: Array<{ categoria: string; count: number }>;
-  porStatus: Array<{ status: string; count: number }>;
-}
 
 interface DemandasStats {
   total: number;
@@ -78,10 +70,6 @@ const statusColors = {
   expiring: "#f59e0b", 
   expired: "#ef4444",
   
-  // Equipamentos
-  disponivel: "#10b981",
-  retirado: "#3b82f6",
-  manutencao: "#f59e0b",
   
   // Demandas
   concluidas: "#10b981",
@@ -113,7 +101,7 @@ function LicencasPanel({ empreendimentoId }: { empreendimentoId?: string }) {
     }]
   };
 
-  const monthlyChartData = monthlyData ? {
+  const monthlyChartData = Array.isArray(monthlyData) ? {
     labels: monthlyData.map((item: any) => item.month),
     datasets: [{
       label: "Licenças Vencendo",
@@ -198,122 +186,6 @@ function LicencasPanel({ empreendimentoId }: { empreendimentoId?: string }) {
   );
 }
 
-function EquipamentosPanel({ empreendimentoId }: { empreendimentoId?: string }) {
-  const { data: stats } = useQuery<EquipmentStats>({
-    queryKey: ["/api/equipamentos/dashboard/stats", empreendimentoId],
-    enabled: !!empreendimentoId,
-  });
-
-  const { data: chartData } = useQuery({
-    queryKey: ["/api/equipamentos/dashboard/charts"],
-  });
-
-  if (!stats) {
-    return <div className="text-center py-8">Carregando dados de equipamentos...</div>;
-  }
-
-  // Preparar dados para gráficos
-  const statusData = {
-    labels: ["Disponível", "Retirado", "Manutenção"],
-    datasets: [{
-      data: [stats.disponivel, stats.retirado, stats.manutencao],
-      backgroundColor: [statusColors.disponivel, statusColors.retirado, statusColors.manutencao],
-    }]
-  };
-
-  const categoriaData = stats.porCategoria ? {
-    labels: stats.porCategoria.map(item => item.categoria),
-    datasets: [{
-      label: "Quantidade",
-      data: stats.porCategoria.map(item => item.count),
-      backgroundColor: "#3b82f6",
-    }]
-  } : null;
-
-  return (
-    <div className="space-y-6">
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Equipamentos</CardTitle>
-            <Wrench className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">Patrimônios cadastrados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Disponíveis</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.disponivel}</div>
-            <p className="text-xs text-muted-foreground">Prontos para uso</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Em Campo</CardTitle>
-            <Activity className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.retirado}</div>
-            <p className="text-xs text-muted-foreground">Em uso</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Em Manutenção</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.manutencao}</div>
-            <p className="text-xs text-muted-foreground">Necessita reparo</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-5 w-5" />
-              Status dos Equipamentos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div style={{ height: "300px" }}>
-              <Pie data={statusData} options={{ maintainAspectRatio: false }} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {categoriaData && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Equipamentos por Categoria
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ height: "300px" }}>
-                <Bar data={categoriaData} options={{ maintainAspectRatio: false }} />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function FinanceiroPanel() {
   const { data: stats } = useQuery({
@@ -600,7 +472,7 @@ export default function PainelIntegradoPage() {
   });
 
   // Auto-select first empreendimento if available and none selected
-  if (empreendimentos?.length > 0 && !selectedEmpreendimento) {
+  if (Array.isArray(empreendimentos) && empreendimentos.length > 0 && !selectedEmpreendimento) {
     setSelectedEmpreendimento(empreendimentos[0].id.toString());
   }
 
@@ -628,7 +500,7 @@ export default function PainelIntegradoPage() {
                 <SelectValue placeholder="Selecione um empreendimento" />
               </SelectTrigger>
               <SelectContent>
-                {empreendimentos?.map((emp: any) => (
+                {Array.isArray(empreendimentos) && empreendimentos?.map((emp: any) => (
                   <SelectItem key={emp.id} value={emp.id.toString()}>
                     {emp.nome} - {emp.cliente}
                   </SelectItem>
@@ -698,14 +570,10 @@ export default function PainelIntegradoPage() {
 
       {/* Integrated Dashboard with Tabs */}
       <Tabs defaultValue="licencas" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="licencas" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Licenças
-          </TabsTrigger>
-          <TabsTrigger value="equipamentos" className="flex items-center gap-2">
-            <Wrench className="h-4 w-4" />
-            Equipamentos
           </TabsTrigger>
           <TabsTrigger value="demandas" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -725,9 +593,6 @@ export default function PainelIntegradoPage() {
           <LicencasPanel empreendimentoId={selectedEmpreendimento} />
         </TabsContent>
 
-        <TabsContent value="equipamentos" className="mt-6">
-          <EquipamentosPanel empreendimentoId={selectedEmpreendimento} />
-        </TabsContent>
 
         <TabsContent value="demandas" className="mt-6">
           <DemandasPanel empreendimentoId={selectedEmpreendimento} />
@@ -1068,7 +933,7 @@ export default function PainelIntegradoPage() {
                         scales: {
                           y: {
                             beginAtZero: true,
-                            stepSize: 1,
+                            stepSize: 1 as any,
                           }
                         }
                       }} 
