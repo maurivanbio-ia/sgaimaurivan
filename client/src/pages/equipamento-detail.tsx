@@ -83,10 +83,7 @@ export default function EquipamentoDetail() {
 
   const createMovimentacaoMutation = useMutation({
     mutationFn: async (data: MovimentacaoFormData) => {
-      return apiRequest("/api/movimentacoes", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/movimentacoes", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipamentos", equipamentoId] });
@@ -406,6 +403,7 @@ export default function EquipamentoDetail() {
                             <FormControl>
                               <Input
                                 {...field}
+                                value={field.value || ""}
                                 placeholder="Ex: Escritório, Cliente ABC"
                                 data-testid="input-localizacao-origem"
                               />
@@ -424,6 +422,7 @@ export default function EquipamentoDetail() {
                             <FormControl>
                               <Input
                                 {...field}
+                                value={field.value || ""}
                                 placeholder="Ex: Cliente XYZ, Laboratório"
                                 data-testid="input-localizacao-destino"
                               />
@@ -443,6 +442,7 @@ export default function EquipamentoDetail() {
                           <FormControl>
                             <Input
                               {...field}
+                              value={field.value || ""}
                               placeholder="Ex: Trabalho em campo, manutenção preventiva"
                               data-testid="input-finalidade"
                             />
@@ -461,6 +461,7 @@ export default function EquipamentoDetail() {
                           <FormControl>
                             <Textarea
                               {...field}
+                              value={field.value || ""}
                               placeholder="Observações adicionais sobre a movimentação"
                               rows={3}
                               data-testid="textarea-observacoes-movimentacao"
@@ -521,7 +522,7 @@ export default function EquipamentoDetail() {
                         <TableRow key={movimentacao.id} data-testid={`row-movement-${movimentacao.id}`}>
                           <TableCell>
                             <div className="text-sm">
-                              {formatDateTime(movimentacao.dataHora)}
+                              {formatDateTime(movimentacao.dataHora.toString())}
                             </div>
                           </TableCell>
                           <TableCell>
