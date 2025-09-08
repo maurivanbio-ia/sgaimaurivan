@@ -1,6 +1,6 @@
 // EquipamentosModule.tsx
 import { useEffect, useMemo, useState } from "react";
-import { Route, Switch, useLocation, useRoute } from "wouter";
+import { Route, Switch, useLocation, useRoute, Link } from "wouter";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,11 +86,26 @@ const parseBRL = (s: string) => {
   return Number.isFinite(n) ? n : null;
 };
 
+// Fetch com erro consistente (evita páginas “brancas”)
+async function safeFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    let msg = "Erro inesperado.";
+    try {
+      const data = await res.json();
+      msg = data?.message ?? msg;
+    } catch {
+      try { msg = (await res.text()) || msg; } catch {}
+    }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<T>;
+}
+
 // =====================================================
 // LISTA: /equipamentos
 // =====================================================
 function EquipamentosList() {
-  const [, navigate] = useLocation();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -120,9 +135,7 @@ function EquipamentosList() {
         ? `/api/equipamentos/search?${params.toString()}`
         : "/api/equipamentos";
 
-      const res = await fetch(url, { signal });
-      if (!res.ok) throw new Error("Não foi possível carregar os equipamentos.");
-      return (await res.json()) as Equipamento[];
+      return safeFetch<Equipamento[]>(url, { signal });
     },
   });
 
@@ -158,9 +171,11 @@ function EquipamentosList() {
               <SelectItem value="50">50 / pág.</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => navigate("/equipamentos/novo")} className="gap-2" data-testid="button-new-equipment">
-            <Plus className="h-4 w-4" />
-            Novo Equipamento
+          <Button asChild className="gap-2" data-testid="button-new-equipment">
+            <Link href="/equipamentos/novo">
+              <Plus className="h-4 w-4" />
+              <span>Novo Equipamento</span>
+            </Link>
           </Button>
         </div>
       </div>
@@ -322,26 +337,44 @@ function EquipamentosList() {
                           <TableCell><div className="text-sm">{formatDate(equipamento.proximaManutencao)}</div></TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-2">
+                              {/* Visualizar - usar Link declarativo (evita 404 e conflitos de estado) */}
                               <Button
-                                variant="ghost" size="sm"
-                                onClick={() => navigate(`/equipamentos/${String(equipamento.id)}`)}
-                                title="Visualizar" data-testid={`button-view-${equipamento.id}`}
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                title="Visualizar"
+                                aria-label={`Visualizar ${equipamento.numeroPatrimonio}`}
+                                data-testid={`button-view-${equipamento.id}`}
                               >
-                                <Eye className="h-4 w-4" />
+                                <Link href={`/equipamentos/${String(equipamento.id)}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
                               </Button>
+                              {/* Editar - também com Link para consistência */}
                               <Button
-                                variant="ghost" size="sm"
-                                onClick={() => navigate(`/equipamentos/${String(equipamento.id)}/editar`)}
-                                title="Editar" data-testid={`button-edit-${equipamento.id}`}
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                title="Editar"
+                                aria-label={`Editar ${equipamento.numeroPatrimonio}`}
+                                data-testid={`button-edit-${equipamento.id}`}
                               >
-                                <Edit className="h-4 w-4" />
+                                <Link href={`/equipamentos/${String(equipamento.id)}/editar`}>
+                                  <Edit className="h-4 w-4" />
+                                </Link>
                               </Button>
+                              {/* QR Code */}
                               <Button
-                                variant="ghost" size="sm"
-                                onClick={() => navigate(`/equipamentos/${String(equipamento.id)}/qr`)}
-                                title="QR Code" data-testid={`button-qr-${equipamento.id}`}
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                title="QR Code"
+                                aria-label={`QR Code ${equipamento.numeroPatrimonio}`}
+                                data-testid={`button-qr-${equipamento.id}`}
                               >
-                                <QrCode className="h-4 w-4" />
+                                <Link href={`/equipamentos/${String(equipamento.id)}/qr`}>
+                                  <QrCode className="h-4 w-4" />
+                                </Link>
                               </Button>
                             </div>
                           </TableCell>
@@ -378,27 +411,24 @@ function EquipamentosList() {
 // VISUALIZAÇÃO: /equipamentos/:id
 // =====================================================
 function VerEquipamento() {
-  const [, params] = useRoute<{ id: string }>("/equipamentos/:id");
+  const [match, params] = useRoute<{ id: string }>("/equipamentos/:id");
   const id = params?.id;
-  const [, navigate] = useLocation();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     enabled: !!id,
     queryKey: ["/api/equipamentos", id],
-    queryFn: async ({ signal }) => {
-      const r = await fetch(`/api/equipamentos/${id}`, { signal });
-      if (!r.ok) throw new Error("Falha ao carregar o equipamento.");
-      return (await r.json()) as Equipamento;
-    },
+    queryFn: async ({ signal }) => safeFetch<Equipamento>(`/api/equipamentos/${id}`, { signal }),
   });
 
-  if (!id) {
+  if (!match || !id) {
     return (
       <div className="container mx-auto py-8">
         <Card>
           <CardHeader><CardTitle>Equipamento não encontrado</CardTitle></CardHeader>
           <CardContent>
-            <Button onClick={() => navigate("/equipamentos")}>Voltar à lista</Button>
+            <Button asChild>
+              <Link href="/equipamentos">Voltar à lista</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -429,10 +459,12 @@ function VerEquipamento() {
             <div className="text-red-600 dark:text-red-400 mb-4" role="alert">
               {(error as Error)?.message || "Erro ao carregar."}
             </div>
-            <Button variant="outline" onClick={() => refetch()}>Tentar novamente</Button>
-            <Button className="ml-2" variant="secondary" onClick={() => navigate("/equipamentos")}>
-              Voltar à lista
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => refetch()}>Tentar novamente</Button>
+              <Button asChild>
+                <Link href="/equipamentos">Voltar à lista</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -443,8 +475,10 @@ function VerEquipamento() {
     <div className="container mx-auto py-8 space-y-6" data-testid="page-ver-equipamento">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" onClick={() => navigate(`/equipamentos`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+          <Button asChild variant="ghost">
+            <Link href={`/equipamentos`}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+            </Link>
           </Button>
           <div>
             <h1 className="text-3xl font-bold">{data.numeroPatrimonio}</h1>
@@ -455,11 +489,15 @@ function VerEquipamento() {
           <Badge className={statusColors[(data.status as StatusKey) ?? "funcionando"]}>
             {statusLabels[(data.status as StatusKey) ?? "funcionando"]}
           </Badge>
-          <Button variant="outline" onClick={() => navigate(`/equipamentos/${data.id}/qr`)}>
-            <QrCode className="h-4 w-4 mr-2" /> QR Code
+          <Button asChild variant="outline">
+            <Link href={`/equipamentos/${data.id}/qr`}>
+              <QrCode className="h-4 w-4 mr-2" /> QR Code
+            </Link>
           </Button>
-          <Button onClick={() => navigate(`/equipamentos/${data.id}/editar`)}>
-            <Edit className="h-4 w-4 mr-2" /> Editar
+          <Button asChild>
+            <Link href={`/equipamentos/${data.id}/editar`}>
+              <Edit className="h-4 w-4 mr-2" /> Editar
+            </Link>
           </Button>
         </div>
       </div>
@@ -508,8 +546,8 @@ type FormValues = z.infer<typeof formSchema>;
 
 function EditarEquipamento() {
   const [, navigate] = useLocation();
-  const [, params] = useRoute<{ id: string }>("/equipamentos/:id/editar");
-  const id = params?.id; // não redireciona automaticamente para evitar falsos 404
+  const [match, params] = useRoute<{ id: string }>("/equipamentos/:id/editar");
+  const id = params?.id;
   const qc = useQueryClient();
   const { toast } = useToast();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -517,11 +555,7 @@ function EditarEquipamento() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     enabled: Boolean(id),
     queryKey: ["/api/equipamentos", id],
-    queryFn: async ({ signal }) => {
-      const res = await fetch(`/api/equipamentos/${id}`, { signal });
-      if (!res.ok) throw new Error("Não foi possível carregar o equipamento.");
-      return (await res.json()) as Equipamento;
-    },
+    queryFn: async ({ signal }) => safeFetch<Equipamento>(`/api/equipamentos/${id}`, { signal }),
   });
 
   const {
@@ -564,10 +598,7 @@ function EditarEquipamento() {
   // Aviso ao sair com alterações não salvas
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
+      if (isDirty) { e.preventDefault(); e.returnValue = ""; }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
@@ -576,18 +607,12 @@ function EditarEquipamento() {
   const valorWatch = watch("valorAquisicao");
 
   const updateMutation = useMutation({
-    mutationFn: async (payload: Partial<Equipamento>) => {
-      const res = await fetch(`/api/equipamentos/${id}`, {
+    mutationFn: async (payload: Partial<Equipamento>) =>
+      safeFetch<Equipamento>(`/api/equipamentos/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => "");
-        throw new Error(msg || "Falha ao salvar equipamento.");
-      }
-      return (await res.json()) as Equipamento;
-    },
+      }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["/api/equipamentos"] });
       await qc.invalidateQueries({ queryKey: ["/api/equipamentos", id] });
@@ -622,7 +647,7 @@ function EditarEquipamento() {
       responsavelAtual: v.responsavelAtual?.trim() || null,
       dataAquisicao: v.dataAquisicao,           // YYYY-MM-DD
       proximaManutencao: v.proximaManutencao || null,   // YYYY-MM-DD
-      valorAquisicao: v.valorAquisicao !== null && v.valorAquisicao !== undefined ? String(v.valorAquisicao) : null,
+      valorAquisicao: v.valorAquisicao ?? null, // number|null
       ...(v.observacoes !== undefined ? { observacoes: v.observacoes } : {}),
     };
     return updateMutation.mutateAsync(payload);
@@ -631,14 +656,11 @@ function EditarEquipamento() {
   const FieldError = ({ msg }: { msg?: string }) =>
     msg ? <p className="text-xs text-red-600 mt-1">{msg}</p> : null;
 
-  if (!id) {
+  if (!match || !id) {
     return (
       <div className="container mx-auto py-8">
         <Card>
           <CardHeader><CardTitle>Rota inválida</CardTitle></CardHeader>
-          <CardContent>
-            <Button onClick={() => navigate("/equipamentos")}>Voltar</Button>
-          </CardContent>
         </Card>
       </div>
     );
@@ -668,10 +690,10 @@ function EditarEquipamento() {
             <div className="text-red-600 dark:text-red-400 mb-4" role="alert">
               {(error as Error)?.message || "Erro ao carregar o equipamento."}
             </div>
-            <Button variant="outline" onClick={() => refetch()}>Tentar novamente</Button>
-            <Button className="ml-2" variant="secondary" onClick={() => navigate("/equipamentos")}>
-              Voltar à lista
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => refetch()}>Tentar novamente</Button>
+              <Button asChild><Link href="/equipamentos">Voltar à lista</Link></Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -682,8 +704,10 @@ function EditarEquipamento() {
     <div className="container mx-auto py-8 space-y-6" data-testid="page-editar-equipamento">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" onClick={() => navigate(`/equipamentos/${id}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+          <Button asChild variant="ghost">
+            <Link href={`/equipamentos/${id}`}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+            </Link>
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Editar Equipamento</h1>
@@ -696,8 +720,10 @@ function EditarEquipamento() {
           <Badge className={statusColors[(data.status as StatusKey) ?? "funcionando"]}>
             {statusLabels[(data.status as StatusKey) ?? "funcionando"]}
           </Badge>
-          <Button variant="outline" onClick={() => navigate(`/equipamentos/${id}/qr`)}>
-            <QrCode className="h-4 w-4 mr-2" /> QR Code
+          <Button asChild variant="outline">
+            <Link href={`/equipamentos/${id}/qr`}>
+              <QrCode className="h-4 w-4 mr-2" /> QR Code
+            </Link>
           </Button>
         </div>
       </div>
@@ -852,8 +878,8 @@ function EditarEquipamento() {
                 {isFetching ? "Sincronizando..." : isDirty ? "Alterações não salvas" : "Tudo salvo"}
               </div>
               <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate(`/equipamentos/${id}`)}>
-                  Cancelar
+                <Button asChild variant="outline">
+                  <Link href={`/equipamentos/${id}`}>Cancelar</Link>
                 </Button>
                 <Button type="submit" className="gap-2" disabled={isSubmitting || updateMutation.isPending}
                   data-testid="button-save-equipment">
@@ -906,15 +932,29 @@ function EditarEquipamento() {
 // QR CODE: /equipamentos/:id/qr (placeholder)
 // =====================================================
 function QREquipamento() {
-  const [, params] = useRoute<{ id: string }>("/equipamentos/:id/qr");
-  const id = params?.id!;
-  const [, navigate] = useLocation();
-  const url = typeof window !== "undefined" ? `${location.origin}/equipamentos/${id}` : `/equipamentos/${id}`;
+  const [match, params] = useRoute<{ id: string }>("/equipamentos/:id/qr");
+  const id = params?.id;
+  const url = typeof window !== "undefined" && id ? `${location.origin}/equipamentos/${id}` : id ? `/equipamentos/${id}` : "/equipamentos";
+
+  if (!match || !id) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card>
+          <CardHeader><CardTitle>Rota inválida</CardTitle></CardHeader>
+          <CardContent>
+            <Button asChild><Link href="/equipamentos">Voltar</Link></Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
-      <Button variant="ghost" onClick={() => navigate(`/equipamentos/${id}`)}>
-        <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+      <Button asChild variant="ghost">
+        <Link href={`/equipamentos/${id}`}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+        </Link>
       </Button>
       <Card className="mt-4">
         <CardHeader><CardTitle>QR Code</CardTitle></CardHeader>
@@ -934,14 +974,13 @@ function QREquipamento() {
 // NOVO (placeholder) : /equipamentos/novo
 // =====================================================
 function NovoEquipamento() {
-  const [, navigate] = useLocation();
   return (
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader><CardTitle>Novo Equipamento</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <p>Formulário de criação em desenvolvimento.</p>
-          <Button onClick={() => navigate("/equipamentos")}>Voltar</Button>
+          <Button asChild><Link href="/equipamentos">Voltar</Link></Button>
         </CardContent>
       </Card>
     </div>
@@ -949,8 +988,7 @@ function NovoEquipamento() {
 }
 
 // =====================================================
-// MÓDULO / EXPORT ÚNICO COM ROTAS
-//  Correção: rotas mais específicas ANTES das genéricas
+// MÓDULO / EXPORT ÚNICO COM ROTAS (específicas primeiro)
 // =====================================================
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -968,19 +1006,18 @@ const queryClient = new QueryClient({
 function EquipamentosRoutes() {
   return (
     <Switch>
-      {/* Coloque as rotas mais específicas primeiro */}
       <Route path="/equipamentos/:id/editar" component={EditarEquipamento} />
       <Route path="/equipamentos/:id/qr" component={QREquipamento} />
       <Route path="/equipamentos/novo" component={NovoEquipamento} />
       <Route path="/equipamentos/:id" component={VerEquipamento} />
       <Route path="/equipamentos" component={EquipamentosList} />
-      {/* fallback simples */}
+      {/* fallback */}
       <Route>
         <div className="container mx-auto py-8">
           <Card>
             <CardHeader><CardTitle>Página não encontrada</CardTitle></CardHeader>
             <CardContent>
-              <Button asChild><a href="/equipamentos">Ir para Equipamentos</a></Button>
+              <Button asChild><Link href="/equipamentos">Ir para Equipamentos</Link></Button>
             </CardContent>
           </Card>
         </div>
