@@ -43,14 +43,14 @@ export default function Header() {
   };
 
   const NAV = [
-    { href: "/", label: "Dashboard", testid: "nav-dashboard" },
-    { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects" },
-    { href: "/painel", label: "Painel", testid: "nav-painel" },
-    { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos" },
-    { href: "/demandas", label: "Demandas", testid: "nav-demandas" },
-    { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro" },
-    { href: "/frota", label: "Frota", testid: "nav-frota" },
-    { href: "/alertas", label: "Alertas", testid: "nav-alerts" },
+    { href: "/", label: "Dashboard", testid: "nav-dashboard", icon: "📊" },
+    { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects", icon: "🏗️" },
+    { href: "/painel", label: "Painel", testid: "nav-painel", icon: "📈" },
+    { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos", icon: "🔬" },
+    { href: "/demandas", label: "Demandas", testid: "nav-demandas", icon: "📋" },
+    { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro", icon: "💰" },
+    { href: "/frota", label: "Frota", testid: "nav-frota", icon: "🚗" },
+    { href: "/alertas", label: "Alertas", testid: "nav-alerts", icon: "🔔" },
   ];
 
   return (
@@ -109,7 +109,9 @@ export default function Header() {
                 <Link
                   href={item.href}
                   aria-current={isActive(item.href) ? "page" : undefined}
+                  className="flex items-center gap-2"
                 >
+                  <span className="text-base">{item.icon}</span>
                   {item.label}
                 </Link>
               </Button>
@@ -181,7 +183,9 @@ export default function Header() {
                 <Link
                   href={item.href}
                   aria-current={isActive(item.href) ? "page" : undefined}
+                  className="flex items-center gap-2"
                 >
+                  <span className="text-base">{item.icon}</span>
                   {item.label}
                 </Link>
               </Button>
