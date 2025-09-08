@@ -1,6 +1,7 @@
 // EquipamentosModule.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Route, Switch, useLocation, useRoute, Link } from "wouter";
+import NewEquipamento from "./new-equipamento";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -647,7 +648,7 @@ function EditarEquipamento() {
       responsavelAtual: v.responsavelAtual?.trim() || null,
       dataAquisicao: v.dataAquisicao,           // YYYY-MM-DD
       proximaManutencao: v.proximaManutencao || null,   // YYYY-MM-DD
-      valorAquisicao: v.valorAquisicao ?? null, // number|null
+      valorAquisicao: v.valorAquisicao ? v.valorAquisicao.toString() : null, // string|null
       ...(v.observacoes !== undefined ? { observacoes: v.observacoes } : {}),
     };
     return updateMutation.mutateAsync(payload);
@@ -970,22 +971,7 @@ function QREquipamento() {
   );
 }
 
-// =====================================================
-// NOVO (placeholder) : /equipamentos/novo
-// =====================================================
-function NovoEquipamento() {
-  return (
-    <div className="container mx-auto py-8">
-      <Card>
-        <CardHeader><CardTitle>Novo Equipamento</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <p>Formulário de criação em desenvolvimento.</p>
-          <Button asChild><Link href="/equipamentos">Voltar</Link></Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+// NovoEquipamento é importado do arquivo separado
 
 // =====================================================
 // MÓDULO / EXPORT ÚNICO COM ROTAS (específicas primeiro)
@@ -1008,7 +994,7 @@ function EquipamentosRoutes() {
     <Switch>
       <Route path="/equipamentos/:id/editar" component={EditarEquipamento} />
       <Route path="/equipamentos/:id/qr" component={QREquipamento} />
-      <Route path="/equipamentos/novo" component={NovoEquipamento} />
+      <Route path="/equipamentos/novo" component={NewEquipamento} />
       <Route path="/equipamentos/:id" component={VerEquipamento} />
       <Route path="/equipamentos" component={EquipamentosList} />
       {/* fallback */}
