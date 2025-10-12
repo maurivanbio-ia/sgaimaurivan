@@ -52,6 +52,7 @@ import {
   Pencil,
   Loader2,
   GripVertical,
+  Trash2,
 } from "lucide-react";
 
 // ===================================================
@@ -331,9 +332,11 @@ function DemandaForm({
 function DemandaCard({
   demanda,
   onEdit,
+  onDelete,
 }: {
   demanda: Demanda;
   onEdit: (d: Demanda) => void;
+  onDelete: (id: number) => void;
 }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
     useSortable({
@@ -378,20 +381,35 @@ function DemandaCard({
             </CardTitle>
           </div>
 
-          {/* Botão de editar */}
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 flex-shrink-0"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onEdit(demanda);
-            }}
-            data-testid={`button-edit-demanda-${demanda.id}`}
-          >
-            <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
-          </Button>
+          {/* Botões de ação */}
+          <div className="flex gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 flex-shrink-0"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEdit(demanda);
+              }}
+              data-testid={`button-edit-demanda-${demanda.id}`}
+            >
+              <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 flex-shrink-0"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(demanda.id);
+              }}
+              data-testid={`button-delete-demanda-${demanda.id}`}
+            >
+              <Trash2 className="h-4 w-4 text-destructive hover:text-destructive/70" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       
@@ -425,11 +443,13 @@ function KanbanColumn({
   label,
   demandas,
   onEdit,
+  onDelete,
 }: {
   status: Status;
   label: string;
   demandas: Demanda[];
   onEdit: (d: Demanda) => void;
+  onDelete: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -458,7 +478,7 @@ function KanbanColumn({
       >
         <div className="space-y-2 min-h-[100px]">
           {demandas.map((d) => (
-            <DemandaCard key={d.id} demanda={d} onEdit={onEdit} />
+            <DemandaCard key={d.id} demanda={d} onEdit={onEdit} onDelete={onDelete} />
           ))}
           {demandas.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
@@ -492,6 +512,13 @@ export default function DemandasPage() {
   });
   
   const demandas: Demanda[] = ensureArray<Demanda>(raw);
+
+  const { data: historicoRaw, isLoading: isLoadingHistorico } = useQuery({
+    queryKey: ["/api/demandas/historico/all"],
+    queryFn: async () => apiRequest("GET", "/api/demandas/historico/all"),
+  });
+
+  const historico = ensureArray(historicoRaw);
   const [editing, setEditing] = useState<Demanda | null>(null);
   const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
 
@@ -500,11 +527,28 @@ export default function DemandasPage() {
       apiRequest("PATCH", `/api/demandas/${id}`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
       toast({ title: "Demanda movida com sucesso!" });
     },
     onError: (e: any) =>
       toast({
         title: "Falha ao mover demanda",
+        description: e?.message ?? "Erro desconhecido",
+        variant: "destructive",
+      }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) =>
+      apiRequest("DELETE", `/api/demandas/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+      toast({ title: "Demanda excluída com sucesso!" });
+    },
+    onError: (e: any) =>
+      toast({
+        title: "Falha ao excluir demanda",
         description: e?.message ?? "Erro desconhecido",
         variant: "destructive",
       }),
@@ -603,6 +647,11 @@ export default function DemandasPage() {
                 label={label}
                 demandas={columns[status]}
                 onEdit={setEditing}
+                onDelete={(id) => {
+                  if (confirm("Tem certeza que deseja excluir esta demanda?")) {
+                    deleteMutation.mutate(id);
+                  }
+                }}
               />
             )
           )}
@@ -623,6 +672,61 @@ export default function DemandasPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Tabela de Histórico */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="text-xl">Histórico de Movimentações</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistorico ? (
+            <div className="text-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+            </div>
+          ) : historico.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhuma movimentação registrada ainda
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" data-testid="table-historico">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">Data</th>
+                    <th className="text-left p-2">Demanda</th>
+                    <th className="text-left p-2">Ação</th>
+                    <th className="text-left p-2">De</th>
+                    <th className="text-left p-2">Para</th>
+                    <th className="text-left p-2">Usuário</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historico.map((h: any) => (
+                    <tr key={h.id} className="border-b hover:bg-muted/50" data-testid={`historico-row-${h.id}`}>
+                      <td className="p-2">
+                        {h.criadoEm ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}
+                      </td>
+                      <td className="p-2">{h.demandaTitulo || "-"}</td>
+                      <td className="p-2">{h.acao || "-"}</td>
+                      <td className="p-2">
+                        <Badge variant="outline" className="text-xs">
+                          {h.statusAnterior || "-"}
+                        </Badge>
+                      </td>
+                      <td className="p-2">
+                        <Badge variant="outline" className="text-xs">
+                          {h.statusNovo || "-"}
+                        </Badge>
+                      </td>
+                      <td className="p-2">{h.usuarioEmail || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal de Edição */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
