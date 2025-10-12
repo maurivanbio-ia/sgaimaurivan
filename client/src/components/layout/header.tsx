@@ -50,6 +50,7 @@ export default function Header() {
     { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro" },
     { href: "/frota", label: "Frota", testid: "nav-frota" },
     { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos" },
+    { href: "/gestao-dados", label: "Gestão de Dados", testid: "nav-gestao-dados" },
     { href: "/alertas", label: "Alertas", testid: "nav-alerts" },
   ];
 
