@@ -528,6 +528,38 @@ export type AlertHistory = typeof alertHistory.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 
+// =============================================
+// DATASETS MODULE - GESTÃO DE DADOS
+// =============================================
+
+export const datasets = pgTable("datasets", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  tipo: text("tipo").notNull(), // csv, xlsx, pdf, docx, outro
+  tamanho: integer("tamanho").notNull(), // em bytes
+  usuario: text("usuario").notNull(),
+  dataUpload: timestamp("data_upload").defaultNow().notNull(),
+  url: text("url").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const datasetsRelations = relations(datasets, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [datasets.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
+export const insertDatasetSchema = createInsertSchema(datasets).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertDataset = z.infer<typeof insertDatasetSchema>;
+export type Dataset = typeof datasets.$inferSelect;
+
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
   licencas: LicencaAmbiental[];
