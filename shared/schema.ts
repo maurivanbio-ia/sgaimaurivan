@@ -311,6 +311,44 @@ export const insertHistoricoMovimentacaoSchema = createInsertSchema(historicoDem
 
 
 // =============================================
+// EQUIPMENT MODULE SCHEMA
+// =============================================
+
+// Equipamentos table
+export const equipamentos = pgTable("equipamentos", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  tipo: text("tipo").notNull(), // Veículo, GPS, Drone, Armadilha, Estação Meteorológica, etc.
+  localizacaoAtual: text("localizacao_atual").notNull(),
+  status: text("status").notNull().default("disponivel"), // disponivel, em_uso, manutencao
+  responsavel: text("responsavel"),
+  ultimaManutencao: date("ultima_manutencao"),
+  proximaManutencao: date("proxima_manutencao"),
+  numeroPatrimonio: text("numero_patrimonio"),
+  marca: text("marca"),
+  modelo: text("modelo"),
+  valorAquisicao: decimal("valor_aquisicao", { precision: 12, scale: 2 }),
+  dataAquisicao: date("data_aquisicao"),
+  observacoes: text("observacoes"),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+});
+
+// Relations
+export const equipamentosRelations = relations(equipamentos, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [equipamentos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  criadoPorUser: one(users, {
+    fields: [equipamentos.criadoPor],
+    references: [users.id],
+  }),
+}));
+
+// =============================================
 // FINANCIAL MODULE SCHEMA
 // =============================================
 
@@ -417,6 +455,13 @@ export const orcamentosRelations = relations(orcamentos, ({ one }) => ({
   }),
 }));
 
+// Equipment insert schemas
+export const insertEquipamentoSchema = createInsertSchema(equipamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
 // Financial insert schemas
 export const insertCategoriaFinanceiraSchema = createInsertSchema(categoriasFinanceiras).omit({
   id: true,
@@ -450,6 +495,10 @@ export type InsertSubtarefaDemanda = z.infer<typeof insertSubtarefaDemandaSchema
 export type SubtarefaDemanda = typeof subtarefasDemandas.$inferSelect;
 export type InsertHistoricoMovimentacao = z.infer<typeof insertHistoricoMovimentacaoSchema>;
 export type HistoricoMovimentacao = typeof historicoDemandasMovimentacoes.$inferSelect;
+
+// Equipment types
+export type InsertEquipamento = z.infer<typeof insertEquipamentoSchema>;
+export type Equipamento = typeof equipamentos.$inferSelect;
 
 // Financial types
 export type InsertCategoriaFinanceira = z.infer<typeof insertCategoriaFinanceiraSchema>;
