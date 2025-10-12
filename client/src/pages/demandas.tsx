@@ -9,6 +9,7 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -47,13 +48,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
-  Clock,
-  FileText,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
   Pencil,
   Loader2,
+  GripVertical,
 } from "lucide-react";
 
 // ===================================================
@@ -85,6 +82,14 @@ const STATUS_LABEL: Record<Status, string> = {
   em_revisao: "Em Revisão",
   concluido: "Concluído",
   cancelado: "Cancelado",
+};
+
+const STATUS_COLORS: Record<Status, string> = {
+  a_fazer: "bg-slate-100 border-slate-300",
+  em_andamento: "bg-blue-100 border-blue-300",
+  em_revisao: "bg-yellow-100 border-yellow-300",
+  concluido: "bg-green-100 border-green-300",
+  cancelado: "bg-red-100 border-red-300",
 };
 
 const SETORES = [
@@ -213,6 +218,7 @@ function DemandaForm({
           value={form.titulo}
           onChange={(e) => setForm({ ...form, titulo: e.target.value })}
           required
+          data-testid="input-titulo"
         />
       </div>
 
@@ -222,6 +228,7 @@ function DemandaForm({
           value={form.descricao}
           onChange={(e) => setForm({ ...form, descricao: e.target.value })}
           required
+          data-testid="input-descricao"
         />
       </div>
 
@@ -232,7 +239,7 @@ function DemandaForm({
             value={form.setor}
             onValueChange={(v) => setForm({ ...form, setor: v })}
           >
-            <SelectTrigger>
+            <SelectTrigger data-testid="select-setor">
               <SelectValue placeholder="Selecione o setor" />
             </SelectTrigger>
             <SelectContent>
@@ -251,7 +258,7 @@ function DemandaForm({
             value={form.prioridade}
             onValueChange={(v: Prioridade) => setForm({ ...form, prioridade: v })}
           >
-            <SelectTrigger>
+            <SelectTrigger data-testid="select-prioridade">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
@@ -270,6 +277,7 @@ function DemandaForm({
             value={form.responsavel}
             onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
             required
+            data-testid="input-responsavel"
           />
         </div>
         <div>
@@ -279,6 +287,7 @@ function DemandaForm({
             value={form.dataEntrega}
             onChange={(e) => setForm({ ...form, dataEntrega: e.target.value })}
             required
+            data-testid="input-data-entrega"
           />
         </div>
       </div>
@@ -290,7 +299,7 @@ function DemandaForm({
             value={form.status}
             onValueChange={(v: Status) => setForm({ ...form, status: v })}
           >
-            <SelectTrigger>
+            <SelectTrigger data-testid="select-status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -304,7 +313,7 @@ function DemandaForm({
         </div>
       )}
 
-      <Button type="submit" className="w-full" disabled={mutation.isPending}>
+      <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-submit-demanda">
         {mutation.isPending && (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         )}
@@ -315,7 +324,7 @@ function DemandaForm({
 }
 
 // ===================================================
-// Cartão de Demanda
+// Cartão de Demanda (Arrastável)
 // ===================================================
 
 function DemandaCard({
@@ -325,48 +334,133 @@ function DemandaCard({
   demanda: Demanda;
   onEdit: (d: Demanda) => void;
 }) {
-  const { setNodeRef, attributes, listeners, transform, transition } =
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
     useSortable({
       id: demanda.id,
     });
 
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const prioridadeColor = {
+    baixa: "bg-green-500",
+    media: "bg-yellow-500",
+    alta: "bg-red-500",
+  }[demanda.prioridade];
 
   return (
     <Card
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="mb-2 cursor-grab hover:shadow-md"
+      className="mb-2 hover:shadow-md transition-shadow"
+      data-testid={`demanda-card-${demanda.id}`}
     >
-      <CardHeader className="pb-2 flex justify-between items-center">
-        <CardTitle className="text-sm font-semibold">{demanda.titulo}</CardTitle>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation(); // impede conflito com DnD
-            onEdit(demanda); // abre modal corretamente
-          }}
-        >
-          <Pencil className="h-4 w-4 text-gray-500" />
-        </Button>
+      <CardHeader className="pb-2 pt-3 px-3">
+        <div className="flex items-start justify-between gap-2">
+          {/* Área de arrasto */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing pt-1"
+            data-testid={`drag-handle-${demanda.id}`}
+          >
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </div>
+
+          {/* Título */}
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-sm font-semibold line-clamp-2">
+              {demanda.titulo}
+            </CardTitle>
+          </div>
+
+          {/* Botão de editar */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 flex-shrink-0"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit(demanda);
+            }}
+            data-testid={`button-edit-demanda-${demanda.id}`}
+          >
+            <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent className="text-xs text-muted-foreground">
-        <p className="line-clamp-2">{demanda.descricao}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Badge variant="secondary">{demanda.setor}</Badge>
-          <Badge>{demanda.prioridade}</Badge>
-          <Badge variant="outline">
+      
+      <CardContent className="text-xs text-muted-foreground px-3 pb-3">
+        <p className="line-clamp-2 mb-2">{demanda.descricao}</p>
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary" className="text-xs">{demanda.setor}</Badge>
+          <Badge className={`${prioridadeColor} text-white text-xs`}>
+            {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
             {formatDate(new Date(demanda.dataEntrega), "dd/MM/yyyy", {
               locale: ptBR,
             })}
           </Badge>
         </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          {demanda.responsavel}
+        </p>
       </CardContent>
     </Card>
+  );
+}
+
+// ===================================================
+// Coluna do Kanban (Droppable)
+// ===================================================
+
+function KanbanColumn({
+  status,
+  label,
+  demandas,
+  onEdit,
+}: {
+  status: Status;
+  label: string;
+  demandas: Demanda[];
+  onEdit: (d: Demanda) => void;
+}) {
+  return (
+    <div
+      id={status}
+      className={`w-80 flex-shrink-0 rounded-lg border-2 p-3 ${STATUS_COLORS[status]}`}
+      data-testid={`kanban-column-${status}`}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <Badge variant="secondary" className="font-semibold">
+          {label}
+        </Badge>
+        <Badge variant="outline" className="ml-2">
+          {demandas.length}
+        </Badge>
+      </div>
+      
+      <SortableContext
+        items={demandas.map((d) => d.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-2 min-h-[100px]">
+          {demandas.map((d) => (
+            <DemandaCard key={d.id} demanda={d} onEdit={onEdit} />
+          ))}
+          {demandas.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Nenhuma demanda
+            </div>
+          )}
+        </div>
+      </SortableContext>
+    </div>
   );
 }
 
@@ -377,18 +471,30 @@ function DemandaCard({
 export default function DemandasPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Inicia drag após mover 8px
+      },
+    })
+  );
+
   const { data: raw, isLoading } = useQuery({
     queryKey: ["/api/demandas"],
     queryFn: async () => apiRequest("GET", "/api/demandas"),
   });
+  
   const demandas: Demanda[] = ensureArray<Demanda>(raw);
   const [editing, setEditing] = useState<Demanda | null>(null);
+  const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
 
   const moveMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: Status }) =>
       apiRequest("PATCH", `/api/demandas/${id}`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/demandas"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      toast({ title: "Demanda movida com sucesso!" });
+    },
     onError: (e: any) =>
       toast({
         title: "Falha ao mover demanda",
@@ -417,26 +523,48 @@ export default function DemandasPage() {
     return grouped;
   }, [demandas]);
 
+  const onDragStart = (e: any) => {
+    const id = Number(e.active.id);
+    const d = demandas.find((x) => x.id === id);
+    if (d) setActiveDemanda(d);
+  };
+
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
+    setActiveDemanda(null);
+    
     if (!over) return;
+    
     const id = Number(active.id);
     const newStatus = over.id as Status;
     const d = demandas.find((x) => x.id === id);
-    if (d && d.status !== newStatus)
+    
+    if (d && d.status !== newStatus) {
       moveMutation.mutate({ id, status: newStatus });
+    }
   };
 
-  if (isLoading)
-    return <div className="p-6 text-center">Carregando demandas...</div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+        <p>Carregando demandas...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="container mx-auto py-8 space-y-6" data-testid="page-demandas">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Demandas</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Quadro de Demandas</h1>
+          <p className="text-muted-foreground mt-1">
+            Arraste os cards entre as colunas para alterar o status
+          </p>
+        </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button>
+            <Button data-testid="button-nova-demanda">
               <Plus className="h-4 w-4 mr-2" /> Nova Demanda
             </Button>
           </DialogTrigger>
@@ -456,35 +584,40 @@ export default function DemandasPage() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
+        onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div className="flex gap-6 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4">
           {(Object.entries(STATUS_LABEL) as [Status, string][]).map(
             ([status, label]) => (
-              <div
+              <KanbanColumn
                 key={status}
-                id={status}
-                className="w-80 rounded-xl border p-3 bg-muted/30"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="secondary">{label}</Badge>
-                </div>
-                <SortableContext
-                  items={columns[status].map((d) => d.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {columns[status].map((d) => (
-                      <DemandaCard key={d.id} demanda={d} onEdit={setEditing} />
-                    ))}
-                  </div>
-                </SortableContext>
-              </div>
+                status={status}
+                label={label}
+                demandas={columns[status]}
+                onEdit={setEditing}
+              />
             )
           )}
         </div>
+
+        <DragOverlay>
+          {activeDemanda ? (
+            <Card className="w-80 opacity-90 rotate-3 shadow-xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">
+                  {activeDemanda.titulo}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground">
+                <p className="line-clamp-2">{activeDemanda.descricao}</p>
+              </CardContent>
+            </Card>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
+      {/* Modal de Edição */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
