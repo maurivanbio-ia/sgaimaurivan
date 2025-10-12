@@ -836,15 +836,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid demanda ID' });
       }
       
+      // Get current demanda to track status change
+      const currentDemanda = await storage.getDemandaById(id);
+      if (!currentDemanda) {
+        return res.status(404).json({ error: 'Demanda not found' });
+      }
+
       const demanda = await storage.updateDemanda(id, req.body);
       if (!demanda) {
         return res.status(404).json({ error: 'Demanda not found' });
+      }
+
+      // Create history record if status changed
+      if (req.body.status && req.body.status !== currentDemanda.status) {
+        const user = req.user as { id: number } | undefined;
+        if (user) {
+          await storage.createHistoricoMovimentacao({
+            demandaId: id,
+            usuarioId: user.id,
+            acao: 'moveu',
+            statusAnterior: currentDemanda.status || null,
+            statusNovo: req.body.status,
+            descricao: `Status alterado de ${currentDemanda.status} para ${req.body.status}`,
+          });
+        }
       }
       
       res.json(demanda);
     } catch (error) {
       console.error('Error updating demanda:', error);
       res.status(500).json({ error: 'Failed to update demanda' });
+    }
+  });
+
+  // Delete demanda
+  app.delete('/api/demandas/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid demanda ID' });
+      }
+
+      const success = await storage.deleteDemanda(id);
+      if (!success) {
+        return res.status(404).json({ error: 'Demanda not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting demanda:', error);
+      res.status(500).json({ error: 'Failed to delete demanda' });
+    }
+  });
+
+  // Get all historical movements
+  app.get('/api/demandas/historico/all', async (req, res) => {
+    try {
+      const historico = await storage.getAllHistorico();
+      res.json(historico);
+    } catch (error) {
+      console.error('Error fetching historico:', error);
+      res.status(500).json({ error: 'Failed to fetch historico' });
+    }
+  });
+
+  // Get historical movements for a specific demanda
+  app.get('/api/demandas/:id/historico', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid demanda ID' });
+      }
+
+      const historico = await storage.getHistoricoByDemanda(id);
+      res.json(historico);
+    } catch (error) {
+      console.error('Error fetching historico:', error);
+      res.status(500).json({ error: 'Failed to fetch historico' });
     }
   });
 
