@@ -7,6 +7,7 @@ import {
   insertCondicionanteSchema,
   insertEntregaSchema,
   insertNotificationSchema,
+  insertEquipamentoSchema,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -1102,6 +1103,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== END FINANCIAL ROUTES ====
+
+  // ==== EQUIPMENT ROUTES ====
+
+  // Get all equipamentos with optional filters
+  app.get('/api/equipamentos', requireAuth, async (req, res) => {
+    try {
+      const { tipo, status, search, localizacaoAtual, empreendimentoId } = req.query;
+      const filters: any = {};
+
+      if (tipo) filters.tipo = String(tipo);
+      if (status) filters.status = String(status);
+      if (search) filters.search = String(search);
+      if (localizacaoAtual) filters.localizacaoAtual = String(localizacaoAtual);
+      if (empreendimentoId) filters.empreendimentoId = parseInt(String(empreendimentoId));
+
+      const equipamentos = await storage.getEquipamentos(filters);
+      res.json(equipamentos);
+    } catch (error) {
+      console.error('Error fetching equipamentos:', error);
+      res.status(500).json({ error: 'Failed to fetch equipamentos' });
+    }
+  });
+
+  // Get equipamentos stats
+  app.get('/api/equipamentos/stats', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const stats = await storage.getEquipamentosStats(
+        empreendimentoId ? parseInt(String(empreendimentoId)) : undefined
+      );
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching equipamentos stats:', error);
+      res.status(500).json({ error: 'Failed to fetch equipamentos stats' });
+    }
+  });
+
+  // Get single equipamento
+  app.get('/api/equipamentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) {
+        return res.status(404).json({ error: 'Equipamento not found' });
+      }
+      res.json(equipamento);
+    } catch (error) {
+      console.error('Error fetching equipamento:', error);
+      res.status(500).json({ error: 'Failed to fetch equipamento' });
+    }
+  });
+
+  // Create equipamento
+  app.post('/api/equipamentos', requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertEquipamentoSchema.parse({
+        ...req.body,
+        criadoPor: req.session.userId,
+      });
+      const equipamento = await storage.createEquipamento(validatedData);
+      res.status(201).json(equipamento);
+    } catch (error) {
+      console.error('Error creating equipamento:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation error', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create equipamento' });
+    }
+  });
+
+  // Update equipamento
+  app.put('/api/equipamentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      const equipamento = await storage.updateEquipamento(id, req.body);
+      res.json(equipamento);
+    } catch (error) {
+      console.error('Error updating equipamento:', error);
+      res.status(500).json({ error: 'Failed to update equipamento' });
+    }
+  });
+
+  // Delete equipamento
+  app.delete('/api/equipamentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      const deleted = await storage.deleteEquipamento(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Equipamento not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting equipamento:', error);
+      res.status(500).json({ error: 'Failed to delete equipamento' });
+    }
+  });
+
+  // ==== END EQUIPMENT ROUTES ====
 
   const httpServer = createServer(app);
   return httpServer;
