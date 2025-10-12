@@ -43,36 +43,7 @@ function Router() {
   }
 
   return (
-      <div className="flex h-screen">
-        {/* Sidebar fixa à esquerda */}
-        <Sidebar />
-
-        {/* Conteúdo principal */}
-        <main className="flex-1 overflow-y-auto bg-background">
-          <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/empreendimentos" component={Projects} />
-            <Route path="/empreendimentos/novo" component={NewProject} />
-            <Route path="/empreendimentos/:id/editar" component={EditProject} />
-            <Route path="/empreendimentos/:id" component={ProjectDetail} />
-            <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
-            <Route path="/licencas/:id/editar" component={EditLicense} />
-            <Route path="/alertas" component={AlertConfig} />
-            <Route path="/licencas/ativas" component={LicencasAtivas} />
-            <Route path="/licencas/vencer" component={LicencasVencer} />
-            <Route path="/licencas/vencidas" component={LicencasVencidas} />
-            <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
-            <Route path="/entregas/mes" component={EntregasMes} />
-            <Route path="/painel" component={PainelIntegrado} />
-            <Route path="/demandas" component={Demandas} />
-            <Route path="/financeiro" component={Financeiro} />
-            <Route path="/frota" component={Frota} />
-            <Route path="/equipamentos" component={Equipamentos} />
-            <Route component={NotFound} />
-          </Switch>
-        </main>
-      </div>
-
+    <div className="min-h-screen bg-background">
       <Header />
       <Switch>
         <Route path="/" component={Dashboard} />
