@@ -22,6 +22,7 @@ import EntregasMes from "./pages/entregas-mes";
 import Demandas from "./pages/demandas";
 import Financeiro from "./pages/financeiro";
 import Frota from "./pages/frota";
+import Equipamentos from "./pages/equipamentos";
 import PainelIntegrado from "./pages/painel-integrado";
 import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
@@ -62,6 +63,7 @@ function Router() {
         <Route path="/demandas" component={Demandas} />
         <Route path="/financeiro" component={Financeiro} />
         <Route path="/frota" component={Frota} />
+        <Route path="/equipamentos" component={Equipamentos} />
         <Route component={NotFound} />
       </Switch>
     </div>
