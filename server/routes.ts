@@ -1279,6 +1279,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== END EQUIPMENT ROUTES ====
 
+  // =============================================
+  // DATASETS MODULE - GESTÃO DE DADOS
+  // =============================================
+
+  // Get all datasets with optional filters
+  app.get('/api/datasets', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, tipo } = req.query;
+      
+      const filters: any = {};
+      if (empreendimentoId) filters.empreendimentoId = parseInt(empreendimentoId as string);
+      if (tipo) filters.tipo = tipo as string;
+
+      const datasets = await storage.getDatasets(filters);
+      res.json(datasets);
+    } catch (error) {
+      console.error('Error fetching datasets:', error);
+      res.status(500).json({ error: 'Failed to fetch datasets' });
+    }
+  });
+
+  // Get single dataset
+  app.get('/api/datasets/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid dataset ID' });
+      }
+
+      const dataset = await storage.getDatasetById(id);
+      if (!dataset) {
+        return res.status(404).json({ error: 'Dataset not found' });
+      }
+
+      res.json(dataset);
+    } catch (error) {
+      console.error('Error fetching dataset:', error);
+      res.status(500).json({ error: 'Failed to fetch dataset' });
+    }
+  });
+
+  // Create dataset
+  app.post('/api/datasets', requireAuth, async (req, res) => {
+    try {
+      const dataset = await storage.createDataset(req.body);
+      res.status(201).json(dataset);
+    } catch (error) {
+      console.error('Error creating dataset:', error);
+      res.status(500).json({ error: 'Failed to create dataset' });
+    }
+  });
+
+  // Delete dataset
+  app.delete('/api/datasets/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid dataset ID' });
+      }
+
+      const deleted = await storage.deleteDataset(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Dataset not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting dataset:', error);
+      res.status(500).json({ error: 'Failed to delete dataset' });
+    }
+  });
+
+  // ==== END DATASETS ROUTES ====
+
   const httpServer = createServer(app);
   return httpServer;
 }
