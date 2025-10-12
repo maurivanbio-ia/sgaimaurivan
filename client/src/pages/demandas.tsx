@@ -10,6 +10,7 @@ import {
   useSensors,
   DragEndEvent,
   DragOverlay,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -430,10 +431,16 @@ function KanbanColumn({
   demandas: Demanda[];
   onEdit: (d: Demanda) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+  });
+
   return (
     <div
-      id={status}
-      className={`w-80 flex-shrink-0 rounded-lg border-2 p-3 ${STATUS_COLORS[status]}`}
+      ref={setNodeRef}
+      className={`w-80 flex-shrink-0 rounded-lg border-2 p-3 transition-all ${STATUS_COLORS[status]} ${
+        isOver ? "ring-2 ring-primary ring-offset-2 shadow-lg" : ""
+      }`}
       data-testid={`kanban-column-${status}`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -455,7 +462,7 @@ function KanbanColumn({
           ))}
           {demandas.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              Nenhuma demanda
+              Arraste uma demanda aqui
             </div>
           )}
         </div>
