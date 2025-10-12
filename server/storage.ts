@@ -150,6 +150,11 @@ export interface IStorage {
     setorChart: Array<{ setor: string; count: number }>;
     evolucaoChart: Array<{ periodo: string; concluidas: number; novas: number }>;
   }>;
+  
+  // Histórico de demandas operations
+  createHistoricoMovimentacao(historico: InsertHistoricoMovimentacao): Promise<HistoricoMovimentacao>;
+  getHistoricoByDemanda(demandaId: number): Promise<HistoricoMovimentacao[]>;
+  getAllHistorico(): Promise<Array<HistoricoMovimentacao & { demandaTitulo?: string; usuarioEmail?: string }>>;
 
   // Financial operations
   getCategorias(): Promise<CategoriaFinanceira[]>;
@@ -964,6 +969,41 @@ export class DatabaseStorage implements IStorage {
   async deleteDemanda(id: number): Promise<boolean> {
     const result = await db.delete(demandas).where(eq(demandas.id, id));
     return (result.rowCount || 0) > 0;
+  }
+
+  async createHistoricoMovimentacao(historico: InsertHistoricoMovimentacao): Promise<HistoricoMovimentacao> {
+    const [created] = await db.insert(historicoDemandasMovimentacoes).values(historico).returning();
+    return created;
+  }
+
+  async getHistoricoByDemanda(demandaId: number): Promise<HistoricoMovimentacao[]> {
+    return await db
+      .select()
+      .from(historicoDemandasMovimentacoes)
+      .where(eq(historicoDemandasMovimentacoes.demandaId, demandaId))
+      .orderBy(desc(historicoDemandasMovimentacoes.criadoEm));
+  }
+
+  async getAllHistorico(): Promise<Array<HistoricoMovimentacao & { demandaTitulo?: string; usuarioEmail?: string }>> {
+    const historico = await db
+      .select({
+        id: historicoDemandasMovimentacoes.id,
+        demandaId: historicoDemandasMovimentacoes.demandaId,
+        usuarioId: historicoDemandasMovimentacoes.usuarioId,
+        acao: historicoDemandasMovimentacoes.acao,
+        statusAnterior: historicoDemandasMovimentacoes.statusAnterior,
+        statusNovo: historicoDemandasMovimentacoes.statusNovo,
+        descricao: historicoDemandasMovimentacoes.descricao,
+        criadoEm: historicoDemandasMovimentacoes.criadoEm,
+        demandaTitulo: demandas.titulo,
+        usuarioEmail: users.email,
+      })
+      .from(historicoDemandasMovimentacoes)
+      .leftJoin(demandas, eq(historicoDemandasMovimentacoes.demandaId, demandas.id))
+      .leftJoin(users, eq(historicoDemandasMovimentacoes.usuarioId, users.id))
+      .orderBy(desc(historicoDemandasMovimentacoes.criadoEm));
+    
+    return historico;
   }
 
   async getDemandasStats(): Promise<{
