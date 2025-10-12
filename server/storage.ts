@@ -49,6 +49,9 @@ import {
   type InsertSolicitacaoRecurso,
   type Orcamento,
   type InsertOrcamento,
+  equipamentos,
+  type Equipamento,
+  type InsertEquipamento,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
@@ -188,6 +191,25 @@ export interface IStorage {
     saldoAtual: number;
     porCategoria: Array<{ categoria: string; valor: number }>;
     porEmpreendimento: Array<{ empreendimento: string; valor: number }>;
+  }>;
+
+  // Equipment operations
+  getEquipamentos(filters?: {
+    tipo?: string;
+    status?: string;
+    search?: string;
+    localizacaoAtual?: string;
+    empreendimentoId?: number;
+  }): Promise<Equipamento[]>;
+  getEquipamentoById(id: number): Promise<Equipamento | undefined>;
+  createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento>;
+  updateEquipamento(id: number, updates: Partial<InsertEquipamento>): Promise<Equipamento>;
+  deleteEquipamento(id: number): Promise<boolean>;
+  getEquipamentosStats(empreendimentoId?: number): Promise<{
+    total: number;
+    disponivel: number;
+    em_uso: number;
+    manutencao: number;
   }>;
 }
 
@@ -1271,6 +1293,113 @@ export class DatabaseStorage implements IStorage {
       saldoAtual,
       porCategoria,
       porEmpreendimento,
+    };
+  }
+
+  // Equipment operations
+  async getEquipamentos(filters?: {
+    tipo?: string;
+    status?: string;
+    search?: string;
+    localizacaoAtual?: string;
+    empreendimentoId?: number;
+  }): Promise<Equipamento[]> {
+    let query = db.select().from(equipamentos).$dynamic();
+
+    if (filters) {
+      const conditions = [];
+
+      if (filters.tipo) {
+        conditions.push(eq(equipamentos.tipo, filters.tipo));
+      }
+
+      if (filters.status) {
+        conditions.push(eq(equipamentos.status, filters.status));
+      }
+
+      if (filters.localizacaoAtual) {
+        conditions.push(eq(equipamentos.localizacaoAtual, filters.localizacaoAtual));
+      }
+
+      if (filters.empreendimentoId) {
+        conditions.push(eq(equipamentos.empreendimentoId, filters.empreendimentoId));
+      }
+
+      if (filters.search) {
+        conditions.push(
+          or(
+            ilike(equipamentos.nome, `%${filters.search}%`),
+            ilike(equipamentos.marca, `%${filters.search}%`),
+            ilike(equipamentos.modelo, `%${filters.search}%`),
+            ilike(equipamentos.numeroPatrimonio, `%${filters.search}%`)
+          )
+        );
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+
+    return query.orderBy(desc(equipamentos.criadoEm));
+  }
+
+  async getEquipamentoById(id: number): Promise<Equipamento | undefined> {
+    const [equipamento] = await db
+      .select()
+      .from(equipamentos)
+      .where(eq(equipamentos.id, id));
+    return equipamento || undefined;
+  }
+
+  async createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento> {
+    const [newEquipamento] = await db
+      .insert(equipamentos)
+      .values(equipamento)
+      .returning();
+    return newEquipamento;
+  }
+
+  async updateEquipamento(id: number, updates: Partial<InsertEquipamento>): Promise<Equipamento> {
+    const [updated] = await db
+      .update(equipamentos)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(equipamentos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEquipamento(id: number): Promise<boolean> {
+    const result = await db.delete(equipamentos).where(eq(equipamentos.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getEquipamentosStats(empreendimentoId?: number): Promise<{
+    total: number;
+    disponivel: number;
+    em_uso: number;
+    manutencao: number;
+  }> {
+    let query = db.select().from(equipamentos).$dynamic();
+
+    if (empreendimentoId) {
+      query = query.where(eq(equipamentos.empreendimentoId, empreendimentoId));
+    }
+
+    const allEquipamentos = await query;
+
+    const disponivel = allEquipamentos.filter(e => e.status === "disponivel").length;
+    const em_uso = allEquipamentos.filter(e => e.status === "em_uso").length;
+    const manutencao = allEquipamentos.filter(e => e.status === "manutencao").length;
+
+    return {
+      total: allEquipamentos.length,
+      disponivel,
+      em_uso,
+      manutencao,
     };
   }
 }
