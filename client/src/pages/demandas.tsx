@@ -1,454 +1,336 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCorners } from "@dnd-kit/core";
-import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useSortable } from "@dnd-kit/sortable";
+import {
+  DndContext,
+  closestCorners,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format as formatDate } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
-import { 
-  Plus, 
-  Search, 
-  Filter,
-  Calendar,
-  User,
-  Building,
-  Tag,
-  FileText,
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Plus,
   Clock,
+  FileText,
   AlertCircle,
   CheckCircle,
   XCircle,
-  MoreHorizontal,
-  Loader2
+  Pencil,
+  Loader2,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import type { Demanda, InsertDemanda, Empreendimento } from "@shared/schema";
-import { createInsertSchema } from "drizzle-zod";
-import { demandas } from "@shared/schema";
-import * as z from "zod";
 
-// Status mapping
-const STATUS_CONFIG = {
-  a_fazer: { label: "A Fazer", color: "bg-gray-500", icon: Clock },
-  em_andamento: { label: "Em Andamento", color: "bg-blue-500", icon: FileText },
-  em_revisao: { label: "Em Revisão", color: "bg-yellow-500", icon: AlertCircle },
-  concluido: { label: "Concluído", color: "bg-green-500", icon: CheckCircle },
-  cancelado: { label: "Cancelado", color: "bg-red-500", icon: XCircle }
+// ===================================================
+// Tipos e Constantes
+// ===================================================
+
+type Status =
+  | "a_fazer"
+  | "em_andamento"
+  | "em_revisao"
+  | "concluido"
+  | "cancelado";
+type Prioridade = "baixa" | "media" | "alta";
+
+type Demanda = {
+  id: number;
+  titulo: string;
+  descricao: string;
+  setor: string;
+  prioridade: Prioridade;
+  responsavel: string;
+  dataEntrega: string;
+  status: Status;
 };
 
-// Priority mapping
-const PRIORITY_CONFIG = {
-  baixa: { label: "Baixa", color: "bg-gray-100 text-gray-700" },
-  media: { label: "Média", color: "bg-yellow-100 text-yellow-700" },
-  alta: { label: "Alta", color: "bg-red-100 text-red-700" }
+const STATUS_LABEL: Record<Status, string> = {
+  a_fazer: "A Fazer",
+  em_andamento: "Em Andamento",
+  em_revisao: "Em Revisão",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
 };
 
-// Setor options
 const SETORES = [
   "Fauna",
-  "Flora", 
+  "Flora",
   "Recursos Hídricos",
   "Licenciamento",
   "RH",
   "Engenharia",
   "Qualidade",
   "Meio Ambiente",
-  "Administrativo"
+  "Administrativo",
 ];
 
-// Create form schema for Nova Demanda
-const novaDemandaSchema = z.object({
-  titulo: z.string().min(3, "Título deve ter pelo menos 3 caracteres"),
-  descricao: z.string().min(10, "Descrição deve ter pelo menos 10 caracteres"),
-  setor: z.string().min(1, "Setor é obrigatório"),
-  prioridade: z.enum(["baixa", "media", "alta"], { required_error: "Prioridade é obrigatória" }),
-  responsavel: z.string().min(2, "Responsável deve ter pelo menos 2 caracteres"),
-  empreendimento: z.string().optional(),
-  dataEntrega: z.date({ required_error: "Data de entrega é obrigatória" }),
-  observacoes: z.string().optional(),
-  tempoEstimado: z.number().optional(),
-});
+// ===================================================
+// Funções auxiliares
+// ===================================================
 
-type NovaDemandaFormData = z.infer<typeof novaDemandaSchema>;
-
-// Nova Demanda Form Component
-interface NovaDemandaFormProps {
-  onSuccess: () => void;
+async function apiRequest<T = any>(
+  method: string,
+  url: string,
+  body?: any
+): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {}
+  if (!res.ok) {
+    const msg = json
+      ? `${res.status}: ${JSON.stringify(json)}`
+      : `${res.status}: ${text || "Erro"}`;
+    throw new Error(msg);
+  }
+  return (json ?? null) as T;
 }
 
-function NovaDemandaForm({ onSuccess }: NovaDemandaFormProps) {
+function ensureArray<T>(data: any): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (Array.isArray(data?.data)) return data.data as T[];
+  return [];
+}
+
+function toYmd(dateStrOrDate: string | Date): string {
+  const d =
+    typeof dateStrOrDate === "string" ? new Date(dateStrOrDate) : dateStrOrDate;
+  const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0)
+    .toISOString()
+    .slice(0, 10);
+  return iso;
+}
+
+// ===================================================
+// Formulário de Criação/Edição
+// ===================================================
+
+function DemandaForm({
+  initial,
+  onSuccess,
+}: {
+  initial?: Partial<Demanda>;
+  onSuccess: () => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isEdit = Boolean(initial?.id);
 
-  // Fetch empreendimentos for dropdown
-  const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
-    queryKey: ["/api/empreendimentos"],
+  const [form, setForm] = useState({
+    titulo: initial?.titulo ?? "",
+    descricao: initial?.descricao ?? "",
+    setor: initial?.setor ?? "",
+    prioridade: (initial?.prioridade ?? "media") as Prioridade,
+    responsavel: initial?.responsavel ?? "",
+    dataEntrega: initial?.dataEntrega ? toYmd(initial.dataEntrega) : "",
+    status: (initial?.status ?? "a_fazer") as Status,
   });
 
-  const form = useForm<NovaDemandaFormData>({
-    resolver: zodResolver(novaDemandaSchema),
-    defaultValues: {
-      titulo: "",
-      descricao: "",
-      setor: "",
-      prioridade: "media",
-      responsavel: "",
-      empreendimento: "nenhum",
-      observacoes: "",
-    },
-  });
-
-  const createDemandaMutation = useMutation({
-    mutationFn: async (data: NovaDemandaFormData) => {
-      // Transform the data to match the database schema
-      const demandaData = {
-        ...data,
-        // Remove empreendimento field and add empreendimentoId and responsavelId
-        empreendimentoId: data.empreendimento && data.empreendimento !== "nenhum" ? parseInt(data.empreendimento) : null,
-        responsavelId: 1, // Default to user ID 1 for now
-        criadoPor: 1, // Default to user ID 1 for now
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        titulo: form.titulo.trim(),
+        descricao: form.descricao.trim(),
+        setor: form.setor,
+        prioridade: form.prioridade,
+        responsavel: form.responsavel.trim(),
+        dataEntrega: toYmd(form.dataEntrega),
+        status: form.status,
       };
-      // Remove the original empreendimento field
-      delete demandaData.empreendimento;
-      return apiRequest("POST", "/api/demandas", demandaData);
+
+      if (isEdit && initial?.id != null) {
+        return apiRequest("PATCH", `/api/demandas/${initial.id}`, payload);
+      } else {
+        return apiRequest("POST", "/api/demandas", payload);
+      }
     },
-    onSuccess: () => {
-      // Force complete refresh of demandas
-      queryClient.invalidateQueries({ 
-        predicate: (query) => 
-          Array.isArray(query.queryKey) && query.queryKey[0] === "/api/demandas" 
-      });
-      toast({
-        title: "Demanda criada",
-        description: "Nova demanda foi criada com sucesso!",
-      });
-      form.reset();
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      toast({ title: isEdit ? "Demanda atualizada!" : "Demanda criada!" });
       onSuccess();
     },
-    onError: (error: any) => {
+    onError: (e: any) => {
       toast({
-        title: "Erro",
-        description: "Não foi possível criar a demanda. Tente novamente.",
+        title: "Falha ao salvar",
+        description: e?.message ?? "Erro desconhecido",
         variant: "destructive",
       });
-      console.error("Erro ao criar demanda:", error);
     },
   });
 
-  const onSubmit = (data: NovaDemandaFormData) => {
-    createDemandaMutation.mutate(data);
-  };
-
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="titulo"
-            render={({ field }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Título da Demanda *</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Ex: Elaboração do RCA para UHE..."
-                    {...field}
-                    data-testid="input-titulo"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+    >
+      <div>
+        <Label>Título *</Label>
+        <Input
+          value={form.titulo}
+          onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+          required
+        />
+      </div>
 
-          <FormField
-            control={form.control}
-            name="setor"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Setor *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-setor">
-                      <SelectValue placeholder="Selecione o setor" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {SETORES.map((setor) => (
-                      <SelectItem key={setor} value={setor}>
-                        {setor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <div>
+        <Label>Descrição *</Label>
+        <Textarea
+          value={form.descricao}
+          onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+          required
+        />
+      </div>
 
-          <FormField
-            control={form.control}
-            name="prioridade"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Prioridade *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-prioridade">
-                      <SelectValue placeholder="Selecione a prioridade" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
-                    <SelectItem value="alta">Alta</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="responsavel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Responsável *</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Nome do responsável"
-                    {...field}
-                    data-testid="input-responsavel"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="empreendimento"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Empreendimento</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-empreendimento">
-                      <SelectValue placeholder="Selecione o empreendimento" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="nenhum">Nenhum</SelectItem>
-                    {empreendimentos.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>
-                        {emp.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormDescription>
-                  Vincule a demanda a um empreendimento específico
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="dataEntrega"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Data de Entrega *</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                        data-testid="button-data-entrega"
-                      >
-                        {field.value ? (
-                          format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                        ) : (
-                          <span>Selecione a data de entrega</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormDescription>
-                  Data prevista para entrega final da demanda
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="tempoEstimado"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tempo Estimado (horas)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 40"
-                    {...field}
-                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                    data-testid="input-tempo-estimado"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Estimativa de horas necessárias para conclusão
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-          <FormField
-            control={form.control}
-            name="descricao"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Descrição Detalhada *</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Descreva detalhadamente a demanda, objetivos, metodologia e entregaveis esperados..."
-                    className="min-h-[120px] resize-none"
-                    {...field}
-                    data-testid="textarea-descricao"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Inclua todos os detalhes relevantes, objetivos e entregaveis esperados
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="observacoes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Observações</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Observações adicionais, recursos necessários, restrições..."
-                    className="min-h-[80px] resize-none"
-                    {...field}
-                    data-testid="textarea-observacoes"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Informações complementares sobre a demanda
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="flex justify-end space-x-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => form.reset()}
-            data-testid="button-cancelar"
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Setor *</Label>
+          <Select
+            value={form.setor}
+            onValueChange={(v) => setForm({ ...form, setor: v })}
           >
-            Limpar
-          </Button>
-          <Button
-            type="submit"
-            disabled={createDemandaMutation.isPending}
-            data-testid="button-criar-demanda"
-          >
-            {createDemandaMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Criando...
-              </>
-            ) : (
-              "Criar Demanda"
-            )}
-          </Button>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o setor" />
+            </SelectTrigger>
+            <SelectContent>
+              {SETORES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </form>
-    </Form>
+
+        <div>
+          <Label>Prioridade *</Label>
+          <Select
+            value={form.prioridade}
+            onValueChange={(v: Prioridade) => setForm({ ...form, prioridade: v })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="baixa">Baixa</SelectItem>
+              <SelectItem value="media">Média</SelectItem>
+              <SelectItem value="alta">Alta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Responsável *</Label>
+          <Input
+            value={form.responsavel}
+            onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
+            required
+          />
+        </div>
+        <div>
+          <Label>Data de Entrega *</Label>
+          <Input
+            type="date"
+            value={form.dataEntrega}
+            onChange={(e) => setForm({ ...form, dataEntrega: e.target.value })}
+            required
+          />
+        </div>
+      </div>
+
+      {isEdit && (
+        <div>
+          <Label>Status</Label>
+          <Select
+            value={form.status}
+            onValueChange={(v: Status) => setForm({ ...form, status: v })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="a_fazer">A Fazer</SelectItem>
+              <SelectItem value="em_andamento">Em Andamento</SelectItem>
+              <SelectItem value="em_revisao">Em Revisão</SelectItem>
+              <SelectItem value="concluido">Concluído</SelectItem>
+              <SelectItem value="cancelado">Cancelado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <Button type="submit" className="w-full" disabled={mutation.isPending}>
+        {mutation.isPending && (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        )}
+        {isEdit ? "Salvar alterações" : "Criar demanda"}
+      </Button>
+    </form>
   );
 }
 
-interface DemandaCardProps {
+// ===================================================
+// Cartão de Demanda
+// ===================================================
+
+function DemandaCard({
+  demanda,
+  onEdit,
+}: {
   demanda: Demanda;
-  isOverlay?: boolean;
-}
+  onEdit: (d: Demanda) => void;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition } =
+    useSortable({
+      id: demanda.id,
+    });
 
-function DemandaCard({ demanda, isOverlay = false }: DemandaCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: demanda.id,
-    data: { type: "demanda", demanda }
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const statusConfig = STATUS_CONFIG[demanda.status as keyof typeof STATUS_CONFIG];
-  const priorityConfig = PRIORITY_CONFIG[demanda.prioridade as keyof typeof PRIORITY_CONFIG];
-  
-  // Check if deadline is approaching or overdue
-  const today = new Date();
-  const deliveryDate = new Date(demanda.dataEntrega);
-  const daysUntilDeadline = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-  const isOverdue = daysUntilDeadline < 0;
-  const isUrgent = daysUntilDeadline <= 2 && daysUntilDeadline >= 0;
+  const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <Card
@@ -456,360 +338,169 @@ function DemandaCard({ demanda, isOverlay = false }: DemandaCardProps) {
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing mb-3 transition-shadow hover:shadow-md ${
-        isDragging ? "opacity-50" : ""
-      } ${isOverlay ? "rotate-3 shadow-xl" : ""}`}
-      data-testid={`demanda-card-${demanda.id}`}
+      className="mb-2 cursor-grab hover:shadow-md"
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-sm font-medium line-clamp-2">
-            {demanda.titulo}
-          </CardTitle>
-          <div className="flex items-center gap-1 ml-2">
-            <Badge variant="outline" className={priorityConfig.color}>
-              {priorityConfig.label}
-            </Badge>
-          </div>
-        </div>
+      <CardHeader className="pb-2 flex justify-between items-center">
+        <CardTitle className="text-sm font-semibold">{demanda.titulo}</CardTitle>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation(); // impede conflito com DnD
+            onEdit(demanda); // abre modal corretamente
+          }}
+        >
+          <Pencil className="h-4 w-4 text-gray-500" />
+        </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {demanda.descricao && (
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {demanda.descricao}
-          </p>
-        )}
-        
-        {/* Setor */}
-        <div className="flex items-center gap-2">
-          <Building className="h-3 w-3 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{demanda.setor}</span>
+      <CardContent className="text-xs text-muted-foreground">
+        <p className="line-clamp-2">{demanda.descricao}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Badge variant="secondary">{demanda.setor}</Badge>
+          <Badge>{demanda.prioridade}</Badge>
+          <Badge variant="outline">
+            {formatDate(new Date(demanda.dataEntrega), "dd/MM/yyyy", {
+              locale: ptBR,
+            })}
+          </Badge>
         </div>
-
-        {/* Responsável */}
-        <div className="flex items-center gap-2">
-          <Avatar className="h-5 w-5">
-            <AvatarFallback className="text-xs">
-              {demanda.responsavelId ? "U" : "?"}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-xs text-muted-foreground">
-            Responsável #{demanda.responsavelId}
-          </span>
-        </div>
-
-        {/* Data de entrega */}
-        <div className="flex items-center gap-2">
-          <Calendar className="h-3 w-3 text-muted-foreground" />
-          <span className={`text-xs ${
-            isOverdue ? "text-red-600 font-medium" : 
-            isUrgent ? "text-yellow-600 font-medium" : 
-            "text-muted-foreground"
-          }`}>
-            {format(new Date(demanda.dataEntrega), "dd/MM/yyyy", { locale: ptBR })}
-            {isOverdue && " (Atrasado)"}
-            {isUrgent && " (Urgente)"}
-          </span>
-        </div>
-
-        {/* Tags */}
-        {demanda.tags && demanda.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {demanda.tags.slice(0, 2).map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-            {demanda.tags.length > 2 && (
-              <Badge variant="secondary" className="text-xs">
-                +{demanda.tags.length - 2}
-              </Badge>
-            )}
-          </div>
-        )}
-
-        {/* Anexos indicator */}
-        {demanda.anexos && demanda.anexos.length > 0 && (
-          <div className="flex items-center gap-1">
-            <FileText className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">
-              {demanda.anexos.length} anexo{demanda.anexos.length > 1 ? "s" : ""}
-            </span>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
 }
 
-interface KanbanColumnProps {
-  status: string;
-  title: string;
-  demandas: Demanda[];
-  icon: React.ComponentType<any>;
-}
-
-function KanbanColumn({ status, title, demandas, icon: Icon }: KanbanColumnProps) {
-  const statusConfig = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-  
-  return (
-    <div className="bg-muted/30 rounded-lg p-4 min-h-[600px] w-80">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className="h-4 w-4" />
-        <h3 className="font-medium text-sm">{title}</h3>
-        <Badge variant="secondary" className="text-xs">
-          {demandas.length}
-        </Badge>
-      </div>
-      
-      <SortableContext items={demandas.map(d => d.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3">
-          {demandas.map((demanda) => (
-            <DemandaCard key={demanda.id} demanda={demanda} />
-          ))}
-        </div>
-      </SortableContext>
-      
-      {demandas.length === 0 && (
-        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-          Nenhuma demanda
-        </div>
-      )}
-    </div>
-  );
-}
+// ===================================================
+// Página Principal
+// ===================================================
 
 export default function DemandasPage() {
-  const [filters, setFilters] = useState({
-    setor: "todos",
-    responsavel: "",
-    empreendimento: "todos",
-    prioridade: "todas",
-    search: ""
-  });
-  
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
-  
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const sensors = useSensors(useSensor(PointerSensor));
+  const { data: raw, isLoading } = useQuery({
+    queryKey: ["/api/demandas"],
+    queryFn: async () => apiRequest("GET", "/api/demandas"),
+  });
+  const demandas: Demanda[] = ensureArray<Demanda>(raw);
+  const [editing, setEditing] = useState<Demanda | null>(null);
 
-  // Fetch demandas
-  const { data: demandas = [], isLoading, refetch } = useQuery<Demanda[]>({
-    queryKey: ["/api/demandas", filters],
-    staleTime: 0, // Always refetch to ensure fresh data
-    gcTime: 0, // Don't cache the results
+  const moveMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: Status }) =>
+      apiRequest("PATCH", `/api/demandas/${id}`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/demandas"] }),
+    onError: (e: any) =>
+      toast({
+        title: "Falha ao mover demanda",
+        description: e?.message ?? "Erro desconhecido",
+        variant: "destructive",
+      }),
   });
 
-  // Update demanda status mutation
-  const updateDemandaMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return apiRequest("PATCH", `/api/demandas/${id}`, { status });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
-    }
-  });
+  const columns = useMemo(() => {
+    const grouped: Record<Status, Demanda[]> = {
+      a_fazer: [],
+      em_andamento: [],
+      em_revisao: [],
+      concluido: [],
+      cancelado: [],
+    };
 
-  // Group demandas by status
-  const demandaColumns = {
-    a_fazer: demandas.filter(d => d.status === "a_fazer"),
-    em_andamento: demandas.filter(d => d.status === "em_andamento"),
-    em_revisao: demandas.filter(d => d.status === "em_revisao"),
-    concluido: demandas.filter(d => d.status === "concluido"),
-    cancelado: demandas.filter(d => d.status === "cancelado")
-  };
+    (demandas ?? []).forEach((d) => {
+      const rawStatus = (d.status ?? "").toString().trim();
+      const s: Status = (["a_fazer", "em_andamento", "em_revisao", "concluido", "cancelado"].includes(rawStatus)
+        ? (rawStatus as Status)
+        : "a_fazer");
+      grouped[s].push(d);
+    });
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    setActiveId(active.id as string);
-    
-    const demanda = demandas.find(d => d.id === Number(active.id));
-    if (demanda) {
-      setActiveDemanda(demanda);
-    }
-  };
+    return grouped;
+  }, [demandas]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
     if (!over) return;
-    
-    const activeId = active.id as string;
-    const overId = over.id as string;
-    
-    // Check if dropped over a different column
-    const newStatus = overId;
-    const demanda = demandas.find(d => d.id === Number(activeId));
-    
-    if (demanda && demanda.status !== newStatus && Object.keys(STATUS_CONFIG).includes(newStatus)) {
-      updateDemandaMutation.mutate({ 
-        id: demanda.id, 
-        status: newStatus 
-      });
-    }
-    
-    setActiveId(null);
-    setActiveDemanda(null);
+    const id = Number(active.id);
+    const newStatus = over.id as Status;
+    const d = demandas.find((x) => x.id === id);
+    if (d && d.status !== newStatus)
+      moveMutation.mutate({ id, status: newStatus });
   };
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="text-center">Carregando demandas...</div>
-      </div>
-    );
-  }
+  if (isLoading)
+    return <div className="p-6 text-center">Carregando demandas...</div>;
 
   return (
-    <div className="container mx-auto py-8 space-y-6" data-testid="page-demandas">
-      {/* Header */}
+    <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Demandas
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Gerencie demandas organizacionais com sistema Kanban
-          </p>
-        </div>
-        
-        <div className="flex gap-3">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button data-testid="button-nova-demanda">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Demanda
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Nova Demanda</DialogTitle>
-              </DialogHeader>
-              <NovaDemandaForm onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: ['/api/demandas'] });
-              }} />
-            </DialogContent>
-          </Dialog>
-        </div>
+        <h1 className="text-3xl font-bold">Demandas</h1>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" /> Nova Demanda
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Nova Demanda</DialogTitle>
+            </DialogHeader>
+            <DemandaForm
+              onSuccess={() =>
+                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] })
+              }
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar demandas..."
-                value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
-                className="pl-9"
-                data-testid="filter-search"
-              />
-            </div>
-            
-            <Select value={filters.setor} onValueChange={(value) => setFilters({...filters, setor: value})}>
-              <SelectTrigger data-testid="filter-setor">
-                <SelectValue placeholder="Setor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os setores</SelectItem>
-                {SETORES.map(setor => (
-                  <SelectItem key={setor} value={setor}>{setor}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.prioridade} onValueChange={(value) => setFilters({...filters, prioridade: value})}>
-              <SelectTrigger data-testid="filter-prioridade">
-                <SelectValue placeholder="Prioridade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="baixa">Baixa</SelectItem>
-                <SelectItem value="media">Média</SelectItem>
-                <SelectItem value="alta">Alta</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input
-              placeholder="Responsável"
-              value={filters.responsavel}
-              onChange={(e) => setFilters({...filters, responsavel: e.target.value})}
-              data-testid="filter-responsavel"
-            />
-
-            <Input
-              placeholder="Empreendimento"
-              value={filters.empreendimento}
-              onChange={(e) => setFilters({...filters, empreendimento: e.target.value})}
-              data-testid="filter-empreendimento"
-            />
-
-            <Button 
-              onClick={() => setFilters({ setor: "", responsavel: "", empreendimento: "", prioridade: "", search: "" })}
-              variant="outline"
-              data-testid="button-clear-filters"
-            >
-              Limpar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Kanban Board */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onDragEnd={onDragEnd}
       >
-        <div className="flex gap-6 overflow-x-auto pb-4" data-testid="kanban-board">
-          <KanbanColumn
-            status="a_fazer"
-            title="A Fazer"
-            demandas={demandaColumns.a_fazer}
-            icon={Clock}
-          />
-          <KanbanColumn
-            status="em_andamento"
-            title="Em Andamento"
-            demandas={demandaColumns.em_andamento}
-            icon={FileText}
-          />
-          <KanbanColumn
-            status="em_revisao"
-            title="Em Revisão"
-            demandas={demandaColumns.em_revisao}
-            icon={AlertCircle}
-          />
-          <KanbanColumn
-            status="concluido"
-            title="Concluído"
-            demandas={demandaColumns.concluido}
-            icon={CheckCircle}
-          />
-          <KanbanColumn
-            status="cancelado"
-            title="Cancelado"
-            demandas={demandaColumns.cancelado}
-            icon={XCircle}
-          />
+        <div className="flex gap-6 overflow-x-auto pb-4">
+          {(Object.entries(STATUS_LABEL) as [Status, string][]).map(
+            ([status, label]) => (
+              <div
+                key={status}
+                id={status}
+                className="w-80 rounded-xl border p-3 bg-muted/30"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge variant="secondary">{label}</Badge>
+                </div>
+                <SortableContext
+                  items={columns[status].map((d) => d.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {columns[status].map((d) => (
+                      <DemandaCard key={d.id} demanda={d} onEdit={setEditing} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </div>
+            )
+          )}
         </div>
-
-        <DragOverlay>
-          {activeDemanda ? (
-            <DemandaCard demanda={activeDemanda} isOverlay />
-          ) : null}
-        </DragOverlay>
       </DndContext>
+
+      <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Editar Demanda</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <DemandaForm
+              initial={editing}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+                setEditing(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
