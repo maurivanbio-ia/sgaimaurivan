@@ -52,6 +52,9 @@ import {
   equipamentos,
   type Equipamento,
   type InsertEquipamento,
+  datasets,
+  type Dataset,
+  type InsertDataset,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
@@ -216,6 +219,15 @@ export interface IStorage {
     em_uso: number;
     manutencao: number;
   }>;
+
+  // Datasets operations
+  getDatasets(filters?: {
+    empreendimentoId?: number;
+    tipo?: string;
+  }): Promise<Array<Dataset & { empreendimentoNome?: string }>>;
+  getDatasetById(id: number): Promise<Dataset | undefined>;
+  createDataset(dataset: InsertDataset): Promise<Dataset>;
+  deleteDataset(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1441,6 +1453,59 @@ export class DatabaseStorage implements IStorage {
       em_uso,
       manutencao,
     };
+  }
+
+  // Datasets operations
+  async getDatasets(filters?: {
+    empreendimentoId?: number;
+    tipo?: string;
+  }): Promise<Array<Dataset & { empreendimentoNome?: string }>> {
+    const result = await db
+      .select({
+        id: datasets.id,
+        empreendimentoId: datasets.empreendimentoId,
+        nome: datasets.nome,
+        descricao: datasets.descricao,
+        tipo: datasets.tipo,
+        tamanho: datasets.tamanho,
+        usuario: datasets.usuario,
+        dataUpload: datasets.dataUpload,
+        url: datasets.url,
+        criadoEm: datasets.criadoEm,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(datasets)
+      .leftJoin(empreendimentos, eq(datasets.empreendimentoId, empreendimentos.id))
+      .where(
+        and(
+          filters?.empreendimentoId ? eq(datasets.empreendimentoId, filters.empreendimentoId) : undefined,
+          filters?.tipo ? eq(datasets.tipo, filters.tipo) : undefined
+        )
+      )
+      .orderBy(desc(datasets.dataUpload));
+
+    return result as Array<Dataset & { empreendimentoNome?: string }>;
+  }
+
+  async getDatasetById(id: number): Promise<Dataset | undefined> {
+    const [dataset] = await db
+      .select()
+      .from(datasets)
+      .where(eq(datasets.id, id));
+    return dataset || undefined;
+  }
+
+  async createDataset(dataset: InsertDataset): Promise<Dataset> {
+    const [newDataset] = await db
+      .insert(datasets)
+      .values(dataset)
+      .returning();
+    return newDataset;
+  }
+
+  async deleteDataset(id: number): Promise<boolean> {
+    const result = await db.delete(datasets).where(eq(datasets.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 
