@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Building, Wrench, Kanban, ArrowRight, DollarSign, Truck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import amazonBackground from "@assets/ChatGPT Image 5 de set. de 2025, 10_28_07_1757078897714.png";
 
 export default function Login() {
@@ -36,7 +36,7 @@ export default function Login() {
 
   return (
     <div 
-      className="min-h-screen flex flex-col xl:flex-row items-center justify-center p-4 gap-8 relative"
+      className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
         background: `
           linear-gradient(135deg, 
@@ -58,8 +58,8 @@ export default function Login() {
       }}
     >
       {/* Login Form Card */}
-      <div className="w-full xl:w-auto flex-shrink-0">
-        <Card className="w-full max-w-md mx-auto shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
+      <div className="w-full max-w-md">
+        <Card className="w-full shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
         <CardContent className="pt-8 pb-8 px-8">
           <div className="text-center mb-8">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 mx-auto w-fit mb-6 shadow-lg">
@@ -132,120 +132,11 @@ export default function Login() {
           
           <div className="mt-6 text-center">
             <div className="text-xs text-white/80 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-              <p className="font-medium">Criado por EcoIA® - Inteligência Ambiental by Mauirvan Ribeiro</p>
+              <p className="font-medium">Criado por Mauirvan Ribeiro</p>
             </div>
           </div>
         </CardContent>
         </Card>
-      </div>
-      {/* Information Cards */}
-      <div className="w-full xl:max-w-lg flex-grow">
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-          {/* Empreendimentos Card */}
-          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-empreendimentos">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Building className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Gestão de Empreendimentos</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Acompanhe licenças ambientais, prazos e pendências de cada projeto com total controle institucional.</p>
-                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <span className="text-xs font-medium mr-2">Saiba mais</span>
-                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Equipamentos Card */}
-          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-equipamentos">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Wrench className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Controle de Equipamentos</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Cadastre, rastreie e controle individualmente cada equipamento, com vínculo ao projeto e responsável.</p>
-                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <span className="text-xs font-medium mr-2">Saiba mais</span>
-                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Demandas Card */}
-          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-demandas">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Kanban className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Painel de Demandas</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Organize tarefas por setor, colaborador e prioridade em quadros visuais Kanban integrados.</p>
-                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <span className="text-xs font-medium mr-2">Saiba mais</span>
-                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* Financeiro Card */}
-          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-financeiro">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <DollarSign className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Gestão Financeira</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Controle orçamentos, lançamentos e recursos financeiros dos projetos com dashboards analíticos.</p>
-                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <span className="text-xs font-medium mr-2">Saiba mais</span>
-                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Frota Card */}
-          <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-white/90 dark:bg-white/80 backdrop-blur-lg border border-white/40 hover:border-[#204A2E]/30" data-testid="card-frota">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#204A2E] to-[#15351F] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Truck className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-lg font-semibold text-[#204A2E] mb-2 group-hover:text-[#15351F] transition-colors">Gestão de Frota</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-700 leading-relaxed">Monitore veículos, agendamentos, manutenções e custos operacionais da frota empresarial.</p>
-                  <div className="flex items-center mt-3 text-[#204A2E] opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <span className="text-xs font-medium mr-2">Saiba mais</span>
-                    <ArrowRight className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
       </div>
     </div>
   );
