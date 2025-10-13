@@ -261,11 +261,9 @@ export default function EquipamentosPage() {
             Gerencie equipamentos ambientais e operacionais utilizados nos projetos
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleNew} data-testid="button-novo-equipamento">
-            <Plus className="h-4 w-4 mr-2" /> Novo Equipamento
-          </Button>
-        </div>
+        <Button onClick={handleNew} data-testid="button-novo-equipamento">
+          <Plus className="h-4 w-4 mr-2" /> Novo Equipamento
+        </Button>
       </div>
 
       {/* Filtros */}
