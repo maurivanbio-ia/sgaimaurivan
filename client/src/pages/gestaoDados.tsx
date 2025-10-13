@@ -205,14 +205,13 @@ export default function GestaoDados() {
           </p>
         </div>
 
-        <div className="flex gap-2">
-          {/* Botão + Modal Upload */}
-          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" /> Enviar Arquivo
-              </Button>
-            </DialogTrigger>
+        {/* Botão + Modal Upload */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Upload className="h-4 w-4 mr-2" /> Enviar Arquivo
+            </Button>
+          </DialogTrigger>
 
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -289,7 +288,6 @@ export default function GestaoDados() {
             </div>
           </DialogContent>
         </Dialog>
-        </div>
       </div>
 
       {/* Filtros */}
