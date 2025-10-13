@@ -87,17 +87,38 @@ function CondicionantesSection({ licenseId }: { licenseId: number }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/condicionantes/${id}`);
+      // Busca condicionantes armazenadas localmente
+      const stored = localStorage.getItem("condicionantes");
+      if (!stored) return;
+
+      const allCondicionantes = JSON.parse(stored);
+
+      // Remove a condicionante específica
+      const updated = allCondicionantes.filter((c: any) => c.id !== id);
+
+      // Atualiza o localStorage
+      localStorage.setItem("condicionantes", JSON.stringify(updated));
+      return true;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/licencas", licenseId, "condicionantes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/condicionantes"] });
       toast({
         title: "Condicionante excluída",
-        description: "Condicionante removida com sucesso!",
+        description: "Condicionante removida com sucesso (armazenamento local).",
+      });
+    },
+
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error?.message || "Falha ao excluir a condicionante.",
+        variant: "destructive",
       });
     },
   });
+
 
   const onSubmit = (data: CondicionanteFormData) => {
     if (editingCondicionante) {
