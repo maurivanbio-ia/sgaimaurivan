@@ -1,0 +1,276 @@
+🧾 PRD – Integração OpenAI no Sistema LicençaFácil (Versão Corporativa)
+📌 Versão: 2.0
+
+Autor: Maurivan Vaz Ribeiro
+Data: 13/10/2025
+Status: Fase de Integração Modular
+Stack: React + Node + Vite + Tailwind + Replit + OpenAI API (GPT-4-Turbo / GPT-4o)
+
+🧭 1. Visão Geral
+
+A integração da API da OpenAI no LicençaFácil visa transformar o sistema em uma plataforma inteligente de gestão ambiental, capaz de:
+
+interpretar dados técnicos e operacionais,
+
+gerar relatórios e diagnósticos automatizados,
+
+otimizar fluxos de comunicação e decisão entre setores,
+
+reduzir esforço manual em análises e elaboração documental.
+
+Cada módulo funcional (aba) será conectado a um submódulo de IA, chamado de Assistente Contextual, que interpretará dados, responderá perguntas e gerará textos automatizados dentro do contexto daquele setor.
+
+🧩 2. Estrutura Modular
+Módulo	Tipo de Assistente	Principais Funções Inteligentes
+Empreendimentos	Análise ambiental contextual	Resumo de status, prazos e riscos; diagnóstico de conformidade; geração de pareceres ambientais.
+Demandas	IA de priorização e resumo	Análise de backlog, resumo de andamento, priorização preditiva.
+Financeiro	IA de análise contábil-ambiental	Análise de fluxo de caixa, alertas, previsões e cruzamento com entregas.
+Frota	IA de logística e manutenção	Diagnóstico de eficiência, custo por km, alertas preditivos e relatórios mensais.
+Equipamentos	IA de inventário e manutenção	Geração de alertas automáticos de calibração, controle de status e auditoria técnica.
+Gestão de Dados	IA de governança informacional	Padronização de metadados, validação de consistência e recomendação de estruturação.
+Segurança do Trabalho	IA de conformidade e risco	Análise de PPRA, LTCAT, ASO e documentos de segurança; geração de alertas e relatórios preventivos.
+🧠 3. Arquitetura e Fluxo Inteligente
+[Frontend React + Tailwind]
+   ↓
+[Contexto do Módulo Ativo]
+   ↓
+[API Interna /api/openai/<modulo>]
+   ↓
+[OpenAI GPT-4-Turbo / GPT-4o]
+   ↓
+[Respostas formatadas e visualizadas no painel]
+
+⚙️ 4. Funcionalidades Específicas por Módulo
+🟩 4.1. Empreendimentos
+
+Objetivo:
+Analisar dados cadastrais, licenças e condicionantes atreladas a cada empreendimento.
+
+Funções de IA:
+
+Resumo automático da situação de cada empreendimento;
+
+Diagnóstico ambiental e de conformidade (ISO 14001);
+
+Geração automática de status reports mensais;
+
+Alertas de riscos baseados em padrões de condicionantes.
+
+Exemplo de prompt:
+
+“Analise o empreendimento CP4303 e informe se há licenças vencidas, entregas pendentes e se a execução está dentro do cronograma.”
+
+Exemplo de saída:
+
+“O empreendimento CP4303 apresenta 2 licenças válidas, 1 vencida (LOR-045), 3 entregas pendentes e conformidade geral de 88%. Recomendado renovar a LOR-045 até 22/10/2025.”
+
+🟦 4.2. Demandas
+
+Objetivo:
+Gerenciar e interpretar automaticamente as demandas operacionais e administrativas.
+
+Funções de IA:
+
+Resumo automático do status de todas as demandas;
+
+Análise de produtividade por responsável;
+
+Previsão de atrasos baseada em padrões históricos;
+
+Sugestão de priorização automática (“IA Kanban Advisor”).
+
+Exemplo:
+
+“Liste as demandas críticas e indique quais setores estão sobrecarregados.”
+
+Saída esperada:
+
+“Setor de Fauna possui 4 demandas críticas atrasadas; Financeiro possui 2. Sugere-se redistribuir tarefas entre coordenadores.”
+
+🟨 4.3. Financeiro
+
+Objetivo:
+Analisar finanças ambientais, orçamentos e fluxo de caixa com IA descritiva e preditiva.
+
+Funções de IA:
+
+Interpretação automática de planilhas (receitas, despesas, saldo);
+
+Previsões orçamentárias (com base em regressão interna);
+
+Análise de custo por empreendimento;
+
+Geração de relatórios mensais automáticos.
+
+Exemplo:
+
+“Analise o desempenho financeiro do projeto CP4300 em setembro e gere um resumo executivo.”
+
+Saída:
+
+“O projeto CP4300 teve receita líquida de R$ 145.000 e despesas de R$ 131.200, com saldo positivo de R$ 13.800. Os custos com deslocamento aumentaram 18% devido à campanha de campo.”
+
+🟧 4.4. Frota
+
+Objetivo:
+Otimizar a gestão de veículos e uso de combustível.
+
+Funções de IA:
+
+Análise de quilometragem, consumo e manutenção;
+
+Relatórios automáticos de eficiência por veículo;
+
+Previsão de manutenção preventiva (base histórica);
+
+Diagnóstico de custo operacional por setor.
+
+Prompt:
+
+“Quais veículos precisam de manutenção este mês e qual o custo médio por km em 2025?”
+
+Saída:
+
+“Os veículos FX-02 e FX-07 atingiram o limite de 10.000 km desde a última manutenção. O custo médio operacional atual é de R$ 1,48/km.”
+
+🟫 4.5. Equipamentos
+
+Objetivo:
+Automatizar controle de inventário, calibração e status de uso.
+
+Funções de IA:
+
+Geração automática de alertas de calibração e manutenção;
+
+Classificação automática por criticidade;
+
+Relatórios de obsolescência técnica.
+
+Prompt:
+
+“Liste equipamentos com calibração vencida e gere um plano de atualização.”
+
+Saída:
+
+“3 equipamentos requerem calibração imediata: GPS Trimble 01, Termohigrômetro 02 e Medidor pH 03. Recomendado agendar calibração entre 14–20/10.”
+
+🟪 4.6. Gestão de Dados
+
+Objetivo:
+Padronizar e validar dados ambientais e administrativos do sistema.
+
+Funções de IA:
+
+Detecção de inconsistências (nomes duplicados, dados incompletos);
+
+Sugestão de normalização e correção de metadados;
+
+Verificação de coerência entre datasets (licenças vs. entregas);
+
+Geração de dicionário de dados automático.
+
+Prompt:
+
+“Verifique inconsistências entre as planilhas de condicionantes e entregas.”
+
+Saída:
+
+“3 condicionantes (4.2, 7.1, 7.4) não possuem entregas associadas; condicionante 4.2 consta duplicada no setor Fauna e PESQUISA.”
+
+🟥 4.7. Segurança do Trabalho
+
+Objetivo:
+Auxiliar na gestão documental e prevenção de riscos ocupacionais.
+
+Funções de IA:
+
+Verificação automática de validade de ASO, PPRA, LTCAT;
+
+Geração automática de relatórios de segurança;
+
+Análise textual de incidentes e recomendações preventivas;
+
+Geração de plano de ação por empreendimento.
+
+Prompt:
+
+“Verifique pendências de ASO e riscos nas frentes de campo do empreendimento CP4302.”
+
+Saída:
+
+“Dois colaboradores (ID 45 e 57) com ASO vencido. Recomenda-se atualização até 15/10. Risco alto identificado em transporte fluvial sem EPI completo.”
+
+🧩 5. Estrutura de Rotas API
+Endpoint	Função	Módulo	Modelo
+/api/openai/empreendimentos	Diagnóstico ambiental e relatórios	Empreendimentos	GPT-4-Turbo
+/api/openai/demandas	Resumo e priorização	Demandas	GPT-4-Turbo
+/api/openai/financeiro	Análise contábil e preditiva	Financeiro	GPT-4o-mini
+/api/openai/frota	Relatórios e alertas logísticos	Frota	GPT-4o-mini
+/api/openai/equipamentos	Controle de calibração	Equipamentos	GPT-4-Turbo
+/api/openai/gestaodados	Auditoria de consistência	Gestão de Dados	GPT-4o-mini
+/api/openai/seguranca	Relatórios e plano de ação	Segurança do Trabalho	GPT-4-Turbo
+🧱 6. Infraestrutura e Integração
+📦 Backend
+
+Node/Express com middleware /api/openai/*
+
+Middleware genérico:
+
+const completion = await openai.chat.completions.create({
+  model,
+  messages: [
+    { role: "system", content: systemPrompt[module] },
+    { role: "user", content: userPrompt },
+  ],
+});
+
+📡 Frontend (React)
+
+Cada aba terá um botão:
+🧠 “Análise com IA” → abre modal com:
+
+campo de texto para pergunta,
+
+opção de upload (PDF, XLSX, DOCX),
+
+botão “Gerar Análise”.
+
+🧩 7. Segurança e Controle
+
+Logs protegidos em /logs/ai-interactions
+
+Chave da API OpenAI via OPENAI_API_KEY (Secrets do Replit)
+
+Controle por perfil:
+
+Administrador → acesso total
+
+Coordenador → por módulo
+
+Técnico → apenas leitura contextual
+
+📊 8. Métricas de Sucesso
+Indicador	Meta	Coleta
+Redução no tempo de elaboração de relatórios	≥ 50%	Logs de tarefas
+Percentual de erros detectados por IA	≥ 80%	Auditoria interna
+Uso ativo do módulo IA	≥ 60% dos usuários/mês	Analytics interno
+Respostas coerentes por módulo	≥ 90%	Avaliação amostral
+🗓️ 9. Cronograma de Implementação
+Fase	Entrega	Prazo	Status
+F1	Backend OpenAI genérico (/api/openai/*)	20/10/2025	🔄
+F2	Chat ambiental integrado (Empreendimentos)	25/10/2025	⏳
+F3	Financeiro e Demandas inteligentes	05/11/2025	⏳
+F4	Frota e Equipamentos com diagnósticos automáticos	15/11/2025	⏳
+F5	Gestão de Dados e Segurança do Trabalho	25/11/2025	🔜
+F6	Painel consolidado de IA (relatórios + métricas)	10/12/2025	🔜
+🧩 10. Extensões Futuras
+
+IA multimodal: interpretação de mapas, croquis e imagens de campo.
+
+Integração com EVIAS-IA (simulação de cenários ambientais).
+
+Relatórios automáticos em PDF com assinatura digital.
+
+Assistente de voz corporativo (para campo).
+
+Treinamento com dados reais da EcoBrasil / ConservatiON via embeddings vetoriais.

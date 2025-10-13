@@ -1544,6 +1544,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== END SEGURANÇA DO TRABALHO ROUTES ====
 
+  // ==== AI ASSISTANT ROUTES ====
+  
+  // Generic AI analysis endpoint
+  app.post('/api/openai/analyze', requireAuth, async (req, res) => {
+    try {
+      const { aiAssistantService } = await import('./aiAssistantService');
+      const { module, prompt, context } = req.body;
+
+      if (!module || !prompt) {
+        return res.status(400).json({ error: 'Module and prompt are required' });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const result = await aiAssistantService.analyzeWithContext({
+        module,
+        prompt,
+        context,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+      res.status(500).json({ error: 'Failed to analyze with AI' });
+    }
+  });
+
+  // Generate report endpoint
+  app.post('/api/openai/report', requireAuth, async (req, res) => {
+    try {
+      const { aiAssistantService } = await import('./aiAssistantService');
+      const { module, data } = req.body;
+
+      if (!module || !data) {
+        return res.status(400).json({ error: 'Module and data are required' });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const report = await aiAssistantService.generateReport(module, data);
+
+      res.json({ report });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      res.status(500).json({ error: 'Failed to generate report' });
+    }
+  });
+
+  // Detect inconsistencies endpoint
+  app.post('/api/openai/inconsistencies', requireAuth, async (req, res) => {
+    try {
+      const { aiAssistantService } = await import('./aiAssistantService');
+      const { module, data } = req.body;
+
+      if (!module || !data) {
+        return res.status(400).json({ error: 'Module and data are required' });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const inconsistencies = await aiAssistantService.detectInconsistencies(module, data);
+
+      res.json({ inconsistencies });
+    } catch (error) {
+      console.error('Error detecting inconsistencies:', error);
+      res.status(500).json({ error: 'Failed to detect inconsistencies' });
+    }
+  });
+
+  // ==== END AI ASSISTANT ROUTES ====
+
   const httpServer = createServer(app);
   return httpServer;
 }

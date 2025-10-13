@@ -613,23 +613,25 @@ export default function DemandasPage() {
             Arraste os cards entre as colunas para alterar o status
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button data-testid="button-nova-demanda">
-              <Plus className="h-4 w-4 mr-2" /> Nova Demanda
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Nova Demanda</DialogTitle>
-            </DialogHeader>
-            <DemandaForm
-              onSuccess={() =>
-                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] })
-              }
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button data-testid="button-nova-demanda">
+                <Plus className="h-4 w-4 mr-2" /> Nova Demanda
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Nova Demanda</DialogTitle>
+              </DialogHeader>
+              <DemandaForm
+                onSuccess={() =>
+                  queryClient.invalidateQueries({ queryKey: ["/api/demandas"] })
+                }
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <DndContext
