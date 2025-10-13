@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import amazonBackground from "@assets/ChatGPT Image 5 de set. de 2025, 10_28_07_1757078897714.png";
+import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import {
   Dialog,
   DialogContent,
@@ -126,7 +127,7 @@ export default function Login() {
             <div className="text-center mb-8">
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 mx-auto w-fit mb-6 shadow-lg">
                 <img
-                  src="http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png"
+                  src={logoEcoBrasil}
                   alt="EcoBrasil Logo"
                   className="h-14 mx-auto"
                 />
