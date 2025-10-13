@@ -77,7 +77,8 @@ export default function Header() {
             <img
               src={logoEcoBrasil}
               alt="EcoBrasil"
-              className="h-12 object-contain"
+              className="className="h-6 sm:h-8 md:h-10 lg:h-12 pl-[20px] pr-[20px]"
+"
               loading="lazy"
               decoding="async"
             />
