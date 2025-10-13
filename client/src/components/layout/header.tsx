@@ -72,12 +72,12 @@ export default function Header() {
           <Link
             href="/"
             aria-label="Ir para o início"
-            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity -ml-2"
           >
             <img
               src={logoEcoBrasil}
               alt="EcoBrasil"
-              className="h-8 ml-[0px] mr-[0px] pl-[30px] pr-[30px] pt-[2px] pb-[2px] mt-[0px] mb-[0px]"
+              className="h-12 object-contain"
               loading="lazy"
               decoding="async"
             />
