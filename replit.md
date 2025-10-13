@@ -79,3 +79,27 @@ Preferred communication style: Simple, everyday language.
 - **bcrypt**: Password hashing library
 - **Express Session**: Session management middleware
 - **CORS**: Cross-origin resource sharing configuration
+
+## AI Integration
+- **OpenAI API**: GPT-4-Turbo integration for intelligent analysis
+- **AI Assistant Service**: Contextual AI assistant for each module (aiAssistantService.ts)
+- **Module-Specific Prompts**: Specialized system prompts for environmental, financial, logistics, equipment, data governance, and safety analysis
+- **Context-Aware Analysis**: AI receives module-specific data context for accurate recommendations
+- **Features**:
+  - Automated analysis and diagnostics
+  - Report generation
+  - Inconsistency detection
+  - Risk identification
+  - Predictive recommendations
+- **Modules with AI Integration**: Empreendimentos, Demandas, Financeiro, Frota, Equipamentos, Gestão de Dados, Segurança do Trabalho
+
+# Recent Changes
+
+## October 13, 2025 - OpenAI Integration
+- Implemented comprehensive AI assistant integration across all system modules
+- Created reusable AIAssistantModal component for consistent UX
+- Added specialized AI endpoints: /api/openai/analyze, /api/openai/report, /api/openai/inconsistencies
+- Each module now has "Análise com IA" button providing contextual intelligent assistance
+- AI features include: data analysis, report generation, inconsistency detection, and recommendations
+- Security improvements: API key validation, context size limits, input sanitization
+- All modules (Empreendimentos, Demandas, Financeiro, Frota, Equipamentos, Gestão de Dados, Segurança) now have AI-powered analysis capabilities
