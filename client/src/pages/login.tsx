@@ -1,64 +1,98 @@
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { useLogin } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import amazonBackground from "@assets/ChatGPT Image 5 de set. de 2025, 10_28_07_1757078897714.png";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-export default function ResetPassword() {
+export default function Login() {
+  // Estados principais
+  const [email, setEmail] = useState("ecobrasil@ecobrasil.bio.br");
+  const [password, setPassword] = useState("123456");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Recuperação de senha
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const login = useLogin();
   const { toast } = useToast();
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  // Recupera e-mail salvo, se houver
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("savedEmail");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
-  // Token normalmente vem via URL: /reset-password?token=XYZ
-  const token = new URLSearchParams(window.location.search).get("token");
-
+  // Função principal de login
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!password || !confirmPassword) {
-      setError("Por favor, preencha todos os campos.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("As senhas não coincidem.");
-      return;
-    }
-
     try {
-      setIsSubmitting(true);
-
-      // Chamada à API real de redefinição
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Falha na redefinição de senha");
-      }
+      await login.mutateAsync({ email, password });
 
       toast({
-        title: "Senha redefinida com sucesso",
-        description: "Agora você pode fazer login com sua nova senha.",
+        title: "Login realizado",
+        description: "Bem-vindo ao LicençaFácil!",
       });
 
-      setPassword("");
-      setConfirmPassword("");
+      // Salva e-mail se a opção estiver marcada
+      if (rememberMe) {
+        localStorage.setItem("savedEmail", email);
+      } else {
+        localStorage.removeItem("savedEmail");
+      }
+    } catch (error: any) {
+      const message = error.message?.includes("401")
+        ? "Usuário ou senha inválidos"
+        : "Erro ao fazer login. Tente novamente.";
+      setError(message);
+    }
+  };
+
+  // Função para envio de recuperação de senha
+  const handleSendResetLink = async () => {
+    if (!forgotEmail) return;
+
+    setIsSending(true);
+    try {
+      // Exemplo de chamada de API (substitua pela sua rota real)
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      toast({
+        title: "E-mail enviado",
+        description: "Verifique sua caixa de entrada para redefinir a senha.",
+      });
+      setIsForgotOpen(false);
     } catch {
-      setError("Erro ao redefinir senha. O link pode ter expirado.");
+      toast({
+        title: "Erro",
+        description:
+          "Não foi possível enviar o e-mail. Verifique o endereço informado.",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false);
+      setIsSending(false);
     }
   };
 
@@ -80,11 +114,12 @@ export default function ResetPassword() {
           ),
           url(${amazonBackground})
         `,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
+        backgroundSize: "cover, cover, cover",
+        backgroundPosition: "center, center, center",
+        backgroundRepeat: "no-repeat, no-repeat, no-repeat",
       }}
     >
+      {/* Login Form Card */}
       <div className="w-full max-w-md">
         <Card className="w-full shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
           <CardContent className="pt-8 pb-8 px-8">
@@ -97,22 +132,41 @@ export default function ResetPassword() {
                 />
               </div>
               <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
-                Redefinir Senha
+                LicençaFácil
               </h1>
               <p className="text-white/90 font-medium drop-shadow">
-                Digite sua nova senha para continuar
+                Sistema de Gestão de Licenças Ambientais
               </p>
               <div className="w-20 h-1 bg-gradient-to-r from-[#00599C] to-[#B2CDE1] mx-auto mt-4 rounded-full shadow-sm"></div>
             </div>
 
-            {/* Formulário de redefinição */}
+            {/* Formulário de Login */}
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-white mb-2 drop-shadow"
+                >
+                  E-mail corporativo
+                </Label>
+                <Input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="seu@ecobrasil.bio.br"
+                  className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50"
+                />
+              </div>
+
+              {/* Campo de senha com botão de visualização */}
               <div>
                 <Label
                   htmlFor="password"
                   className="block text-sm font-medium text-white mb-2 drop-shadow"
                 >
-                  Nova senha
+                  Senha
                 </Label>
                 <div className="relative">
                   <Input
@@ -120,8 +174,8 @@ export default function ResetPassword() {
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
                     required
+                    placeholder="••••••••"
                     className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50 pr-10"
                   />
                   <button
@@ -138,55 +192,47 @@ export default function ResetPassword() {
                 </div>
               </div>
 
-              <div>
-                <Label
-                  htmlFor="confirm-password"
-                  className="block text-sm font-medium text-white mb-2 drop-shadow"
-                >
-                  Confirmar nova senha
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showConfirm ? "text" : "password"}
-                    id="confirm-password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50 pr-10"
+              {/* Checkbox e link de recuperação */}
+              <div className="flex items-center justify-between text-white/90">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="accent-[#00599C] w-4 h-4"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-2.5 text-white/80 hover:text-white"
-                  >
-                    {showConfirm ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                  <span className="text-sm">Lembrar login</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setIsForgotOpen(true)}
+                  className="text-sm text-[#B2CDE1] hover:text-white underline"
+                >
+                  Esqueceu a senha?
+                </button>
               </div>
 
+              {/* Mensagem de erro */}
               {error && (
                 <div className="text-red-200 text-sm bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3">
                   {error}
                 </div>
               )}
 
+              {/* Botão de login */}
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={login.isPending}
                 className="w-full font-medium bg-gradient-to-r from-[#00599C] to-[#204A2E] hover:from-[#004577] hover:to-[#15351F] text-white shadow-lg border-0 transition-all duration-300 hover:shadow-xl"
               >
-                {isSubmitting ? (
+                {login.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redefinindo...
+                    Entrando...
                   </>
                 ) : (
-                  "Redefinir Senha"
+                  "Entrar no Sistema"
                 )}
               </Button>
             </form>
@@ -200,6 +246,32 @@ export default function ResetPassword() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de recuperação de senha */}
+      <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
+        <DialogContent className="bg-white/10 backdrop-blur-lg border border-white/20 text-white">
+          <DialogHeader>
+            <DialogTitle>Recuperar senha</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm mb-4 text-white/80">
+            Digite seu e-mail corporativo para receber o link de redefinição.
+          </p>
+          <Input
+            type="email"
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
+            placeholder="seu@ecobrasil.bio.br"
+            className="bg-white/20 text-white placeholder:text-white/60"
+          />
+          <Button
+            onClick={handleSendResetLink}
+            disabled={isSending}
+            className="w-full mt-4 bg-gradient-to-r from-[#00599C] to-[#204A2E]"
+          >
+            {isSending ? "Enviando..." : "Enviar link de recuperação"}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
