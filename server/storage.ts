@@ -55,6 +55,12 @@ import {
   datasets,
   type Dataset,
   type InsertDataset,
+  colaboradores,
+  segDocumentosColaboradores,
+  type Colaborador,
+  type InsertColaborador,
+  type SegDocumentoColaborador,
+  type InsertSegDocumento,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
@@ -228,6 +234,38 @@ export interface IStorage {
   getDatasetById(id: number): Promise<Dataset | undefined>;
   createDataset(dataset: InsertDataset): Promise<Dataset>;
   deleteDataset(id: number): Promise<boolean>;
+
+  // Segurança do Trabalho operations
+  getColaboradores(filters?: {
+    empreendimentoId?: number;
+    status?: string;
+    search?: string;
+  }): Promise<Array<Colaborador & { empreendimentoNome?: string }>>;
+  getColaboradorById(id: number): Promise<Colaborador | undefined>;
+  createColaborador(colaborador: InsertColaborador): Promise<Colaborador>;
+  updateColaborador(id: number, updates: Partial<InsertColaborador>): Promise<Colaborador>;
+  deleteColaborador(id: number): Promise<boolean>;
+
+  getSegDocumentos(filters?: {
+    colaboradorId?: number;
+    empreendimentoId?: number;
+    status?: string;
+    tipoDocumento?: string;
+  }): Promise<Array<SegDocumentoColaborador & { colaboradorNome?: string; empreendimentoNome?: string }>>;
+  getSegDocumentoById(id: number): Promise<SegDocumentoColaborador | undefined>;
+  createSegDocumento(documento: InsertSegDocumento): Promise<SegDocumentoColaborador>;
+  updateSegDocumento(id: number, updates: Partial<InsertSegDocumento>): Promise<SegDocumentoColaborador>;
+  deleteSegDocumento(id: number): Promise<boolean>;
+
+  getSegurancaIndicadores(empreendimentoId?: number): Promise<{
+    totalDocumentos: number;
+    documentosValidos: number;
+    documentosVencidos: number;
+    documentosAVencer: number;
+    percentualConformidade: number;
+    colaboradoresConformes: number;
+    totalColaboradores: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1506,6 +1544,202 @@ export class DatabaseStorage implements IStorage {
   async deleteDataset(id: number): Promise<boolean> {
     const result = await db.delete(datasets).where(eq(datasets.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Segurança do Trabalho operations
+  async getColaboradores(filters?: {
+    empreendimentoId?: number;
+    status?: string;
+    search?: string;
+  }): Promise<Array<Colaborador & { empreendimentoNome?: string }>> {
+    const result = await db
+      .select({
+        id: colaboradores.id,
+        nome: colaboradores.nome,
+        cpf: colaboradores.cpf,
+        cargo: colaboradores.cargo,
+        setor: colaboradores.setor,
+        empreendimentoId: colaboradores.empreendimentoId,
+        dataAdmissao: colaboradores.dataAdmissao,
+        status: colaboradores.status,
+        email: colaboradores.email,
+        telefone: colaboradores.telefone,
+        criadoEm: colaboradores.criadoEm,
+        atualizadoEm: colaboradores.atualizadoEm,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(colaboradores)
+      .leftJoin(empreendimentos, eq(colaboradores.empreendimentoId, empreendimentos.id))
+      .where(
+        and(
+          filters?.empreendimentoId ? eq(colaboradores.empreendimentoId, filters.empreendimentoId) : undefined,
+          filters?.status ? eq(colaboradores.status, filters.status) : undefined,
+          filters?.search ? or(
+            ilike(colaboradores.nome, `%${filters.search}%`),
+            ilike(colaboradores.cpf, `%${filters.search}%`)
+          ) : undefined
+        )
+      )
+      .orderBy(desc(colaboradores.criadoEm));
+
+    return result as Array<Colaborador & { empreendimentoNome?: string }>;
+  }
+
+  async getColaboradorById(id: number): Promise<Colaborador | undefined> {
+    const [colaborador] = await db
+      .select()
+      .from(colaboradores)
+      .where(eq(colaboradores.id, id));
+    return colaborador || undefined;
+  }
+
+  async createColaborador(colaborador: InsertColaborador): Promise<Colaborador> {
+    const [newColaborador] = await db
+      .insert(colaboradores)
+      .values(colaborador)
+      .returning();
+    return newColaborador;
+  }
+
+  async updateColaborador(id: number, updates: Partial<InsertColaborador>): Promise<Colaborador> {
+    const [updated] = await db
+      .update(colaboradores)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(colaboradores.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteColaborador(id: number): Promise<boolean> {
+    const result = await db.delete(colaboradores).where(eq(colaboradores.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getSegDocumentos(filters?: {
+    colaboradorId?: number;
+    empreendimentoId?: number;
+    status?: string;
+    tipoDocumento?: string;
+  }): Promise<Array<SegDocumentoColaborador & { colaboradorNome?: string; empreendimentoNome?: string }>> {
+    const result = await db
+      .select({
+        id: segDocumentosColaboradores.id,
+        colaboradorId: segDocumentosColaboradores.colaboradorId,
+        empreendimentoId: segDocumentosColaboradores.empreendimentoId,
+        tipoDocumento: segDocumentosColaboradores.tipoDocumento,
+        descricao: segDocumentosColaboradores.descricao,
+        arquivoUrl: segDocumentosColaboradores.arquivoUrl,
+        dataEmissao: segDocumentosColaboradores.dataEmissao,
+        dataValidade: segDocumentosColaboradores.dataValidade,
+        assinaturaResponsavel: segDocumentosColaboradores.assinaturaResponsavel,
+        status: segDocumentosColaboradores.status,
+        criadoEm: segDocumentosColaboradores.criadoEm,
+        atualizadoEm: segDocumentosColaboradores.atualizadoEm,
+        colaboradorNome: colaboradores.nome,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(segDocumentosColaboradores)
+      .leftJoin(colaboradores, eq(segDocumentosColaboradores.colaboradorId, colaboradores.id))
+      .leftJoin(empreendimentos, eq(segDocumentosColaboradores.empreendimentoId, empreendimentos.id))
+      .where(
+        and(
+          filters?.colaboradorId ? eq(segDocumentosColaboradores.colaboradorId, filters.colaboradorId) : undefined,
+          filters?.empreendimentoId ? eq(segDocumentosColaboradores.empreendimentoId, filters.empreendimentoId) : undefined,
+          filters?.status ? eq(segDocumentosColaboradores.status, filters.status) : undefined,
+          filters?.tipoDocumento ? eq(segDocumentosColaboradores.tipoDocumento, filters.tipoDocumento) : undefined
+        )
+      )
+      .orderBy(desc(segDocumentosColaboradores.criadoEm));
+
+    return result as Array<SegDocumentoColaborador & { colaboradorNome?: string; empreendimentoNome?: string }>;
+  }
+
+  async getSegDocumentoById(id: number): Promise<SegDocumentoColaborador | undefined> {
+    const [documento] = await db
+      .select()
+      .from(segDocumentosColaboradores)
+      .where(eq(segDocumentosColaboradores.id, id));
+    return documento || undefined;
+  }
+
+  async createSegDocumento(documento: InsertSegDocumento): Promise<SegDocumentoColaborador> {
+    const [newDocumento] = await db
+      .insert(segDocumentosColaboradores)
+      .values(documento)
+      .returning();
+    return newDocumento;
+  }
+
+  async updateSegDocumento(id: number, updates: Partial<InsertSegDocumento>): Promise<SegDocumentoColaborador> {
+    const [updated] = await db
+      .update(segDocumentosColaboradores)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(segDocumentosColaboradores.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSegDocumento(id: number): Promise<boolean> {
+    const result = await db.delete(segDocumentosColaboradores).where(eq(segDocumentosColaboradores.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getSegurancaIndicadores(empreendimentoId?: number): Promise<{
+    totalDocumentos: number;
+    documentosValidos: number;
+    documentosVencidos: number;
+    documentosAVencer: number;
+    percentualConformidade: number;
+    colaboradoresConformes: number;
+    totalColaboradores: number;
+  }> {
+    const hoje = new Date().toISOString().split('T')[0];
+    const em30Dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let queryDocumentos = db.select().from(segDocumentosColaboradores).$dynamic();
+    let queryColaboradores = db.select().from(colaboradores).$dynamic();
+
+    if (empreendimentoId) {
+      queryDocumentos = queryDocumentos.where(eq(segDocumentosColaboradores.empreendimentoId, empreendimentoId));
+      queryColaboradores = queryColaboradores.where(eq(colaboradores.empreendimentoId, empreendimentoId));
+    }
+
+    const documentos = await queryDocumentos;
+    const colaboradoresAtivos = await queryColaboradores.where(eq(colaboradores.status, 'ativo'));
+
+    const totalDocumentos = documentos.length;
+    const documentosValidos = documentos.filter(d => d.status === 'valido').length;
+    const documentosVencidos = documentos.filter(d => 
+      d.dataValidade && d.dataValidade < hoje
+    ).length;
+    const documentosAVencer = documentos.filter(d => 
+      d.dataValidade && d.dataValidade >= hoje && d.dataValidade <= em30Dias
+    ).length;
+
+    const percentualConformidade = totalDocumentos > 0 
+      ? Math.round((documentosValidos / totalDocumentos) * 100) 
+      : 0;
+
+    const colaboradoresConformes = colaboradoresAtivos.filter(c => {
+      const docsColaborador = documentos.filter(d => d.colaboradorId === c.id);
+      return docsColaborador.length > 0 && docsColaborador.every(d => d.status === 'valido');
+    }).length;
+
+    return {
+      totalDocumentos,
+      documentosValidos,
+      documentosVencidos,
+      documentosAVencer,
+      percentualConformidade,
+      colaboradoresConformes,
+      totalColaboradores: colaboradoresAtivos.length,
+    };
   }
 }
 
