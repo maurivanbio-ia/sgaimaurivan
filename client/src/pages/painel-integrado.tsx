@@ -1190,8 +1190,8 @@ export default function PainelIntegradoPage() {
                   <Database className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
-                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
+                  <div className="text-2xl font-bold">247</div>
+                  <p className="text-xs text-muted-foreground">Armazenados</p>
                 </CardContent>
               </Card>
 
@@ -1201,7 +1201,7 @@ export default function PainelIntegradoPage() {
                   <FileText className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold">142</div>
                   <p className="text-xs text-muted-foreground">Arquivos PDF</p>
                 </CardContent>
               </Card>
@@ -1212,7 +1212,7 @@ export default function PainelIntegradoPage() {
                   <FileText className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold">78</div>
                   <p className="text-xs text-muted-foreground">Excel/CSV</p>
                 </CardContent>
               </Card>
@@ -1223,11 +1223,146 @@ export default function PainelIntegradoPage() {
                   <Database className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold">27</div>
                   <p className="text-xs text-muted-foreground">Diversos</p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Gráficos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5" />
+                    Arquivos por Tipo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Pie
+                      data={{
+                        labels: ['Documentos PDF', 'Planilhas', 'Imagens', 'Outros'],
+                        datasets: [{
+                          data: [142, 78, 19, 8],
+                          backgroundColor: ['#ef4444', '#10b981', '#f59e0b', '#6366f1'],
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            position: 'bottom',
+                          },
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Armazenamento por Categoria (GB)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Bar 
+                      data={{
+                        labels: ['Licenças', 'Relatórios', 'Laudos', 'Mapas', 'Outros'],
+                        datasets: [{
+                          label: 'GB',
+                          data: [4.2, 3.8, 2.5, 1.9, 0.8],
+                          backgroundColor: '#8b5cf6',
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: function(value) {
+                                return value + ' GB';
+                              }
+                            }
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tabela de Arquivos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Documentos Recentes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4">Arquivo</th>
+                        <th className="text-left py-3 px-4">Tipo</th>
+                        <th className="text-left py-3 px-4">Categoria</th>
+                        <th className="text-left py-3 px-4">Tamanho</th>
+                        <th className="text-left py-3 px-4">Data Upload</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">Licença_Operação_Belo_Monte.pdf</td>
+                        <td className="py-3 px-4">PDF</td>
+                        <td className="py-3 px-4">Licenças</td>
+                        <td className="py-3 px-4">2.4 MB</td>
+                        <td className="py-3 px-4">10/10/2024</td>
+                      </tr>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">Relatório_Monitoramento_Água_Q3.xlsx</td>
+                        <td className="py-3 px-4">Excel</td>
+                        <td className="py-3 px-4">Relatórios</td>
+                        <td className="py-3 px-4">1.8 MB</td>
+                        <td className="py-3 px-4">08/10/2024</td>
+                      </tr>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">Laudo_Análise_Solo_Tucuruí.pdf</td>
+                        <td className="py-3 px-4">PDF</td>
+                        <td className="py-3 px-4">Laudos</td>
+                        <td className="py-3 px-4">3.2 MB</td>
+                        <td className="py-3 px-4">05/10/2024</td>
+                      </tr>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">Mapa_Área_Influência.png</td>
+                        <td className="py-3 px-4">Imagem</td>
+                        <td className="py-3 px-4">Mapas</td>
+                        <td className="py-3 px-4">5.6 MB</td>
+                        <td className="py-3 px-4">01/10/2024</td>
+                      </tr>
+                      <tr className="hover:bg-muted/50">
+                        <td className="py-3 px-4">Planilha_Condicionantes_2024.xlsx</td>
+                        <td className="py-3 px-4">Excel</td>
+                        <td className="py-3 px-4">Relatórios</td>
+                        <td className="py-3 px-4">892 KB</td>
+                        <td className="py-3 px-4">28/09/2024</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
