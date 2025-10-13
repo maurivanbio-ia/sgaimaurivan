@@ -17,3 +17,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ EcoBrasil Server rodando em http://localhost:${PORT}`);
 });
+import { uploadPlanilhaRouter } from "./financeiro/uploadPlanilhaRoute";
+
+app.use("/api/financeiro", uploadPlanilhaRouter);
