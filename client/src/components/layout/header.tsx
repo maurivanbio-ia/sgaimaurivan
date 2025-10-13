@@ -76,12 +76,11 @@ export default function Header() {
             <img
               src="https://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png"
               alt="EcoBrasil"
-              className="h-8 mr-3"
+              className="h-8"
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
             />
-            <span className="text-xl font-semibold text-primary">LicençaFácil</span>
           </Link>
 
           {/* Busca desktop */}
