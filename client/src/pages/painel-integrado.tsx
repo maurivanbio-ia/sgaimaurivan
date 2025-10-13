@@ -1010,8 +1010,8 @@ export default function PainelIntegradoPage() {
                   <Wrench className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
-                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
+                  <div className="text-2xl font-bold">32</div>
+                  <p className="text-xs text-muted-foreground">Cadastrados</p>
                 </CardContent>
               </Card>
 
@@ -1021,7 +1021,7 @@ export default function PainelIntegradoPage() {
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold">18</div>
                   <p className="text-xs text-muted-foreground">Para uso</p>
                 </CardContent>
               </Card>
@@ -1032,7 +1032,7 @@ export default function PainelIntegradoPage() {
                   <Activity className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold">12</div>
                   <p className="text-xs text-muted-foreground">Alocados</p>
                 </CardContent>
               </Card>
@@ -1043,11 +1043,141 @@ export default function PainelIntegradoPage() {
                   <AlertTriangle className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold">2</div>
                   <p className="text-xs text-muted-foreground">Indisponíveis</p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Gráficos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5" />
+                    Equipamentos por Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Pie
+                      data={{
+                        labels: ['Disponível', 'Em Uso', 'Manutenção'],
+                        datasets: [{
+                          data: [18, 12, 2],
+                          backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            position: 'bottom',
+                          },
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Equipamentos por Tipo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ height: "300px" }}>
+                    <Bar 
+                      data={{
+                        labels: ['Medição', 'Análise', 'Amostragem', 'Outros'],
+                        datasets: [{
+                          label: 'Quantidade',
+                          data: [12, 8, 7, 5],
+                          backgroundColor: '#6366f1',
+                        }]
+                      }}
+                      options={{ 
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                          }
+                        }
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tabela de Equipamentos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Últimos Equipamentos Cadastrados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4">Equipamento</th>
+                        <th className="text-left py-3 px-4">Tipo</th>
+                        <th className="text-left py-3 px-4">Localização</th>
+                        <th className="text-left py-3 px-4">Status</th>
+                        <th className="text-left py-3 px-4">Última Manutenção</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">pHmetro Digital PH-200</td>
+                        <td className="py-3 px-4">Medição</td>
+                        <td className="py-3 px-4">Laboratório A</td>
+                        <td className="py-3 px-4"><Badge variant="default">Disponível</Badge></td>
+                        <td className="py-3 px-4">15/09/2024</td>
+                      </tr>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">Turbidímetro TB-1000</td>
+                        <td className="py-3 px-4">Análise</td>
+                        <td className="py-3 px-4">Campo - Belo Monte</td>
+                        <td className="py-3 px-4"><Badge variant="secondary">Em Uso</Badge></td>
+                        <td className="py-3 px-4">20/08/2024</td>
+                      </tr>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">GPS Garmin eTrex 32x</td>
+                        <td className="py-3 px-4">Amostragem</td>
+                        <td className="py-3 px-4">Almoxarifado</td>
+                        <td className="py-3 px-4"><Badge variant="default">Disponível</Badge></td>
+                        <td className="py-3 px-4">10/10/2024</td>
+                      </tr>
+                      <tr className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">Espectrofotômetro UV-Vis</td>
+                        <td className="py-3 px-4">Análise</td>
+                        <td className="py-3 px-4">Laboratório B</td>
+                        <td className="py-3 px-4"><Badge variant="outline">Manutenção</Badge></td>
+                        <td className="py-3 px-4">05/10/2024</td>
+                      </tr>
+                      <tr className="hover:bg-muted/50">
+                        <td className="py-3 px-4">Oxímetro Portátil OX-200</td>
+                        <td className="py-3 px-4">Medição</td>
+                        <td className="py-3 px-4">Campo - Tucuruí</td>
+                        <td className="py-3 px-4"><Badge variant="secondary">Em Uso</Badge></td>
+                        <td className="py-3 px-4">28/09/2024</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
