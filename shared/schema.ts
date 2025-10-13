@@ -560,6 +560,76 @@ export const insertDatasetSchema = createInsertSchema(datasets).omit({
 export type InsertDataset = z.infer<typeof insertDatasetSchema>;
 export type Dataset = typeof datasets.$inferSelect;
 
+// =============================================
+// SEGURANÇA DO TRABALHO MODULE
+// =============================================
+
+export const colaboradores = pgTable("colaboradores", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  cpf: varchar("cpf", { length: 14 }).notNull().unique(),
+  cargo: text("cargo").notNull(),
+  setor: text("setor").notNull(),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  dataAdmissao: date("data_admissao").notNull(),
+  status: text("status").notNull().default("ativo"), // ativo, inativo
+  email: text("email"),
+  telefone: text("telefone"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores", {
+  id: serial("id").primaryKey(),
+  colaboradorId: serial("colaborador_id").references(() => colaboradores.id).notNull(),
+  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  tipoDocumento: text("tipo_documento").notNull(), // ASO, Treinamento NR, EPI, LTCAT, PCMSO, etc
+  descricao: text("descricao"),
+  arquivoUrl: text("arquivo_url").notNull(),
+  dataEmissao: date("data_emissao").notNull(),
+  dataValidade: date("data_validade"),
+  assinaturaResponsavel: text("assinatura_responsavel"),
+  status: text("status").notNull().default("valido"), // valido, vencido, pendente
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const colaboradoresRelations = relations(colaboradores, ({ one, many }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [colaboradores.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  documentos: many(segDocumentosColaboradores),
+}));
+
+export const segDocumentosColaboradoresRelations = relations(segDocumentosColaboradores, ({ one }) => ({
+  colaborador: one(colaboradores, {
+    fields: [segDocumentosColaboradores.colaboradorId],
+    references: [colaboradores.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [segDocumentosColaboradores.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
+export const insertColaboradorSchema = createInsertSchema(colaboradores).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertSegDocumentoSchema = createInsertSchema(segDocumentosColaboradores).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertColaborador = z.infer<typeof insertColaboradorSchema>;
+export type Colaborador = typeof colaboradores.$inferSelect;
+export type InsertSegDocumento = z.infer<typeof insertSegDocumentoSchema>;
+export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSelect;
+
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
   licencas: LicencaAmbiental[];
