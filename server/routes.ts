@@ -1353,6 +1353,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== END DATASETS ROUTES ====
 
+  // =============================================
+  // SEGURANÇA DO TRABALHO MODULE
+  // =============================================
+
+  // Get all colaboradores with optional filters
+  app.get('/api/colaboradores', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, status, search } = req.query;
+      
+      const filters: any = {};
+      if (empreendimentoId) filters.empreendimentoId = parseInt(empreendimentoId as string);
+      if (status) filters.status = status as string;
+      if (search) filters.search = search as string;
+
+      const colaboradores = await storage.getColaboradores(filters);
+      res.json(colaboradores);
+    } catch (error) {
+      console.error('Error fetching colaboradores:', error);
+      res.status(500).json({ error: 'Failed to fetch colaboradores' });
+    }
+  });
+
+  // Get single colaborador
+  app.get('/api/colaboradores/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid colaborador ID' });
+      }
+
+      const colaborador = await storage.getColaboradorById(id);
+      if (!colaborador) {
+        return res.status(404).json({ error: 'Colaborador not found' });
+      }
+
+      res.json(colaborador);
+    } catch (error) {
+      console.error('Error fetching colaborador:', error);
+      res.status(500).json({ error: 'Failed to fetch colaborador' });
+    }
+  });
+
+  // Create colaborador
+  app.post('/api/colaboradores', requireAuth, async (req, res) => {
+    try {
+      const colaborador = await storage.createColaborador(req.body);
+      res.status(201).json(colaborador);
+    } catch (error) {
+      console.error('Error creating colaborador:', error);
+      res.status(500).json({ error: 'Failed to create colaborador' });
+    }
+  });
+
+  // Update colaborador
+  app.patch('/api/colaboradores/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid colaborador ID' });
+      }
+
+      const colaborador = await storage.updateColaborador(id, req.body);
+      res.json(colaborador);
+    } catch (error) {
+      console.error('Error updating colaborador:', error);
+      res.status(500).json({ error: 'Failed to update colaborador' });
+    }
+  });
+
+  // Delete colaborador
+  app.delete('/api/colaboradores/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid colaborador ID' });
+      }
+
+      const deleted = await storage.deleteColaborador(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Colaborador not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting colaborador:', error);
+      res.status(500).json({ error: 'Failed to delete colaborador' });
+    }
+  });
+
+  // Get all documentos de segurança with optional filters
+  app.get('/api/seg-documentos', requireAuth, async (req, res) => {
+    try {
+      const { colaboradorId, empreendimentoId, status, tipoDocumento } = req.query;
+      
+      const filters: any = {};
+      if (colaboradorId) filters.colaboradorId = parseInt(colaboradorId as string);
+      if (empreendimentoId) filters.empreendimentoId = parseInt(empreendimentoId as string);
+      if (status) filters.status = status as string;
+      if (tipoDocumento) filters.tipoDocumento = tipoDocumento as string;
+
+      const documentos = await storage.getSegDocumentos(filters);
+      res.json(documentos);
+    } catch (error) {
+      console.error('Error fetching seg documentos:', error);
+      res.status(500).json({ error: 'Failed to fetch documentos' });
+    }
+  });
+
+  // Get single documento de segurança
+  app.get('/api/seg-documentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid documento ID' });
+      }
+
+      const documento = await storage.getSegDocumentoById(id);
+      if (!documento) {
+        return res.status(404).json({ error: 'Documento not found' });
+      }
+
+      res.json(documento);
+    } catch (error) {
+      console.error('Error fetching documento:', error);
+      res.status(500).json({ error: 'Failed to fetch documento' });
+    }
+  });
+
+  // Create documento de segurança
+  app.post('/api/seg-documentos', requireAuth, async (req, res) => {
+    try {
+      const documento = await storage.createSegDocumento(req.body);
+      res.status(201).json(documento);
+    } catch (error) {
+      console.error('Error creating documento:', error);
+      res.status(500).json({ error: 'Failed to create documento' });
+    }
+  });
+
+  // Update documento de segurança
+  app.patch('/api/seg-documentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid documento ID' });
+      }
+
+      const documento = await storage.updateSegDocumento(id, req.body);
+      res.json(documento);
+    } catch (error) {
+      console.error('Error updating documento:', error);
+      res.status(500).json({ error: 'Failed to update documento' });
+    }
+  });
+
+  // Delete documento de segurança
+  app.delete('/api/seg-documentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid documento ID' });
+      }
+
+      const deleted = await storage.deleteSegDocumento(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Documento not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting documento:', error);
+      res.status(500).json({ error: 'Failed to delete documento' });
+    }
+  });
+
+  // Get indicadores de segurança
+  app.get('/api/seguranca/indicadores', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const filters = empreendimentoId ? parseInt(empreendimentoId as string) : undefined;
+
+      const indicadores = await storage.getSegurancaIndicadores(filters);
+      res.json(indicadores);
+    } catch (error) {
+      console.error('Error fetching indicadores:', error);
+      res.status(500).json({ error: 'Failed to fetch indicadores' });
+    }
+  });
+
+  // ==== END SEGURANÇA DO TRABALHO ROUTES ====
+
   const httpServer = createServer(app);
   return httpServer;
 }
