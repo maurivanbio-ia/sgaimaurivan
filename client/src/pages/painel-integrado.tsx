@@ -1010,8 +1010,8 @@ export default function PainelIntegradoPage() {
                   <Wrench className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">32</div>
-                  <p className="text-xs text-muted-foreground">Cadastrados</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1021,8 +1021,8 @@ export default function PainelIntegradoPage() {
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">18</div>
-                  <p className="text-xs text-muted-foreground">Para uso</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1032,8 +1032,8 @@ export default function PainelIntegradoPage() {
                   <Activity className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">12</div>
-                  <p className="text-xs text-muted-foreground">Alocados</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1043,8 +1043,8 @@ export default function PainelIntegradoPage() {
                   <AlertTriangle className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">2</div>
-                  <p className="text-xs text-muted-foreground">Indisponíveis</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
             </div>
@@ -1059,25 +1059,8 @@ export default function PainelIntegradoPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ height: "300px" }}>
-                    <Pie
-                      data={{
-                        labels: ['Disponível', 'Em Uso', 'Manutenção'],
-                        datasets: [{
-                          data: [18, 12, 2],
-                          backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
-                        }]
-                      }}
-                      options={{ 
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                          },
-                        }
-                      }} 
-                    />
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    Selecione um empreendimento para visualizar os dados
                   </div>
                 </CardContent>
               </Card>
@@ -1090,31 +1073,8 @@ export default function PainelIntegradoPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ height: "300px" }}>
-                    <Bar 
-                      data={{
-                        labels: ['Medição', 'Análise', 'Amostragem', 'Outros'],
-                        datasets: [{
-                          label: 'Quantidade',
-                          data: [12, 8, 7, 5],
-                          backgroundColor: '#6366f1',
-                        }]
-                      }}
-                      options={{ 
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                        },
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                          }
-                        }
-                      }} 
-                    />
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    Selecione um empreendimento para visualizar os dados
                   </div>
                 </CardContent>
               </Card>
@@ -1126,55 +1086,8 @@ export default function PainelIntegradoPage() {
                 <CardTitle>Últimos Equipamentos Cadastrados</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4">Equipamento</th>
-                        <th className="text-left py-3 px-4">Tipo</th>
-                        <th className="text-left py-3 px-4">Localização</th>
-                        <th className="text-left py-3 px-4">Status</th>
-                        <th className="text-left py-3 px-4">Última Manutenção</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">pHmetro Digital PH-200</td>
-                        <td className="py-3 px-4">Medição</td>
-                        <td className="py-3 px-4">Laboratório A</td>
-                        <td className="py-3 px-4"><Badge variant="default">Disponível</Badge></td>
-                        <td className="py-3 px-4">15/09/2024</td>
-                      </tr>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">Turbidímetro TB-1000</td>
-                        <td className="py-3 px-4">Análise</td>
-                        <td className="py-3 px-4">Campo - Belo Monte</td>
-                        <td className="py-3 px-4"><Badge variant="secondary">Em Uso</Badge></td>
-                        <td className="py-3 px-4">20/08/2024</td>
-                      </tr>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">GPS Garmin eTrex 32x</td>
-                        <td className="py-3 px-4">Amostragem</td>
-                        <td className="py-3 px-4">Almoxarifado</td>
-                        <td className="py-3 px-4"><Badge variant="default">Disponível</Badge></td>
-                        <td className="py-3 px-4">10/10/2024</td>
-                      </tr>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">Espectrofotômetro UV-Vis</td>
-                        <td className="py-3 px-4">Análise</td>
-                        <td className="py-3 px-4">Laboratório B</td>
-                        <td className="py-3 px-4"><Badge variant="outline">Manutenção</Badge></td>
-                        <td className="py-3 px-4">05/10/2024</td>
-                      </tr>
-                      <tr className="hover:bg-muted/50">
-                        <td className="py-3 px-4">Oxímetro Portátil OX-200</td>
-                        <td className="py-3 px-4">Medição</td>
-                        <td className="py-3 px-4">Campo - Tucuruí</td>
-                        <td className="py-3 px-4"><Badge variant="secondary">Em Uso</Badge></td>
-                        <td className="py-3 px-4">28/09/2024</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  Selecione um empreendimento para visualizar os equipamentos
                 </div>
               </CardContent>
             </Card>
@@ -1190,8 +1103,8 @@ export default function PainelIntegradoPage() {
                   <Database className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">247</div>
-                  <p className="text-xs text-muted-foreground">Armazenados</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1201,8 +1114,8 @@ export default function PainelIntegradoPage() {
                   <FileText className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">142</div>
-                  <p className="text-xs text-muted-foreground">Arquivos PDF</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1212,8 +1125,8 @@ export default function PainelIntegradoPage() {
                   <FileText className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">78</div>
-                  <p className="text-xs text-muted-foreground">Excel/CSV</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1223,8 +1136,8 @@ export default function PainelIntegradoPage() {
                   <Database className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">27</div>
-                  <p className="text-xs text-muted-foreground">Diversos</p>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
             </div>
@@ -1239,25 +1152,8 @@ export default function PainelIntegradoPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ height: "300px" }}>
-                    <Pie
-                      data={{
-                        labels: ['Documentos PDF', 'Planilhas', 'Imagens', 'Outros'],
-                        datasets: [{
-                          data: [142, 78, 19, 8],
-                          backgroundColor: ['#ef4444', '#10b981', '#f59e0b', '#6366f1'],
-                        }]
-                      }}
-                      options={{ 
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                          },
-                        }
-                      }} 
-                    />
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    Selecione um empreendimento para visualizar os dados
                   </div>
                 </CardContent>
               </Card>
@@ -1270,36 +1166,8 @@ export default function PainelIntegradoPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ height: "300px" }}>
-                    <Bar 
-                      data={{
-                        labels: ['Licenças', 'Relatórios', 'Laudos', 'Mapas', 'Outros'],
-                        datasets: [{
-                          label: 'GB',
-                          data: [4.2, 3.8, 2.5, 1.9, 0.8],
-                          backgroundColor: '#8b5cf6',
-                        }]
-                      }}
-                      options={{ 
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                        },
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              callback: function(value) {
-                                return value + ' GB';
-                              }
-                            }
-                          }
-                        }
-                      }} 
-                    />
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    Selecione um empreendimento para visualizar os dados
                   </div>
                 </CardContent>
               </Card>
@@ -1311,55 +1179,8 @@ export default function PainelIntegradoPage() {
                 <CardTitle>Documentos Recentes</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4">Arquivo</th>
-                        <th className="text-left py-3 px-4">Tipo</th>
-                        <th className="text-left py-3 px-4">Categoria</th>
-                        <th className="text-left py-3 px-4">Tamanho</th>
-                        <th className="text-left py-3 px-4">Data Upload</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">Licença_Operação_Belo_Monte.pdf</td>
-                        <td className="py-3 px-4">PDF</td>
-                        <td className="py-3 px-4">Licenças</td>
-                        <td className="py-3 px-4">2.4 MB</td>
-                        <td className="py-3 px-4">10/10/2024</td>
-                      </tr>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">Relatório_Monitoramento_Água_Q3.xlsx</td>
-                        <td className="py-3 px-4">Excel</td>
-                        <td className="py-3 px-4">Relatórios</td>
-                        <td className="py-3 px-4">1.8 MB</td>
-                        <td className="py-3 px-4">08/10/2024</td>
-                      </tr>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">Laudo_Análise_Solo_Tucuruí.pdf</td>
-                        <td className="py-3 px-4">PDF</td>
-                        <td className="py-3 px-4">Laudos</td>
-                        <td className="py-3 px-4">3.2 MB</td>
-                        <td className="py-3 px-4">05/10/2024</td>
-                      </tr>
-                      <tr className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">Mapa_Área_Influência.png</td>
-                        <td className="py-3 px-4">Imagem</td>
-                        <td className="py-3 px-4">Mapas</td>
-                        <td className="py-3 px-4">5.6 MB</td>
-                        <td className="py-3 px-4">01/10/2024</td>
-                      </tr>
-                      <tr className="hover:bg-muted/50">
-                        <td className="py-3 px-4">Planilha_Condicionantes_2024.xlsx</td>
-                        <td className="py-3 px-4">Excel</td>
-                        <td className="py-3 px-4">Relatórios</td>
-                        <td className="py-3 px-4">892 KB</td>
-                        <td className="py-3 px-4">28/09/2024</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  Selecione um empreendimento para visualizar os documentos
                 </div>
               </CardContent>
             </Card>
@@ -1387,7 +1208,7 @@ export default function PainelIntegradoPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">-</div>
-                  <p className="text-xs text-muted-foreground">Em dia</p>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1398,7 +1219,7 @@ export default function PainelIntegradoPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">-</div>
-                  <p className="text-xs text-muted-foreground">Atenção necessária</p>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
 
@@ -1409,10 +1230,53 @@ export default function PainelIntegradoPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">-</div>
-                  <p className="text-xs text-muted-foreground">Taxa geral</p>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Gráficos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5" />
+                    Status de Documentos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    Selecione um empreendimento para visualizar os dados
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Documentos por Tipo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    Selecione um empreendimento para visualizar os dados
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tabela de Colaboradores */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Colaboradores com Documentos a Vencer</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  Selecione um empreendimento para visualizar os colaboradores
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
