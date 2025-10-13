@@ -49,7 +49,7 @@ export default function Login() {
 
       toast({
         title: "Login realizado",
-        description: "Bem-vindo ao LicençaFácil!",
+        description: "Bem-vindo ao sistema!",
       });
 
       // Salva e-mail se a opção estiver marcada
@@ -131,9 +131,6 @@ export default function Login() {
                   className="h-14 mx-auto"
                 />
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
-                LicençaFácil
-              </h1>
               <p className="text-white/90 font-medium drop-shadow">
                 Sistema de Gestão de Licenças Ambientais
               </p>
