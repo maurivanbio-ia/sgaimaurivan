@@ -161,6 +161,7 @@ export default function GestaoDados() {
         tamanho: file.size,
         usuario: "Usuário Atual",
         url: reader.result as string,
+        dataUpload: new Date().toISOString(),
       });
     };
     reader.readAsDataURL(file);

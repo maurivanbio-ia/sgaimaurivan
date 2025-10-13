@@ -132,13 +132,12 @@ export default function Login() {
           
           <div className="mt-6 text-center">
             <div className="text-xs text-white/80 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-              <p className="font-medium">Criado por EcoIA® - Inteligência Ambiental</p>
+              <p className="font-medium">Criado por EcoIA® - Inteligência Ambiental by Mauirvan Ribeiro</p>
             </div>
           </div>
         </CardContent>
         </Card>
       </div>
-
       {/* Information Cards */}
       <div className="w-full xl:max-w-lg flex-grow">
         <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
