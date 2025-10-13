@@ -624,22 +624,20 @@ export default function FrotaPage() {
             Gerencie veículos, manutenções e agendamentos da frota
           </p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-novo-veiculo">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Veículo
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Cadastrar Novo Veículo</DialogTitle>
-              </DialogHeader>
-              <NovoVeiculoForm onSuccess={handleFormSuccess} />
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-novo-veiculo">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Veículo
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Cadastrar Novo Veículo</DialogTitle>
+            </DialogHeader>
+            <NovoVeiculoForm onSuccess={handleFormSuccess} />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Statistics Cards */}
