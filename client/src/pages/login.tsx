@@ -132,7 +132,7 @@ export default function Login() {
           
           <div className="mt-6 text-center">
             <div className="text-xs text-white/80 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-              <p className="font-medium">Criado por Mauirvan Ribeiro</p>
+              <p className="font-medium">Criado por Maurivan Vaz Ribeiro</p>
             </div>
           </div>
         </CardContent>
