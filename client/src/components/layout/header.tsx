@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationsCenter } from "@/components/notifications-center";
-import { cn } from "@/lib/utils"; // se não tiver, troque por classnames ou remova o cn
+import { cn } from "@/lib/utils";
+import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 export default function Header() {
   const [location] = useLocation();
@@ -74,12 +75,11 @@ export default function Header() {
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
           >
             <img
-              src="https://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png"
+              src={logoEcoBrasil}
               alt="EcoBrasil"
               className="h-8"
               loading="lazy"
               decoding="async"
-              referrerPolicy="no-referrer"
             />
           </Link>
 
