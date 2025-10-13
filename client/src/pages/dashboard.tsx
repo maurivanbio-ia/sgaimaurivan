@@ -1,177 +1,416 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Link, useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle, Clock, Calendar } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
-interface PrazoEvento {
-  id: number;
-  tipo: string;
-  titulo: string;
-  prazo: string;
-  status: string;
-  empreendimento?: string;
-  orgaoEmissor?: string;
-}
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import StatusChart from "@/components/charts/status-chart";
+import ExpiryChart from "@/components/charts/expiry-chart";
+import { ExportButton } from "@/components/ExportButton";
+import LicenseCalendar from "@/components/LicenseCalendar";
+import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
 
 export default function Dashboard() {
-  const { data: agenda, isLoading } = useQuery<PrazoEvento[]>({
+  const [, navigate] = useLocation();
+  
+  const { data: licenseStats, isLoading: isLoadingLicenses } = useQuery<{ active: number; expiring: number; expired: number }>({
+    queryKey: ["/api/stats/licenses"],
+  });
+
+  const { data: condicionanteStats, isLoading: isLoadingCondicionantes } = useQuery<{ pendentes: number; cumpridas: number; vencidas: number }>({
+    queryKey: ["/api/stats/condicionantes"],
+  });
+
+  const { data: entregaStats, isLoading: isLoadingEntregas } = useQuery<{ pendentes: number; entregues: number; atrasadas: number }>({
+    queryKey: ["/api/stats/entregas"],
+  });
+
+  const { data: agenda, isLoading: isLoadingAgenda } = useQuery<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>>({
     queryKey: ["/api/agenda/prazos"],
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'ativo':
-        return 'bg-green-500';
-      case 'a vencer':
-        return 'bg-yellow-500';
-      case 'vencido':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'ativo':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'a vencer':
-        return <Clock className="h-4 w-4" />;
-      case 'vencido':
-        return <AlertTriangle className="h-4 w-4" />;
-      default:
-        return <Calendar className="h-4 w-4" />;
-    }
-  };
-
-  const getTipoColor = (tipo: string) => {
-    switch (tipo) {
-      case 'Licença':
-        return 'bg-blue-500';
-      case 'Condicionante':
-        return 'bg-yellow-600';
-      case 'Entrega':
-        return 'bg-green-600';
-      case 'Fiscalização':
-        return 'bg-orange-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
+  const isLoading = isLoadingLicenses || isLoadingCondicionantes || isLoadingEntregas || isLoadingAgenda;
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Agenda de Prazos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-[400px] w-full rounded-lg" />
-          </CardContent>
-        </Card>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">Carregando estatísticas...</div>
       </div>
     );
   }
 
-  const sortedAgenda = [...(agenda || [])].sort((a, b) => {
-    return new Date(a.prazo).getTime() - new Date(b.prazo).getTime();
-  });
+  const licenses = licenseStats || { active: 0, expiring: 0, expired: 0 };
+  const condicionantes = condicionanteStats || { pendentes: 0, cumpridas: 0, vencidas: 0 };
+  const entregas = entregaStats || { pendentes: 0, entregues: 0, atrasadas: 0 };
+  const prazos = agenda || [];
 
   return (
-    <div className="container mx-auto p-6">
-      <Card className="shadow-sm border border-border/40">
-        <CardHeader>
-          <CardTitle className="text-2xl font-semibold flex items-center gap-2">
-            <Calendar className="h-6 w-6" />
-            Agenda de Prazos
-          </CardTitle>
-          <CardDescription>Acompanhe todos os prazos importantes de licenças e condicionantes</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sortedAgenda.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum prazo cadastrado</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-card-foreground">Painel Geral</h2>
+          <p className="text-muted-foreground mt-2">Visão geral do sistema de gestão ambiental</p>
+        </div>
+        <ExportButton entity="relatorio-completo" variant="default" />
+      </div>
+
+      {/* License Calendar Section */}
+      <div className="mb-8">
+        <LicenseCalendar />
+      </div>
+
+      {/* Enhanced KPI Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+        {/* Licenças */}
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/ativas")}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-success/10 rounded-md">
+                <CheckCircle className="text-success h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">Licenças Ativas</p>
+                <p className="text-xl font-bold text-success" data-testid="stat-active">
+                  {licenses.active}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {sortedAgenda.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors"
-                  data-testid={`prazo-item-${item.id}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className={getTipoColor(item.tipo)}>
-                          {item.tipo}
-                        </Badge>
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          {getStatusIcon(item.status)}
-                          {item.status}
-                        </Badge>
-                      </div>
-                      <h3 className="font-semibold text-lg mb-1" data-testid={`prazo-titulo-${item.id}`}>
-                        {item.titulo}
-                      </h3>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        {item.empreendimento && (
-                          <p data-testid={`prazo-empreendimento-${item.id}`}>
-                            <strong>Empreendimento:</strong> {item.empreendimento}
-                          </p>
-                        )}
-                        {item.orgaoEmissor && (
-                          <p data-testid={`prazo-orgao-${item.id}`}>
-                            <strong>Órgão Emissor:</strong> {item.orgaoEmissor}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold" data-testid={`prazo-data-${item.id}`}>
-                          {format(new Date(item.prazo), "dd/MM/yyyy", { locale: ptBR })}
-                        </span>
-                      </div>
-                    </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/vencer")}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-warning/10 rounded-md">
+                <TriangleAlert className="text-warning h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">A Vencer</p>
+                <p className="text-xl font-bold text-warning" data-testid="stat-expiring">
+                  {licenses.expiring}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/vencidas")}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-destructive/10 rounded-md">
+                <XCircle className="text-destructive h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">Vencidas</p>
+                <p className="text-xl font-bold text-destructive" data-testid="stat-expired">
+                  {licenses.expired}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Condicionantes */}
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/condicionantes/pendentes")}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-500/10 rounded-md">
+                <FileText className="text-blue-500 h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">Cond. Pendentes</p>
+                <p className="text-xl font-bold text-blue-500" data-testid="stat-condicionantes-pendentes">
+                  {condicionantes.pendentes}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Entregas */}
+        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/entregas/mes")}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-500/10 rounded-md">
+                <Package className="text-purple-500 h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">Entregas do Mês</p>
+                <p className="text-xl font-bold text-purple-500" data-testid="stat-entregas-mes">
+                  {entregas.pendentes}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Charts Section */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="shadow-sm">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-card-foreground mb-4">Status das Licenças</h3>
+                <div className="h-48">
+                  <StatusChart stats={licenses} />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="shadow-sm">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-card-foreground mb-4">Vencimentos por Mês</h3>
+                <div className="h-48">
+                  <ExpiryChart />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Condicionantes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Pendentes</span>
+                    <span className="text-sm font-medium">{condicionantes.pendentes}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Cumpridas</span>
+                    <span className="text-sm font-medium text-success">{condicionantes.cumpridas}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Vencidas</span>
+                    <span className="text-sm font-medium text-destructive">{condicionantes.vencidas}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </CardContent>
+            </Card>
 
-          <div className="flex flex-wrap items-center gap-3 mt-6 pt-6 border-t border-border">
-            <span className="text-sm font-medium text-muted-foreground">Legenda:</span>
-            <Badge variant="outline" className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-green-500" />
-              Ativo
-            </Badge>
-            <Badge variant="outline" className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-yellow-500" />
-              A Vencer
-            </Badge>
-            <Badge variant="outline" className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-red-500" />
-              Vencido
-            </Badge>
-            <Badge variant="outline" className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-blue-500" />
-              Licença
-            </Badge>
-            <Badge variant="outline" className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-yellow-600" />
-              Condicionante
-            </Badge>
-            <Badge variant="outline" className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-green-600" />
-              Entrega
-            </Badge>
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center">
+                  <Package className="mr-2 h-4 w-4" />
+                  Entregas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Pendentes</span>
+                    <span className="text-sm font-medium">{entregas.pendentes}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Entregues</span>
+                    <span className="text-sm font-medium text-success">{entregas.entregues}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Atrasadas</span>
+                    <span className="text-sm font-medium text-destructive">{entregas.atrasadas}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Agenda Section */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center">
+              <Calendar className="mr-2 h-5 w-5" />
+              Agenda de Prazos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {prazos.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum prazo próximo
+                  </p>
+                </div>
+              ) : (
+                prazos.slice(0, 10).map((item, index) => {
+                  const prazoDate = new Date(item.prazo);
+                  const today = new Date();
+                  const diffTime = prazoDate.getTime() - today.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  
+                  const getUrgencyInfo = () => {
+                    if (diffDays < 0) {
+                      return { urgency: 'vencido', color: 'bg-red-50 border-red-200', textColor: 'text-red-900', days: 'Vencido' };
+                    } else if (diffDays <= 7) {
+                      return { urgency: 'critico', color: 'bg-orange-50 border-orange-200', textColor: 'text-orange-900', days: `${diffDays} dia${diffDays !== 1 ? 's' : ''}` };
+                    } else if (diffDays <= 30) {
+                      return { urgency: 'alerta', color: 'bg-yellow-50 border-yellow-200', textColor: 'text-yellow-900', days: `${diffDays} dias` };
+                    } else {
+                      return { urgency: 'normal', color: 'bg-green-50 border-green-200', textColor: 'text-green-900', days: `${diffDays} dias` };
+                    }
+                  };
+                  
+                  const urgencyInfo = getUrgencyInfo();
+                  
+                  const getItemIcon = () => {
+                    switch (item.tipo) {
+                      case 'Licença':
+                        return <ShieldCheck className="h-5 w-5 text-blue-600" />;
+                      case 'Condicionante':
+                        return <CheckCircle2 className="h-5 w-5 text-purple-600" />;
+                      case 'Entrega':
+                        return <Truck className="h-5 w-5 text-emerald-600" />;
+                      default:
+                        return <FileText className="h-5 w-5 text-gray-600" />;
+                    }
+                  };
+                  
+                  const getStatusColor = () => {
+                    if (item.status === 'vencida' || item.status === 'vencido' || item.status === 'atrasada') {
+                      return 'bg-red-100 text-red-800 border-red-200';
+                    } else if (item.status === 'vencendo' || item.status === 'a_vencer' || item.status === 'pendente') {
+                      return 'bg-orange-100 text-orange-800 border-orange-200';
+                    } else if (item.status === 'cumprida' || item.status === 'entregue' || item.status === 'ativa') {
+                      return 'bg-green-100 text-green-800 border-green-200';
+                    } else {
+                      return 'bg-gray-100 text-gray-800 border-gray-200';
+                    }
+                  };
+                  
+                  return (
+                    <TooltipProvider key={index}>
+                      <div className={`border-l-4 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${urgencyInfo.color}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="cursor-help">
+                                      {getItemIcon()}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <div className="text-sm">
+                                      <div className="font-semibold mb-1">{item.tipo}</div>
+                                      {item.empreendimento && (
+                                        <div className="text-muted-foreground">
+                                          <span className="font-medium">Empreendimento:</span> {item.empreendimento}
+                                        </div>
+                                      )}
+                                      {item.orgaoEmissor && (
+                                        <div className="text-muted-foreground">
+                                          <span className="font-medium">Órgão:</span> {item.orgaoEmissor}
+                                        </div>
+                                      )}
+                                      <div className="text-muted-foreground">
+                                        <span className="font-medium">Prazo:</span> {prazoDate.toLocaleDateString('pt-BR')}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        <span className="font-medium">Status:</span> {item.status === 'a_vencer' ? 'vencendo' : item.status}
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Badge variant="outline" className={`text-xs font-medium ${
+                                  item.tipo === 'Licença' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  item.tipo === 'Condicionante' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
+                                  {item.tipo}
+                                </Badge>
+                              </div>
+                              <Badge className={`text-xs font-medium border ${getStatusColor()}`}>
+                                {item.status === 'a_vencer' ? 'vencendo' : item.status}
+                              </Badge>
+                            </div>
+                            
+                            <h4 className={`text-sm font-semibold ${urgencyInfo.textColor} mb-1 line-clamp-2`}>
+                              {item.titulo}
+                            </h4>
+                            
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{prazoDate.toLocaleDateString('pt-BR')}</span>
+                              </div>
+                              <div className={`flex items-center gap-1 font-medium ${
+                                urgencyInfo.urgency === 'vencido' ? 'text-red-600' :
+                                urgencyInfo.urgency === 'critico' ? 'text-orange-600' :
+                                urgencyInfo.urgency === 'alerta' ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`}>
+                                <Clock className="h-3 w-3" />
+                                <span>{urgencyInfo.days}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="ml-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-help">
+                                  {urgencyInfo.urgency === 'vencido' && (
+                                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                                  )}
+                                  {urgencyInfo.urgency === 'critico' && (
+                                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                  )}
+                                  {urgencyInfo.urgency === 'alerta' && (
+                                    <Clock className="h-5 w-5 text-yellow-500" />
+                                  )}
+                                  {urgencyInfo.urgency === 'normal' && (
+                                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="text-sm">
+                                  {urgencyInfo.urgency === 'vencido' && 'Prazo vencido!'}
+                                  {urgencyInfo.urgency === 'critico' && 'Atenção: Prazo crítico'}
+                                  {urgencyInfo.urgency === 'alerta' && 'Prazo próximo'}
+                                  {urgencyInfo.urgency === 'normal' && 'Prazo dentro do normal'}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      </div>
+                    </TooltipProvider>
+                  );
+                })
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card className="shadow-sm">
+        <CardContent className="p-6">
+          <h3 className="text-lg font-semibold text-card-foreground mb-4">Ações Rápidas</h3>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/empreendimentos">
+              <Button className="font-medium" data-testid="button-view-projects">
+                <Building className="mr-2 h-4 w-4" />
+                Ver Empreendimentos
+              </Button>
+            </Link>
+            <Link href="/empreendimentos/novo">
+              <Button variant="outline" className="font-medium" data-testid="button-new-project">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Empreendimento
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
