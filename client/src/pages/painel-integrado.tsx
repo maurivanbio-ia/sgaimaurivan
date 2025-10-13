@@ -19,7 +19,9 @@ import {
   Activity,
   DollarSign,
   Truck,
-  CreditCard
+  CreditCard,
+  Database,
+  Shield
 } from "lucide-react";
 import { 
   Chart as ChartJS,
@@ -570,7 +572,7 @@ export default function PainelIntegradoPage() {
 
       {/* Integrated Dashboard with Tabs */}
       <Tabs defaultValue="licencas" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="licencas" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Licenças
@@ -586,6 +588,18 @@ export default function PainelIntegradoPage() {
           <TabsTrigger value="frota" className="flex items-center gap-2">
             <Truck className="h-4 w-4" />
             Frota
+          </TabsTrigger>
+          <TabsTrigger value="equipamentos" className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            Equipamentos
+          </TabsTrigger>
+          <TabsTrigger value="gestao-dados" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Gestão de Dados
+          </TabsTrigger>
+          <TabsTrigger value="seguranca" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Segurança
           </TabsTrigger>
         </TabsList>
 
@@ -981,6 +995,156 @@ export default function PainelIntegradoPage() {
                       }} 
                     />
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="equipamentos" className="mt-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total de Equipamentos</CardTitle>
+                  <Wrench className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Disponíveis</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Para uso</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Em Uso</CardTitle>
+                  <Activity className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Alocados</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Em Manutenção</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Indisponíveis</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="gestao-dados" className="mt-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total de Arquivos</CardTitle>
+                  <Database className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Documentos</CardTitle>
+                  <FileText className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Arquivos PDF</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Planilhas</CardTitle>
+                  <FileText className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Excel/CSV</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Outros</CardTitle>
+                  <Database className="h-4 w-4 text-orange-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Diversos</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="seguranca" className="mt-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total de Colaboradores</CardTitle>
+                  <Users className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Selecione um empreendimento</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Documentos Válidos</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Em dia</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Documentos Vencidos</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Atenção necessária</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">% Conformidade</CardTitle>
+                  <Shield className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">-</div>
+                  <p className="text-xs text-muted-foreground">Taxa geral</p>
                 </CardContent>
               </Card>
             </div>
