@@ -10,26 +10,22 @@ import { ExportButton } from "@/components/ExportButton";
 import LicenseCalendar from "@/components/LicenseCalendar";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
 
+interface DashboardStats {
+  licenses: { active: number; expiring: number; expired: number };
+  condicionantes: { pendentes: number; cumpridas: number; vencidas: number };
+  entregas: { pendentes: number; entregues: number; atrasadas: number };
+  agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>;
+  monthlyExpiry: any[];
+  calendar: any[];
+}
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   
-  const { data: licenseStats, isLoading: isLoadingLicenses } = useQuery<{ active: number; expiring: number; expired: number }>({
-    queryKey: ["/api/stats/licenses"],
+  // Use consolidated endpoint instead of multiple separate requests
+  const { data: dashboardStats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
   });
-
-  const { data: condicionanteStats, isLoading: isLoadingCondicionantes } = useQuery<{ pendentes: number; cumpridas: number; vencidas: number }>({
-    queryKey: ["/api/stats/condicionantes"],
-  });
-
-  const { data: entregaStats, isLoading: isLoadingEntregas } = useQuery<{ pendentes: number; entregues: number; atrasadas: number }>({
-    queryKey: ["/api/stats/entregas"],
-  });
-
-  const { data: agenda, isLoading: isLoadingAgenda } = useQuery<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>>({
-    queryKey: ["/api/agenda/prazos"],
-  });
-
-  const isLoading = isLoadingLicenses || isLoadingCondicionantes || isLoadingEntregas || isLoadingAgenda;
 
   if (isLoading) {
     return (
@@ -39,10 +35,10 @@ export default function Dashboard() {
     );
   }
 
-  const licenses = licenseStats || { active: 0, expiring: 0, expired: 0 };
-  const condicionantes = condicionanteStats || { pendentes: 0, cumpridas: 0, vencidas: 0 };
-  const entregas = entregaStats || { pendentes: 0, entregues: 0, atrasadas: 0 };
-  const prazos = agenda || [];
+  const licenses = dashboardStats?.licenses || { active: 0, expiring: 0, expired: 0 };
+  const condicionantes = dashboardStats?.condicionantes || { pendentes: 0, cumpridas: 0, vencidas: 0 };
+  const entregas = dashboardStats?.entregas || { pendentes: 0, entregues: 0, atrasadas: 0 };
+  const prazos = dashboardStats?.agenda || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
