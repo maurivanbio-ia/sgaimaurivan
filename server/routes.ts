@@ -25,6 +25,12 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// Register schema
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+});
+
 // Session configuration
 declare module 'express-session' {
   interface SessionData {
@@ -54,13 +60,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize seed user
   const initSeedUser = async () => {
-    const existingUser = await storage.getUserByEmail("ecobrasil@ecobrasil.bio.br");
-    if (!existingUser) {
+    const adminEmail = "maurivan@ecobrasil.bio.br";
+    const existingAdmin = await storage.getUserByEmail(adminEmail);
+    if (!existingAdmin) {
+      const hashedPassword = await bcrypt.hash("bor192023", 10);
       await storage.createUser({
-        email: "ecobrasil@ecobrasil.bio.br",
-        passwordHash: "123456",
+        email: adminEmail,
+        passwordHash: hashedPassword,
+        role: "admin",
       });
-      console.log("Seed user created: ecobrasil@ecobrasil.bio.br");
+      console.log("Admin user created: maurivan@ecobrasil.bio.br");
     }
   };
 
@@ -87,10 +96,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       req.session.userId = user.id;
-      res.json({ message: "Login successful", user: { id: user.id, email: user.email } });
+      res.json({ message: "Login successful", user: { id: user.id, email: user.email, role: user.role } });
     } catch (error) {
       console.error("Login error:", error);
       res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { email, password } = registerSchema.parse(req.body);
+      
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Este e-mail já está cadastrado" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const newUser = await storage.createUser({
+        email,
+        passwordHash: hashedPassword,
+        role: "colaborador",
+      });
+
+      req.session.userId = newUser.id;
+      res.json({ message: "Registro bem-sucedido", user: { id: newUser.id, email: newUser.email, role: newUser.role } });
+    } catch (error) {
+      console.error("Register error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao criar conta" });
     }
   });
 
@@ -109,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json({ id: user.id, email: user.email });
+      res.json({ id: user.id, email: user.email, role: user.role });
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ message: "Internal server error" });
