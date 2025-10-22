@@ -34,7 +34,7 @@ class CronService {
   }
 
   // Executa verificação de alertas
-  private async runAlertCheck(): void {
+  private async runAlertCheck(): Promise<void> {
     try {
       console.log(`[${new Date().toLocaleString('pt-BR')}] Executando verificação de alertas...`);
       await alertService.checkAndSendAlerts();
