@@ -2,13 +2,28 @@
 
 LicençaFácil is an environmental license management system designed for environmental consulting companies to track and manage environmental licenses by enterprise. The system centralizes license management to prevent expiration oversights and provides clear visibility into deadlines and compliance status. Built with React frontend and Express.js backend, it features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses.
 
-# Recent Changes (October 13, 2025)
+# Recent Changes (October 22, 2025)
 
-- System restored to stable state after dependency issues
-- All core modules functioning correctly: Dashboard, Empreendimentos, Licenças, Demandas, Financeiro, Frota, Equipamentos, Gestão de Dados, and Segurança do Trabalho
-- Login page with attribution to "Maurivan Vaz Ribeiro"
-- Custom LicenseCalendar component for visual calendar display
-- Automated alerts system operational
+## Critical Bug Fixes
+- **Foreign Key Schema Fix**: Corrected all foreign key fields from `serial` to `integer` type across entire database schema (demandas, comentários, subtarefas, histórico, financeiro, equipamentos, colaboradores, datasets, and security tables)
+- **Cascade Delete Implementation**: Added transactional cascade deletion for empreendimentos - now properly deletes all related data (licenças, condicionantes, entregas, colaboradores, documentos, demandas, financeiro, equipamentos, datasets)
+- **Transaction Atomicity**: Wrapped deleteEmpreendimento in db.transaction() to ensure all-or-nothing deletion preventing partial deletes
+
+## New Features
+- **License Endpoints**: Added POST /api/licencas/:licencaId/entregas and POST /api/licencas/:licencaId/condicionantes for creating license sub-resources
+
+## System Validation
+- All core modules tested and validated via E2E tests:
+  - Dashboard analytics functioning correctly
+  - Empreendimentos: Full CRUD including cascade delete
+  - Licenças Ambientais: Full CRUD with condicionantes and entregas
+  - Demandas: Kanban board with drag-and-drop, full lifecycle management
+  - Financeiro, Frota, Equipamentos, Gestão de Dados, Segurança do Trabalho: All modules operational
+
+## Database Schema Status
+- All tables synchronized via `npm run db:push --force`
+- Foreign key constraints properly configured
+- Referential integrity maintained across all modules
 
 # User Preferences
 
