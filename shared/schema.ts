@@ -22,7 +22,7 @@ export const empreendimentos = pgTable("empreendimentos", {
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
   responsavelInterno: text("responsavel_interno").notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
-  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
 });
 
 export const licencasAmbientais = pgTable("licencas_ambientais", {
@@ -34,7 +34,7 @@ export const licencasAmbientais = pgTable("licencas_ambientais", {
   validade: date("validade").notNull(),
   status: text("status").notNull(),
   arquivoPdf: text("arquivo_pdf"),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
@@ -44,7 +44,7 @@ export const condicionantes = pgTable("condicionantes", {
   prazo: date("prazo").notNull(),
   status: text("status").notNull().default("pendente"), // pendente, cumprida, vencida
   observacoes: text("observacoes"),
-  licencaId: serial("licenca_id").references(() => licencasAmbientais.id).notNull(),
+  licencaId: integer("licenca_id").references(() => licencasAmbientais.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
@@ -56,7 +56,7 @@ export const entregas = pgTable("entregas", {
   prazo: date("prazo").notNull(),
   status: text("status").notNull().default("pendente"), // pendente, entregue, atrasada
   arquivoPdf: text("arquivo_pdf"),
-  licencaId: serial("licenca_id").references(() => licencasAmbientais.id).notNull(),
+  licencaId: integer("licenca_id").references(() => licencasAmbientais.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
@@ -150,8 +150,8 @@ export const demandas = pgTable("demandas", {
   prioridade: text("prioridade").notNull().default("media"), // baixa, media, alta
   dataEntrega: date("data_entrega").notNull(),
   dataConclusao: date("data_conclusao"),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id),
-  responsavelId: serial("responsavel_id").references(() => users.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  responsavelId: integer("responsavel_id").references(() => users.id).notNull(),
   anexos: text("anexos").array(), // URLs dos arquivos anexados
   tags: text("tags").array(), // Tags opcionais
   tempoEstimado: integer("tempo_estimado"), // em horas
@@ -159,14 +159,14 @@ export const demandas = pgTable("demandas", {
   observacoes: text("observacoes"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
-  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
 });
 
 // Comentários das demandas
 export const comentariosDemandas = pgTable("comentarios_demandas", {
   id: serial("id").primaryKey(),
-  demandaId: serial("demanda_id").references(() => demandas.id).notNull(),
-  autorId: serial("autor_id").references(() => users.id).notNull(),
+  demandaId: integer("demanda_id").references(() => demandas.id).notNull(),
+  autorId: integer("autor_id").references(() => users.id).notNull(),
   comentario: text("comentario").notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
@@ -174,7 +174,7 @@ export const comentariosDemandas = pgTable("comentarios_demandas", {
 // Subtarefas das demandas
 export const subtarefasDemandas = pgTable("subtarefas_demandas", {
   id: serial("id").primaryKey(),
-  demandaId: serial("demanda_id").references(() => demandas.id).notNull(),
+  demandaId: integer("demanda_id").references(() => demandas.id).notNull(),
   titulo: text("titulo").notNull(),
   concluida: boolean("concluida").default(false).notNull(),
   ordem: integer("ordem").default(0).notNull(),
@@ -184,8 +184,8 @@ export const subtarefasDemandas = pgTable("subtarefas_demandas", {
 // Histórico de movimentações das demandas (audit trail)
 export const historicoDemandasMovimentacoes = pgTable("historico_demandas_movimentacoes", {
   id: serial("id").primaryKey(),
-  demandaId: serial("demanda_id").references(() => demandas.id).notNull(),
-  usuarioId: serial("usuario_id").references(() => users.id).notNull(),
+  demandaId: integer("demanda_id").references(() => demandas.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
   acao: text("acao").notNull(), // criou, moveu, comentou, anexou, etc.
   statusAnterior: text("status_anterior"),
   statusNovo: text("status_novo"),
@@ -330,10 +330,10 @@ export const equipamentos = pgTable("equipamentos", {
   valorAquisicao: decimal("valor_aquisicao", { precision: 12, scale: 2 }),
   dataAquisicao: date("data_aquisicao"),
   observacoes: text("observacoes"),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
-  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
 });
 
 // Relations
@@ -365,15 +365,15 @@ export const categoriasFinanceiras = pgTable("categorias_financeiras", {
 export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
   id: serial("id").primaryKey(),
   tipo: text("tipo").notNull(), // receita, despesa, reembolso, solicitacao_recurso
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
-  categoriaId: serial("categoria_id").references(() => categoriasFinanceiras.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  categoriaId: integer("categoria_id").references(() => categoriasFinanceiras.id).notNull(),
   valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
   data: date("data").notNull(),
   descricao: text("descricao").notNull(),
   status: text("status").notNull().default("aguardando"), // aguardando, aprovado, pago, recusado
   comprovanteUrl: text("comprovante_url"), // URL do arquivo de comprovante
   observacoes: text("observacoes"),
-  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
@@ -381,14 +381,14 @@ export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
 // Solicitações de Recursos
 export const solicitacoesRecursos = pgTable("solicitacoes_recursos", {
   id: serial("id").primaryKey(),
-  solicitanteId: serial("solicitante_id").references(() => users.id).notNull(),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  solicitanteId: integer("solicitante_id").references(() => users.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
   justificativa: text("justificativa").notNull(),
   tipoGasto: text("tipo_gasto").notNull(), // Ex: material, equipamento, viagem, etc.
   prazoDesejado: date("prazo_desejado"),
   status: text("status").notNull().default("pendente"), // pendente, aprovado, recusado, solicitar_ajuste
-  diretorId: serial("diretor_id").references(() => users.id), // Quem aprovou/recusou
+  diretorId: integer("diretor_id").references(() => users.id), // Quem aprovou/recusou
   decisao: text("decisao"), // aprovado, recusado, solicitar_ajuste
   comentarioDiretor: text("comentario_diretor"),
   aprovadomEm: timestamp("aprovado_em"),
@@ -400,11 +400,11 @@ export const solicitacoesRecursos = pgTable("solicitacoes_recursos", {
 // Orçamentos por Empreendimento
 export const orcamentos = pgTable("orcamentos", {
   id: serial("id").primaryKey(),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   valorOrcamento: decimal("valor_orcamento", { precision: 12, scale: 2 }).notNull(),
   periodo: text("periodo").notNull(), // Ex: "2024", "2024-Q1", "2024-01" 
   descricao: text("descricao"),
-  criadoPor: serial("criado_por").references(() => users.id).notNull(),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
@@ -570,7 +570,7 @@ export const colaboradores = pgTable("colaboradores", {
   cpf: varchar("cpf", { length: 14 }).notNull().unique(),
   cargo: text("cargo").notNull(),
   setor: text("setor").notNull(),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   dataAdmissao: date("data_admissao").notNull(),
   status: text("status").notNull().default("ativo"), // ativo, inativo
   email: text("email"),
@@ -581,8 +581,8 @@ export const colaboradores = pgTable("colaboradores", {
 
 export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores", {
   id: serial("id").primaryKey(),
-  colaboradorId: serial("colaborador_id").references(() => colaboradores.id).notNull(),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  colaboradorId: integer("colaborador_id").references(() => colaboradores.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   tipoDocumento: text("tipo_documento").notNull(), // ASO, Treinamento NR, EPI, LTCAT, PCMSO, etc
   descricao: text("descricao"),
   arquivoUrl: text("arquivo_url").notNull(),
