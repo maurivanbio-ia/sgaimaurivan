@@ -332,64 +332,65 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEmpreendimento(id: number): Promise<void> {
-    // Exclusão em cascata: primeiro busca todas as licenças do empreendimento
-    const licencasDoEmpreendimento = await db
-      .select({ id: licencasAmbientais.id })
-      .from(licencasAmbientais)
-      .where(eq(licencasAmbientais.empreendimentoId, id));
-    
-    // Para cada licença, delete condicionantes e entregas associadas
-    for (const licenca of licencasDoEmpreendimento) {
-      // Delete condicionantes da licença
-      await db.delete(condicionantes).where(eq(condicionantes.licencaId, licenca.id));
-      // Delete entregas da licença
-      await db.delete(entregas).where(eq(entregas.licencaId, licenca.id));
-    }
-    
-    // Delete todas as licenças do empreendimento
-    await db.delete(licencasAmbientais).where(eq(licencasAmbientais.empreendimentoId, id));
-    
-    // Delete colaboradores e seus documentos associados ao empreendimento
-    const colaboradoresDoEmp = await db
-      .select({ id: colaboradores.id })
-      .from(colaboradores)
-      .where(eq(colaboradores.empreendimentoId, id));
-    
-    for (const colab of colaboradoresDoEmp) {
-      await db.delete(segDocumentosColaboradores).where(eq(segDocumentosColaboradores.colaboradorId, colab.id));
-    }
-    await db.delete(colaboradores).where(eq(colaboradores.empreendimentoId, id));
-    
-    // Delete datasets associados ao empreendimento
-    await db.delete(datasets).where(eq(datasets.empreendimentoId, id));
-    
-    // Delete equipamentos associados ao empreendimento
-    await db.delete(equipamentos).where(eq(equipamentos.empreendimentoId, id));
-    
-    // Delete demandas associadas ao empreendimento
-    const demandasDoEmp = await db
-      .select({ id: demandas.id })
-      .from(demandas)
-      .where(eq(demandas.empreendimentoId, id));
-    
-    for (const demanda of demandasDoEmp) {
-      await db.delete(comentariosDemandas).where(eq(comentariosDemandas.demandaId, demanda.id));
-      await db.delete(subtarefasDemandas).where(eq(subtarefasDemandas.demandaId, demanda.id));
-      await db.delete(historicoDemandasMovimentacoes).where(eq(historicoDemandasMovimentacoes.demandaId, demanda.id));
-    }
-    await db.delete(demandas).where(eq(demandas.empreendimentoId, id));
-    
-    // Delete lançamentos financeiros associados ao empreendimento
-    await db.delete(financeiroLancamentos).where(eq(financeiroLancamentos.empreendimentoId, id));
-    
-    // Delete solicitações de recursos associadas ao empreendimento
-    await db.delete(solicitacoesRecursos).where(eq(solicitacoesRecursos.empreendimentoId, id));
-    
-    // Delete orçamentos associados ao empreendimento
-    await db.delete(orcamentos).where(eq(orcamentos.empreendimentoId, id));
-    
-    // Finalmente delete o empreendimento
-    await db.delete(empreendimentos).where(eq(empreendimentos.id, id));
+    // Envolve toda a exclusão em cascata em uma transação para garantir atomicidade
+    await db.transaction(async (tx) => {
+      // Primeiro busca todas as licenças do empreendimento
+      const licencasDoEmpreendimento = await tx
+        .select({ id: licencasAmbientais.id })
+        .from(licencasAmbientais)
+        .where(eq(licencasAmbientais.empreendimentoId, id));
+      
+      // Para cada licença, delete condicionantes e entregas associadas
+      for (const licenca of licencasDoEmpreendimento) {
+        await tx.delete(condicionantes).where(eq(condicionantes.licencaId, licenca.id));
+        await tx.delete(entregas).where(eq(entregas.licencaId, licenca.id));
+      }
+      
+      // Delete todas as licenças do empreendimento
+      await tx.delete(licencasAmbientais).where(eq(licencasAmbientais.empreendimentoId, id));
+      
+      // Delete colaboradores e seus documentos associados ao empreendimento
+      const colaboradoresDoEmp = await tx
+        .select({ id: colaboradores.id })
+        .from(colaboradores)
+        .where(eq(colaboradores.empreendimentoId, id));
+      
+      for (const colab of colaboradoresDoEmp) {
+        await tx.delete(segDocumentosColaboradores).where(eq(segDocumentosColaboradores.colaboradorId, colab.id));
+      }
+      await tx.delete(colaboradores).where(eq(colaboradores.empreendimentoId, id));
+      
+      // Delete datasets associados ao empreendimento
+      await tx.delete(datasets).where(eq(datasets.empreendimentoId, id));
+      
+      // Delete equipamentos associados ao empreendimento
+      await tx.delete(equipamentos).where(eq(equipamentos.empreendimentoId, id));
+      
+      // Delete demandas associadas ao empreendimento
+      const demandasDoEmp = await tx
+        .select({ id: demandas.id })
+        .from(demandas)
+        .where(eq(demandas.empreendimentoId, id));
+      
+      for (const demanda of demandasDoEmp) {
+        await tx.delete(comentariosDemandas).where(eq(comentariosDemandas.demandaId, demanda.id));
+        await tx.delete(subtarefasDemandas).where(eq(subtarefasDemandas.demandaId, demanda.id));
+        await tx.delete(historicoDemandasMovimentacoes).where(eq(historicoDemandasMovimentacoes.demandaId, demanda.id));
+      }
+      await tx.delete(demandas).where(eq(demandas.empreendimentoId, id));
+      
+      // Delete lançamentos financeiros associados ao empreendimento
+      await tx.delete(financeiroLancamentos).where(eq(financeiroLancamentos.empreendimentoId, id));
+      
+      // Delete solicitações de recursos associadas ao empreendimento
+      await tx.delete(solicitacoesRecursos).where(eq(solicitacoesRecursos.empreendimentoId, id));
+      
+      // Delete orçamentos associados ao empreendimento
+      await tx.delete(orcamentos).where(eq(orcamentos.empreendimentoId, id));
+      
+      // Finalmente delete o empreendimento
+      await tx.delete(empreendimentos).where(eq(empreendimentos.id, id));
+    });
   }
 
   // Licenca operations
