@@ -514,6 +514,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Consolidated dashboard stats endpoint (reduces 6+ requests to 1)
+  app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      
+      const [
+        licenseStats,
+        condicionanteStats,
+        entregaStats,
+        prazos,
+        monthlyData,
+        calendarLicenses
+      ] = await Promise.all([
+        storage.getLicenseStats(empreendimentoId),
+        storage.getCondicionanteStats(empreendimentoId),
+        storage.getEntregaStats(empreendimentoId),
+        storage.getAgendaPrazos(empreendimentoId),
+        storage.getMonthlyExpiryData(empreendimentoId),
+        storage.getCalendarLicenses(empreendimentoId)
+      ]);
+
+      res.json({
+        licenses: licenseStats,
+        condicionantes: condicionanteStats,
+        entregas: entregaStats,
+        agenda: prazos,
+        monthlyExpiry: monthlyData,
+        calendar: calendarLicenses
+      });
+    } catch (error) {
+      console.error("Get dashboard stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Enhanced Stats routes
   app.get("/api/stats/licenses", requireAuth, async (req, res) => {
     try {
