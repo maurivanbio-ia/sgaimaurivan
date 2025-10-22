@@ -338,6 +338,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/licencas/:licencaId/condicionantes", requireAuth, async (req, res) => {
+    try {
+      const licencaId = parseInt(req.params.licencaId);
+      const data = insertCondicionanteSchema.parse({ ...req.body, licencaId });
+      const condicionante = await storage.createCondicionante(data);
+      res.status(201).json(condicionante);
+    } catch (error) {
+      console.error("Create condicionante for licenca error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
   app.post("/api/condicionantes", requireAuth, async (req, res) => {
     try {
       const data = insertCondicionanteSchema.parse(req.body);
@@ -405,6 +417,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get entregas by licenca error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
+    try {
+      const licencaId = parseInt(req.params.licencaId);
+      const data = insertEntregaSchema.parse({ ...req.body, licencaId });
+      const entrega = await storage.createEntrega(data);
+      res.status(201).json(entrega);
+    } catch (error) {
+      console.error("Create entrega for licenca error:", error);
+      res.status(400).json({ message: "Invalid request" });
     }
   });
 
