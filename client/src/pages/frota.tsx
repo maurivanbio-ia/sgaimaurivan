@@ -82,9 +82,9 @@ const novoVeiculoSchema = z.object({
   placa: z.string().min(7, "Placa deve ter formato XXX-0000").max(8),
   marca: z.string().min(2, "Marca é obrigatória"),
   modelo: z.string().min(2, "Modelo é obrigatório"),
-  ano: z.number().min(1990).max(new Date().getFullYear() + 1),
+  ano: z.coerce.number().int().min(1990).max(new Date().getFullYear() + 1),
   tipo: z.enum(["carro", "caminhonete", "caminhao", "van", "moto"], { required_error: "Tipo é obrigatório" }),
-  kmAtual: z.number().min(0, "Quilometragem deve ser maior ou igual a zero"),
+  kmAtual: z.coerce.number().nonnegative({ message: "Quilometragem deve ser maior ou igual a zero" }),
   combustivel: z.enum(["gasolina", "etanol", "diesel", "flex"], { required_error: "Combustível é obrigatório" }),
   seguro: z.string().min(5, "Informações do seguro são obrigatórias"),
   proximaRevisao: z.date({ required_error: "Data da próxima revisão é obrigatória" }),
@@ -844,17 +844,18 @@ export default function FrotaPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!veiculoToDelete} onOpenChange={() => setVeiculoToDelete(null)}>
+      <AlertDialog open={!!veiculoToDelete} onOpenChange={(open) => !deleteVeiculoMutation.isPending && !open && setVeiculoToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar o veículo <strong>{veiculoToDelete?.placa}</strong>?
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja deletar o veículo <strong>{veiculoToDelete?.placa}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteVeiculoMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-red-600 hover:bg-red-700"
