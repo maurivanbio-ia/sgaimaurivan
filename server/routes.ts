@@ -125,10 +125,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Este e-mail já está cadastrado" });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = await storage.createUser({
         email,
-        passwordHash: hashedPassword,
+        passwordHash: password,
         role: "colaborador",
       });
 
