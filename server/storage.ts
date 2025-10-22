@@ -52,6 +52,9 @@ import {
   equipamentos,
   type Equipamento,
   type InsertEquipamento,
+  veiculos,
+  type Veiculo,
+  type InsertVeiculo,
   datasets,
   type Dataset,
   type InsertDataset,
@@ -224,6 +227,25 @@ export interface IStorage {
     disponivel: number;
     em_uso: number;
     manutencao: number;
+  }>;
+
+  // Veículos operations
+  getVeiculos(filters?: {
+    tipo?: string;
+    status?: string;
+    combustivel?: string;
+    search?: string;
+  }): Promise<Veiculo[]>;
+  getVeiculoById(id: number): Promise<Veiculo | undefined>;
+  createVeiculo(veiculo: InsertVeiculo): Promise<Veiculo>;
+  updateVeiculo(id: number, updates: Partial<InsertVeiculo>): Promise<Veiculo>;
+  deleteVeiculo(id: number): Promise<boolean>;
+  getVeiculosStats(): Promise<{
+    total: number;
+    disponivel: number;
+    em_uso: number;
+    manutencao: number;
+    indisponivel: number;
   }>;
 
   // Datasets operations
@@ -1530,6 +1552,104 @@ export class DatabaseStorage implements IStorage {
       disponivel,
       em_uso,
       manutencao,
+    };
+  }
+
+  // Veículos operations
+  async getVeiculos(filters?: {
+    tipo?: string;
+    status?: string;
+    combustivel?: string;
+    search?: string;
+  }): Promise<Veiculo[]> {
+    let query = db.select().from(veiculos).$dynamic();
+
+    if (filters) {
+      const conditions = [];
+
+      if (filters.tipo) {
+        conditions.push(eq(veiculos.tipo, filters.tipo));
+      }
+
+      if (filters.status) {
+        conditions.push(eq(veiculos.status, filters.status));
+      }
+
+      if (filters.combustivel) {
+        conditions.push(eq(veiculos.combustivel, filters.combustivel));
+      }
+
+      if (filters.search) {
+        conditions.push(
+          or(
+            ilike(veiculos.placa, `%${filters.search}%`),
+            ilike(veiculos.marca, `%${filters.search}%`),
+            ilike(veiculos.modelo, `%${filters.search}%`)
+          )
+        );
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+
+    return query.orderBy(desc(veiculos.criadoEm));
+  }
+
+  async getVeiculoById(id: number): Promise<Veiculo | undefined> {
+    const [veiculo] = await db
+      .select()
+      .from(veiculos)
+      .where(eq(veiculos.id, id));
+    return veiculo || undefined;
+  }
+
+  async createVeiculo(veiculo: InsertVeiculo): Promise<Veiculo> {
+    const [newVeiculo] = await db
+      .insert(veiculos)
+      .values(veiculo)
+      .returning();
+    return newVeiculo;
+  }
+
+  async updateVeiculo(id: number, updates: Partial<InsertVeiculo>): Promise<Veiculo> {
+    const [updated] = await db
+      .update(veiculos)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(veiculos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteVeiculo(id: number): Promise<boolean> {
+    const result = await db.delete(veiculos).where(eq(veiculos.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getVeiculosStats(): Promise<{
+    total: number;
+    disponivel: number;
+    em_uso: number;
+    manutencao: number;
+    indisponivel: number;
+  }> {
+    const allVeiculos = await db.select().from(veiculos);
+
+    const disponivel = allVeiculos.filter(v => v.status === "disponivel").length;
+    const em_uso = allVeiculos.filter(v => v.status === "em_uso").length;
+    const manutencao = allVeiculos.filter(v => v.status === "manutencao").length;
+    const indisponivel = allVeiculos.filter(v => v.status === "indisponivel").length;
+
+    return {
+      total: allVeiculos.length,
+      disponivel,
+      em_uso,
+      manutencao,
+      indisponivel,
     };
   }
 
