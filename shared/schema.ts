@@ -350,6 +350,47 @@ export const equipamentosRelations = relations(equipamentos, ({ one }) => ({
 }));
 
 // =============================================
+// FLEET MODULE SCHEMA (Veículos)
+// =============================================
+
+export const veiculos = pgTable("veiculos", {
+  id: serial("id").primaryKey(),
+  placa: text("placa").notNull().unique(),
+  marca: text("marca").notNull(),
+  modelo: text("modelo").notNull(),
+  ano: integer("ano").notNull(),
+  tipo: text("tipo").notNull(), // carro, caminhonete, caminhao, van, moto
+  status: text("status").notNull().default("disponivel"), // disponivel, em_uso, manutencao, indisponivel
+  kmAtual: integer("km_atual").notNull().default(0),
+  combustivel: text("combustivel").notNull(), // gasolina, etanol, diesel, flex
+  seguro: text("seguro").notNull(),
+  proximaRevisao: date("proxima_revisao").notNull(),
+  responsavelAtual: text("responsavel_atual"),
+  localizacaoAtual: text("localizacao_atual").notNull(),
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+});
+
+export const veiculosRelations = relations(veiculos, ({ one }) => ({
+  criadoPorUser: one(users, {
+    fields: [veiculos.criadoPor],
+    references: [users.id],
+  }),
+}));
+
+export type Veiculo = typeof veiculos.$inferSelect;
+export type InsertVeiculo = z.infer<typeof insertVeiculoSchema>;
+
+export const insertVeiculoSchema = createInsertSchema(veiculos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  criadoPor: true,
+});
+
+// =============================================
 // FINANCIAL MODULE SCHEMA
 // =============================================
 

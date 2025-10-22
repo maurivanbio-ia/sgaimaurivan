@@ -77,10 +77,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const adminEmail = "maurivan@ecobrasil.bio.br";
     const existingAdmin = await storage.getUserByEmail(adminEmail);
     if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash("bor192023", 10);
       await storage.createUser({
         email: adminEmail,
-        passwordHash: hashedPassword,
+        passwordHash: "bor192023", // createUser will hash this
         role: "admin",
       });
       console.log("Admin user created: maurivan@ecobrasil.bio.br");
@@ -98,13 +97,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
+      console.log('[LOGIN] Attempting login for:', email);
       
       const user = await storage.getUserByEmail(email);
       if (!user) {
+        console.log('[LOGIN] User not found:', email);
         return res.status(401).json({ message: "Usuário ou senha inválidos" });
       }
+      console.log('[LOGIN] User found:', { id: user.id, email: user.email, role: user.role });
 
       const isValidPassword = await storage.verifyPassword(password, user.passwordHash);
+      console.log('[LOGIN] Password validation result:', isValidPassword);
       if (!isValidPassword) {
         return res.status(401).json({ message: "Usuário ou senha inválidos" });
       }
@@ -1352,6 +1355,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== END EQUIPMENT ROUTES ====
+
+  // =============================================
+  // FLEET MODULE - GESTÃO DE FROTA (VEÍCULOS)
+  // =============================================
+
+  // Get all veículos with optional filters
+  app.get('/api/frota', requireAuth, async (req, res) => {
+    try {
+      const { tipo, status, combustivel, search } = req.query;
+      const filters: any = {};
+
+      if (tipo) filters.tipo = String(tipo);
+      if (status) filters.status = String(status);
+      if (combustivel) filters.combustivel = String(combustivel);
+      if (search) filters.search = String(search);
+
+      const veiculos = await storage.getVeiculos(filters);
+      res.json(veiculos);
+    } catch (error) {
+      console.error('Error fetching veiculos:', error);
+      res.status(500).json({ error: 'Failed to fetch veiculos' });
+    }
+  });
+
+  // Get veículos stats
+  app.get('/api/frota/stats', requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getVeiculosStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching veiculos stats:', error);
+      res.status(500).json({ error: 'Failed to fetch veiculos stats' });
+    }
+  });
+
+  // Get single veículo
+  app.get('/api/frota/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid veiculo ID' });
+      }
+      const veiculo = await storage.getVeiculoById(id);
+      if (!veiculo) {
+        return res.status(404).json({ error: 'Veiculo not found' });
+      }
+      res.json(veiculo);
+    } catch (error) {
+      console.error('Error fetching veiculo:', error);
+      res.status(500).json({ error: 'Failed to fetch veiculo' });
+    }
+  });
+
+  // Create veículo
+  app.post('/api/frota', requireAuth, async (req, res) => {
+    try {
+      const validatedData = {
+        ...req.body,
+        criadoPor: req.session.userId,
+      };
+      const veiculo = await storage.createVeiculo(validatedData);
+      res.status(201).json(veiculo);
+    } catch (error) {
+      console.error('Error creating veiculo:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation error', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create veiculo' });
+    }
+  });
+
+  // Update veículo
+  app.put('/api/frota/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid veiculo ID' });
+      }
+      const veiculo = await storage.updateVeiculo(id, req.body);
+      res.json(veiculo);
+    } catch (error) {
+      console.error('Error updating veiculo:', error);
+      res.status(500).json({ error: 'Failed to update veiculo' });
+    }
+  });
+
+  // Delete veículo
+  app.delete('/api/frota/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid veiculo ID' });
+      }
+      const deleted = await storage.deleteVeiculo(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Veiculo not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting veiculo:', error);
+      res.status(500).json({ error: 'Failed to delete veiculo' });
+    }
+  });
+
+  // ==== END FLEET ROUTES ====
 
   // =============================================
   // DATASETS MODULE - GESTÃO DE DADOS
