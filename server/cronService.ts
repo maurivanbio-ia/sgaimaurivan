@@ -2,7 +2,7 @@ import { alertService } from './alertService';
 
 class CronService {
   private intervalId: NodeJS.Timeout | null = null;
-  private readonly CHECK_INTERVAL = 60 * 60 * 1000; // 1 hora em millisegundos
+  private readonly CHECK_INTERVAL = 4 * 60 * 60 * 1000; // 4 horas em millisegundos
 
   // Inicia o serviço de verificação de alertas
   start(): void {
@@ -11,12 +11,12 @@ class CronService {
     // Inicializa configurações padrão
     alertService.initializeDefaultConfigs();
     
-    // Executa primeira verificação após 1 minuto
+    // Executa primeira verificação após 5 minutos
     setTimeout(() => {
       this.runAlertCheck();
-    }, 60 * 1000);
+    }, 5 * 60 * 1000);
     
-    // Configura execução a cada hora
+    // Configura execução a cada 4 horas
     this.intervalId = setInterval(() => {
       this.runAlertCheck();
     }, this.CHECK_INTERVAL);
