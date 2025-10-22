@@ -349,6 +349,45 @@ export class DatabaseStorage implements IStorage {
     // Delete todas as licenças do empreendimento
     await db.delete(licencasAmbientais).where(eq(licencasAmbientais.empreendimentoId, id));
     
+    // Delete colaboradores e seus documentos associados ao empreendimento
+    const colaboradoresDoEmp = await db
+      .select({ id: colaboradores.id })
+      .from(colaboradores)
+      .where(eq(colaboradores.empreendimentoId, id));
+    
+    for (const colab of colaboradoresDoEmp) {
+      await db.delete(segDocumentosColaboradores).where(eq(segDocumentosColaboradores.colaboradorId, colab.id));
+    }
+    await db.delete(colaboradores).where(eq(colaboradores.empreendimentoId, id));
+    
+    // Delete datasets associados ao empreendimento
+    await db.delete(datasets).where(eq(datasets.empreendimentoId, id));
+    
+    // Delete equipamentos associados ao empreendimento
+    await db.delete(equipamentos).where(eq(equipamentos.empreendimentoId, id));
+    
+    // Delete demandas associadas ao empreendimento
+    const demandasDoEmp = await db
+      .select({ id: demandas.id })
+      .from(demandas)
+      .where(eq(demandas.empreendimentoId, id));
+    
+    for (const demanda of demandasDoEmp) {
+      await db.delete(comentariosDemandas).where(eq(comentariosDemandas.demandaId, demanda.id));
+      await db.delete(subtarefasDemandas).where(eq(subtarefasDemandas.demandaId, demanda.id));
+      await db.delete(historicoDemandasMovimentacoes).where(eq(historicoDemandasMovimentacoes.demandaId, demanda.id));
+    }
+    await db.delete(demandas).where(eq(demandas.empreendimentoId, id));
+    
+    // Delete lançamentos financeiros associados ao empreendimento
+    await db.delete(financeiroLancamentos).where(eq(financeiroLancamentos.empreendimentoId, id));
+    
+    // Delete solicitações de recursos associadas ao empreendimento
+    await db.delete(solicitacoesRecursos).where(eq(solicitacoesRecursos.empreendimentoId, id));
+    
+    // Delete orçamentos associados ao empreendimento
+    await db.delete(orcamentos).where(eq(orcamentos.empreendimentoId, id));
+    
     // Finalmente delete o empreendimento
     await db.delete(empreendimentos).where(eq(empreendimentos.id, id));
   }
