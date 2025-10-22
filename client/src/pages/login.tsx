@@ -18,8 +18,8 @@ import {
 
 export default function Login() {
   // Estados principais
-  const [email, setEmail] = useState("ecobrasil@ecobrasil.bio.br");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
