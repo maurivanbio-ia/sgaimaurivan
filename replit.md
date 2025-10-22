@@ -4,6 +4,13 @@ LicençaFácil is an environmental license management system designed for enviro
 
 # Recent Changes (October 22, 2025)
 
+## Performance Optimizations for Production Deployment
+- **Notification Polling Reduction**: Reduced polling interval from 30s to 5 minutes (90% reduction in API calls: 120/hour → 12/hour)
+- **Database Indexing**: Added 9 performance indexes on frequently queried columns (licenses, condicionantes, entregas, notifications, empreendimentos) for faster query execution
+- **Cron Job Optimization**: Reduced alert check frequency from every hour to every 4 hours (75% reduction in background processing overhead)
+- **Consolidated Dashboard Endpoint**: Created `/api/dashboard/stats` endpoint that combines 5 separate API calls into 1 using Promise.all() for parallel execution, dramatically improving dashboard load time
+- **User Password Reset**: Fixed maurivan@ecobrasil.bio.br account password hash after authentication bug fix
+
 ## Critical Bug Fixes
 - **Authentication Double Hash Bug**: Fixed critical authentication bug where passwords were hashed twice (once in register endpoint, once in createUser), preventing users from logging in after registration. Now createUser is solely responsible for password hashing.
 - **Foreign Key Schema Fix**: Corrected all foreign key fields from `serial` to `integer` type across entire database schema (demandas, comentários, subtarefas, histórico, financeiro, equipamentos, colaboradores, datasets, and security tables)
