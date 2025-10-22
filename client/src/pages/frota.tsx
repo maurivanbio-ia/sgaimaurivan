@@ -97,15 +97,29 @@ type NovoVeiculoFormData = z.infer<typeof novoVeiculoSchema>;
 // Novo Veículo Form Component
 interface NovoVeiculoFormProps {
   onSuccess: () => void;
+  veiculo?: Veiculo | null;
 }
 
-function NovoVeiculoForm({ onSuccess }: NovoVeiculoFormProps) {
+function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isEditing = !!veiculo;
 
   const form = useForm<NovoVeiculoFormData>({
     resolver: zodResolver(novoVeiculoSchema),
-    defaultValues: {
+    defaultValues: veiculo ? {
+      placa: veiculo.placa,
+      marca: veiculo.marca,
+      modelo: veiculo.modelo,
+      ano: veiculo.ano,
+      tipo: veiculo.tipo as any,
+      kmAtual: veiculo.kmAtual,
+      combustivel: veiculo.combustivel as any,
+      seguro: veiculo.seguro,
+      localizacaoAtual: veiculo.localizacaoAtual,
+      proximaRevisao: new Date(veiculo.proximaRevisao),
+      observacoes: veiculo.observacoes || "",
+    } : {
       placa: "",
       marca: "",
       modelo: "",
@@ -142,8 +156,34 @@ function NovoVeiculoForm({ onSuccess }: NovoVeiculoFormProps) {
     },
   });
 
+  const updateVeiculoMutation = useMutation({
+    mutationFn: async (data: NovoVeiculoFormData) => {
+      return apiRequest("PUT", `/api/frota/${veiculo?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frota"] });
+      toast({
+        title: "Veículo atualizado",
+        description: "Veículo foi atualizado com sucesso!",
+      });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o veículo. Tente novamente.",
+        variant: "destructive",
+      });
+      console.error("Erro ao atualizar veículo:", error);
+    },
+  });
+
   const onSubmit = (data: NovoVeiculoFormData) => {
-    createVeiculoMutation.mutate(data);
+    if (isEditing) {
+      updateVeiculoMutation.mutate(data);
+    } else {
+      createVeiculoMutation.mutate(data);
+    }
   };
 
   return (
@@ -410,16 +450,16 @@ function NovoVeiculoForm({ onSuccess }: NovoVeiculoFormProps) {
           </Button>
           <Button
             type="submit"
-            disabled={createVeiculoMutation.isPending}
+            disabled={createVeiculoMutation.isPending || updateVeiculoMutation.isPending}
             data-testid="button-salvar"
           >
-            {createVeiculoMutation.isPending ? (
+            {(createVeiculoMutation.isPending || updateVeiculoMutation.isPending) ? (
               <>
                 <Settings className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
               </>
             ) : (
-              "Cadastrar Veículo"
+              isEditing ? "Atualizar Veículo" : "Cadastrar Veículo"
             )}
           </Button>
         </div>
@@ -433,9 +473,10 @@ interface VehicleCardProps {
   veiculo: Veiculo;
   onEdit: (veiculo: Veiculo) => void;
   onView: (veiculo: Veiculo) => void;
+  onDelete: (veiculo: Veiculo) => void;
 }
 
-function VehicleCard({ veiculo, onEdit, onView }: VehicleCardProps) {
+function VehicleCard({ veiculo, onEdit, onView, onDelete }: VehicleCardProps) {
   const statusConfig = STATUS_CONFIG[veiculo.status];
   const tipoConfig = TIPO_CONFIG[veiculo.tipo as keyof typeof TIPO_CONFIG];
 
@@ -505,6 +546,16 @@ function VehicleCard({ veiculo, onEdit, onView }: VehicleCardProps) {
             <Edit className="w-4 h-4 mr-1" />
             Editar
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(veiculo)}
+            data-testid={`button-delete-${veiculo.id}`}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4 mr-1" />
+            Deletar
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -512,6 +563,9 @@ function VehicleCard({ veiculo, onEdit, onView }: VehicleCardProps) {
 }
 
 export default function FrotaPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [filters, setFilters] = useState({
     tipo: "",
     status: "",
@@ -521,65 +575,45 @@ export default function FrotaPage() {
 
   const [selectedVeiculo, setSelectedVeiculo] = useState<Veiculo | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [veiculoToDelete, setVeiculoToDelete] = useState<Veiculo | null>(null);
 
-  // Mock data - será substituído pela API real posteriormente
-  const mockVeiculos: Veiculo[] = [
-    {
-      id: 1,
-      placa: "ABC-1234",
-      marca: "Toyota",
-      modelo: "Hilux",
-      ano: 2022,
-      tipo: "caminhonete",
-      status: "disponivel",
-      kmAtual: 25000,
-      combustivel: "diesel",
-      seguro: "Porto Seguro - Apólice 987654 - Vence 03/2025",
-      proximaRevisao: "2025-10-15",
-      localizacaoAtual: "Garagem Principal",
-      observacoes: "Veículo em excelente estado",
-      criadoEm: "2024-01-15T10:00:00.000Z",
-      atualizadoEm: "2024-01-15T10:00:00.000Z"
+  // Fetch veículos from API
+  const { data: veiculos = [], isLoading } = useQuery<Veiculo[]>({
+    queryKey: ["/api/frota", filters],
+  });
+
+  // Fetch stats from API
+  const { data: stats = { total: 0, disponivel: 0, em_uso: 0, manutencao: 0, indisponivel: 0 } } = useQuery({
+    queryKey: ["/api/frota/stats"],
+  });
+
+  // Delete mutation
+  const deleteVeiculoMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/frota/${id}`);
     },
-    {
-      id: 2,
-      placa: "DEF-5678",
-      marca: "Ford",
-      modelo: "Ranger",
-      ano: 2021,
-      tipo: "caminhonete",
-      status: "em_uso",
-      kmAtual: 45000,
-      combustivel: "diesel",
-      seguro: "Bradesco Seguros - Apólice 123789 - Vence 06/2025",
-      proximaRevisao: "2025-09-20",
-      responsavelAtual: "João Silva",
-      localizacaoAtual: "Campo - UHE Garibaldi",
-      observacoes: "Pneu traseiro direito trocado recentemente",
-      criadoEm: "2024-02-10T14:30:00.000Z",
-      atualizadoEm: "2024-02-10T14:30:00.000Z"
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frota"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/frota/stats"] });
+      toast({
+        title: "Veículo deletado",
+        description: "Veículo foi removido da frota com sucesso!",
+      });
+      setVeiculoToDelete(null);
     },
-    {
-      id: 3,
-      placa: "GHI-9012",
-      marca: "Volkswagen",
-      modelo: "Amarok",
-      ano: 2020,
-      tipo: "caminhonete",
-      status: "manutencao",
-      kmAtual: 78000,
-      combustivel: "diesel",
-      seguro: "Allianz - Apólice 456123 - Vence 12/2024",
-      proximaRevisao: "2025-08-30",
-      localizacaoAtual: "Oficina Mecânica Central",
-      observacoes: "Troca de embreagem em andamento",
-      criadoEm: "2023-11-20T09:15:00.000Z",
-      atualizadoEm: "2023-11-20T09:15:00.000Z"
-    }
-  ];
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível deletar o veículo. Tente novamente.",
+        variant: "destructive",
+      });
+      console.error("Erro ao deletar veículo:", error);
+    },
+  });
 
   // Filter vehicles based on current filters
-  const filteredVeiculos = mockVeiculos.filter(veiculo => {
+  const filteredVeiculos = veiculos.filter(veiculo => {
     if (filters.tipo && filters.tipo !== "todos" && veiculo.tipo !== filters.tipo) return false;
     if (filters.status && filters.status !== "todos" && veiculo.status !== filters.status) return false;
     if (filters.combustivel && filters.combustivel !== "todos" && veiculo.combustivel !== filters.combustivel) return false;
@@ -591,27 +625,28 @@ export default function FrotaPage() {
 
   const handleEditVeiculo = (veiculo: Veiculo) => {
     setSelectedVeiculo(veiculo);
-    // TODO: Open edit form dialog
-    console.log("Edit veiculo:", veiculo);
+    setIsEditFormOpen(true);
   };
 
   const handleViewVeiculo = (veiculo: Veiculo) => {
     setSelectedVeiculo(veiculo);
-    // TODO: Open view details dialog
     console.log("View veiculo:", veiculo);
+  };
+
+  const handleDeleteVeiculo = (veiculo: Veiculo) => {
+    setVeiculoToDelete(veiculo);
+  };
+
+  const confirmDelete = () => {
+    if (veiculoToDelete) {
+      deleteVeiculoMutation.mutate(veiculoToDelete.id);
+    }
   };
 
   const handleFormSuccess = () => {
     setIsFormOpen(false);
-  };
-
-  // Calculate statistics
-  const stats = {
-    total: mockVeiculos.length,
-    disponivel: mockVeiculos.filter(v => v.status === 'disponivel').length,
-    em_uso: mockVeiculos.filter(v => v.status === 'em_uso').length,
-    manutencao: mockVeiculos.filter(v => v.status === 'manutencao').length,
-    indisponivel: mockVeiculos.filter(v => v.status === 'indisponivel').length,
+    setIsEditFormOpen(false);
+    setSelectedVeiculo(null);
   };
 
   return (
@@ -768,17 +803,25 @@ export default function FrotaPage() {
 
       {/* Vehicle Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVeiculos.map((veiculo) => (
-          <VehicleCard
-            key={veiculo.id}
-            veiculo={veiculo}
-            onEdit={handleEditVeiculo}
-            onView={handleViewVeiculo}
-          />
-        ))}
+        {isLoading ? (
+          <div className="col-span-full text-center py-12">
+            <Settings className="mx-auto h-12 w-12 text-muted-foreground mb-4 animate-spin" />
+            <p className="text-muted-foreground">Carregando veículos...</p>
+          </div>
+        ) : (
+          filteredVeiculos.map((veiculo) => (
+            <VehicleCard
+              key={veiculo.id}
+              veiculo={veiculo}
+              onEdit={handleEditVeiculo}
+              onView={handleViewVeiculo}
+              onDelete={handleDeleteVeiculo}
+            />
+          ))
+        )}
       </div>
 
-      {filteredVeiculos.length === 0 && (
+      {!isLoading && filteredVeiculos.length === 0 && (
         <div className="text-center py-12">
           <Truck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium text-muted-foreground mb-2">
@@ -789,6 +832,39 @@ export default function FrotaPage() {
           </p>
         </div>
       )}
+
+      {/* Edit Vehicle Dialog */}
+      <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Veículo</DialogTitle>
+          </DialogHeader>
+          <NovoVeiculoForm veiculo={selectedVeiculo} onSuccess={handleFormSuccess} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!veiculoToDelete} onOpenChange={() => setVeiculoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar o veículo <strong>{veiculoToDelete?.placa}</strong>?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteVeiculoMutation.isPending}
+            >
+              {deleteVeiculoMutation.isPending ? "Deletando..." : "Deletar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
