@@ -5,15 +5,24 @@ LicençaFácil is an environmental license management system designed for enviro
 # Recent Changes (October 22, 2025)
 
 ## Critical Bug Fixes
+- **Authentication Double Hash Bug**: Fixed critical authentication bug where passwords were hashed twice (once in register endpoint, once in createUser), preventing users from logging in after registration. Now createUser is solely responsible for password hashing.
 - **Foreign Key Schema Fix**: Corrected all foreign key fields from `serial` to `integer` type across entire database schema (demandas, comentários, subtarefas, histórico, financeiro, equipamentos, colaboradores, datasets, and security tables)
 - **Cascade Delete Implementation**: Added transactional cascade deletion for empreendimentos - now properly deletes all related data (licenças, condicionantes, entregas, colaboradores, documentos, demandas, financeiro, equipamentos, datasets)
 - **Transaction Atomicity**: Wrapped deleteEmpreendimento in db.transaction() to ensure all-or-nothing deletion preventing partial deletes
+- **Fleet Query Key Bug**: Fixed React Query queryKey issue in Frota page where filters object was incorrectly included, causing malformed API requests
 
 ## New Features
+- **Fleet Management CRUD**: Completed full CRUD operations for vehicle management (Gestão de Frota)
+  - Edit functionality with pre-filled forms
+  - Delete functionality with confirmation dialog
+  - Proper form validation using z.coerce.number() for numeric fields
+  - Real-time cache invalidation after mutations
 - **License Endpoints**: Added POST /api/licencas/:licencaId/entregas and POST /api/licencas/:licencaId/condicionantes for creating license sub-resources
 
 ## System Validation
 - All core modules tested and validated via E2E tests:
+  - **User Registration & Authentication**: Full sign-up and login flow validated
+  - **Fleet Management**: Create, read, update, delete operations for vehicles tested end-to-end
   - Dashboard analytics functioning correctly
   - Empreendimentos: Full CRUD including cascade delete
   - Licenças Ambientais: Full CRUD with condicionantes and entregas
