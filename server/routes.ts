@@ -58,6 +58,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Admin authorization middleware
+  const requireAdmin = async (req: any, res: any, next: any) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = await storage.getUser(req.session.userId);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Acesso negado. Apenas administradores podem realizar esta ação." });
+    }
+    
+    next();
+  };
+
   // Initialize seed user
   const initSeedUser = async () => {
     const adminEmail = "maurivan@ecobrasil.bio.br";
