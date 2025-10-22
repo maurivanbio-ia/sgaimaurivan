@@ -33,7 +33,7 @@ export function NotificationsCenter() {
   // Buscar notificações
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
-    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    refetchInterval: 300000, // Atualizar a cada 5 minutos
   });
 
   // Marcar como lida
