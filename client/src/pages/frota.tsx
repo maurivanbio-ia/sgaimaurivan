@@ -580,7 +580,7 @@ export default function FrotaPage() {
 
   // Fetch veículos from API
   const { data: veiculos = [], isLoading } = useQuery<Veiculo[]>({
-    queryKey: ["/api/frota", filters],
+    queryKey: ["/api/frota"],
   });
 
   // Fetch stats from API
