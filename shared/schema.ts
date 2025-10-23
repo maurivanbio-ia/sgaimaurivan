@@ -576,7 +576,7 @@ export type Notification = typeof notifications.$inferSelect;
 
 export const datasets = pgTable("datasets", {
   id: serial("id").primaryKey(),
-  empreendimentoId: serial("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   nome: text("nome").notNull(),
   descricao: text("descricao"),
   tipo: text("tipo").notNull(), // csv, xlsx, pdf, docx, outro
