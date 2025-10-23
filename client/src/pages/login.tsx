@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-// Removed heavy image import to optimize bundle size (was 2.2MB)
+import forestBackground from "@assets/stock_images/green_forest_nature__4c74bc3e.jpg";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import {
   Dialog,
@@ -104,13 +104,15 @@ export default function Login() {
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
         background: `
-          linear-gradient(135deg, 
-            rgba(27, 94, 32, 0.95) 0%, 
-            rgba(46, 125, 50, 0.9) 25%,
-            rgba(56, 142, 60, 0.85) 50%,
-            rgba(67, 160, 71, 0.9) 75%,
-            rgba(76, 175, 80, 0.95) 100%
-          )
+          linear-gradient(
+            135deg, 
+            rgba(21, 53, 31, 0.85) 0%, 
+            rgba(27, 94, 32, 0.8) 25%,
+            rgba(46, 125, 50, 0.75) 50%,
+            rgba(56, 142, 60, 0.8) 75%,
+            rgba(27, 94, 32, 0.85) 100%
+          ),
+          url(${forestBackground})
         `,
         backgroundSize: "cover",
         backgroundPosition: "center",
