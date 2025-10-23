@@ -103,7 +103,7 @@ export default function Login() {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        background: `
+        backgroundImage: `
           linear-gradient(
             135deg, 
             rgba(21, 53, 31, 0.4) 0%, 
