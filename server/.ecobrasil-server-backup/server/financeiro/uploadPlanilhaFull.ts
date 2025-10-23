@@ -200,3 +200,46 @@ export default function ImportPlanilhaDialog() {
       setFile(null);
     },
     onError: (e: any) => {
+      toast({
+        title: "Erro na importação",
+        description: e.message || "Erro ao processar planilha",
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Upload className="mr-2 h-4 w-4" />
+          Importar Planilha
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Importar Planilha de Lançamentos</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+          <Button
+            onClick={() => file && mutation.mutate(file)}
+            disabled={!file || mutation.isPending}
+            className="w-full"
+          >
+            {mutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+            )}
+            {mutation.isPending ? "Importando..." : "Importar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

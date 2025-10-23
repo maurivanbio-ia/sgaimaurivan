@@ -39,13 +39,20 @@ declare module 'express-session' {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Trust proxy for secure cookies behind reverse proxy
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   // Session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || 'licenca-facil-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      httpOnly: true,
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     }
   }));
@@ -72,14 +79,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Initialize seed user
+  // Initialize seed user (only if SEED_ADMIN_PASSWORD is set)
   const initSeedUser = async () => {
+    // Only create admin in development or if explicitly enabled
+    if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
+      return; // Skip seeding in production without explicit env var
+    }
+    
     const adminEmail = "maurivan@ecobrasil.bio.br";
     const existingAdmin = await storage.getUserByEmail(adminEmail);
     if (!existingAdmin) {
+      const password = process.env.SEED_ADMIN_PASSWORD || "bor192023";
       await storage.createUser({
         email: adminEmail,
-        passwordHash: "bor192023", // createUser will hash this
+        passwordHash: password, // createUser will hash this
         role: "admin",
       });
       console.log("Admin user created: maurivan@ecobrasil.bio.br");
