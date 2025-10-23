@@ -29,6 +29,10 @@ LicençaFácil is an environmental license management system designed for enviro
   - Created migrations folder structure with empty journal file (migrations/meta/_journal.json)
   - This satisfies Replit's deployment validation requirements
   - Ran `npm run db:push --force` to synchronize database schema with Drizzle ORM
+- **Dataset Schema Fix**: Corrected empreendimentoId field type from `serial` to `integer` in datasets table
+  - Foreign key fields must be `integer`, not `serial` (which is only for auto-increment primary keys)
+  - This was causing migration conflicts asking if "datasets" was renamed from other tables
+  - Re-synchronized schema after fix
 - Successfully synchronized database schema with Drizzle ORM
 - All tables and relationships properly configured
 - Migration system configured to use db:push instead of traditional migrations
