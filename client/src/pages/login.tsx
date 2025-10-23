@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import amazonBackground from "@assets/ChatGPT Image 5 de set. de 2025, 10_28_07_1757078897714.png";
+// Removed heavy image import to optimize bundle size (was 2.2MB)
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import {
   Dialog,
@@ -105,21 +105,16 @@ export default function Login() {
       style={{
         background: `
           linear-gradient(135deg, 
-            rgba(0, 89, 156, 0.1) 0%, 
-            rgba(178, 205, 225, 0.15) 25%,
-            rgba(21, 53, 31, 0.1) 50%,
-            rgba(32, 74, 46, 0.15) 75%,
-            rgba(0, 89, 156, 0.1) 100%
-          ),
-          linear-gradient(45deg, 
-            rgba(0, 89, 156, 0.05) 0%, 
-            rgba(178, 205, 225, 0.1) 100%
-          ),
-          url(${amazonBackground})
+            rgba(27, 94, 32, 0.95) 0%, 
+            rgba(46, 125, 50, 0.9) 25%,
+            rgba(56, 142, 60, 0.85) 50%,
+            rgba(67, 160, 71, 0.9) 75%,
+            rgba(76, 175, 80, 0.95) 100%
+          )
         `,
-        backgroundSize: "cover, cover, cover",
-        backgroundPosition: "center, center, center",
-        backgroundRepeat: "no-repeat, no-repeat, no-repeat",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       {/* Login Form Card */}
