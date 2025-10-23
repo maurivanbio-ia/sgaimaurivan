@@ -2,6 +2,35 @@
 
 LicençaFácil is an environmental license management system designed for environmental consulting companies to track and manage environmental licenses by enterprise. The system centralizes license management to prevent expiration oversights and provides clear visibility into deadlines and compliance status. Built with React frontend and Express.js backend, it features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses.
 
+# Recent Changes (October 23, 2025)
+
+## Critical Dependency Fixes
+- **Package.json Version Corrections**: Fixed multiple incorrect package versions in package.json that prevented npm install from running:
+  - Updated all @radix-ui packages to correct versions (dialog: 1.1.15, accordion: 1.2.12, checkbox: 1.3.3, etc.)
+  - Fixed class-variance-authority from 0.7.2 to 0.7.1
+  - Fixed clsx from 2.2.0 to 2.1.1
+  - Fixed drizzle-zod from 0.6.3 to 0.8.3
+  - Fixed tailwindcss from 3.5.1 to 3.4.18
+- **Missing Dependencies Installed**: Added missing packages that were imported but not in package.json:
+  - @replit/vite-plugin-runtime-error-modal (Vite development error overlay)
+  - @replit/vite-plugin-cartographer (Replit development tools)
+  - xlsx (Excel export functionality)
+  - csv-writer (CSV export functionality)
+  - nodemailer + @types/nodemailer (Email service)
+  - nanoid (Unique ID generation)
+  - react-leaflet + leaflet + @types/leaflet (Map components)
+  - @radix-ui/react-scroll-area (Scroll area UI component)
+  - @tailwindcss/typography (Typography plugin)
+- **Bcrypt Native Module Fix**: Reinstalled bcrypt to rebuild native bindings and resolve module loading errors
+- **Application Status**: All dependencies successfully installed, application running without errors on port 5000
+
+## Verification
+- All 23 page components confirmed present in codebase (login, register, dashboard, projects, licenses, alerts, demandas, financeiro, frota, equipamentos, gestão de dados, segurança do trabalho, painel integrado)
+- Frontend Vite server connected successfully
+- Backend Express server running on port 5000
+- No JavaScript errors in browser console
+- All routes properly configured in App.tsx
+
 # Recent Changes (October 22, 2025)
 
 ## Performance Optimizations for Production Deployment
