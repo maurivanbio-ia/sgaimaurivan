@@ -62,11 +62,11 @@ export default function Register() {
         background: `
           linear-gradient(
             135deg, 
-            rgba(21, 53, 31, 0.85) 0%, 
-            rgba(27, 94, 32, 0.8) 25%,
-            rgba(46, 125, 50, 0.75) 50%,
-            rgba(56, 142, 60, 0.8) 75%,
-            rgba(27, 94, 32, 0.85) 100%
+            rgba(21, 53, 31, 0.4) 0%, 
+            rgba(27, 94, 32, 0.35) 25%,
+            rgba(46, 125, 50, 0.3) 50%,
+            rgba(56, 142, 60, 0.35) 75%,
+            rgba(27, 94, 32, 0.4) 100%
           ),
           url(${forestBackground})
         `,
