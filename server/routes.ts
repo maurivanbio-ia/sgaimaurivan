@@ -1545,7 +1545,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create dataset
   app.post('/api/datasets', requireAuth, async (req, res) => {
     try {
-      const dataset = await storage.createDataset(req.body);
+      // Convert dataUpload string to Date object if present
+      const datasetData = { ...req.body };
+      if (datasetData.dataUpload && typeof datasetData.dataUpload === 'string') {
+        datasetData.dataUpload = new Date(datasetData.dataUpload);
+      }
+      
+      const dataset = await storage.createDataset(datasetData);
       res.status(201).json(dataset);
     } catch (error) {
       console.error('Error creating dataset:', error);
