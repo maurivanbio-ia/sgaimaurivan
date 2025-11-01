@@ -30,9 +30,9 @@ type Veiculo = {
 
 export function FrotaTab({ empreendimentoId }: FrotaTabProps) {
   const { data: veiculos = [], isLoading } = useQuery<Veiculo[]>({
-    queryKey: ["/api/veiculos", { empreendimentoId }],
+    queryKey: ["/api/frota", { empreendimentoId }],
     queryFn: async () => {
-      const res = await fetch(`/api/veiculos?empreendimentoId=${empreendimentoId}`);
+      const res = await fetch(`/api/frota?empreendimentoId=${empreendimentoId}`);
       if (!res.ok) throw new Error("Erro ao carregar veículos");
       return res.json();
     },

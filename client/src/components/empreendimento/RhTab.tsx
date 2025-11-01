@@ -41,7 +41,12 @@ export function RhTab({ empreendimentoId }: RhTabProps) {
   const { toast } = useToast();
   
   const { data: registros = [], isLoading } = useQuery<RhRegistro[]>({
-    queryKey: ["/api/empreendimentos", empreendimentoId, "rh"],
+    queryKey: ["/api/rh", { empreendimentoId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/rh?empreendimentoId=${empreendimentoId}`);
+      if (!res.ok) throw new Error("Erro ao carregar registros de RH");
+      return res.json();
+    },
   });
 
   if (isLoading) {

@@ -1449,13 +1449,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all veículos with optional filters
   app.get('/api/frota', requireAuth, async (req, res) => {
     try {
-      const { tipo, status, combustivel, search } = req.query;
+      const { tipo, status, combustivel, search, empreendimentoId } = req.query;
       const filters: any = {};
 
       if (tipo) filters.tipo = String(tipo);
       if (status) filters.status = String(status);
       if (combustivel) filters.combustivel = String(combustivel);
       if (search) filters.search = String(search);
+      if (empreendimentoId) filters.empreendimentoId = parseInt(String(empreendimentoId));
 
       const veiculos = await storage.getVeiculos(filters);
       res.json(veiculos);
