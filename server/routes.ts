@@ -945,13 +945,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new demanda
-  app.post('/api/demandas', async (req, res) => {
+  app.post('/api/demandas', requireAuth, async (req, res) => {
     try {
-      const demanda = await storage.createDemanda(req.body);
+      console.log('[DEBUG] Creating demanda - req.body:', JSON.stringify(req.body, null, 2));
+      
+      // Ensure required fields are set and remove undefined/invalid empreendimentoId
+      const demandaData: any = {
+        titulo: req.body.titulo,
+        descricao: req.body.descricao,
+        setor: req.body.setor,
+        prioridade: req.body.prioridade,
+        dataEntrega: req.body.dataEntrega,
+        status: req.body.status || 'a_fazer',
+        responsavel: req.body.responsavel, // This is the name string field
+        responsavelId: req.body.responsavelId || req.session.userId,
+        criadoPor: req.session.userId,
+      };
+      
+      // Only add empreendimentoId if it's a valid number
+      if (req.body.empreendimentoId && !isNaN(parseInt(req.body.empreendimentoId))) {
+        demandaData.empreendimentoId = parseInt(req.body.empreendimentoId);
+      }
+      
+      // Add optional fields if present
+      if (req.body.observacoes) demandaData.observacoes = req.body.observacoes;
+      if (req.body.tags) demandaData.tags = req.body.tags;
+      if (req.body.anexos) demandaData.anexos = req.body.anexos;
+      if (req.body.tempoEstimado) demandaData.tempoEstimado = req.body.tempoEstimado;
+      if (req.body.origem) demandaData.origem = req.body.origem;
+      if (req.body.campanhaId) demandaData.campanhaId = req.body.campanhaId;
+      if (req.body.contratoId) demandaData.contratoId = req.body.contratoId;
+      
+      console.log('[DEBUG] Creating demanda - final data:', JSON.stringify(demandaData, null, 2));
+      
+      const demanda = await storage.createDemanda(demandaData);
       res.status(201).json(demanda);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating demanda:', error);
-      res.status(500).json({ error: 'Failed to create demanda' });
+      console.error('[DEBUG] Error details:', error?.message, error?.stack);
+      // Return more detailed error for debugging
+      res.status(500).json({ 
+        error: 'Failed to create demanda',
+        details: error?.message || 'Unknown error'
+      });
     }
   });
 
