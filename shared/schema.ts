@@ -987,55 +987,7 @@ export type Colaborador = typeof colaboradores.$inferSelect;
 export type InsertSegDocumento = z.infer<typeof insertSegDocumentoSchema>;
 export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSelect;
 
-// Insert schemas for new tables
-export const insertArquivoSchema = createInsertSchema(arquivos).omit({
-  id: true,
-  criadoEm: true,
-});
-
-export const insertCampanhaSchema = createInsertSchema(campanhas).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-});
-
-export const insertContratoSchema = createInsertSchema(contratos).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-  deletedAt: true,
-});
-
-export const insertContratoAditivoSchema = createInsertSchema(contratoAditivos).omit({
-  id: true,
-  criadoEm: true,
-});
-
-export const insertContratoPagamentoSchema = createInsertSchema(contratoPagamentos).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-});
-
-export const insertCronogramaItemSchema = createInsertSchema(cronogramaItens).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-});
-
-export const insertRhRegistroSchema = createInsertSchema(rhRegistros).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-  deletedAt: true,
-});
-
-export const insertJobAgendadoSchema = createInsertSchema(jobsAgendados).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-});
-
+// Types for new tables
 export type InsertArquivo = z.infer<typeof insertArquivoSchema>;
 export type Arquivo = typeof arquivos.$inferSelect;
 export type InsertCampanha = z.infer<typeof insertCampanhaSchema>;
