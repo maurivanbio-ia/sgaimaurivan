@@ -8,7 +8,9 @@ import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
 import LicenseCalendar from "@/components/LicenseCalendar";
-import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck } from "lucide-react";
+import MapComponent from "@/components/MapComponent";
+import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye } from "lucide-react";
+import type { Empreendimento } from "@shared/schema";
 
 interface DashboardStats {
   licenses: { active: number; expiring: number; expired: number };
@@ -25,6 +27,11 @@ export default function Dashboard() {
   // Use consolidated endpoint instead of multiple separate requests
   const { data: dashboardStats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+  });
+
+  // Buscar empreendimentos para o mapa
+  const { data: empreendimentos } = useQuery<Empreendimento[]>({
+    queryKey: ["/api/empreendimentos"],
   });
 
   if (isLoading) {
@@ -389,6 +396,116 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mapa e Lista de Empreendimentos */}
+      {empreendimentos && empreendimentos.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Mapa de Empreendimentos */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center">
+                <MapPin className="mr-2 h-5 w-5" />
+                Mapa de Empreendimentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <MapComponent empreendimentos={empreendimentos} className="h-[400px]" />
+            </CardContent>
+          </Card>
+
+          {/* Lista de Empreendimentos */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="flex items-center">
+                  <Building className="mr-2 h-5 w-5" />
+                  Empreendimentos Ativos
+                </span>
+                <Link href="/empreendimentos">
+                  <Button variant="ghost" size="sm" data-testid="button-view-all-projects">
+                    Ver Todos
+                  </Button>
+                </Link>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {empreendimentos.slice(0, 5).map((emp) => (
+                  <div 
+                    key={emp.id} 
+                    className="border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate(`/empreendimentos/${emp.id}`)}
+                    data-testid={`card-empreendimento-${emp.id}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-card-foreground mb-1">
+                          {emp.nome}
+                        </h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs"
+                          >
+                            {emp.tipo === 'hidreletrica' ? 'Hidrelétrica' :
+                             emp.tipo === 'parque_eolico' ? 'Parque Eólico' :
+                             emp.tipo === 'termoeletrica' ? 'Termelétrica' :
+                             emp.tipo === 'linha_transmissao' ? 'Linha de Transmissão' :
+                             emp.tipo === 'mina' ? 'Mineração' :
+                             emp.tipo === 'pchs' ? 'PCH' : 'Outro'}
+                          </Badge>
+                          <Badge 
+                            variant="outline"
+                            className={`text-xs border ${
+                              emp.status === 'ativo' ? 'bg-green-100 text-green-800 border-green-200' :
+                              emp.status === 'em_planejamento' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                              emp.status === 'em_execucao' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                              emp.status === 'concluido' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                              'bg-red-100 text-red-800 border-red-200'
+                            }`}
+                          >
+                            {emp.status === 'ativo' ? 'Ativo' :
+                             emp.status === 'em_planejamento' ? 'Em Planejamento' :
+                             emp.status === 'em_execucao' ? 'Em Execução' :
+                             emp.status === 'concluido' ? 'Concluído' : 'Inativo'}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          <p><span className="font-medium">Cliente:</span> {emp.cliente}</p>
+                          {emp.municipio && emp.uf && (
+                            <p><span className="font-medium">Local:</span> {emp.municipio}/{emp.uf}</p>
+                          )}
+                          <p><span className="font-medium">Gestor:</span> {emp.responsavelInterno}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/empreendimentos/${emp.id}`);
+                        }}
+                        data-testid={`button-view-details-${emp.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {empreendimentos.length > 5 && (
+                  <div className="text-center pt-2">
+                    <Link href="/empreendimentos">
+                      <Button variant="outline" size="sm" className="w-full">
+                        Ver todos os {empreendimentos.length} empreendimentos
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <Card className="shadow-sm">
