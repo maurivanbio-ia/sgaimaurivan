@@ -73,11 +73,15 @@ interface Veiculo {
   responsavelAtual?: string;
   localizacaoAtual: string;
   observacoes?: string;
+  tipoPropriedade?: string;
+  termoVistoriaId?: number;
+  dataAluguel?: string;
+  dataEntrega?: string;
   criadoEm: string;
   atualizadoEm: string;
 }
 
-// Create form schema for Novo Veículo
+// Create form schema for Novo Veículo with conditional validation
 const novoVeiculoSchema = z.object({
   placa: z.string().min(7, "Placa deve ter formato XXX-0000").max(8),
   marca: z.string().min(2, "Marca é obrigatória"),
@@ -91,6 +95,26 @@ const novoVeiculoSchema = z.object({
   localizacaoAtual: z.string().min(3, "Localização atual é obrigatória"),
   observacoes: z.string().optional(),
   empreendimentoId: z.number().int().positive().optional(),
+  tipoPropriedade: z.enum(["proprio", "alugado"], { required_error: "Tipo de propriedade é obrigatório" }),
+  termoVistoriaId: z.number().int().positive().optional(),
+  dataAluguel: z.date().optional(),
+  dataEntrega: z.date().optional(),
+}).refine((data) => {
+  if (data.tipoPropriedade === "alugado") {
+    return data.dataAluguel != null;
+  }
+  return true;
+}, {
+  message: "Data de aluguel é obrigatória para veículos alugados",
+  path: ["dataAluguel"],
+}).refine((data) => {
+  if (data.tipoPropriedade === "alugado") {
+    return data.dataEntrega != null;
+  }
+  return true;
+}, {
+  message: "Data de entrega é obrigatória para veículos alugados",
+  path: ["dataEntrega"],
 });
 
 type NovoVeiculoFormData = z.infer<typeof novoVeiculoSchema>;
@@ -124,6 +148,10 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
       localizacaoAtual: veiculo.localizacaoAtual,
       proximaRevisao: new Date(veiculo.proximaRevisao),
       observacoes: veiculo.observacoes || "",
+      tipoPropriedade: (veiculo.tipoPropriedade as any) || "proprio",
+      termoVistoriaId: veiculo.termoVistoriaId,
+      dataAluguel: veiculo.dataAluguel ? new Date(veiculo.dataAluguel) : undefined,
+      dataEntrega: veiculo.dataEntrega ? new Date(veiculo.dataEntrega) : undefined,
     } : {
       placa: "",
       marca: "",
@@ -135,6 +163,10 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
       seguro: "",
       localizacaoAtual: "Garagem Principal",
       observacoes: "",
+      tipoPropriedade: "proprio",
+      dataAluguel: undefined,
+      dataEntrega: undefined,
+      termoVistoriaId: undefined,
     },
   });
 
@@ -448,6 +480,133 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="tipoPropriedade"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tipo de Propriedade *</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-propriedade">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="proprio">Próprio</SelectItem>
+                  <SelectItem value="alugado">Alugado</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Se o veículo é próprio da empresa ou alugado
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {form.watch("tipoPropriedade") === "alugado" && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="dataAluguel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Aluguel *</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="button-data-aluguel"
+                          >
+                            {field.value ? (
+                              format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                            ) : (
+                              <span>Selecione a data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dataEntrega"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Entrega Prevista *</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="button-data-entrega"
+                          >
+                            {field.value ? (
+                              format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                            ) : (
+                              <span>Selecione a data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormItem>
+              <FormLabel>Termo de Vistoria (PDF)</FormLabel>
+              <FormDescription>
+                Upload do termo de vistoria assinado do veículo alugado
+              </FormDescription>
+              <FormControl>
+                <Input
+                  type="text"
+                  placeholder="Upload será implementado em breve"
+                  disabled
+                  data-testid="input-termo-vistoria"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </>
+        )}
 
         <FormField
           control={form.control}

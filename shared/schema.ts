@@ -666,6 +666,10 @@ export const veiculos = pgTable("veiculos", {
   localizacaoAtual: text("localizacao_atual").notNull(),
   observacoes: text("observacoes"),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  tipoPropriedade: text("tipo_propriedade").notNull().default("proprio"), // proprio, alugado
+  termoVistoriaId: integer("termo_vistoria_id").references(() => arquivos.id),
+  dataAluguel: date("data_aluguel"),
+  dataEntrega: date("data_entrega"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
