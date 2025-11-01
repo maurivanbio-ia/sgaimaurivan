@@ -1,6 +1,110 @@
 # Overview
 
-LicençaFácil is an environmental license management system designed for environmental consulting companies to track and manage environmental licenses by enterprise. The system centralizes license management to prevent expiration oversights and provides clear visibility into deadlines and compliance status. Built with React frontend and Express.js backend, it features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses.
+EcoGestor (LicençaFácil) is an environmental license management system designed for environmental consulting companies to track and manage environmental licenses by enterprise. The system centralizes license management to prevent expiration oversights and provides clear visibility into deadlines and compliance status. Built with React frontend and Express.js backend, it features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses.
+
+# Recent Changes (November 01, 2025)
+
+## Major Platform Integration - EcoGestor Transformation
+
+### Backend Infrastructure Expansion
+- **Database Schema Expansion**: Added 8 new tables to support integrated platform:
+  - `arquivos`: File storage management with checksum and metadata
+  - `campanhas`: Campaign management linked to empreendimentos
+  - `contratos`: Full contract management with detailed fields (contratante, contratada, vigência, valores)
+  - `contrato_aditivos`: Contract amendments and extensions
+  - `contrato_pagamentos`: Payment tracking with automatic status calculation
+  - `cronograma_itens`: Executive schedule/timeline items
+  - `rh_registros`: HR records for personnel management
+  - `jobs_agendados`: Scheduled jobs for automation
+
+### Empreendimentos Table Enhancement
+- Added new fields for complete project management:
+  - `tipo`: Type classification (hidreletrica, parque_eolico, termoeletrica, linha_transmissao, mina, pchs, outro)
+  - `status`: Project status (ativo, em_planejamento, em_execucao, concluido, inativo)
+  - `municipio`, `uf`: Location details
+  - `gestorNome`, `gestorEmail`, `gestorTelefone`: Project manager contact info
+  - `visivel`: Visibility control based on contract validity
+  - `dataInicio`, `dataFimPrevista`, `dataFimReal`: Project timeline tracking
+  - `atualizadoEm`, `deletedAt`: Audit and soft-delete support
+
+### Demandas Table Enhancement
+- Added recurrence and integration fields:
+  - `origem`: Source tracking (manual, campanha, contrato, licenca)
+  - `campanhaId`: Link to campaigns
+  - `contratoId`: Link to contracts
+  - `recorrente`: Boolean flag for recurring tasks
+  - `recorrenciaCron`: Cron expression for task repetition
+  - `recorrenciaFim`: End date for recurring task generation
+
+### API Endpoints Implemented
+**Arquivo Management:**
+- POST `/api/arquivos/upload` - File upload with multer (PDF support, 10MB limit)
+- GET `/api/arquivos/:id/download` - Secure file download
+- DELETE `/api/arquivos/:id` - File deletion with physical file cleanup
+
+**Contrato Management:**
+- GET `/api/empreendimentos/:empreendimentoId/contratos` - List all contracts for a project
+- POST `/api/contratos` - Create new contract
+- PATCH `/api/contratos/:id` - Update contract details
+- DELETE `/api/contratos/:id` - Soft delete contract
+- GET `/api/contratos/:id/aditivos` - List contract amendments
+- POST `/api/contratos/:id/aditivos` - Create amendment (auto-updates contract vigência)
+- GET `/api/contratos/:id/pagamentos` - List contract payments
+- POST `/api/contratos/:id/pagamentos` - Create payment record
+- PATCH `/api/pagamentos/:id` - Update payment (auto-recalculates status: pago/pendente/atrasado)
+
+**Campanha Management:**
+- GET `/api/empreendimentos/:empreendimentoId/campanhas` - List campaigns by project
+- POST `/api/campanhas` - Create new campaign
+
+**Cronograma Management:**
+- GET `/api/empreendimentos/:empreendimentoId/cronograma` - List schedule items by project
+- POST `/api/cronograma` - Create schedule item
+
+**RH Management:**
+- GET `/api/empreendimentos/:empreendimentoId/rh` - List HR records by project (excludes soft-deleted)
+- POST `/api/rh` - Create HR record
+
+### File Upload System
+- Implemented multer middleware for PDF upload
+- Automatic filename generation with crypto hash
+- Checksum calculation for file integrity
+- Physical file storage in `/uploads` directory
+- Database metadata tracking for all uploaded files
+
+### Technical Features
+- All new tables include proper foreign key relationships
+- Implemented soft delete pattern (`deletedAt`) for sensitive data
+- Automatic timestamp management (`criadoEm`, `atualizadoEm`)
+- JSON field support for flexible data structures (certificados, exames, arquivos)
+- Decimal precision for financial values (12 digits, 2 decimal places)
+
+### Dependencies Added
+- `multer` + `@types/multer` - File upload handling
+- `node-cron` + `@types/node-cron` - Job scheduling (for future automation features)
+
+### Database Synchronization
+- Successfully executed `npm run db:push` to sync all new tables
+- All tables created and indexed in PostgreSQL database
+- Maintained referential integrity across all new relationships
+
+## Next Steps (Pending Implementation)
+1. Frontend implementation:
+   - Detailed empreendimento page with tabbed interface
+   - Contract management UI with PDF upload
+   - Schedule visualization (Gantt chart)
+   - HR management interface
+   - Map integration with project type icons
+
+2. Automation features:
+   - 150-day license expiration alerts
+   - Weekly report generation (Mondays 08:00)
+   - Payment overdue detection
+   - Recurring task generation
+
+3. Contract visibility logic:
+   - Auto-hide expired contracts
+   - Vigência-based filtering
 
 # Recent Changes (October 23, 2025)
 

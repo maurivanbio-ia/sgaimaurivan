@@ -8,9 +8,15 @@ import {
   insertEntregaSchema,
   insertNotificationSchema,
   insertEquipamentoSchema,
+  insertCampanhaSchema,
+  insertCronogramaItemSchema,
+  insertRhRegistroSchema,
+  campanhas,
+  cronogramaItens,
+  rhRegistros,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, eq, and, isNull } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
@@ -18,6 +24,10 @@ import { cronService } from "./cronService";
 import { exportService } from "./exportService";
 import { alertService } from "./alertService";
 import { notificationService } from "./notificationService";
+
+// Import new controllers
+import * as contratoController from "./controllers/contratoController";
+import * as arquivoController from "./controllers/arquivoController";
 
 // Login schema
 const loginSchema = z.object({
@@ -1771,6 +1781,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== END SEGURANÇA DO TRABALHO ROUTES ====
+
+  // ==== ARQUIVO ROUTES ====
+  app.post('/api/arquivos/upload', requireAuth, arquivoController.upload.single('file'), arquivoController.uploadArquivo);
+  app.get('/api/arquivos/:id/download', requireAuth, arquivoController.downloadArquivo);
+  app.delete('/api/arquivos/:id', requireAuth, arquivoController.deleteArquivo);
+
+  // ==== CONTRATO ROUTES ====
+  app.get('/api/empreendimentos/:empreendimentoId/contratos', requireAuth, contratoController.getContratosByEmpreendimento);
+  app.post('/api/contratos', requireAuth, contratoController.createContrato);
+  app.patch('/api/contratos/:id', requireAuth, contratoController.updateContrato);
+  app.delete('/api/contratos/:id', requireAuth, contratoController.deleteContrato);
+  app.get('/api/contratos/:id/aditivos', requireAuth, contratoController.getAditivosByContrato);
+  app.post('/api/contratos/:id/aditivos', requireAuth, contratoController.createAditivo);
+  app.get('/api/contratos/:id/pagamentos', requireAuth, contratoController.getPagamentosByContrato);
+  app.post('/api/contratos/:id/pagamentos', requireAuth, contratoController.createPagamento);
+  app.patch('/api/pagamentos/:id', requireAuth, contratoController.updatePagamento);
+
+  // ==== CAMPANHA ROUTES ====
+  app.get('/api/empreendimentos/:empreendimentoId/campanhas', requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      if (isNaN(empreendimentoId)) {
+        return res.status(400).json({ message: "ID de empreendimento inválido" });
+      }
+      const result = await db.select().from(campanhas).where(eq(campanhas.empreendimentoId, empreendimentoId));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/campanhas', requireAuth, async (req, res) => {
+    try {
+      const data = insertCampanhaSchema.parse(req.body);
+      const [campanha] = await db.insert(campanhas).values(data).returning();
+      res.json(campanha);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ==== CRONOGRAMA ROUTES ====
+  app.get('/api/empreendimentos/:empreendimentoId/cronograma', requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      if (isNaN(empreendimentoId)) {
+        return res.status(400).json({ message: "ID de empreendimento inválido" });
+      }
+      const result = await db.select().from(cronogramaItens).where(eq(cronogramaItens.empreendimentoId, empreendimentoId));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/cronograma', requireAuth, async (req, res) => {
+    try {
+      const data = insertCronogramaItemSchema.parse(req.body);
+      const [item] = await db.insert(cronogramaItens).values(data).returning();
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ==== RH ROUTES ====
+  app.get('/api/empreendimentos/:empreendimentoId/rh', requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      if (isNaN(empreendimentoId)) {
+        return res.status(400).json({ message: "ID de empreendimento inválido" });
+      }
+      const result = await db.select().from(rhRegistros).where(
+        and(
+          eq(rhRegistros.empreendimentoId, empreendimentoId),
+          isNull(rhRegistros.deletedAt)
+        )
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/rh', requireAuth, async (req, res) => {
+    try {
+      const data = insertRhRegistroSchema.parse(req.body);
+      const [registro] = await db.insert(rhRegistros).values(data).returning();
+      res.json(registro);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
