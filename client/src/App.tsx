@@ -24,6 +24,7 @@ import Demandas from "./pages/demandas";
 import Financeiro from "./pages/financeiro";
 import Frota from "./pages/frota";
 import Equipamentos from "./pages/equipamentos";
+import Rh from "./pages/rh";
 import GestaoDados from "./pages/gestaoDados";
 import SegurancaTrabalho from "./pages/segurancaTrabalho";
 import PainelIntegrado from "./pages/painel-integrado";
@@ -78,6 +79,7 @@ function Router() {
         <Route path="/financeiro" component={Financeiro} />
         <Route path="/frota" component={Frota} />
         <Route path="/equipamentos" component={Equipamentos} />
+        <Route path="/rh" component={Rh} />
         <Route path="/gestao-dados" component={GestaoDados} />
         <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
         <Route component={NotFound} />

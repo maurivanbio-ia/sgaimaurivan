@@ -74,6 +74,7 @@ const equipamentoSchema = z.object({
     .preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional())
     .optional(),
   observacoes: z.string().optional(),
+  empreendimentoId: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
 });
 
 type Equipamento = z.infer<typeof equipamentoSchema>;
@@ -140,6 +141,11 @@ export default function EquipamentosPage() {
       if (!res.ok) throw new Error("Erro ao buscar equipamentos");
       return res.json();
     },
+  });
+
+  // Busca empreendimentos
+  const { data: empreendimentos = [] } = useQuery({
+    queryKey: ["/api/empreendimentos"],
   });
 
   // Formulário
@@ -441,6 +447,28 @@ export default function EquipamentosPage() {
                 )}/>
                 <FormField name="responsavel" control={form.control} render={({ field }) => (
                   <FormItem><FormLabel>Responsável</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                )}/>
+                <FormField name="empreendimentoId" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Empreendimento</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(v === "none" ? undefined : parseInt(v))}
+                      value={field.value?.toString() || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-empreendimento">
+                          <SelectValue placeholder="Selecione (opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {empreendimentos.map((e: any) => (
+                          <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )}/>
                 <FormField name="numeroPatrimonio" control={form.control} render={({ field }) => (
                   <FormItem><FormLabel>Nº Patrimônio</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>

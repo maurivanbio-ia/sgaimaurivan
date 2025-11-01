@@ -51,8 +51,9 @@ export default function Header() {
     { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro" },
     { href: "/frota", label: "Frota", testid: "nav-frota" },
     { href: "/equipamentos", label: "Equipamentos", testid: "nav-equipamentos" },
+    { href: "/rh", label: "RH", testid: "nav-rh" },
     { href: "/gestao-dados", label: "Gestão de Dados", testid: "nav-gestao-dados" },
-    { href: "/seguranca-trabalho", label: "Segurança do Trabalho", testid: "nav-seguranca-trabalho" },
+    { href: "/seguranca-trabalho", label: "SST/RH", testid: "nav-seguranca-trabalho" },
   ];
 
   return (
