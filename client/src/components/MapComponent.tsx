@@ -160,7 +160,7 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
   const defaultZoom = 4;
 
   return (
-    <div className={`h-96 w-full rounded-lg overflow-hidden shadow-sm ${className || ''}`}>
+    <div className={`relative h-96 w-full rounded-lg overflow-hidden shadow-sm ${className || ''}`}>
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -283,15 +283,16 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
             </Marker>
           );
         })}
-
-        {empreendimentosComCoordenadas.length === 0 && (
-          <div className="absolute top-4 left-4 bg-white p-3 rounded shadow-md border z-[1000]">
-            <p className="text-sm text-gray-600">
-              Nenhum empreendimento com coordenadas encontrado.
-            </p>
-          </div>
-        )}
       </MapContainer>
+
+      {/* Mensagem quando não há empreendimentos */}
+      {empreendimentosComCoordenadas.length === 0 && (
+        <div className="absolute top-4 left-4 bg-white p-3 rounded shadow-md border z-[1000]">
+          <p className="text-sm text-gray-600">
+            Nenhum empreendimento com coordenadas encontrado.
+          </p>
+        </div>
+      )}
 
       {/* Legenda de tipos */}
       <div className="absolute bottom-4 right-4 bg-white p-3 rounded shadow-md border z-[1000] max-w-xs">
