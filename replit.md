@@ -4,6 +4,16 @@ EcoGestor (LicençaFácil) is an environmental license management system for env
 
 ## Recent Changes (November 2025)
 
+### Vehicle Ownership Type Feature (Próprio/Alugado)
+- **Frota Enhancement**: Vehicles can now be classified as owned (próprio) or rented (alugado)
+  - Added `tipo_propriedade` column to veiculos table (default: 'proprio')
+  - Added `data_aluguel`, `data_entrega`, `termo_vistoria_id` columns for rental vehicles
+  - Conditional validation: if vehicle is "alugado", rental and delivery dates are required
+  - UI dynamically shows/hides rental fields based on ownership type selection
+  - Form uses Zod `.refine()` for conditional validation
+  - Termo de vistoria (inspection report) upload placeholder for future implementation
+  - Prevents validation errors with proper defaultValues initialization
+
 ### Empreendimento Resource Assignment Integration
 - **Frota (Vehicles)**: Vehicles can now be assigned to specific empreendimentos
   - Simplified Zod schema for `empreendimentoId` validation (`.number().int().positive().optional()`)
