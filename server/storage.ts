@@ -235,6 +235,7 @@ export interface IStorage {
     status?: string;
     combustivel?: string;
     search?: string;
+    empreendimentoId?: number;
   }): Promise<Veiculo[]>;
   getVeiculoById(id: number): Promise<Veiculo | undefined>;
   createVeiculo(veiculo: InsertVeiculo): Promise<Veiculo>;
@@ -1561,6 +1562,7 @@ export class DatabaseStorage implements IStorage {
     status?: string;
     combustivel?: string;
     search?: string;
+    empreendimentoId?: number;
   }): Promise<Veiculo[]> {
     let query = db.select().from(veiculos).$dynamic();
 
@@ -1577,6 +1579,10 @@ export class DatabaseStorage implements IStorage {
 
       if (filters.combustivel) {
         conditions.push(eq(veiculos.combustivel, filters.combustivel));
+      }
+
+      if (filters.empreendimentoId) {
+        conditions.push(eq(veiculos.empreendimentoId, filters.empreendimentoId));
       }
 
       if (filters.search) {

@@ -90,7 +90,7 @@ const novoVeiculoSchema = z.object({
   proximaRevisao: z.date({ required_error: "Data da próxima revisão é obrigatória" }),
   localizacaoAtual: z.string().min(3, "Localização atual é obrigatória"),
   observacoes: z.string().optional(),
-  empreendimentoId: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
+  empreendimentoId: z.number().int().positive().optional(),
 });
 
 type NovoVeiculoFormData = z.infer<typeof novoVeiculoSchema>;
