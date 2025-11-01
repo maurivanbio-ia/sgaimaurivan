@@ -22,7 +22,22 @@ export const empreendimentos = pgTable("empreendimentos", {
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
   responsavelInterno: text("responsavel_interno").notNull(),
+  // Campos expandidos
+  tipo: text("tipo").notNull().default("outro"), // hidreletrica, parque_eolico, termoeletrica, linha_transmissao, mina, pchs, outro
+  status: text("status").notNull().default("ativo"), // ativo, em_planejamento, em_execucao, concluido, inativo
+  municipio: text("municipio"),
+  uf: text("uf"),
+  descricao: text("descricao"),
+  gestorNome: text("gestor_nome"),
+  gestorEmail: text("gestor_email"),
+  gestorTelefone: text("gestor_telefone"),
+  visivel: boolean("visivel").notNull().default(true),
+  dataInicio: date("data_inicio"),
+  dataFimPrevista: date("data_fim_prevista"),
+  dataFimReal: date("data_fim_real"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
 });
 
@@ -103,6 +118,160 @@ export const alertHistory = pgTable("alert_history", {
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
+// =============================================
+// ARQUIVOS MODULE - Armazenamento de PDFs e documentos
+// =============================================
+export const arquivos = pgTable("arquivos", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  mime: text("mime").notNull(),
+  tamanho: integer("tamanho").notNull(), // em bytes
+  caminho: text("caminho").notNull(),
+  checksum: text("checksum"),
+  origem: text("origem"), // contrato, licenca, condicionante, etc
+  uploaderId: integer("uploader_id").references(() => users.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// =============================================
+// CAMPANHAS MODULE
+// =============================================
+export const campanhas = pgTable("campanhas", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  periodoInicio: date("periodo_inicio").notNull(),
+  periodoFim: date("periodo_fim").notNull(),
+  descricao: text("descricao"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// =============================================
+// CONTRATOS MODULE
+// =============================================
+export const contratos = pgTable("contratos", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  numero: text("numero").notNull(),
+  objeto: text("objeto").notNull(),
+  centroCusto: text("centro_custo"),
+  municipioUf: text("municipio_uf"),
+  dataProposta: date("data_proposta"),
+  referencia: text("referencia"),
+  vigenciaInicio: date("vigencia_inicio").notNull(),
+  vigenciaFim: date("vigencia_fim").notNull(),
+  situacao: text("situacao").notNull().default("vigente"), // vigente, vencido, rescindido
+  valorTotal: decimal("valor_total", { precision: 12, scale: 2 }).notNull(),
+  condPagto: text("cond_pagto"),
+  formaPagto: text("forma_pagto"),
+  banco: text("banco"),
+  agencia: text("agencia"),
+  conta: text("conta"),
+  observacoes: text("observacoes"),
+  // Contratada
+  contratadaRazao: text("contratada_razao"),
+  contratadaCnpj: text("contratada_cnpj"),
+  contratadaEndereco: text("contratada_endereco"),
+  contratadaBairro: text("contratada_bairro"),
+  contratadaMunicipioUf: text("contratada_municipio_uf"),
+  // Contratante
+  contratanteRazao: text("contratante_razao"),
+  contratanteCnpj: text("contratante_cnpj"),
+  contratanteRepresentante: text("contratante_representante"),
+  contratanteCargo: text("contratante_cargo"),
+  contratanteQualificacao: text("contratante_qualificacao"),
+  contratanteEndereco: text("contratante_endereco"),
+  contratanteMunicipioUf: text("contratante_municipio_uf"),
+  contratanteContato: text("contratante_contato"),
+  contratanteEmailFin: text("contratante_email_fin"),
+  arquivoPdfId: integer("arquivo_pdf_id").references(() => arquivos.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const contratoAditivos = pgTable("contrato_aditivos", {
+  id: serial("id").primaryKey(),
+  contratoId: integer("contrato_id").references(() => contratos.id).notNull(),
+  descricao: text("descricao").notNull(),
+  valorAdicional: decimal("valor_adicional", { precision: 12, scale: 2 }),
+  vigenciaNovaFim: date("vigencia_nova_fim"),
+  dataAssinatura: date("data_assinatura").notNull(),
+  arquivoPdfId: integer("arquivo_pdf_id").references(() => arquivos.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const contratoPagamentos = pgTable("contrato_pagamentos", {
+  id: serial("id").primaryKey(),
+  contratoId: integer("contrato_id").references(() => contratos.id).notNull(),
+  descricao: text("descricao").notNull(),
+  valorPrevisto: decimal("valor_previsto", { precision: 12, scale: 2 }).notNull(),
+  dataPrevista: date("data_prevista").notNull(),
+  valorPago: decimal("valor_pago", { precision: 12, scale: 2 }),
+  dataPagamento: date("data_pagamento"),
+  status: text("status").notNull().default("pendente"), // pago, pendente, atrasado
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// =============================================
+// CRONOGRAMA MODULE
+// =============================================
+export const cronogramaItens = pgTable("cronograma_itens", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  etapa: text("etapa").notNull(),
+  dataInicio: date("data_inicio").notNull(),
+  dataFim: date("data_fim").notNull(),
+  concluido: boolean("concluido").notNull().default(false),
+  responsavel: text("responsavel"),
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// =============================================
+// RH MODULE - Recursos Humanos por empreendimento
+// =============================================
+export const rhRegistros = pgTable("rh_registros", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  fornecedor: text("fornecedor"),
+  nomeColaborador: text("nome_colaborador").notNull(),
+  cpf: text("cpf"),
+  rg: text("rg"),
+  cnh: text("cnh"),
+  certificadosJson: json("certificados_json").default([]),
+  examesJson: json("exames_json").default([]),
+  seguroNumero: text("seguro_numero"),
+  valorTipo: text("valor_tipo"), // hora, dia, mes
+  valor: decimal("valor", { precision: 12, scale: 2 }),
+  dataInicio: date("data_inicio"),
+  dataFim: date("data_fim"),
+  contatoEmail: text("contato_email"),
+  contatoTelefone: text("contato_telefone"),
+  arquivosIdsJson: json("arquivos_ids_json").default([]),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+// =============================================
+// JOBS AGENDADOS - Para automações
+// =============================================
+export const jobsAgendados = pgTable("jobs_agendados", {
+  id: serial("id").primaryKey(),
+  tipo: text("tipo").notNull(), // alerta_licenca, relatorio_semanal, demanda_recorrente, pagamento_atrasado
+  referencia: text("referencia"), // ID do item relacionado
+  payloadJson: json("payload_json").default({}),
+  proximaExecucaoEm: timestamp("proxima_execucao_em").notNull(),
+  cron: text("cron"),
+  ativo: boolean("ativo").notNull().default(true),
+  ultimaExecucaoEm: timestamp("ultima_execucao_em"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -158,6 +327,13 @@ export const demandas = pgTable("demandas", {
   tempoEstimado: integer("tempo_estimado"), // em horas
   tempoReal: integer("tempo_real"), // em horas
   observacoes: text("observacoes"),
+  // Campos novos para integração
+  origem: text("origem"), // manual, campanha, contrato, licenca
+  campanhaId: integer("campanha_id").references(() => campanhas.id),
+  contratoId: integer("contrato_id").references(() => contratos.id),
+  recorrente: boolean("recorrente").notNull().default(false),
+  recorrenciaCron: text("recorrencia_cron"), // expressão cron para repetição
+  recorrenciaFim: date("recorrencia_fim"), // data final para parar de gerar instâncias
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -208,6 +384,14 @@ export const demandasRelations = relations(demandas, ({ one, many }) => ({
     fields: [demandas.criadoPor],
     references: [users.id],
   }),
+  campanha: one(campanhas, {
+    fields: [demandas.campanhaId],
+    references: [campanhas.id],
+  }),
+  contrato: one(contratos, {
+    fields: [demandas.contratoId],
+    references: [contratos.id],
+  }),
   comentarios: many(comentariosDemandas),
   subtarefas: many(subtarefasDemandas),
   historico: many(historicoDemandasMovimentacoes),
@@ -242,6 +426,68 @@ export const historicoDemandasMovimentacoesRelations = relations(historicoDemand
   }),
 }));
 
+// Relations for new tables
+export const arquivosRelations = relations(arquivos, ({ one }) => ({
+  uploader: one(users, {
+    fields: [arquivos.uploaderId],
+    references: [users.id],
+  }),
+}));
+
+export const campanhasRelations = relations(campanhas, ({ one, many }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [campanhas.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  demandas: many(demandas),
+}));
+
+export const contratosRelations = relations(contratos, ({ one, many }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [contratos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  arquivoPdf: one(arquivos, {
+    fields: [contratos.arquivoPdfId],
+    references: [arquivos.id],
+  }),
+  aditivos: many(contratoAditivos),
+  pagamentos: many(contratoPagamentos),
+  demandas: many(demandas),
+}));
+
+export const contratoAditivosRelations = relations(contratoAditivos, ({ one }) => ({
+  contrato: one(contratos, {
+    fields: [contratoAditivos.contratoId],
+    references: [contratos.id],
+  }),
+  arquivoPdf: one(arquivos, {
+    fields: [contratoAditivos.arquivoPdfId],
+    references: [arquivos.id],
+  }),
+}));
+
+export const contratoPagamentosRelations = relations(contratoPagamentos, ({ one }) => ({
+  contrato: one(contratos, {
+    fields: [contratoPagamentos.contratoId],
+    references: [contratos.id],
+  }),
+}));
+
+export const cronogramaItensRelations = relations(cronogramaItens, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [cronogramaItens.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
+export const rhRegistrosRelations = relations(rhRegistros, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [rhRegistros.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -251,6 +497,8 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertEmpreendimentoSchema = createInsertSchema(empreendimentos).omit({
   id: true,
   criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
 });
 
 export const insertLicencaAmbientalSchema = createInsertSchema(licencasAmbientais).omit({
@@ -308,6 +556,55 @@ export const insertSubtarefaDemandaSchema = createInsertSchema(subtarefasDemanda
 export const insertHistoricoMovimentacaoSchema = createInsertSchema(historicoDemandasMovimentacoes).omit({
   id: true,
   criadoEm: true,
+});
+
+// Insert schemas for new tables
+export const insertArquivoSchema = createInsertSchema(arquivos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertCampanhaSchema = createInsertSchema(campanhas).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertContratoSchema = createInsertSchema(contratos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export const insertContratoAditivoSchema = createInsertSchema(contratoAditivos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertContratoPagamentoSchema = createInsertSchema(contratoPagamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertCronogramaItemSchema = createInsertSchema(cronogramaItens).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertRhRegistroSchema = createInsertSchema(rhRegistros).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export const insertJobAgendadoSchema = createInsertSchema(jobsAgendados).omit({
+  id: true,
+  criadoEm: true,
+  ultimaExecucaoEm: true,
 });
 
 
@@ -570,6 +867,24 @@ export type AlertHistory = typeof alertHistory.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 
+// Types for new tables
+export type InsertArquivo = z.infer<typeof insertArquivoSchema>;
+export type Arquivo = typeof arquivos.$inferSelect;
+export type InsertCampanha = z.infer<typeof insertCampanhaSchema>;
+export type Campanha = typeof campanhas.$inferSelect;
+export type InsertContrato = z.infer<typeof insertContratoSchema>;
+export type Contrato = typeof contratos.$inferSelect;
+export type InsertContratoAditivo = z.infer<typeof insertContratoAditivoSchema>;
+export type ContratoAditivo = typeof contratoAditivos.$inferSelect;
+export type InsertContratoPagamento = z.infer<typeof insertContratoPagamentoSchema>;
+export type ContratoPagamento = typeof contratoPagamentos.$inferSelect;
+export type InsertCronogramaItem = z.infer<typeof insertCronogramaItemSchema>;
+export type CronogramaItem = typeof cronogramaItens.$inferSelect;
+export type InsertRhRegistro = z.infer<typeof insertRhRegistroSchema>;
+export type RhRegistro = typeof rhRegistros.$inferSelect;
+export type InsertJobAgendado = z.infer<typeof insertJobAgendadoSchema>;
+export type JobAgendado = typeof jobsAgendados.$inferSelect;
+
 // =============================================
 // DATASETS MODULE - GESTÃO DE DADOS
 // =============================================
@@ -671,6 +986,72 @@ export type InsertColaborador = z.infer<typeof insertColaboradorSchema>;
 export type Colaborador = typeof colaboradores.$inferSelect;
 export type InsertSegDocumento = z.infer<typeof insertSegDocumentoSchema>;
 export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSelect;
+
+// Insert schemas for new tables
+export const insertArquivoSchema = createInsertSchema(arquivos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertCampanhaSchema = createInsertSchema(campanhas).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertContratoSchema = createInsertSchema(contratos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export const insertContratoAditivoSchema = createInsertSchema(contratoAditivos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertContratoPagamentoSchema = createInsertSchema(contratoPagamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertCronogramaItemSchema = createInsertSchema(cronogramaItens).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertRhRegistroSchema = createInsertSchema(rhRegistros).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export const insertJobAgendadoSchema = createInsertSchema(jobsAgendados).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertArquivo = z.infer<typeof insertArquivoSchema>;
+export type Arquivo = typeof arquivos.$inferSelect;
+export type InsertCampanha = z.infer<typeof insertCampanhaSchema>;
+export type Campanha = typeof campanhas.$inferSelect;
+export type InsertContrato = z.infer<typeof insertContratoSchema>;
+export type Contrato = typeof contratos.$inferSelect;
+export type InsertContratoAditivo = z.infer<typeof insertContratoAditivoSchema>;
+export type ContratoAditivo = typeof contratoAditivos.$inferSelect;
+export type InsertContratoPagamento = z.infer<typeof insertContratoPagamentoSchema>;
+export type ContratoPagamento = typeof contratoPagamentos.$inferSelect;
+export type InsertCronogramaItem = z.infer<typeof insertCronogramaItemSchema>;
+export type CronogramaItem = typeof cronogramaItens.$inferSelect;
+export type InsertRhRegistro = z.infer<typeof insertRhRegistroSchema>;
+export type RhRegistro = typeof rhRegistros.$inferSelect;
+export type InsertJobAgendado = z.infer<typeof insertJobAgendadoSchema>;
+export type JobAgendado = typeof jobsAgendados.$inferSelect;
 
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
