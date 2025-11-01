@@ -521,6 +521,7 @@ export default function DemandasPage() {
   const historico = ensureArray(historicoRaw);
   const [editing, setEditing] = useState<Demanda | null>(null);
   const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const moveMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: Status }) =>
@@ -613,7 +614,7 @@ export default function DemandasPage() {
             Arraste os cards entre as colunas para alterar o status
           </p>
         </div>
-        <Dialog>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-nova-demanda">
               <Plus className="h-4 w-4 mr-2" /> Nova Demanda
@@ -624,9 +625,10 @@ export default function DemandasPage() {
               <DialogTitle>Nova Demanda</DialogTitle>
             </DialogHeader>
             <DemandaForm
-              onSuccess={() =>
-                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] })
-              }
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+                setCreateDialogOpen(false);
+              }}
             />
           </DialogContent>
         </Dialog>

@@ -2,6 +2,25 @@
 
 EcoGestor (LicençaFácil) is an environmental license management system for environmental consulting companies. It tracks and manages environmental licenses by enterprise, centralizing license management to prevent expiration oversights and provide visibility into deadlines and compliance. The system features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses. Recent enhancements have transformed it into a full platform for project management, including contracts, campaigns, HR, and detailed project timelines.
 
+## Recent Changes (November 2025)
+
+### Map Visualization Replacement
+- Replaced react-leaflet with custom grid-based visualization
+- Empreendimentos now displayed in a responsive grid layout with type-specific icons
+- Improved performance and eliminated leaflet dependency issues
+
+### Critical Database Schema Fixes
+- **Fixed FK Constraint Bug**: Removed auto-increment sequences from foreign key columns in `demandas` table
+  - `empreendimento_id`, `responsavel_id`, and `criado_por` no longer have invalid DEFAULT sequences
+  - These FK columns now properly accept NULL (empreendimento_id) or explicit values from backend
+  - Prevents FK constraint violations during demanda creation
+
+### UX Improvements
+- Fixed "Nova Demanda" dialog to close automatically after successful creation
+- Dialog now uses controlled state pattern with proper open/close handlers
+- Toast notifications display correctly for all CRUD operations
+- Form validation improved with proper error handling
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
