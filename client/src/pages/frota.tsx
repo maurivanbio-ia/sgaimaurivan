@@ -90,6 +90,7 @@ const novoVeiculoSchema = z.object({
   proximaRevisao: z.date({ required_error: "Data da próxima revisão é obrigatória" }),
   localizacaoAtual: z.string().min(3, "Localização atual é obrigatória"),
   observacoes: z.string().optional(),
+  empreendimentoId: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
 });
 
 type NovoVeiculoFormData = z.infer<typeof novoVeiculoSchema>;
@@ -104,6 +105,10 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = !!veiculo;
+
+  const { data: empreendimentos = [] } = useQuery({
+    queryKey: ["/api/empreendimentos"],
+  });
 
   const form = useForm<NovoVeiculoFormData>({
     resolver: zodResolver(novoVeiculoSchema),
@@ -412,6 +417,33 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
                   />
                 </PopoverContent>
               </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="empreendimentoId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Empreendimento</FormLabel>
+              <Select
+                onValueChange={(v) => field.onChange(v === "none" ? undefined : parseInt(v))}
+                value={field.value?.toString() || "none"}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid="select-empreendimento">
+                    <SelectValue placeholder="Selecione (opcional)" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {empreendimentos.map((e: any) => (
+                    <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

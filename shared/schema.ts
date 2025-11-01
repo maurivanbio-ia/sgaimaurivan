@@ -236,7 +236,7 @@ export const cronogramaItens = pgTable("cronograma_itens", {
 // =============================================
 export const rhRegistros = pgTable("rh_registros", {
   id: serial("id").primaryKey(),
-  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   fornecedor: text("fornecedor"),
   nomeColaborador: text("nome_colaborador").notNull(),
   cpf: text("cpf"),
@@ -665,12 +665,17 @@ export const veiculos = pgTable("veiculos", {
   responsavelAtual: text("responsavel_atual"),
   localizacaoAtual: text("localizacao_atual").notNull(),
   observacoes: text("observacoes"),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
 });
 
 export const veiculosRelations = relations(veiculos, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [veiculos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
   criadoPorUser: one(users, {
     fields: [veiculos.criadoPor],
     references: [users.id],
