@@ -4,16 +4,31 @@ EcoGestor (LicençaFácil) is an environmental license management system for env
 
 ## Recent Changes (November 2025)
 
+### Empreendimento Resource Assignment Integration
+- **Frota (Vehicles)**: Vehicles can now be assigned to specific empreendimentos
+  - Simplified Zod schema for `empreendimentoId` validation (`.number().int().positive().optional()`)
+  - Fixed FrotaTab to use correct API endpoint `/api/frota` with empreendimentoId filter
+  - Backend GET `/api/frota` now accepts and properly filters by `empreendimentoId` query parameter
+  - Storage layer `getVeiculos()` filters vehicles by `empreendimentoId`
+  - Vehicles appear in both global frota list AND empreendimento-specific Frota tab
+- **RH (Human Resources)**: RH records can be assigned to specific empreendimentos
+  - Created main RH page at `/rh` with full CRUD functionality
+  - RhTab properly filters by empreendimentoId using dedicated queryFn
+  - Menu updated: "Segurança do Trabalho" renamed to "SST/RH" with new "RH" link
+- **Equipamentos (Equipment)**: Equipment assignment to empreendimentos already functional
+  - EquipamentosTab correctly filters by empreendimentoId
+- All resource assignment is optional - resources can exist without empreendimento assignment
+
 ### Map Visualization Replacement
 - Replaced react-leaflet with custom grid-based visualization
 - Empreendimentos now displayed in a responsive grid layout with type-specific icons
 - Improved performance and eliminated leaflet dependency issues
 
 ### Critical Database Schema Fixes
-- **Fixed FK Constraint Bug**: Removed auto-increment sequences from foreign key columns in `demandas` table
+- **Fixed FK Constraint Bug**: Removed auto-increment sequences from foreign key columns in `demandas`, `veiculos`, and `equipamentos` tables
   - `empreendimento_id`, `responsavel_id`, and `criado_por` no longer have invalid DEFAULT sequences
   - These FK columns now properly accept NULL (empreendimento_id) or explicit values from backend
-  - Prevents FK constraint violations during demanda creation
+  - Prevents FK constraint violations during record creation
 
 ### UX Improvements
 - Fixed "Nova Demanda" dialog to close automatically after successful creation
