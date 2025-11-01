@@ -1,20 +1,9 @@
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { Link } from "wouter";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, MapPin, Building2, Calendar, User } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Eye, MapPin, Building2, Calendar, User, Navigation } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
-
-// Configurar ícones do Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
 
 // Mapeamento de cores e ícones por tipo de empreendimento
 const tipoConfig: Record<string, { color: string; icon: string; label: string }> = {
@@ -55,55 +44,19 @@ const tipoConfig: Record<string, { color: string; icon: string; label: string }>
   },
 };
 
-// Função para criar ícone personalizado baseado no tipo
-const createIconByType = (tipo: string) => {
-  const config = tipoConfig[tipo] || tipoConfig.outro;
-  
-  return new L.DivIcon({
-    className: 'custom-div-icon',
-    html: `
-      <div style="
-        background-color: ${config.color};
-        border: 3px solid white;
-        border-radius: 50%;
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
-        font-size: 18px;
-        cursor: pointer;
-        transition: transform 0.2s;
-      " onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
-        ${config.icon}
-      </div>
-    `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -18]
-  });
-};
-
-// Função para obter cor do status
+// Mapeamento de cores de status
 const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'ativo':
-      return 'bg-green-100 text-green-800 border-green-200';
-    case 'em_planejamento':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'em_execucao':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'concluido':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-    case 'inativo':
-      return 'bg-red-100 text-red-800 border-red-200';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
+  const statusColors: Record<string, string> = {
+    ativo: 'bg-green-100 text-green-800 border-green-300',
+    em_planejamento: 'bg-blue-100 text-blue-800 border-blue-300',
+    em_execucao: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    concluido: 'bg-gray-100 text-gray-800 border-gray-300',
+    inativo: 'bg-red-100 text-red-800 border-red-300',
+  };
+  return statusColors[status] || statusColors.ativo;
 };
 
-// Função para formatar o status
+// Formatar status para exibição
 const formatStatus = (status: string) => {
   const statusMap: Record<string, string> = {
     ativo: 'Ativo',
@@ -120,58 +73,139 @@ interface MapComponentProps {
   className?: string;
 }
 
-// Componente para ajustar o centro do mapa automaticamente
-function MapController({ empreendimentos }: { empreendimentos: Empreendimento[] }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (empreendimentos.length > 0) {
-      const validCoordinates = empreendimentos.filter(
-        emp => emp.latitude && emp.longitude
-      );
-
-      if (validCoordinates.length === 1) {
-        // Se só tem um empreendimento, centraliza nele
-        const emp = validCoordinates[0];
-        map.setView([parseFloat(emp.latitude!), parseFloat(emp.longitude!)], 13);
-      } else if (validCoordinates.length > 1) {
-        // Se tem múltiplos, ajusta para mostrar todos
-        const bounds = L.latLngBounds(
-          validCoordinates.map(emp => [parseFloat(emp.latitude!), parseFloat(emp.longitude!)])
-        );
-        map.fitBounds(bounds, { padding: [50, 50] });
-      }
-    }
-  }, [empreendimentos, map]);
-
-  return null;
-}
-
 export default function MapComponent({ empreendimentos, className }: MapComponentProps) {
-  // Centro padrão do Brasil (Brasília)
-  const defaultCenter: [number, number] = [-15.7942, -47.8822];
-  const defaultZoom = 4;
+  // Filtrar apenas empreendimentos com coordenadas válidas
+  const empreendimentosComCoordenadas = empreendimentos.filter(
+    emp => emp.latitude && emp.longitude && 
+           !isNaN(parseFloat(emp.latitude)) && 
+           !isNaN(parseFloat(emp.longitude))
+  );
 
   return (
-    <div className={`relative h-96 w-full rounded-lg overflow-hidden shadow-sm ${className || ''}`}>
-      <MapContainer
-        center={defaultCenter}
-        zoom={defaultZoom}
-        scrollWheelZoom={true}
-        style={{ height: "100%", width: "100%" }}
-        data-testid="map-container"
-      >
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-      </MapContainer>
-
-      {/* Legenda de tipos */}
-      <div className="absolute bottom-4 right-4 bg-white p-3 rounded shadow-md border z-[1000] max-w-xs">
-        <h4 className="text-xs font-semibold mb-2 text-card-foreground">Mapa de Empreendimentos</h4>
-        <p className="text-xs text-muted-foreground">Carregando marcadores...</p>
+    <div className={`h-96 w-full rounded-lg overflow-hidden ${className || ''}`} data-testid="map-container">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-green-700 p-4 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Navigation className="h-5 w-5" />
+            <h3 className="font-semibold text-lg">Localizações dos Empreendimentos</h3>
+          </div>
+          <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+            {empreendimentosComCoordenadas.length} localização{empreendimentosComCoordenadas.length !== 1 ? 'ões' : ''}
+          </Badge>
+        </div>
       </div>
+
+      {/* Content */}
+      <div className="h-[calc(100%-4rem)] overflow-y-auto bg-gray-50">
+        {empreendimentosComCoordenadas.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-6">
+              <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <p className="text-gray-600 font-medium">Nenhum empreendimento com coordenadas encontrado</p>
+              <p className="text-sm text-gray-500 mt-1">Adicione coordenadas aos empreendimentos para visualizá-los</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 p-4">
+            {empreendimentosComCoordenadas.map((empreendimento) => {
+              const tipoInfo = tipoConfig[empreendimento.tipo] || tipoConfig.outro;
+              
+              return (
+                <Card 
+                  key={empreendimento.id} 
+                  className="hover:shadow-md transition-shadow border-l-4"
+                  style={{ borderLeftColor: tipoInfo.color }}
+                  data-testid={`map-card-empreendimento-${empreendimento.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      {/* Icon e tipo */}
+                      <div className="flex items-start gap-3 flex-1">
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+                          style={{ backgroundColor: `${tipoInfo.color}15` }}
+                        >
+                          {tipoInfo.icon}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          {/* Nome e Status */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-base truncate">{empreendimento.nome}</h4>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs flex-shrink-0 ${getStatusColor(empreendimento.status)}`}
+                            >
+                              {formatStatus(empreendimento.status)}
+                            </Badge>
+                          </div>
+
+                          {/* Informações */}
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center gap-1.5 text-gray-600">
+                              <User className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span className="truncate">{empreendimento.cliente}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 text-gray-600">
+                              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span className="truncate">{empreendimento.localizacao}</span>
+                            </div>
+
+                            {empreendimento.municipio && empreendimento.uf && (
+                              <div className="flex items-center gap-1.5 text-gray-600">
+                                <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span className="truncate">{empreendimento.municipio}/{empreendimento.uf}</span>
+                              </div>
+                            )}
+
+                            {/* Coordenadas */}
+                            <div className="flex items-center gap-1.5 text-gray-500 text-xs mt-2 pt-2 border-t">
+                              <Navigation className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate font-mono">
+                                {parseFloat(empreendimento.latitude!).toFixed(6)}, {parseFloat(empreendimento.longitude!).toFixed(6)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botão Ver Detalhes */}
+                      <Link href={`/empreendimentos/${empreendimento.id}`}>
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          className="flex-shrink-0"
+                          data-testid={`button-map-view-details-${empreendimento.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Legenda */}
+      {empreendimentosComCoordenadas.length > 0 && (
+        <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border max-w-xs">
+          <h4 className="text-xs font-semibold mb-2">Tipos de Empreendimento</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(tipoConfig).map(([key, config]) => (
+              <div key={key} className="flex items-center gap-1.5 text-xs">
+                <span style={{ fontSize: '14px' }}>{config.icon}</span>
+                <span className="text-gray-600">{config.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
