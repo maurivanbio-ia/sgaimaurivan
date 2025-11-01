@@ -987,24 +987,6 @@ export type Colaborador = typeof colaboradores.$inferSelect;
 export type InsertSegDocumento = z.infer<typeof insertSegDocumentoSchema>;
 export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSelect;
 
-// Types for new tables
-export type InsertArquivo = z.infer<typeof insertArquivoSchema>;
-export type Arquivo = typeof arquivos.$inferSelect;
-export type InsertCampanha = z.infer<typeof insertCampanhaSchema>;
-export type Campanha = typeof campanhas.$inferSelect;
-export type InsertContrato = z.infer<typeof insertContratoSchema>;
-export type Contrato = typeof contratos.$inferSelect;
-export type InsertContratoAditivo = z.infer<typeof insertContratoAditivoSchema>;
-export type ContratoAditivo = typeof contratoAditivos.$inferSelect;
-export type InsertContratoPagamento = z.infer<typeof insertContratoPagamentoSchema>;
-export type ContratoPagamento = typeof contratoPagamentos.$inferSelect;
-export type InsertCronogramaItem = z.infer<typeof insertCronogramaItemSchema>;
-export type CronogramaItem = typeof cronogramaItens.$inferSelect;
-export type InsertRhRegistro = z.infer<typeof insertRhRegistroSchema>;
-export type RhRegistro = typeof rhRegistros.$inferSelect;
-export type InsertJobAgendado = z.infer<typeof insertJobAgendadoSchema>;
-export type JobAgendado = typeof jobsAgendados.$inferSelect;
-
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
   licencas: LicencaAmbiental[];
