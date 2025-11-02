@@ -37,11 +37,12 @@ export default function EcoAssistente() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ unidade, message }),
+        body: JSON.stringify({ unidade: unidade?.slug, message }),
       });
       
       if (!response.ok) {
-        throw new Error('Erro ao processar pergunta');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao processar pergunta');
       }
       
       return response.json();
