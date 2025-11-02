@@ -75,12 +75,12 @@ export default function SelecionarUnidade() {
               key={unidade.id}
               onClick={() => handleSelectUnidade(unidade.id)}
               data-testid={`card-unidade-${unidade.id}`}
-              className="group relative cursor-pointer"
+              className="group relative cursor-pointer h-full"
             >
-              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-white/20">
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 h-full flex flex-col">
                 <div className={`absolute inset-0 bg-gradient-to-br ${unidade.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-500`}></div>
                 
-                <div className="relative z-10">
+                <div className="relative z-10 flex flex-col h-full">
                   <div className="mb-6">
                     <div className={`inline-block px-4 py-1.5 rounded-full bg-gradient-to-r ${unidade.gradient} text-white text-xs font-bold tracking-wider uppercase mb-4`}>
                       {unidade.estado}
@@ -94,11 +94,11 @@ export default function SelecionarUnidade() {
                     </div>
                   </div>
 
-                  <p className="text-white/80 text-sm leading-relaxed mb-8 min-h-[3rem]">
+                  <p className="text-white/80 text-sm leading-relaxed mb-8 flex-grow">
                     {unidade.descricao}
                   </p>
 
-                  <div className={`w-full py-4 rounded-xl bg-gradient-to-r ${unidade.gradient} text-white font-bold text-center transition-all duration-300 group-hover:shadow-lg group-hover:shadow-${unidade.accentColor}-500/50`}>
+                  <div className={`w-full py-4 rounded-xl bg-gradient-to-r ${unidade.gradient} text-white font-bold text-center transition-all duration-300 group-hover:shadow-lg group-hover:shadow-${unidade.accentColor}-500/50 mt-auto`}>
                     Acessar Unidade
                   </div>
                 </div>
