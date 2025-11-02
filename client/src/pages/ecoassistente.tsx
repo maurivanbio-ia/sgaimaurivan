@@ -29,10 +29,19 @@ export default function EcoAssistente() {
 
   const queryMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await apiRequest('/api/ai/query', {
+      const response = await fetch('/api/ai/query', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
         body: JSON.stringify({ message }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao processar pergunta');
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {

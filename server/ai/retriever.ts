@@ -25,15 +25,13 @@ export async function searchSimilarDocuments(
     const queryEmbedding = await generateEmbedding(query);
     
     // Busca todos os documentos (com filtro opcional de empreendimento)
-    const whereClause = empreendimentoId 
-      ? eq(aiDocuments.empreendimentoId, empreendimentoId)
-      : undefined;
+    let documentsQuery = db.select().from(aiDocuments);
     
-    const documents = await db
-      .select()
-      .from(aiDocuments)
-      .where(whereClause)
-      .execute();
+    if (empreendimentoId) {
+      documentsQuery = documentsQuery.where(eq(aiDocuments.empreendimentoId, empreendimentoId));
+    }
+    
+    const documents = await documentsQuery.execute();
     
     // Calcula similaridade para cada documento
     const results: SearchResult[] = documents

@@ -80,8 +80,7 @@ export async function getInfoEmpreendimento(empreendimentoId: number) {
     return { erro: 'Empreendimento não encontrado' };
   }
   
-  const [licenseStats, demandas, contratos] = await Promise.all([
-    storage.getLicenseStats(empreendimentoId),
+  const [demandas, contratos] = await Promise.all([
     storage.getDemandasStats(empreendimentoId),
     storage.getContratos({ empreendimentoId }),
   ]);
@@ -93,7 +92,6 @@ export async function getInfoEmpreendimento(empreendimentoId: number) {
       localizacao: empreendimento.localizacao,
       status: empreendimento.status,
     },
-    licencas: licenseStats,
     demandas,
     contratos: {
       total: contratos.length,
