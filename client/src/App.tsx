@@ -4,9 +4,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { UnidadeProvider } from "@/contexts/UnidadeContext";
 import { useAuth } from "./lib/auth";
 import Login from "./pages/login";
 import Register from "./pages/register";
+import SelecionarUnidade from "./pages/selecionar-unidade";
 import Dashboard from "./pages/dashboard";
 import Projects from "./pages/projects";
 import NewProject from "./pages/new-project";
@@ -59,30 +61,40 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/empreendimentos" component={Projects} />
-        <Route path="/empreendimentos/novo" component={NewProject} />
-        <Route path="/empreendimentos/:id/editar" component={EditProject} />
-        <Route path="/empreendimentos/:id" component={ProjectDetail} />
-        <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
-        <Route path="/licencas/:id/editar" component={EditLicense} />
-        <Route path="/alertas" component={AlertConfig} />
-        <Route path="/licencas/ativas" component={LicencasAtivas} />
-        <Route path="/licencas/vencer" component={LicencasVencer} />
-        <Route path="/licencas/vencidas" component={LicencasVencidas} />
-        <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
-        <Route path="/entregas/mes" component={EntregasMes} />
-        <Route path="/painel" component={PainelIntegrado} />
-        <Route path="/demandas" component={Demandas} />
-        <Route path="/financeiro" component={Financeiro} />
-        <Route path="/frota" component={Frota} />
-        <Route path="/equipamentos" component={Equipamentos} />
-        <Route path="/rh" component={Rh} />
-        <Route path="/gestao-dados" component={GestaoDados} />
-        <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
-        <Route component={NotFound} />
+        <Route path="/selecionar-unidade" component={SelecionarUnidade} />
+        <Route>
+          {() => (
+            <>
+              <Header />
+              <Switch>
+                <Route path="/" component={Dashboard} />
+                <Route path="/dashboard" component={Dashboard} />
+                <Route path="/empreendimentos" component={Projects} />
+                <Route path="/empreendimentos/novo" component={NewProject} />
+                <Route path="/empreendimentos/:id/editar" component={EditProject} />
+                <Route path="/empreendimentos/:id" component={ProjectDetail} />
+                <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
+                <Route path="/licencas/:id/editar" component={EditLicense} />
+                <Route path="/alertas" component={AlertConfig} />
+                <Route path="/licencas/ativas" component={LicencasAtivas} />
+                <Route path="/licencas/vencer" component={LicencasVencer} />
+                <Route path="/licencas/vencidas" component={LicencasVencidas} />
+                <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
+                <Route path="/entregas/mes" component={EntregasMes} />
+                <Route path="/painel" component={PainelIntegrado} />
+                <Route path="/demandas" component={Demandas} />
+                <Route path="/financeiro" component={Financeiro} />
+                <Route path="/frota" component={Frota} />
+                <Route path="/equipamentos" component={Equipamentos} />
+                <Route path="/rh" component={Rh} />
+                <Route path="/gestao-dados" component={GestaoDados} />
+                <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
+                <Route component={NotFound} />
+              </Switch>
+            </>
+          )}
+        </Route>
       </Switch>
     </div>
   );
@@ -92,10 +104,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="licenca-facil-theme">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <UnidadeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </UnidadeProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

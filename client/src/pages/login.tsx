@@ -61,6 +61,9 @@ export default function Login() {
       } else {
         localStorage.removeItem("savedEmail");
       }
+
+      // Redireciona para seleção de unidade
+      setLocation("/selecionar-unidade");
     } catch (error: any) {
       const message = error.message?.includes("401")
         ? "Usuário ou senha inválidos"
