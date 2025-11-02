@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import forestBackground from "@assets/stock_images/green_forest_nature__4c74bc3e.jpg";
+import wildlifeBackground from "@assets/stock_images/brazilian_wildlife_b_15bd5736.jpg";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import {
   Dialog,
@@ -103,41 +103,37 @@ export default function Login() {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4 relative"
-      style={{
-        backgroundImage: `
-          linear-gradient(
-            135deg, 
-            rgba(21, 53, 31, 0.4) 0%, 
-            rgba(27, 94, 32, 0.35) 25%,
-            rgba(46, 125, 50, 0.3) 50%,
-            rgba(56, 142, 60, 0.35) 75%,
-            rgba(27, 94, 32, 0.4) 100%
-          ),
-          url(${forestBackground})
-        `,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url(${wildlifeBackground})`,
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70 backdrop-blur-[2px]" />
+      </div>
       {/* Login Form Card */}
-      <div className="w-full max-w-md">
-        <Card className="w-full shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
+      <div className="relative z-10 w-full max-w-md">
+        <Card className="w-full shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 border-white/50 dark:border-white/20">
           <CardContent className="pt-8 pb-8 px-8">
+            {/* Logo centrado e maior */}
+            <div className="flex justify-center mb-6">
+              <img
+                src={logoEcoBrasil}
+                alt="EcoBrasil Consultoria"
+                className="h-auto w-56"
+                loading="eager"
+              />
+            </div>
+
+            {/* Título */}
             <div className="text-center mb-8">
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 mx-auto w-fit mb-6 shadow-lg">
-                <img
-                  src={logoEcoBrasil}
-                  alt="EcoBrasil Logo"
-                  className="h-14 mx-auto"
-                />
-              </div>
-              <p className="text-white/90 font-medium drop-shadow">
-                Sistema de Gestão de Licenças Ambientais
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent dark:from-green-400 dark:to-emerald-400 mb-2">
+                Bem-vindo ao EcoGestor
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                Sistema de Gestão Ambiental
               </p>
-              <div className="w-20 h-1 bg-gradient-to-r from-[#00599C] to-[#B2CDE1] mx-auto mt-4 rounded-full shadow-sm"></div>
             </div>
 
             {/* Formulário de Login */}
@@ -145,7 +141,7 @@ export default function Login() {
               <div>
                 <Label
                   htmlFor="email"
-                  className="block text-sm font-medium text-white mb-2 drop-shadow"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
                   E-mail corporativo
                 </Label>
@@ -156,7 +152,8 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="seu@ecobrasil.bio.br"
-                  className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50"
+                  className="w-full"
+                  data-testid="input-email"
                 />
               </div>
 
@@ -164,7 +161,7 @@ export default function Login() {
               <div>
                 <Label
                   htmlFor="password"
-                  className="block text-sm font-medium text-white mb-2 drop-shadow"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
                   Senha
                 </Label>
@@ -176,12 +173,13 @@ export default function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50 pr-10"
+                    className="w-full pr-10"
+                    data-testid="input-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-white/80 hover:text-white"
+                    className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -193,13 +191,13 @@ export default function Login() {
               </div>
 
               {/* Checkbox e link de recuperação */}
-              <div className="flex items-center justify-between text-white/90">
+              <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="accent-[#00599C] w-4 h-4"
+                    className="accent-green-600 w-4 h-4"
                   />
                   <span className="text-sm">Lembrar login</span>
                 </label>
@@ -207,7 +205,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setIsForgotOpen(true)}
-                  className="text-sm text-[#B2CDE1] hover:text-white underline"
+                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 font-medium"
                 >
                   Esqueceu a senha?
                 </button>
@@ -215,7 +213,7 @@ export default function Login() {
 
               {/* Mensagem de erro */}
               {error && (
-                <div className="text-red-200 text-sm bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                   {error}
                 </div>
               )}
@@ -224,12 +222,12 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={login.isPending}
-                className="w-full font-medium bg-gradient-to-r from-[#00599C] to-[#204A2E] hover:from-[#004577] hover:to-[#15351F] text-white shadow-lg border-0 transition-all duration-300 hover:shadow-xl"
+                className="w-full font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 py-6 text-base"
                 data-testid="button-login"
               >
                 {login.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Entrando...
                   </>
                 ) : (
@@ -239,11 +237,11 @@ export default function Login() {
 
               {/* Link para criar conta */}
               <div className="text-center">
-                <p className="text-sm text-white/80 mb-2">Ainda não tem uma conta?</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ainda não tem uma conta?</p>
                 <button
                   type="button"
                   onClick={() => setLocation("/register")}
-                  className="text-sm text-[#B2CDE1] hover:text-white font-medium underline"
+                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 font-medium"
                   data-testid="link-register"
                 >
                   Criar nova conta
@@ -253,9 +251,9 @@ export default function Login() {
 
             {/* Rodapé */}
             <div className="mt-6 text-center">
-              <div className="text-xs text-white/80 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                <p className="font-medium">Criado por Maurivan Vaz Ribeiro</p>
-              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Criado por Maurivan Vaz Ribeiro
+              </p>
             </div>
           </CardContent>
         </Card>
