@@ -547,13 +547,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         condicionanteStats,
         entregaStats,
         prazos,
-        monthlyData
+        monthlyData,
+        frotaStats,
+        equipamentosStats,
+        rhStats,
+        demandasStats,
+        contratosStats
       ] = await Promise.all([
         storage.getLicenseStats(empreendimentoId),
         storage.getCondicionanteStats(empreendimentoId),
         storage.getEntregaStats(empreendimentoId),
         storage.getAgendaPrazos(empreendimentoId),
-        storage.getMonthlyExpiryData(empreendimentoId)
+        storage.getMonthlyExpiryData(empreendimentoId),
+        storage.getFrotaStats(empreendimentoId),
+        storage.getEquipamentosStats(empreendimentoId),
+        storage.getRhStats(empreendimentoId),
+        storage.getDemandasStats(empreendimentoId),
+        storage.getContratosStats(empreendimentoId)
       ]);
 
       res.json({
@@ -561,7 +571,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         condicionantes: condicionanteStats,
         entregas: entregaStats,
         agenda: prazos,
-        monthlyExpiry: monthlyData
+        monthlyExpiry: monthlyData,
+        frota: frotaStats,
+        equipamentos: equipamentosStats,
+        rh: rhStats,
+        demandas: demandasStats,
+        contratos: contratosStats
       });
     } catch (error) {
       console.error("Get dashboard stats error:", error);
