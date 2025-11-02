@@ -124,7 +124,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/vencer")}>
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas/vencer")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-warning/10 rounded-md">
@@ -140,7 +140,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/vencidas")}>
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas/vencidas")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-destructive/10 rounded-md">
@@ -157,7 +157,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Condicionantes */}
-        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/condicionantes/pendentes")}>
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/condicionantes/pendentes")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-blue-500/10 rounded-md">
@@ -174,7 +174,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Entregas */}
-        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/entregas/mes")}>
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/entregas/mes")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-purple-500/10 rounded-md">
@@ -199,7 +199,7 @@ export default function Dashboard() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {/* Frota */}
-          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/frota")}>
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/frota")}>
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="p-2 bg-cyan-500/10 rounded-md">
@@ -219,7 +219,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Equipamentos */}
-          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/equipamentos")}>
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/equipamentos")}>
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="p-2 bg-indigo-500/10 rounded-md">
@@ -239,7 +239,7 @@ export default function Dashboard() {
           </Card>
 
           {/* RH */}
-          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/rh")}>
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/rh")}>
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="p-2 bg-emerald-500/10 rounded-md">
@@ -259,7 +259,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Demandas */}
-          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/demandas")}>
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/demandas")}>
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="p-2 bg-orange-500/10 rounded-md">
@@ -279,7 +279,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Contratos */}
-          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/contratos")}>
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/contratos")}>
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="p-2 bg-pink-500/10 rounded-md">
@@ -305,7 +305,7 @@ export default function Dashboard() {
         {/* Charts Section */}
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="shadow-sm">
+            <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-card-foreground mb-4">Status das Licenças</h3>
                 <div className="h-48">
@@ -314,7 +314,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             
-            <Card className="shadow-sm">
+            <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-card-foreground mb-4">Vencimentos por Mês</h3>
                 <div className="h-48">
@@ -326,7 +326,7 @@ export default function Dashboard() {
 
           {/* Detailed Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="shadow-sm">
+            <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center">
                   <FileText className="mr-2 h-4 w-4" />
@@ -351,7 +351,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm">
+            <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center">
                   <Package className="mr-2 h-4 w-4" />
@@ -379,7 +379,7 @@ export default function Dashboard() {
         </div>
 
         {/* Agenda Section */}
-        <Card className="shadow-sm">
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center">
               <Calendar className="mr-2 h-5 w-5" />
@@ -553,7 +553,7 @@ export default function Dashboard() {
       {empreendimentos && empreendimentos.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Mapa de Empreendimentos */}
-          <Card className="shadow-sm">
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center">
                 <MapPin className="mr-2 h-5 w-5" />
@@ -566,7 +566,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Lista de Empreendimentos */}
-          <Card className="shadow-sm">
+          <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center justify-between">
                 <span className="flex items-center">
