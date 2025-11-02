@@ -1973,6 +1973,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // AI AGENT ROUTES
+  // ========================================
+  
+  // Query the AI agent
+  app.post("/api/ai/query", requireAuth, async (req, res) => {
+    try {
+      const { message, empreendimentoId } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ message: "Mensagem é obrigatória" });
+      }
+      
+      const { processQuery } = await import("./ai/aiService");
+      const response = await processQuery({
+        userId: req.session.userId!,
+        message,
+        empreendimentoId,
+      });
+      
+      res.json({ response });
+    } catch (error: any) {
+      console.error("AI query error:", error);
+      res.status(500).json({ message: error.message || "Erro ao processar pergunta" });
+    }
+  });
+  
+  // Get conversation history
+  app.get("/api/ai/history", requireAuth, async (req, res) => {
+    try {
+      const { getConversationHistory } = await import("./ai/aiService");
+      const history = await getConversationHistory(req.session.userId!, 20);
+      res.json(history);
+    } catch (error: any) {
+      console.error("Get history error:", error);
+      res.status(500).json({ message: "Erro ao buscar histórico" });
+    }
+  });
+  
+  // Index a document
+  app.post("/api/ai/index", requireAuth, async (req, res) => {
+    try {
+      const { content, source, sourceType, empreendimentoId, metadata } = req.body;
+      
+      if (!content || !source || !sourceType) {
+        return res.status(400).json({ message: "Campos obrigatórios faltando" });
+      }
+      
+      const { indexDocument } = await import("./ai/retriever");
+      await indexDocument(content, source, sourceType, empreendimentoId, metadata);
+      
+      res.json({ message: "Documento indexado com sucesso" });
+    } catch (error: any) {
+      console.error("Index document error:", error);
+      res.status(500).json({ message: "Erro ao indexar documento" });
+    }
+  });
+  
+  // Get available actions
+  app.get("/api/ai/actions", requireAuth, async (req, res) => {
+    try {
+      const { ACOES_DISPONIVEIS } = await import("./ai/actions");
+      res.json(ACOES_DISPONIVEIS);
+    } catch (error: any) {
+      console.error("Get actions error:", error);
+      res.status(500).json({ message: "Erro ao buscar ações" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
