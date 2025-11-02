@@ -84,7 +84,7 @@ export interface IStorage {
 
   // Empreendimento operations
   getEmpreendimentos(unidade?: string): Promise<Empreendimento[]>;
-  getEmpreendimento(id: number): Promise<EmpreendimentoWithLicencas | undefined>;
+  getEmpreendimento(id: number, unidade?: string): Promise<EmpreendimentoWithLicencas | undefined>;
   createEmpreendimento(empreendimento: InsertEmpreendimento): Promise<Empreendimento>;
   updateEmpreendimento(id: number, empreendimento: Partial<InsertEmpreendimento>): Promise<Empreendimento>;
   deleteEmpreendimento(id: number): Promise<void>;
@@ -340,8 +340,13 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(empreendimentos).orderBy(desc(empreendimentos.criadoEm));
   }
 
-  async getEmpreendimento(id: number): Promise<EmpreendimentoWithLicencas | undefined> {
-    const [empreendimento] = await db.select().from(empreendimentos).where(eq(empreendimentos.id, id));
+  async getEmpreendimento(id: number, unidade?: string): Promise<EmpreendimentoWithLicencas | undefined> {
+    const conditions = [eq(empreendimentos.id, id)];
+    if (unidade) {
+      conditions.push(eq(empreendimentos.unidade, unidade));
+    }
+    
+    const [empreendimento] = await db.select().from(empreendimentos).where(and(...conditions));
     if (!empreendimento) return undefined;
 
     const licencasData = await db

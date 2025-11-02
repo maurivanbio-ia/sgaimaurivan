@@ -202,7 +202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const empreendimento = await storage.getEmpreendimento(id);
+      const unidade = req.query.unidade as string | undefined;
+      const empreendimento = await storage.getEmpreendimento(id, unidade);
       if (!empreendimento) {
         return res.status(404).json({ message: "Empreendimento not found" });
       }
