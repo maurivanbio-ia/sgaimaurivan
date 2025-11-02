@@ -8,10 +8,22 @@ import { ExportButton } from "@/components/ExportButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import MapComponent from "@/components/MapComponent";
 import type { Empreendimento } from "@shared/schema";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 export default function Projects() {
+  const { unidadeSelecionada } = useUnidade();
+  
   const { data: projects, isLoading } = useQuery<Empreendimento[]>({
-    queryKey: ["/api/empreendimentos"],
+    queryKey: ["/api/empreendimentos", unidadeSelecionada],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (unidadeSelecionada) {
+        params.set("unidade", unidadeSelecionada);
+      }
+      const response = await fetch(`/api/empreendimentos?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch projects");
+      return response.json();
+    },
   });
 
   if (isLoading) {
