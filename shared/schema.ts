@@ -496,6 +496,7 @@ export const rhRegistrosRelations = relations(rhRegistros, ({ one }) => ({
 // =============================================
 export const aiDocuments = pgTable("ai_documents", {
   id: serial("id").primaryKey(),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   source: text("source").notNull(), // nome do arquivo ou módulo
   sourceType: text("source_type").notNull(), // pdf, xlsx, database, contrato, licenca, etc
@@ -507,6 +508,7 @@ export const aiDocuments = pgTable("ai_documents", {
 
 export const aiConversations = pgTable("ai_conversations", {
   id: serial("id").primaryKey(),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   userId: integer("user_id").references(() => users.id).notNull(),
   message: text("message").notNull(), // mensagem do usuário
   response: text("response").notNull(), // resposta do agente
@@ -517,6 +519,7 @@ export const aiConversations = pgTable("ai_conversations", {
 
 export const aiLogs = pgTable("ai_logs", {
   id: serial("id").primaryKey(),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   userId: integer("user_id").references(() => users.id),
   action: text("action").notNull(), // index_document, query, generate_report, etc
   details: json("details").default({}), // detalhes da ação

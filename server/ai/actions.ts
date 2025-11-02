@@ -2,87 +2,93 @@ import { storage } from '../storage';
 
 /**
  * Busca licenças que vencem em X dias
+ * MULTI-TENANCY: Filtra por unidade
  */
-export async function getLicencasVencendoEm(dias: number) {
-  const stats = await storage.getLicenseStats();
+export async function getLicencasVencendoEm(unidade: string, dias: number) {
+  const stats = await storage.getLicenseStats(unidade);
   const today = new Date();
   const targetDate = new Date(today.getTime() + dias * 24 * 60 * 60 * 1000);
   
-  // Filtra licenças que vencem entre hoje e a data alvo
+  // Filtra licenças que vencem entre hoje e a data alvo (já filtrado por unidade)
   return {
     diasAviso: dias,
     quantidade: stats.proxVencer || 0,
-    mensagem: `${stats.proxVencer || 0} licenças vencem nos próximos ${dias} dias`
+    mensagem: `${stats.proxVencer || 0} licenças vencem nos próximos ${dias} dias (unidade: ${unidade})`
   };
 }
 
 /**
  * Busca contratos com pagamentos atrasados
+ * MULTI-TENANCY: Filtra por unidade
  */
-export async function getContratosComPagamentosAtrasados() {
-  const contratos = await storage.getContratos({});
+export async function getContratosComPagamentosAtrasados(unidade: string) {
+  const contratos = await storage.getContratos({ unidade });
   const hoje = new Date();
   
   // Aqui você pode adicionar lógica para buscar pagamentos atrasados
   return {
     total: contratos.length,
-    mensagem: `Total de ${contratos.length} contratos encontrados`
+    mensagem: `Total de ${contratos.length} contratos encontrados (unidade: ${unidade})`
   };
 }
 
 /**
  * Busca veículos em manutenção
+ * MULTI-TENANCY: Filtra por unidade
  */
-export async function getVeiculosEmManutencao() {
-  const stats = await storage.getFrotaStats();
+export async function getVeiculosEmManutencao(unidade: string) {
+  const stats = await storage.getFrotaStats(unidade);
   
   return {
     quantidade: stats.manutencao,
-    mensagem: `${stats.manutencao} veículos estão em manutenção`
+    mensagem: `${stats.manutencao} veículos estão em manutenção (unidade: ${unidade})`
   };
 }
 
 /**
  * Busca equipamentos disponíveis
+ * MULTI-TENANCY: Filtra por unidade
  */
-export async function getEquipamentosDisponiveis() {
-  const stats = await storage.getEquipamentosStats();
+export async function getEquipamentosDisponiveis(unidade: string) {
+  const stats = await storage.getEquipamentosStats(unidade);
   
   return {
     quantidade: stats.disponiveis,
     total: stats.total,
-    mensagem: `${stats.disponiveis} de ${stats.total} equipamentos estão disponíveis`
+    mensagem: `${stats.disponiveis} de ${stats.total} equipamentos estão disponíveis (unidade: ${unidade})`
   };
 }
 
 /**
  * Busca demandas pendentes
+ * MULTI-TENANCY: Filtra por unidade
  */
-export async function getDemandasPendentes(empreendimentoId?: number) {
-  const stats = await storage.getDemandasStats(empreendimentoId);
+export async function getDemandasPendentes(unidade: string, empreendimentoId?: number) {
+  const stats = await storage.getDemandasStats(unidade, empreendimentoId);
   
   return {
     pendentes: stats.pendentes,
     emAndamento: stats.emAndamento,
     concluidas: stats.concluidas,
     total: stats.total,
-    mensagem: `${stats.pendentes} demandas pendentes, ${stats.emAndamento} em andamento`
+    mensagem: `${stats.pendentes} demandas pendentes, ${stats.emAndamento} em andamento (unidade: ${unidade})`
   };
 }
 
 /**
  * Busca informações de um empreendimento
+ * MULTI-TENANCY: Valida que o empreendimento pertence à unidade
  */
-export async function getInfoEmpreendimento(empreendimentoId: number) {
-  const empreendimento = await storage.getEmpreendimentoById(empreendimentoId);
+export async function getInfoEmpreendimento(unidade: string, empreendimentoId: number) {
+  const empreendimento = await storage.getEmpreendimento(empreendimentoId, unidade);
   
   if (!empreendimento) {
-    return { erro: 'Empreendimento não encontrado' };
+    return { erro: 'Empreendimento não encontrado ou não pertence a esta unidade' };
   }
   
   const [demandas, contratos] = await Promise.all([
-    storage.getDemandasStats(empreendimentoId),
-    storage.getContratos({ empreendimentoId }),
+    storage.getDemandasStats(unidade, empreendimentoId),
+    storage.getContratos({ unidade, empreendimentoId }),
   ]);
   
   return {

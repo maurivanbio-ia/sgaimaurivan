@@ -14,8 +14,10 @@ export interface SearchResult {
 
 /**
  * Busca documentos similares usando embeddings
+ * MULTI-TENANCY: Filtra documentos apenas da unidade especificada
  */
 export async function searchSimilarDocuments(
+  unidade: string,
   query: string,
   limit: number = 5,
   empreendimentoId?: number
@@ -24,14 +26,17 @@ export async function searchSimilarDocuments(
     // Gera embedding da query
     const queryEmbedding = await generateEmbedding(query);
     
-    // Busca todos os documentos (com filtro opcional de empreendimento)
-    let documentsQuery = db.select().from(aiDocuments);
+    // Busca documentos filtrados por unidade (OBRIGATÓRIO)
+    const whereConditions = [eq(aiDocuments.unidade, unidade)];
     
     if (empreendimentoId) {
-      documentsQuery = documentsQuery.where(eq(aiDocuments.empreendimentoId, empreendimentoId));
+      whereConditions.push(eq(aiDocuments.empreendimentoId, empreendimentoId));
     }
     
-    const documents = await documentsQuery.execute();
+    const documents = await db.select()
+      .from(aiDocuments)
+      .where(and(...whereConditions))
+      .execute();
     
     // Calcula similaridade para cada documento
     const results: SearchResult[] = documents
@@ -61,8 +66,10 @@ export async function searchSimilarDocuments(
 
 /**
  * Indexa um documento no banco de dados
+ * MULTI-TENANCY: Documenta indexado com unidade obrigatória
  */
 export async function indexDocument(
+  unidade: string,
   content: string,
   source: string,
   sourceType: string,
@@ -73,8 +80,9 @@ export async function indexDocument(
     // Gera embedding do conteúdo
     const embedding = await generateEmbedding(content);
     
-    // Salva no banco
+    // Salva no banco com unidade (ISOLAMENTO DE DADOS)
     await db.insert(aiDocuments).values({
+      unidade,
       empreendimentoId,
       source,
       sourceType,
@@ -83,7 +91,7 @@ export async function indexDocument(
       metadata,
     });
     
-    console.log(`Documento indexado: ${source}`);
+    console.log(`Documento indexado (${unidade}): ${source}`);
   } catch (error) {
     console.error('Error indexing document:', error);
     throw new Error('Falha ao indexar documento');
