@@ -114,7 +114,7 @@ export default function Login() {
       </div>
       {/* Login Form Card */}
       <div className="relative z-10 w-full max-w-md">
-        <Card className="w-full shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 border-white/50 dark:border-white/20">
+        <Card className="w-full shadow-2xl backdrop-blur-2xl bg-white/80 dark:bg-gray-900/80 border-2 border-white/30 dark:border-white/10 rounded-3xl">
           <CardContent className="pt-8 pb-8 px-8">
             {/* Logo centrado e maior */}
             <div className="flex justify-center mb-6">
