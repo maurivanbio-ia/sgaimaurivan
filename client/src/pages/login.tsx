@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import wildlifeBackground from "@assets/stock_images/brazilian_wildlife_b_15bd5736.jpg";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import {
   Dialog,
@@ -103,17 +102,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url(${wildlifeBackground})`,
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70 backdrop-blur-[2px]" />
-      </div>
-      {/* Login Form Card */}
-      <div className="relative z-10 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black">
+      <div className="w-full max-w-md">
         <Card className="w-full shadow-2xl backdrop-blur-2xl bg-white/80 dark:bg-gray-900/80 border-2 border-white/30 dark:border-white/10 rounded-3xl">
           <CardContent className="pt-8 pb-8 px-8">
             {/* Logo centrado e maior */}

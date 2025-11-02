@@ -13,7 +13,6 @@ import LicenseCalendar from "@/components/LicenseCalendar";
 import MapComponent from "@/components/MapComponent";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
-import forestBg from "@assets/stock_images/green_forest_nature__4c74bc3e.jpg";
 
 interface DashboardStats {
   licenses: { active: number; expiring: number; expired: number };
@@ -62,22 +61,12 @@ export default function Dashboard() {
   const contratos = dashboardStats?.contratos || { total: 0, ativos: 0, valorTotal: 0 };
 
   return (
-    <div className="min-h-screen relative">
-      <div
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url(${forestBg})`,
-          zIndex: 0,
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/65 to-black/75 backdrop-blur-[1px]" />
-      </div>
-      
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div className="flex-1">
-          <h2 className="text-4xl font-bold text-white drop-shadow-lg">Painel Geral</h2>
-          <p className="text-white/90 mt-2 text-lg font-medium drop-shadow">Visão geral do sistema de gestão ambiental</p>
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white">Painel Geral</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg font-medium">Visão geral do sistema de gestão ambiental</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">

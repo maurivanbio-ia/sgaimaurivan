@@ -1,7 +1,6 @@
 import { useLocation } from 'wouter';
 import { MapPin } from 'lucide-react';
 import { useUnidade, Unidade } from '@/contexts/UnidadeContext';
-import jaguarBg from '@assets/stock_images/jaguar_pantanal_wild_1f6d6ec0.jpg';
 import logoEcoBrasil from '@assets/IMG_1748_1762043636173.png';
 
 const CerradoIcon = () => (
@@ -89,17 +88,7 @@ export default function SelecionarUnidade() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url(${jaguarBg})`,
-        }}
-      >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      </div>
-
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black flex flex-col items-center justify-center p-6">
         <div className="text-center mb-16">
           <div className="inline-block mb-6">
             <img
@@ -171,7 +160,6 @@ export default function SelecionarUnidade() {
             <span>Sistema de Gestão Ambiental</span>
           </div>
         </div>
-      </div>
     </div>
   );
 }
