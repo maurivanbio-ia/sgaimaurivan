@@ -50,6 +50,7 @@ export default function Header() {
   const NAV = [
     { href: "/", label: "Dashboard", testid: "nav-dashboard" },
     { href: "/dashboard-executivo", label: "Dashboard Executivo", testid: "nav-dashboard-executivo" },
+    { href: "/ia", label: "🤖 EcoAssistente-AI", testid: "nav-ia" },
     { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects" },
     { href: "/painel", label: "Painel", testid: "nav-painel" },
     { href: "/demandas", label: "Demandas", testid: "nav-demandas" },

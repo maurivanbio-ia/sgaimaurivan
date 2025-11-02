@@ -11,6 +11,7 @@ import Register from "./pages/register";
 import SelecionarUnidade from "./pages/selecionar-unidade";
 import Dashboard from "./pages/dashboard";
 import DashboardExecutivo from "./pages/dashboard-executivo";
+import EcoAssistente from "./pages/ecoassistente";
 import Projects from "./pages/projects";
 import NewProject from "./pages/new-project";
 import EditProject from "./pages/edit-project";
@@ -72,6 +73,7 @@ function Router() {
                 <Route path="/" component={Dashboard} />
                 <Route path="/dashboard" component={Dashboard} />
                 <Route path="/dashboard-executivo" component={DashboardExecutivo} />
+                <Route path="/ia" component={EcoAssistente} />
                 <Route path="/empreendimentos" component={Projects} />
                 <Route path="/empreendimentos/novo" component={NewProject} />
                 <Route path="/empreendimentos/:id/editar" component={EditProject} />

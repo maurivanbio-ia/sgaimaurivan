@@ -488,6 +488,40 @@ export const rhRegistrosRelations = relations(rhRegistros, ({ one }) => ({
   }),
 }));
 
+// =============================================
+// AI AGENT MODULE - Agente conversacional EcoGestor-AI
+// =============================================
+export const aiDocuments = pgTable("ai_documents", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  source: text("source").notNull(), // nome do arquivo ou módulo
+  sourceType: text("source_type").notNull(), // pdf, xlsx, database, contrato, licenca, etc
+  content: text("content").notNull(), // conteúdo extraído do documento
+  embedding: text("embedding"), // JSON string com array de embeddings (OpenAI)
+  metadata: json("metadata").default({}), // informações adicionais (data, autor, etc)
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const aiConversations = pgTable("ai_conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  message: text("message").notNull(), // mensagem do usuário
+  response: text("response").notNull(), // resposta do agente
+  context: json("context").default({}), // contexto usado (empreendimento_id, etc)
+  metadata: json("metadata").default({}), // informações adicionais
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const aiLogs = pgTable("ai_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  action: text("action").notNull(), // index_document, query, generate_report, etc
+  details: json("details").default({}), // detalhes da ação
+  status: text("status").notNull().default("success"), // success, error
+  error: text("error"), // mensagem de erro se houver
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -607,6 +641,20 @@ export const insertJobAgendadoSchema = createInsertSchema(jobsAgendados).omit({
   ultimaExecucaoEm: true,
 });
 
+export const insertAiDocumentSchema = createInsertSchema(aiDocuments).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertAiConversationSchema = createInsertSchema(aiConversations).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertAiLogSchema = createInsertSchema(aiLogs).omit({
+  id: true,
+  criadoEm: true,
+});
 
 // =============================================
 // EQUIPMENT MODULE SCHEMA
