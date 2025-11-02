@@ -138,12 +138,12 @@ export default function Login() {
         `}
       </style>
 
-      {/* Card com 70% de transparência */}
+      {/* Card com 90% de transparência */}
       <Card
         className="relative z-10 w-[92%] max-w-md rounded-3xl border shadow-2xl
-                   bg-white/30 backdrop-blur-xl backdrop-saturate-[180%]
-                   border-white/20
-                   shadow-[0_8px_32px_rgba(0,0,0,0.3)]
+                   bg-white/10 backdrop-blur-xl backdrop-saturate-[180%]
+                   border-white/15
+                   shadow-[0_8px_32px_rgba(0,0,0,0.4)]
                    animate-[ecoFadeUp_700ms_ease-out]"
       >
         {/* Brilho e reflexo sutil */}
@@ -168,12 +168,14 @@ export default function Login() {
           {/* Título */}
           <div className="text-center mb-8">
             <h1
-              className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent
-                         [background-image:linear-gradient(90deg,#1E6146,#00599C)]"
+              className="text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
+              style={{
+                textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 20px rgba(255,255,255,0.3)'
+              }}
             >
               EcoGestor
             </h1>
-            <p className="text-sm text-neutral-300/90">
+            <p className="text-sm text-white font-medium drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
               Sistema de Gestão Ambiental Integrada
             </p>
           </div>
@@ -183,7 +185,7 @@ export default function Login() {
             <div>
               <Label
                 htmlFor="email"
-                className="mb-2 block text-[0.9rem] font-medium text-neutral-200"
+                className="mb-2 block text-[0.9rem] font-semibold text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]"
               >
                 E-mail corporativo
               </Label>
@@ -193,8 +195,10 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@ecobrasil.bio.br"
-                className="bg-white/5 border-white/10 text-neutral-50 placeholder:text-neutral-400
-                           focus-visible:ring-2 focus-visible:ring-[#1E6146]/50 focus-visible:border-[#1E6146]/40"
+                className="bg-black/40 border-white/20 text-white placeholder:text-neutral-300
+                           focus-visible:ring-2 focus-visible:ring-[#1E6146]/70 focus-visible:border-[#1E6146]/60
+                           backdrop-blur-sm"
+                data-testid="input-email"
                 required
               />
             </div>
@@ -202,7 +206,7 @@ export default function Login() {
             <div>
               <Label
                 htmlFor="password"
-                className="mb-2 block text-[0.9rem] font-medium text-neutral-200"
+                className="mb-2 block text-[0.9rem] font-semibold text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]"
               >
                 Senha
               </Label>
@@ -213,15 +217,17 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pr-11 bg-white/5 border-white/10 text-neutral-50 placeholder:text-neutral-400
-                             focus-visible:ring-2 focus-visible:ring-[#00599C]/50 focus-visible:border-[#00599C]/40"
+                  className="pr-11 bg-black/40 border-white/20 text-white placeholder:text-neutral-300
+                             focus-visible:ring-2 focus-visible:ring-[#00599C]/70 focus-visible:border-[#00599C]/60
+                             backdrop-blur-sm"
+                  data-testid="input-password"
                   required
                 />
                 <button
                   type="button"
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-200 transition"
+                  className="absolute right-3 top-2.5 text-white hover:text-neutral-200 transition drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -233,8 +239,8 @@ export default function Login() {
             </div>
 
             {/* Opções */}
-            <div className="flex items-center justify-between text-neutral-300">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <div className="flex items-center justify-between text-white">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -246,9 +252,9 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setIsForgotOpen(true)}
-                className="text-[#1E6146] hover:text-[#1E6146]/90 font-medium transition"
+                className="text-sm underline underline-offset-2 hover:text-neutral-200 transition font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
               >
-                Esqueceu a senha?
+                Esqueci minha senha
               </button>
             </div>
 
@@ -266,6 +272,7 @@ export default function Login() {
                          [background-image:linear-gradient(90deg,#1E6146,#00599C)]
                          hover:brightness-110 transition-all duration-300
                          shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_40px_rgba(0,0,0,0.35)]"
+              data-testid="button-login"
             >
               {login.isPending ? (
                 <>
@@ -279,13 +286,13 @@ export default function Login() {
           </form>
 
           <div className="text-center mt-6">
-            <p className="text-sm text-neutral-400 mb-2">
+            <p className="text-sm text-white mb-2 font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
               Ainda não tem uma conta?
             </p>
             <button
               type="button"
               onClick={() => setLocation("/register")}
-              className="text-[#00599C] hover:text-[#00599C]/90 font-medium transition"
+              className="text-white hover:text-neutral-200 font-semibold transition underline underline-offset-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
             >
               Criar nova conta
             </button>
