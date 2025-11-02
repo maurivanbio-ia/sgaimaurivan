@@ -16,6 +16,7 @@ import {
 
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
+import loginBackground from "@assets/image_1762101182539.png";
 
 /**
  * EcoGestor . Tela de Login
@@ -101,17 +102,16 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0D1714]">
-      {/* Camada 1. Gradiente base florestal com vinheta suave */}
+      {/* Imagem de fundo */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          background:
-            "radial-gradient(1200px 800px at 70% 30%, rgba(0,89,156,0.18) 0%, rgba(0,0,0,0) 60%), radial-gradient(1200px 800px at 30% 70%, rgba(30,97,70,0.22) 0%, rgba(0,0,0,0) 60%), linear-gradient(180deg, #0E1B17 0%, #0B1512 100%)",
-          maskImage:
-            "radial-gradient(120% 120% at 50% 50%, black 70%, transparent 100%)",
+          backgroundImage: `url(${loginBackground})`,
         }}
-      />
+      >
+        <div className="absolute inset-0 bg-black/30" />
+      </div>
 
       {/* Camada 2. “Caustics” aquáticas em SVG com animação lenta */}
       <svg
@@ -182,12 +182,12 @@ export default function Login() {
         `}
       </style>
 
-      {/* Cartão. Glassmorphism natural com borda institucional */}
+      {/* Cartão. Glassmorphism natural com borda institucional - Mais transparente */}
       <Card
         className="relative z-10 w-[92%] max-w-md rounded-3xl border shadow-2xl
-                   bg-white/6 backdrop-blur-2xl 
-                   border-[color:rgba(30,97,70,0.35)]
-                   [box-shadow:0_0_0_1px_rgba(0,89,156,0.10),0_25px_80px_rgba(0,0,0,0.45)]
+                   bg-white/3 backdrop-blur-xl 
+                   border-[color:rgba(30,97,70,0.25)]
+                   [box-shadow:0_0_0_1px_rgba(0,89,156,0.08),0_25px_80px_rgba(0,0,0,0.35)]
                    animate-[ecoFadeUp_700ms_ease-out] reduce-motion:none"
       >
         <CardContent className="p-8 md:p-10">
