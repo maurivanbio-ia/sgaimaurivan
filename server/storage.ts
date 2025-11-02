@@ -55,6 +55,12 @@ import {
   veiculos,
   type Veiculo,
   type InsertVeiculo,
+  rhRegistros,
+  type RhRegistro,
+  type InsertRhRegistro,
+  contratos,
+  type Contrato,
+  type InsertContrato,
   datasets,
   type Dataset,
   type InsertDataset,
@@ -107,13 +113,18 @@ export interface IStorage {
   deleteEntrega(id: number): Promise<void>;
 
   // Enhanced Stats
-  getLicenseStats(): Promise<{ active: number; expiring: number; expired: number }>;
-  getCondicionanteStats(): Promise<{ pendentes: number; cumpridas: number; vencidas: number }>;
-  getEntregaStats(): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
+  getLicenseStats(empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number }>;
+  getCondicionanteStats(empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }>;
+  getEntregaStats(empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
   getEntregasDoMes(): Promise<Entrega[]>;
-  getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
-  getMonthlyExpiryData(): Promise<Array<{ month: string; count: number }>>;
+  getAgendaPrazos(empreendimentoId?: number): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
+  getMonthlyExpiryData(empreendimentoId?: number): Promise<Array<{ month: string; count: number }>>;
   getLicencasByDateRange(startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>>;
+  getFrotaStats(empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number; alugados: number }>;
+  getEquipamentosStats(empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number }>;
+  getRhStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }>;
+  getDemandasStats(empreendimentoId?: number): Promise<{ total: number; pendentes: number; emAndamento: number; concluidas: number }>;
+  getContratosStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }>;
 
   // Alert operations
   getAlertConfigs(): Promise<AlertConfig[]>;
@@ -149,13 +160,6 @@ export interface IStorage {
   createDemanda(demanda: InsertDemanda): Promise<Demanda>;
   updateDemanda(id: number, updates: Partial<Demanda>): Promise<Demanda | undefined>;
   deleteDemanda(id: number): Promise<boolean>;
-  getDemandasStats(): Promise<{
-    total: number;
-    concluidas: number;
-    emAndamento: number;
-    atrasadas: number;
-    porSetor: Array<{ setor: string; count: number }>;
-  }>;
   getDemandasChartData(): Promise<{
     statusChart: Array<{ status: string; count: number }>;
     prioridadeChart: Array<{ prioridade: string; count: number }>;
@@ -222,12 +226,6 @@ export interface IStorage {
   createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento>;
   updateEquipamento(id: number, updates: Partial<InsertEquipamento>): Promise<Equipamento>;
   deleteEquipamento(id: number): Promise<boolean>;
-  getEquipamentosStats(empreendimentoId?: number): Promise<{
-    total: number;
-    disponivel: number;
-    em_uso: number;
-    manutencao: number;
-  }>;
 
   // Veículos operations
   getVeiculos(filters?: {
@@ -248,6 +246,24 @@ export interface IStorage {
     manutencao: number;
     indisponivel: number;
   }>;
+
+  // RH operations
+  getRhRegistros(filters?: {
+    status?: string;
+    cargo?: string;
+    search?: string;
+    empreendimentoId?: number;
+  }): Promise<RhRegistro[]>;
+  getRhRegistroById(id: number): Promise<RhRegistro | undefined>;
+  createRhRegistro(registro: InsertRhRegistro): Promise<RhRegistro>;
+  updateRhRegistro(id: number, updates: Partial<InsertRhRegistro>): Promise<RhRegistro>;
+  deleteRhRegistro(id: number): Promise<boolean>;
+
+  // Contratos operations
+  getContratos(filters?: {
+    empreendimentoId?: number;
+    status?: string;
+  }): Promise<Contrato[]>;
 
   // Datasets operations
   getDatasets(filters?: {
@@ -717,6 +733,58 @@ export class DatabaseStorage implements IStorage {
 
     // Sort by prazo (closest first)
     return agenda.sort((a, b) => new Date(a.prazo).getTime() - new Date(b.prazo).getTime());
+  }
+
+  async getFrotaStats(empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number; alugados: number }> {
+    const veiculos = await this.getVeiculos(empreendimentoId ? { empreendimentoId } : {});
+    return {
+      total: veiculos.length,
+      disponiveis: veiculos.filter(v => v.status === 'disponivel').length,
+      emUso: veiculos.filter(v => v.status === 'em_uso').length,
+      manutencao: veiculos.filter(v => v.status === 'manutencao').length,
+      alugados: veiculos.filter(v => (v as any).tipoPropriedade === 'alugado').length,
+    };
+  }
+
+  async getEquipamentosStats(empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number }> {
+    const equipamentos = await this.getEquipamentos({ empreendimentoId });
+    return {
+      total: equipamentos.length,
+      disponiveis: equipamentos.filter(e => e.status === 'disponivel').length,
+      emUso: equipamentos.filter(e => e.status === 'em_uso').length,
+      manutencao: equipamentos.filter(e => e.status === 'manutencao').length,
+    };
+  }
+
+  async getRhStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }> {
+    const rh = await this.getRhRegistros({ empreendimentoId });
+    return {
+      total: rh.length,
+      ativos: rh.filter(r => r.status === 'ativo').length,
+      afastados: rh.filter(r => r.status === 'afastado').length,
+    };
+  }
+
+  async getDemandasStats(empreendimentoId?: number): Promise<{ total: number; pendentes: number; emAndamento: number; concluidas: number }> {
+    const filters = empreendimentoId ? { empreendimento: empreendimentoId.toString() } : {};
+    const demandas = await this.getDemandas(filters);
+    return {
+      total: demandas.length,
+      pendentes: demandas.filter(d => d.status === 'backlog' || d.status === 'a_fazer').length,
+      emAndamento: demandas.filter(d => d.status === 'em_andamento' || d.status === 'em_revisao').length,
+      concluidas: demandas.filter(d => d.status === 'concluida').length,
+    };
+  }
+
+  async getContratosStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }> {
+    const contratos = await this.getContratos({ empreendimentoId });
+    const ativos = contratos.filter(c => !c.deletedAt);
+    const valorTotal = ativos.reduce((sum, c) => sum + (parseFloat(c.valorTotal || '0')), 0);
+    return {
+      total: contratos.length,
+      ativos: ativos.length,
+      valorTotal: Math.round(valorTotal * 100) / 100,
+    };
   }
 
   private calculateCondicionanteStatus(prazo: string): string {
@@ -1530,32 +1598,6 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
-  async getEquipamentosStats(empreendimentoId?: number): Promise<{
-    total: number;
-    disponivel: number;
-    em_uso: number;
-    manutencao: number;
-  }> {
-    let query = db.select().from(equipamentos).$dynamic();
-
-    if (empreendimentoId) {
-      query = query.where(eq(equipamentos.empreendimentoId, empreendimentoId));
-    }
-
-    const allEquipamentos = await query;
-
-    const disponivel = allEquipamentos.filter(e => e.status === "disponivel").length;
-    const em_uso = allEquipamentos.filter(e => e.status === "em_uso").length;
-    const manutencao = allEquipamentos.filter(e => e.status === "manutencao").length;
-
-    return {
-      total: allEquipamentos.length,
-      disponivel,
-      em_uso,
-      manutencao,
-    };
-  }
-
   // Veículos operations
   async getVeiculos(filters?: {
     tipo?: string;
@@ -1657,6 +1699,106 @@ export class DatabaseStorage implements IStorage {
       manutencao,
       indisponivel,
     };
+  }
+
+  // RH operations
+  async getRhRegistros(filters?: {
+    status?: string;
+    cargo?: string;
+    search?: string;
+    empreendimentoId?: number;
+  }): Promise<RhRegistro[]> {
+    let query = db.select().from(rhRegistros).$dynamic();
+
+    if (filters) {
+      const conditions = [];
+
+      if (filters.status) {
+        conditions.push(eq(rhRegistros.status, filters.status));
+      }
+
+      if (filters.cargo) {
+        conditions.push(eq(rhRegistros.cargo, filters.cargo));
+      }
+
+      if (filters.empreendimentoId) {
+        conditions.push(eq(rhRegistros.empreendimentoId, filters.empreendimentoId));
+      }
+
+      if (filters.search) {
+        conditions.push(
+          or(
+            ilike(rhRegistros.nome, `%${filters.search}%`),
+            ilike(rhRegistros.cpf, `%${filters.search}%`)
+          )
+        );
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+
+    return query.orderBy(desc(rhRegistros.criadoEm));
+  }
+
+  async getRhRegistroById(id: number): Promise<RhRegistro | undefined> {
+    const [registro] = await db
+      .select()
+      .from(rhRegistros)
+      .where(eq(rhRegistros.id, id));
+    return registro || undefined;
+  }
+
+  async createRhRegistro(registro: InsertRhRegistro): Promise<RhRegistro> {
+    const [newRegistro] = await db
+      .insert(rhRegistros)
+      .values(registro)
+      .returning();
+    return newRegistro;
+  }
+
+  async updateRhRegistro(id: number, updates: Partial<InsertRhRegistro>): Promise<RhRegistro> {
+    const [updated] = await db
+      .update(rhRegistros)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(rhRegistros.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteRhRegistro(id: number): Promise<boolean> {
+    const result = await db.delete(rhRegistros).where(eq(rhRegistros.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Contratos operations
+  async getContratos(filters?: {
+    empreendimentoId?: number;
+    status?: string;
+  }): Promise<Contrato[]> {
+    let query = db.select().from(contratos).$dynamic();
+
+    if (filters) {
+      const conditions = [];
+
+      if (filters.empreendimentoId) {
+        conditions.push(eq(contratos.empreendimentoId, filters.empreendimentoId));
+      }
+
+      if (filters.status) {
+        conditions.push(eq(contratos.status, filters.status));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+    }
+
+    return query.orderBy(desc(contratos.criadoEm));
   }
 
   // Datasets operations

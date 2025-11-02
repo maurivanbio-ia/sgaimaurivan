@@ -1,15 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
 import LicenseCalendar from "@/components/LicenseCalendar";
 import MapComponent from "@/components/MapComponent";
-import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye } from "lucide-react";
+import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 
 interface DashboardStats {
@@ -19,19 +21,33 @@ interface DashboardStats {
   agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>;
   monthlyExpiry: any[];
   calendar: any[];
+  frota?: { total: number; disponiveis: number; emUso: number; manutencao: number; alugados: number };
+  equipamentos?: { total: number; disponiveis: number; emUso: number; manutencao: number };
+  rh?: { total: number; ativos: number; afastados: number };
+  demandas?: { total: number; pendentes: number; emAndamento: number; concluidas: number };
+  contratos?: { total: number; ativos: number; valorTotal: number };
 }
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
+  const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>("todos");
   
-  // Use consolidated endpoint instead of multiple separate requests
-  const { data: dashboardStats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
-  });
-
-  // Buscar empreendimentos para o mapa
+  // Buscar empreendimentos primeiro
   const { data: empreendimentos } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
+  });
+
+  // Use consolidated endpoint instead of multiple separate requests
+  const { data: dashboardStats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats", { empreendimentoId: selectedEmpreendimento }],
+    queryFn: async () => {
+      const url = selectedEmpreendimento === "todos" 
+        ? "/api/dashboard/stats" 
+        : `/api/dashboard/stats?empreendimentoId=${selectedEmpreendimento}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+      return res.json();
+    },
   });
 
   if (isLoading) {
@@ -46,15 +62,38 @@ export default function Dashboard() {
   const condicionantes = dashboardStats?.condicionantes || { pendentes: 0, cumpridas: 0, vencidas: 0 };
   const entregas = dashboardStats?.entregas || { pendentes: 0, entregues: 0, atrasadas: 0 };
   const prazos = dashboardStats?.agenda || [];
+  const frota = dashboardStats?.frota || { total: 0, disponiveis: 0, emUso: 0, manutencao: 0, alugados: 0 };
+  const equipamentos = dashboardStats?.equipamentos || { total: 0, disponiveis: 0, emUso: 0, manutencao: 0 };
+  const rh = dashboardStats?.rh || { total: 0, ativos: 0, afastados: 0 };
+  const demandas = dashboardStats?.demandas || { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
+  const contratos = dashboardStats?.contratos || { total: 0, ativos: 0, valorTotal: 0 };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="flex-1">
           <h2 className="text-3xl font-bold text-card-foreground">Painel Geral</h2>
           <p className="text-muted-foreground mt-2">Visão geral do sistema de gestão ambiental</p>
         </div>
-        <ExportButton entity="relatorio-completo" variant="default" />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
+              <SelectTrigger className="w-[280px]" data-testid="select-empreendimento-filter">
+                <SelectValue placeholder="Filtrar por empreendimento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">📊 Todos os Empreendimentos</SelectItem>
+                {empreendimentos?.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id.toString()}>
+                    {emp.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <ExportButton entity="relatorio-completo" variant="default" />
+        </div>
       </div>
 
       {/* License Calendar Section */}
@@ -146,6 +185,115 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Recursos e Gestão - Nova Seção */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-card-foreground mb-4 flex items-center">
+          <Briefcase className="mr-2 h-5 w-5" />
+          Recursos e Gestão
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {/* Frota */}
+          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/frota")}>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-cyan-500/10 rounded-md">
+                  <Truck className="text-cyan-500 h-5 w-5" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-muted-foreground">Veículos</p>
+                  <p className="text-xl font-bold text-cyan-500" data-testid="stat-frota-total">
+                    {frota.total}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {frota.disponiveis} disp. • {frota.alugados} alug.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Equipamentos */}
+          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/equipamentos")}>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-indigo-500/10 rounded-md">
+                  <Package className="text-indigo-500 h-5 w-5" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-muted-foreground">Equipamentos</p>
+                  <p className="text-xl font-bold text-indigo-500" data-testid="stat-equipamentos-total">
+                    {equipamentos.total}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {equipamentos.disponiveis} disponíveis
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* RH */}
+          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/rh")}>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-emerald-500/10 rounded-md">
+                  <Users className="text-emerald-500 h-5 w-5" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-muted-foreground">Colaboradores</p>
+                  <p className="text-xl font-bold text-emerald-500" data-testid="stat-rh-total">
+                    {rh.total}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {rh.ativos} ativos
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Demandas */}
+          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/demandas")}>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-500/10 rounded-md">
+                  <ListTodo className="text-orange-500 h-5 w-5" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-muted-foreground">Demandas</p>
+                  <p className="text-xl font-bold text-orange-500" data-testid="stat-demandas-total">
+                    {demandas.total}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {demandas.pendentes} pendentes
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Contratos */}
+          <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/contratos")}>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-pink-500/10 rounded-md">
+                  <FileText className="text-pink-500 h-5 w-5" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-muted-foreground">Contratos</p>
+                  <p className="text-xl font-bold text-pink-500" data-testid="stat-contratos-total">
+                    {contratos.total}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {contratos.ativos} ativos
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Content Grid */}
