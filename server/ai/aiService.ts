@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { db } from '../db';
 import { aiConversations, aiLogs } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { searchSimilarDocuments } from './retriever';
 import * as actions from './actions';
 
