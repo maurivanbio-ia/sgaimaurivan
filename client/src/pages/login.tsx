@@ -16,7 +16,7 @@ import {
 
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
-import loginBackground from "@assets/image_1762101182539.png";
+import loginBackground from "@assets/login-background.png";
 
 /**
  * EcoGestor . Tela de Login
@@ -101,16 +101,18 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0D1714]">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Imagem de fundo */}
       <div
-        aria-hidden
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 z-0"
         style={{
           backgroundImage: `url(${loginBackground})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
         }}
       >
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/40" />
       </div>
 
       {/* Camada 2. “Caustics” aquáticas em SVG com animação lenta */}
