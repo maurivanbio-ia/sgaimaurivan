@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import wildlifeBg from "@assets/stock_images/brazilian_wildlife_b_15bd5736.jpg";
 import {
   DndContext,
   closestCorners,
