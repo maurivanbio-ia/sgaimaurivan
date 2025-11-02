@@ -7,8 +7,12 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 ## Recent Changes (November 2025)
 
 ### UI/UX Improvements
-- **Background Images Removed**: All background images removed from pages for cleaner, faster-loading interface
-  - Login page: Solid gradient background (gray-900 → gray-800 → gray-900)
+- **Login Page Background**: Custom branded background image with enhanced glassmorphism
+  - Background: Custom EcoGestor branded image (image_1762101182539.png)
+  - Card transparency: Increased to bg-white/3 (3% opacity) for better background visibility
+  - Glassmorphism effect: backdrop-blur-xl with subtle border and shadow
+  - Text remains readable with proper contrast
+- **Other Pages - Clean Gradients**: 
   - Register page: Solid gradient background (gray-900 → gray-800 → gray-900)
   - Unit selection: Solid gradient background (gray-900 → gray-800 → gray-900)
   - Dashboard: Solid gradient background (gray-50 → white → gray-50 in light mode)
