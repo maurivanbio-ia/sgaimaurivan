@@ -13,6 +13,7 @@ import LicenseCalendar from "@/components/LicenseCalendar";
 import MapComponent from "@/components/MapComponent";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
+import forestBg from "@assets/stock_images/green_forest_nature__4c74bc3e.jpg";
 
 interface DashboardStats {
   licenses: { active: number; expiring: number; expired: number };
@@ -50,14 +51,6 @@ export default function Dashboard() {
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">Carregando estatísticas...</div>
-      </div>
-    );
-  }
-
   const licenses = dashboardStats?.licenses || { active: 0, expiring: 0, expired: 0 };
   const condicionantes = dashboardStats?.condicionantes || { pendentes: 0, cumpridas: 0, vencidas: 0 };
   const entregas = dashboardStats?.entregas || { pendentes: 0, entregues: 0, atrasadas: 0 };
@@ -69,11 +62,22 @@ export default function Dashboard() {
   const contratos = dashboardStats?.contratos || { total: 0, ativos: 0, valorTotal: 0 };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen relative">
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url(${forestBg})`,
+          zIndex: 0,
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/65 to-black/75 backdrop-blur-[1px]" />
+      </div>
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div className="flex-1">
-          <h2 className="text-3xl font-bold text-card-foreground">Painel Geral</h2>
-          <p className="text-muted-foreground mt-2">Visão geral do sistema de gestão ambiental</p>
+          <h2 className="text-4xl font-bold text-white drop-shadow-lg">Painel Geral</h2>
+          <p className="text-white/90 mt-2 text-lg font-medium drop-shadow">Visão geral do sistema de gestão ambiental</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -104,7 +108,7 @@ export default function Dashboard() {
       {/* Enhanced KPI Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
         {/* Licenças */}
-        <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/licencas/ativas")}>
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-2 border-white/30 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas/ativas")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-success/10 rounded-md">
@@ -675,6 +679,7 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
