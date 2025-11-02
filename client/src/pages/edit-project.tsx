@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Save, ArrowLeft } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 const projectSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
@@ -37,9 +38,19 @@ export default function EditProject() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { unidadeSelecionada } = useUnidade();
 
   const { data: project, isLoading } = useQuery<Empreendimento>({
-    queryKey: ["/api/empreendimentos", id],
+    queryKey: ["/api/empreendimentos", id, unidadeSelecionada],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (unidadeSelecionada) {
+        params.set("unidade", unidadeSelecionada);
+      }
+      const response = await fetch(`/api/empreendimentos/${id}?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch project");
+      return response.json();
+    },
   });
 
   const form = useForm<ProjectFormData>({

@@ -31,6 +31,7 @@ import { SstTab } from "@/components/empreendimento/SstTab";
 import { GestaoDadosTab } from "@/components/empreendimento/GestaoDadosTab";
 import { EquipamentosTab } from "@/components/empreendimento/EquipamentosTab";
 import { FrotaTab } from "@/components/empreendimento/FrotaTab";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 const getTipoLabel = (tipo: string) => {
   const tipos: Record<string, string> = {
@@ -70,9 +71,19 @@ const getStatusLabel = (status: string) => {
 export default function ProjectDetail() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
+  const { unidadeSelecionada } = useUnidade();
   
   const { data: project, isLoading } = useQuery<Empreendimento>({
-    queryKey: ["/api/empreendimentos", id],
+    queryKey: ["/api/empreendimentos", id, unidadeSelecionada],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (unidadeSelecionada) {
+        params.set("unidade", unidadeSelecionada);
+      }
+      const response = await fetch(`/api/empreendimentos/${id}?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch project");
+      return response.json();
+    },
   });
 
   if (isLoading) {
