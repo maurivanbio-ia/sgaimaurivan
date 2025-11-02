@@ -35,6 +35,7 @@ export const empreendimentos = pgTable("empreendimentos", {
   dataInicio: date("data_inicio"),
   dataFimPrevista: date("data_fim_prevista"),
   dataFimReal: date("data_fim_real"),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
@@ -252,6 +253,7 @@ export const rhRegistros = pgTable("rh_registros", {
   contatoEmail: text("contato_email"),
   contatoTelefone: text("contato_telefone"),
   arquivosIdsJson: json("arquivos_ids_json").default([]),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
@@ -334,6 +336,7 @@ export const demandas = pgTable("demandas", {
   recorrente: boolean("recorrente").notNull().default(false),
   recorrenciaCron: text("recorrencia_cron"), // expressão cron para repetição
   recorrenciaFim: date("recorrencia_fim"), // data final para parar de gerar instâncias
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -677,6 +680,7 @@ export const equipamentos = pgTable("equipamentos", {
   dataAquisicao: date("data_aquisicao"),
   observacoes: text("observacoes"),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -718,6 +722,7 @@ export const veiculos = pgTable("veiculos", {
   termoVistoriaId: integer("termo_vistoria_id").references(() => arquivos.id),
   dataAluguel: date("data_aluguel"),
   dataEntrega: date("data_entrega"),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -769,6 +774,7 @@ export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
   status: text("status").notNull().default("aguardando"), // aguardando, aprovado, pago, recusado
   comprovanteUrl: text("comprovante_url"), // URL do arquivo de comprovante
   observacoes: text("observacoes"),
+  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
