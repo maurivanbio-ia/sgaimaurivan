@@ -19,9 +19,8 @@ import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import loginBackground from "@assets/login-background-correct.jpg";
 
 /**
- * EcoGestor — Tela de Login
- * Tema: Escuro elegante, realista e ambiental. Cinemático.
- * Card com 90% de transparência real e fundo tratado profissionalmente.
+ * EcoGestor — Tela de Login (Card 100% Transparente)
+ * Tema: Escuro, elegante e ambiental. Fundo cinematográfico realista.
  */
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -82,7 +81,7 @@ export default function Login() {
 
       toast({
         title: "E-mail enviado",
-        description: "Verifique sua caixa de entrada para redefinir a senha.",
+        description: "Verifique sua caixa de entrada.",
       });
       setIsForgotOpen(false);
       setForgotEmail("");
@@ -98,26 +97,24 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Fundo florestal tratado (cinematográfico e profissional) */}
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden text-white">
+      {/* Fundo florestal cinematográfico */}
       <div
         className="absolute inset-0 z-0"
         style={{
           backgroundImage: `url(${loginBackground})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          filter:
-            "contrast(1.15) brightness(0.85) saturate(1.2)",
+          filter: "contrast(1.2) brightness(0.8) saturate(1.2)",
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/20" />
       </div>
 
-      {/* Luz ambiental suave */}
+      {/* Luz ambiental dinâmica */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-[20%] blur-[80px] opacity-50"
+        className="pointer-events-none absolute -inset-[20%] blur-[80px] opacity-60"
         style={{
           background:
             "radial-gradient(40% 60% at 20% 30%, rgba(0,89,156,0.25), transparent 60%), radial-gradient(40% 60% at 80% 70%, rgba(30,97,70,0.25), transparent 60%)",
@@ -128,7 +125,7 @@ export default function Login() {
       <style>
         {`
           @keyframes ecoLightSweep {
-            0% { transform: translateX(-8%) translateY(-4%); }
+            0% { transform: translateX(-6%) translateY(-4%); }
             100% { transform: translateX(8%) translateY(6%); }
           }
           @keyframes ecoFadeUp {
@@ -138,21 +135,15 @@ export default function Login() {
         `}
       </style>
 
-      {/* Card sem opacidade - apenas glassmorphism */}
+      {/* Card 100% transparente */}
       <Card
-        className="relative z-10 w-[92%] max-w-md rounded-3xl border shadow-2xl
-                   bg-transparent backdrop-blur-xl backdrop-saturate-[180%]
-                   border-white/10
-                   shadow-[0_8px_32px_rgba(0,0,0,0.4)]
-                   animate-[ecoFadeUp_700ms_ease-out]"
+        className="relative z-10 w-[92%] max-w-md rounded-3xl border border-white/10
+                   bg-transparent backdrop-blur-[20px] backdrop-saturate-[200%]
+                   shadow-[0_10px_40px_rgba(0,0,0,0.4)]
+                   animate-[ecoFadeUp_800ms_ease-out]"
       >
-        {/* Brilho e reflexo sutil */}
-        <div
-          className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent opacity-60 pointer-events-none"
-          style={{
-            backdropFilter: "blur(25px) saturate(200%) brightness(1.15)",
-          }}
-        />
+        {/* Contorno sutil luminoso */}
+        <div className="absolute inset-0 rounded-3xl border border-white/10 backdrop-blur-2xl" />
 
         <CardContent className="p-8 md:p-10 relative z-10">
           {/* Logo */}
@@ -160,7 +151,7 @@ export default function Login() {
             <img
               src={logoEcoBrasil}
               alt="EcoBrasil Consultoria"
-              className="w-52 h-auto md:w-56 select-none drop-shadow-[0_0_25px_rgba(30,97,70,0.25)]"
+              className="w-52 h-auto md:w-56 select-none drop-shadow-[0_0_20px_rgba(30,97,70,0.35)]"
               draggable={false}
             />
           </div>
@@ -170,12 +161,12 @@ export default function Login() {
             <h1
               className="text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
               style={{
-                textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 20px rgba(255,255,255,0.3)'
+                textShadow: "0 2px 10px rgba(0,0,0,0.9), 0 0 25px rgba(255,255,255,0.25)",
               }}
             >
               EcoGestor
             </h1>
-            <p className="text-sm text-white font-medium drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+            <p className="text-sm text-white/90 font-medium">
               Sistema de Gestão Ambiental Integrada
             </p>
           </div>
@@ -185,7 +176,7 @@ export default function Login() {
             <div>
               <Label
                 htmlFor="email"
-                className="mb-2 block text-[0.9rem] font-semibold text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]"
+                className="mb-2 block text-[0.9rem] font-semibold text-white"
               >
                 E-mail corporativo
               </Label>
@@ -196,9 +187,7 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@ecobrasil.bio.br"
                 className="bg-black/40 border-white/20 text-white placeholder:text-neutral-300
-                           focus-visible:ring-2 focus-visible:ring-[#1E6146]/70 focus-visible:border-[#1E6146]/60
-                           backdrop-blur-sm"
-                data-testid="input-email"
+                           focus-visible:ring-2 focus-visible:ring-[#1E6146]/70 focus-visible:border-[#1E6146]/60"
                 required
               />
             </div>
@@ -206,7 +195,7 @@ export default function Login() {
             <div>
               <Label
                 htmlFor="password"
-                className="mb-2 block text-[0.9rem] font-semibold text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]"
+                className="mb-2 block text-[0.9rem] font-semibold text-white"
               >
                 Senha
               </Label>
@@ -218,29 +207,23 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="pr-11 bg-black/40 border-white/20 text-white placeholder:text-neutral-300
-                             focus-visible:ring-2 focus-visible:ring-[#00599C]/70 focus-visible:border-[#00599C]/60
-                             backdrop-blur-sm"
-                  data-testid="input-password"
+                             focus-visible:ring-2 focus-visible:ring-[#00599C]/70 focus-visible:border-[#00599C]/60"
                   required
                 />
                 <button
                   type="button"
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-2.5 text-white hover:text-neutral-200 transition drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                  className="absolute right-3 top-2.5 text-white/80 hover:text-white transition"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
             {/* Opções */}
             <div className="flex items-center justify-between text-white">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -252,7 +235,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setIsForgotOpen(true)}
-                className="text-sm underline underline-offset-2 hover:text-neutral-200 transition font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                className="text-sm underline underline-offset-2 hover:text-neutral-200 transition font-medium"
               >
                 Esqueci minha senha
               </button>
@@ -272,7 +255,6 @@ export default function Login() {
                          [background-image:linear-gradient(90deg,#1E6146,#00599C)]
                          hover:brightness-110 transition-all duration-300
                          shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_40px_rgba(0,0,0,0.35)]"
-              data-testid="button-login"
             >
               {login.isPending ? (
                 <>
@@ -286,13 +268,11 @@ export default function Login() {
           </form>
 
           <div className="text-center mt-6">
-            <p className="text-sm text-white mb-2 font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
-              Ainda não tem uma conta?
-            </p>
+            <p className="text-sm text-white/90 mb-2">Ainda não tem uma conta?</p>
             <button
               type="button"
               onClick={() => setLocation("/register")}
-              className="text-white hover:text-neutral-200 font-semibold transition underline underline-offset-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+              className="text-white font-semibold underline underline-offset-2 hover:text-neutral-200 transition"
             >
               Criar nova conta
             </button>
