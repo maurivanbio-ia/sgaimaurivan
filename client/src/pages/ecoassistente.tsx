@@ -17,7 +17,7 @@ interface Message {
 }
 
 export default function EcoAssistente() {
-  const { unidade } = useUnidade();
+  const { unidadeSelecionada } = useUnidade();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -37,7 +37,7 @@ export default function EcoAssistente() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ unidade: unidade?.slug, message }),
+        body: JSON.stringify({ unidade: unidadeSelecionada, message }),
       });
       
       if (!response.ok) {

@@ -39,19 +39,20 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 - **⚠️ TODO - Storage Methods**: Need to update storage.ts methods (getLicenseStats, getFrotaStats, etc.) to accept and filter by unidade parameter
 
 ### Dashboard Executivo (Executive Dashboard)
-- **New Executive Dashboard**: `/dashboard-executivo` page for directors
+- **New Executive Dashboard**: `/dashboard-executivo` page for directors (standalone page, not using Card components)
   - Consolidated view of all three ECOBRASIL units (Goiânia, Salvador, Luiz Eduardo Magalhães)
   - Overview header with total units, empreendimentos, collaborators, and contract value
-  - Aggregated KPI cards for Frota, Equipamentos, and Demandas across all units
-  - Per-unit detail cards showing comprehensive metrics:
+  - Aggregated KPI sections for Frota, Equipamentos, and Demandas across all units (using direct divs instead of Card components)
+  - Per-unit detail sections showing comprehensive metrics:
     - Empreendimentos (total, ativos, concluídos)
     - Frota (total, disponíveis, em uso, manutenção, alugados)
     - Equipamentos (total, disponíveis, em uso, manutenção)
     - RH (total, ativos, afastados)
     - Demandas (total, pendentes, em andamento, concluídas)
     - Contratos (total, ativos, valor total)
-  - Color-coded cards with unit-specific gradients
+  - Color-coded sections with unit-specific gradients
   - Accessible from header navigation menu
+  - **Design**: Standalone page without shadcn Card components - uses direct divs with custom styling
 - **API Endpoint**: `GET /api/dashboard/executivo`
   - Returns consolidated statistics from all units
   - Fetches data in parallel for optimal performance

@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Users, Car, Wrench, FileText, FileCheck, TrendingUp, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -95,65 +94,65 @@ export default function DashboardExecutivo() {
 
         {/* KPIs Consolidados */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="shadow-lg border-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border-b border-blue-100 dark:border-blue-800">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
                 <Car className="h-5 w-5 text-blue-600" />
                 Frota Total
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h3>
+            </div>
+            <div className="p-6">
               <div className="text-3xl font-bold text-blue-600 mb-3">{totaisGerais?.frota || 0}</div>
               <div className="space-y-1 text-sm">
                 {statsData?.map((unidade) => (
                   <div key={unidade.unidade} className="flex justify-between">
-                    <span className="text-gray-600">{unidade.unidade}:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{unidade.unidade}:</span>
                     <span className="font-semibold">{unidade.frota.total}</span>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="shadow-lg border-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 border-b border-orange-100 dark:border-orange-800">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-orange-900 dark:text-orange-100">
                 <Wrench className="h-5 w-5 text-orange-600" />
                 Equipamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h3>
+            </div>
+            <div className="p-6">
               <div className="text-3xl font-bold text-orange-600 mb-3">{totaisGerais?.equipamentos || 0}</div>
               <div className="space-y-1 text-sm">
                 {statsData?.map((unidade) => (
                   <div key={unidade.unidade} className="flex justify-between">
-                    <span className="text-gray-600">{unidade.unidade}:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{unidade.unidade}:</span>
                     <span className="font-semibold">{unidade.equipamentos.total}</span>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="shadow-lg border-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 border-b border-purple-100 dark:border-purple-800">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-purple-900 dark:text-purple-100">
                 <FileText className="h-5 w-5 text-purple-600" />
                 Demandas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h3>
+            </div>
+            <div className="p-6">
               <div className="text-3xl font-bold text-purple-600 mb-3">{totaisGerais?.demandas || 0}</div>
               <div className="space-y-1 text-sm">
                 {statsData?.map((unidade) => (
                   <div key={unidade.unidade} className="flex justify-between">
-                    <span className="text-gray-600">{unidade.unidade}:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{unidade.unidade}:</span>
                     <span className="font-semibold">{unidade.demandas.total}</span>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Detalhamento por Unidade */}
@@ -166,20 +165,20 @@ export default function DashboardExecutivo() {
           {statsData?.map((unidade, idx) => {
             const unidadeInfo = unidades[idx];
             return (
-              <Card key={unidade.unidade} className="shadow-xl border-2 overflow-hidden">
+              <div key={unidade.unidade} className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className={`h-2 bg-gradient-to-r ${unidadeInfo.gradient}`}></div>
-                <CardHeader className="bg-gray-50 dark:bg-gray-800">
+                <div className="bg-gray-50 dark:bg-gray-800 p-6 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-3 text-2xl">
+                    <h3 className="flex items-center gap-3 text-2xl font-bold text-gray-900 dark:text-white">
                       <Building2 className="h-7 w-7" />
                       ECOBRASIL {unidade.unidade}
-                    </CardTitle>
+                    </h3>
                     <span className="text-sm bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold">
                       {unidadeInfo.estado}
                     </span>
                   </div>
-                </CardHeader>
-                <CardContent className="p-6">
+                </div>
+                <div className="p-6">
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                     {/* Empreendimentos */}
                     <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -231,8 +230,8 @@ export default function DashboardExecutivo() {
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
