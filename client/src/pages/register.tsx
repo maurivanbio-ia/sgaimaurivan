@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import forestBackground from "@assets/stock_images/green_forest_nature__4c74bc3e.jpg";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 export default function Register() {
@@ -56,25 +55,7 @@ export default function Register() {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4 relative"
-      style={{
-        backgroundImage: `
-          linear-gradient(
-            135deg, 
-            rgba(21, 53, 31, 0.4) 0%, 
-            rgba(27, 94, 32, 0.35) 25%,
-            rgba(46, 125, 50, 0.3) 50%,
-            rgba(56, 142, 60, 0.35) 75%,
-            rgba(27, 94, 32, 0.4) 100%
-          ),
-          url(${forestBackground})
-        `,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black">
       <div className="w-full max-w-md">
         <Card className="w-full shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
           <CardContent className="pt-8 pb-8 px-8">

@@ -6,6 +6,14 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 
 ## Recent Changes (November 2025)
 
+### UI/UX Improvements
+- **Background Images Removed**: All background images removed from pages for cleaner, faster-loading interface
+  - Login page: Solid gradient background (gray-900 → gray-800 → gray-900)
+  - Register page: Solid gradient background (gray-900 → gray-800 → gray-900)
+  - Unit selection: Solid gradient background (gray-900 → gray-800 → gray-900)
+  - Dashboard: Solid gradient background (gray-50 → white → gray-50 in light mode)
+  - Improved performance and accessibility with gradient-only backgrounds
+
 ### EcoGestor-AI (AI Assistant) - MULTI-TENANCY IMPLEMENTATION
 - **New AI Conversational Agent**: `/ia` page with intelligent assistant capabilities
   - Natural language query interface with chat UI
@@ -60,7 +68,7 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 ### Unit Selection System (Multi-Unit Support)
 - **New Authentication Flow**: Login → Unit Selection → Dashboard
   - Three units available: ECOBRASIL Goiânia, ECOBRASIL Salvador, ECOBRASIL Luiz Eduardo Magalhães
-  - Unit selection page features jaguar pantanal background image
+  - Unit selection page features clean gradient background (no images)
   - Selected unit persists in localStorage via UnidadeContext
   - **Fixed card heights**: All unit selection cards now have uniform height with flexbox layout
 - **UnidadeContext**: Global context for unit selection
