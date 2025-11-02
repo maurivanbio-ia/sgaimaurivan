@@ -2,7 +2,27 @@
 
 EcoGestor (LicençaFácil) is an environmental license management system for environmental consulting companies. It tracks and manages environmental licenses by enterprise, centralizing license management to prevent expiration oversights and provide visibility into deadlines and compliance. The system features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses. Recent enhancements have transformed it into a full platform for project management, including contracts, campaigns, HR, and detailed project timelines.
 
+The platform now supports multi-unit operation for ECOBRASIL with three units: Goiânia, Salvador, and Luiz Eduardo Magalhães. Users select their unit after login, with the selection persisting across sessions.
+
 ## Recent Changes (November 2025)
+
+### Unit Selection System (Multi-Unit Support)
+- **New Authentication Flow**: Login → Unit Selection → Dashboard
+  - Three units available: ECOBRASIL Goiânia, ECOBRASIL Salvador, ECOBRASIL Luiz Eduardo Magalhães
+  - Unit selection page features jaguar pantanal background image
+  - Selected unit persists in localStorage via UnidadeContext
+- **UnidadeContext**: Global context for unit selection
+  - Stores selected unit: 'goiania', 'salvador', 'luiz-eduardo-magalhaes'
+  - Provides `getNomeUnidade()` helper for display
+  - Accessible via `useUnidade()` hook throughout the app
+- **Header Integration**: Shows selected unit with Building2 icon
+  - Green-highlighted button displays current unit name
+  - Click to return to unit selection page
+  - Ready for future unit-based data filtering
+- **Route Structure**: 
+  - `/selecionar-unidade`: Full-screen unit selection (no header)
+  - All other routes show header with unit indicator
+  - Unit context wrapped around entire application
 
 ### Vehicle Ownership Type Feature (Próprio/Alugado)
 - **Frota Enhancement**: Vehicles can now be classified as owned (próprio) or rented (alugado)
