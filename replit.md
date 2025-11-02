@@ -6,11 +6,30 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 
 ## Recent Changes (November 2025)
 
+### Dashboard Executivo (Executive Dashboard)
+- **New Executive Dashboard**: `/dashboard-executivo` page for directors
+  - Consolidated view of all three ECOBRASIL units (Goiânia, Salvador, Luiz Eduardo Magalhães)
+  - Overview header with total units, empreendimentos, collaborators, and contract value
+  - Aggregated KPI cards for Frota, Equipamentos, and Demandas across all units
+  - Per-unit detail cards showing comprehensive metrics:
+    - Empreendimentos (total, ativos, concluídos)
+    - Frota (total, disponíveis, em uso, manutenção, alugados)
+    - Equipamentos (total, disponíveis, em uso, manutenção)
+    - RH (total, ativos, afastados)
+    - Demandas (total, pendentes, em andamento, concluídas)
+    - Contratos (total, ativos, valor total)
+  - Color-coded cards with unit-specific gradients
+  - Accessible from header navigation menu
+- **API Endpoint**: `GET /api/dashboard/executivo`
+  - Returns consolidated statistics from all units
+  - Fetches data in parallel for optimal performance
+
 ### Unit Selection System (Multi-Unit Support)
 - **New Authentication Flow**: Login → Unit Selection → Dashboard
   - Three units available: ECOBRASIL Goiânia, ECOBRASIL Salvador, ECOBRASIL Luiz Eduardo Magalhães
   - Unit selection page features jaguar pantanal background image
   - Selected unit persists in localStorage via UnidadeContext
+  - **Fixed card heights**: All unit selection cards now have uniform height with flexbox layout
 - **UnidadeContext**: Global context for unit selection
   - Stores selected unit: 'goiania', 'salvador', 'luiz-eduardo-magalhaes'
   - Provides `getNomeUnidade()` helper for display
@@ -21,6 +40,7 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
   - Ready for future unit-based data filtering
 - **Route Structure**: 
   - `/selecionar-unidade`: Full-screen unit selection (no header)
+  - `/dashboard-executivo`: Executive dashboard for directors
   - All other routes show header with unit indicator
   - Unit context wrapped around entire application
 
