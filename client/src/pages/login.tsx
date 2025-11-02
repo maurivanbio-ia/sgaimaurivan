@@ -16,7 +16,7 @@ import {
 
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
-import loginBackground from "@assets/login-background.png";
+import loginBackground from "@assets/login-background-correct.jpg";
 
 /**
  * EcoGestor . Tela de Login
