@@ -6,26 +6,27 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 
 ## Recent Changes (November 2025)
 
-### EcoGestor-AI (AI Assistant)
+### EcoGestor-AI (AI Assistant) - MULTI-TENANCY IMPLEMENTATION
 - **New AI Conversational Agent**: `/ia` page with intelligent assistant capabilities
   - Natural language query interface with chat UI
   - Document indexing and vector search using OpenAI embeddings (text-embedding-3-small)
   - Conversational responses powered by GPT-4o-mini
   - Automated action execution: check licenses, vehicles, equipment, demands
   - Context-aware responses with document retrieval
-- **Database Schema**: Three new tables for AI functionality
-  - `ai_documents`: Stores indexed documents with vector embeddings (1536 dimensions)
-  - `ai_conversations`: Tracks user conversations and AI responses
-  - `ai_logs`: Audit log for all AI actions and queries
-- **Backend AI Services**:
+  - **🔒 Multi-Tenancy**: AI isolado por unidade - cada unidade só acessa seus próprios dados
+- **Database Schema**: Three new tables for AI functionality (✅ updated with unidade field)
+  - `ai_documents`: Stores indexed documents with vector embeddings (1536 dimensions) + **unidade field**
+  - `ai_conversations`: Tracks user conversations and AI responses + **unidade field**
+  - `ai_logs`: Audit log for all AI actions and queries + **unidade field**
+- **Backend AI Services** (✅ updated for multi-tenancy):
   - `server/ai/embeddings.ts`: Generate OpenAI embeddings and calculate cosine similarity
-  - `server/ai/retriever.ts`: Vector search and document indexing
-  - `server/ai/actions.ts`: Executable actions (licenses expiring, vehicles in maintenance, etc.)
-  - `server/ai/aiService.ts`: Main AI service orchestrating queries and responses
-- **API Endpoints**:
-  - `POST /api/ai/query`: Send message to AI assistant
-  - `GET /api/ai/history`: Retrieve conversation history
-  - `POST /api/ai/index`: Index new documents for search
+  - `server/ai/retriever.ts`: Vector search and document indexing **with unidade filter**
+  - `server/ai/actions.ts`: Executable actions **filtered by unidade**
+  - `server/ai/aiService.ts`: Main AI service **with unidade isolation**
+- **API Endpoints** (✅ updated with unidade validation):
+  - `POST /api/ai/query`: Send message to AI assistant (requires unidade)
+  - `GET /api/ai/history`: Retrieve conversation history (requires unidade)
+  - `POST /api/ai/index`: Index new documents for search (requires unidade)
   - `GET /api/ai/actions`: List available AI actions
 - **UI Features**:
   - Modern glassmorphism design with gradient backgrounds
@@ -34,6 +35,8 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
   - Auto-scroll to latest messages
   - Loading states with animated indicators
   - Accessible from header menu with robot emoji 🤖
+  - **Frontend sends unidade** from UnidadeContext in all requests
+- **⚠️ TODO - Storage Methods**: Need to update storage.ts methods (getLicenseStats, getFrotaStats, etc.) to accept and filter by unidade parameter
 
 ### Dashboard Executivo (Executive Dashboard)
 - **New Executive Dashboard**: `/dashboard-executivo` page for directors

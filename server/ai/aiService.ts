@@ -10,6 +10,7 @@ const openai = new OpenAI({
 });
 
 interface QueryOptions {
+  unidade: string; // goiania, salvador, luiz-eduardo-magalhaes - OBRIGATÓRIO
   userId: number;
   message: string;
   empreendimentoId?: number;
@@ -18,21 +19,23 @@ interface QueryOptions {
 
 /**
  * Processa uma query do usuário e retorna resposta do agente
+ * MULTI-TENANCY: Todas as operações são isoladas por unidade
  */
 export async function processQuery(options: QueryOptions): Promise<string> {
-  const { userId, message, empreendimentoId, context = {} } = options;
+  const { unidade, userId, message, empreendimentoId, context = {} } = options;
   
   try {
-    // Log da ação
+    // Log da ação (com unidade)
     await db.insert(aiLogs).values({
+      unidade,
       userId,
       action: 'query',
       details: { message, empreendimentoId },
       status: 'success',
     });
     
-    // Busca documentos relevantes
-    const relevantDocs = await searchSimilarDocuments(message, 3, empreendimentoId);
+    // Busca documentos relevantes (APENAS da unidade especificada)
+    const relevantDocs = await searchSimilarDocuments(unidade, message, 3, empreendimentoId);
     
     // Monta contexto para o modelo
     const contextText = relevantDocs.length > 0
@@ -41,8 +44,8 @@ export async function processQuery(options: QueryOptions): Promise<string> {
         ).join('\n')}`
       : 'Nenhum documento relevante encontrado.';
     
-    // Detecta se a query requer ação
-    const actionResponse = await detectAndExecuteAction(message, empreendimentoId);
+    // Detecta se a query requer ação (ISOLADA por unidade)
+    const actionResponse = await detectAndExecuteAction(unidade, message, empreendimentoId);
     
     // Gera resposta usando GPT
     const systemPrompt = `Você é o EcoGestor-AI, um assistente inteligente especializado em gestão ambiental e licenciamento.
@@ -77,8 +80,9 @@ ${actionResponse ? `DADOS DA AÇÃO EXECUTADA:\n${JSON.stringify(actionResponse,
     
     const response = completion.choices[0].message.content || 'Desculpe, não consegui processar sua pergunta.';
     
-    // Salva conversa
+    // Salva conversa (com unidade)
     await db.insert(aiConversations).values({
+      unidade,
       userId,
       message,
       response,
@@ -94,8 +98,9 @@ ${actionResponse ? `DADOS DA AÇÃO EXECUTADA:\n${JSON.stringify(actionResponse,
   } catch (error: any) {
     console.error('Error processing query:', error);
     
-    // Log do erro
+    // Log do erro (com unidade)
     await db.insert(aiLogs).values({
+      unidade,
       userId,
       action: 'query',
       details: { message, empreendimentoId },
@@ -109,35 +114,36 @@ ${actionResponse ? `DADOS DA AÇÃO EXECUTADA:\n${JSON.stringify(actionResponse,
 
 /**
  * Detecta e executa ações baseadas na mensagem do usuário
+ * MULTI-TENANCY: Todas as ações são executadas com filtro de unidade
  */
-async function detectAndExecuteAction(message: string, empreendimentoId?: number): Promise<any | null> {
+async function detectAndExecuteAction(unidade: string, message: string, empreendimentoId?: number): Promise<any | null> {
   const lowerMessage = message.toLowerCase();
   
-  // Licenças vencendo
+  // Licenças vencendo (filtradas por unidade)
   if (lowerMessage.includes('licenças') && (lowerMessage.includes('vencem') || lowerMessage.includes('vencer'))) {
     const diasMatch = message.match(/(\d+)\s*dias?/);
     const dias = diasMatch ? parseInt(diasMatch[1]) : 60;
-    return await actions.getLicencasVencendoEm(dias);
+    return await actions.getLicencasVencendoEm(unidade, dias);
   }
   
-  // Veículos em manutenção
+  // Veículos em manutenção (filtrados por unidade)
   if (lowerMessage.includes('veículos') && lowerMessage.includes('manutenção')) {
-    return await actions.getVeiculosEmManutencao();
+    return await actions.getVeiculosEmManutencao(unidade);
   }
   
-  // Equipamentos disponíveis
+  // Equipamentos disponíveis (filtrados por unidade)
   if (lowerMessage.includes('equipamentos') && (lowerMessage.includes('disponíveis') || lowerMessage.includes('disponivel'))) {
-    return await actions.getEquipamentosDisponiveis();
+    return await actions.getEquipamentosDisponiveis(unidade);
   }
   
-  // Demandas pendentes
+  // Demandas pendentes (filtradas por unidade)
   if (lowerMessage.includes('demandas') && (lowerMessage.includes('pendentes') || lowerMessage.includes('pendente'))) {
-    return await actions.getDemandasPendentes(empreendimentoId);
+    return await actions.getDemandasPendentes(unidade, empreendimentoId);
   }
   
-  // Informações de empreendimento
+  // Informações de empreendimento (já filtrado por unidade no banco)
   if (empreendimentoId && (lowerMessage.includes('info') || lowerMessage.includes('informações') || lowerMessage.includes('dados'))) {
-    return await actions.getInfoEmpreendimento(empreendimentoId);
+    return await actions.getInfoEmpreendimento(unidade, empreendimentoId);
   }
   
   return null;
@@ -145,12 +151,16 @@ async function detectAndExecuteAction(message: string, empreendimentoId?: number
 
 /**
  * Obtém histórico de conversas do usuário
+ * MULTI-TENANCY: Filtra conversas apenas da unidade especificada E do usuário
  */
-export async function getConversationHistory(userId: number, limit: number = 10) {
+export async function getConversationHistory(unidade: string, userId: number, limit: number = 10) {
   return await db
     .select()
     .from(aiConversations)
-    .where(eq(aiConversations.userId, userId))
+    .where(and(
+      eq(aiConversations.userId, userId),
+      eq(aiConversations.unidade, unidade)
+    ))
     .orderBy(desc(aiConversations.criadoEm))
     .limit(limit);
 }

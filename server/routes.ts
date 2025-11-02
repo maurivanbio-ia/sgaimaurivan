@@ -1976,20 +1976,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
-  // AI AGENT ROUTES
+  // AI AGENT ROUTES - MULTI-TENANCY ENABLED
   // ========================================
   
   // Query the AI agent
   app.post("/api/ai/query", requireAuth, async (req, res) => {
     try {
-      const { message, empreendimentoId } = req.body;
+      const { unidade, message, empreendimentoId } = req.body;
+      
+      if (!unidade) {
+        return res.status(400).json({ message: "Unidade é obrigatória" });
+      }
       
       if (!message) {
         return res.status(400).json({ message: "Mensagem é obrigatória" });
       }
       
+      // Valida unidade (segurança multi-tenancy)
+      const validUnidades = ['goiania', 'salvador', 'luiz-eduardo-magalhaes'];
+      if (!validUnidades.includes(unidade)) {
+        return res.status(400).json({ message: "Unidade inválida" });
+      }
+      
       const { processQuery } = await import("./ai/aiService");
       const response = await processQuery({
+        unidade,
         userId: req.session.userId!,
         message,
         empreendimentoId,
@@ -2005,8 +2016,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get conversation history
   app.get("/api/ai/history", requireAuth, async (req, res) => {
     try {
+      const { unidade } = req.query;
+      
+      if (!unidade || typeof unidade !== 'string') {
+        return res.status(400).json({ message: "Unidade é obrigatória" });
+      }
+      
+      // Valida unidade
+      const validUnidades = ['goiania', 'salvador', 'luiz-eduardo-magalhaes'];
+      if (!validUnidades.includes(unidade)) {
+        return res.status(400).json({ message: "Unidade inválida" });
+      }
+      
       const { getConversationHistory } = await import("./ai/aiService");
-      const history = await getConversationHistory(req.session.userId!, 20);
+      const history = await getConversationHistory(unidade, req.session.userId!, 20);
       res.json(history);
     } catch (error: any) {
       console.error("Get history error:", error);
@@ -2017,14 +2040,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Index a document
   app.post("/api/ai/index", requireAuth, async (req, res) => {
     try {
-      const { content, source, sourceType, empreendimentoId, metadata } = req.body;
+      const { unidade, content, source, sourceType, empreendimentoId, metadata } = req.body;
+      
+      if (!unidade) {
+        return res.status(400).json({ message: "Unidade é obrigatória" });
+      }
       
       if (!content || !source || !sourceType) {
         return res.status(400).json({ message: "Campos obrigatórios faltando" });
       }
       
+      // Valida unidade
+      const validUnidades = ['goiania', 'salvador', 'luiz-eduardo-magalhaes'];
+      if (!validUnidades.includes(unidade)) {
+        return res.status(400).json({ message: "Unidade inválida" });
+      }
+      
       const { indexDocument } = await import("./ai/retriever");
-      await indexDocument(content, source, sourceType, empreendimentoId, metadata);
+      await indexDocument(unidade, content, source, sourceType, empreendimentoId, metadata);
       
       res.json({ message: "Documento indexado com sucesso" });
     } catch (error: any) {

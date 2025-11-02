@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Bot, User, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Message {
   role: 'user' | 'assistant';
@@ -16,6 +17,7 @@ interface Message {
 }
 
 export default function EcoAssistente() {
+  const { unidade } = useUnidade();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -35,7 +37,7 @@ export default function EcoAssistente() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ unidade, message }),
       });
       
       if (!response.ok) {
