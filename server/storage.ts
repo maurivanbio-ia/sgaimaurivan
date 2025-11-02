@@ -83,7 +83,7 @@ export interface IStorage {
   verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean>;
 
   // Empreendimento operations
-  getEmpreendimentos(): Promise<Empreendimento[]>;
+  getEmpreendimentos(unidade?: string): Promise<Empreendimento[]>;
   getEmpreendimento(id: number): Promise<EmpreendimentoWithLicencas | undefined>;
   createEmpreendimento(empreendimento: InsertEmpreendimento): Promise<Empreendimento>;
   updateEmpreendimento(id: number, empreendimento: Partial<InsertEmpreendimento>): Promise<Empreendimento>;
@@ -333,7 +333,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Empreendimento operations
-  async getEmpreendimentos(): Promise<Empreendimento[]> {
+  async getEmpreendimentos(unidade?: string): Promise<Empreendimento[]> {
+    if (unidade) {
+      return db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade)).orderBy(desc(empreendimentos.criadoEm));
+    }
     return db.select().from(empreendimentos).orderBy(desc(empreendimentos.criadoEm));
   }
 
