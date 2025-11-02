@@ -6,6 +6,35 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
 
 ## Recent Changes (November 2025)
 
+### EcoGestor-AI (AI Assistant)
+- **New AI Conversational Agent**: `/ia` page with intelligent assistant capabilities
+  - Natural language query interface with chat UI
+  - Document indexing and vector search using OpenAI embeddings (text-embedding-3-small)
+  - Conversational responses powered by GPT-4o-mini
+  - Automated action execution: check licenses, vehicles, equipment, demands
+  - Context-aware responses with document retrieval
+- **Database Schema**: Three new tables for AI functionality
+  - `ai_documents`: Stores indexed documents with vector embeddings (1536 dimensions)
+  - `ai_conversations`: Tracks user conversations and AI responses
+  - `ai_logs`: Audit log for all AI actions and queries
+- **Backend AI Services**:
+  - `server/ai/embeddings.ts`: Generate OpenAI embeddings and calculate cosine similarity
+  - `server/ai/retriever.ts`: Vector search and document indexing
+  - `server/ai/actions.ts`: Executable actions (licenses expiring, vehicles in maintenance, etc.)
+  - `server/ai/aiService.ts`: Main AI service orchestrating queries and responses
+- **API Endpoints**:
+  - `POST /api/ai/query`: Send message to AI assistant
+  - `GET /api/ai/history`: Retrieve conversation history
+  - `POST /api/ai/index`: Index new documents for search
+  - `GET /api/ai/actions`: List available AI actions
+- **UI Features**:
+  - Modern glassmorphism design with gradient backgrounds
+  - Real-time chat interface with message history
+  - Suggestion chips for common queries
+  - Auto-scroll to latest messages
+  - Loading states with animated indicators
+  - Accessible from header menu with robot emoji 🤖
+
 ### Dashboard Executivo (Executive Dashboard)
 - **New Executive Dashboard**: `/dashboard-executivo` page for directors
   - Consolidated view of all three ECOBRASIL units (Goiânia, Salvador, Luiz Eduardo Magalhães)
@@ -136,6 +165,11 @@ Preferred communication style: Simple, everyday language.
 - **Performance Optimizations**: Reduced notification polling, database indexing on frequently queried columns, optimized cron job frequency, consolidated dashboard API endpoint, implemented transactional cascade deletion.
 
 # External Dependencies
+
+## AI Services
+- **OpenAI**: Embeddings (text-embedding-3-small) and chat completion (gpt-4o-mini)
+- **Integration**: Via @anthropic-ai/sdk and openai packages
+- **Features**: Document vectorization, semantic search, conversational AI
 
 ## Database Services
 - **Neon Database**: Serverless PostgreSQL hosting
