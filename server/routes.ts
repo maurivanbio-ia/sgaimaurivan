@@ -190,7 +190,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Empreendimento routes
   app.get("/api/empreendimentos", requireAuth, async (req, res) => {
     try {
-      const empreendimentos = await storage.getEmpreendimentos();
+      const unidade = req.query.unidade as string | undefined;
+      const empreendimentos = await storage.getEmpreendimentos(unidade);
       res.json(empreendimentos);
     } catch (error) {
       console.error("Get empreendimentos error:", error);
