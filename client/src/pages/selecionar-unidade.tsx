@@ -2,6 +2,7 @@ import { useLocation } from 'wouter';
 import { MapPin } from 'lucide-react';
 import { useUnidade, Unidade } from '@/contexts/UnidadeContext';
 import jaguarBg from '@assets/stock_images/jaguar_pantanal_wild_1f6d6ec0.jpg';
+import logoEcoBrasil from '@assets/IMG_1748_1762043636173.png';
 
 const unidades = [
   {
@@ -56,9 +57,12 @@ export default function SelecionarUnidade() {
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
         <div className="text-center mb-16">
           <div className="inline-block mb-6">
-            <div className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-400 mb-2">
-              ECOBRASIL
-            </div>
+            <img
+              src={logoEcoBrasil}
+              alt="ECOBRASIL"
+              className="h-24 md:h-32 w-auto mx-auto mb-4"
+              loading="eager"
+            />
             <div className="h-1 w-full bg-gradient-to-r from-transparent via-green-400 to-transparent"></div>
           </div>
           <p className="text-2xl md:text-3xl text-white font-light mb-3">
