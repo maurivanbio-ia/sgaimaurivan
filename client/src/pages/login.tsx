@@ -138,11 +138,11 @@ export default function Login() {
         `}
       </style>
 
-      {/* Card com 90% de transparência */}
+      {/* Card com 70% de transparência */}
       <Card
         className="relative z-10 w-[92%] max-w-md rounded-3xl border shadow-2xl
-                   bg-white/10 backdrop-blur-xl backdrop-saturate-[180%]
-                   border-white/10
+                   bg-white/30 backdrop-blur-xl backdrop-saturate-[180%]
+                   border-white/20
                    shadow-[0_8px_32px_rgba(0,0,0,0.3)]
                    animate-[ecoFadeUp_700ms_ease-out]"
       >
