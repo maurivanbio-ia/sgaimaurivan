@@ -584,6 +584,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard Executivo - Consolidated stats from all units
+  app.get("/api/dashboard/executivo", requireAuth, async (req, res) => {
+    try {
+      const unidades = [
+        { id: 'goiania', nome: 'Goiânia' },
+        { id: 'salvador', nome: 'Salvador' },
+        { id: 'luiz-eduardo-magalhaes', nome: 'Luiz Eduardo Magalhães' },
+      ];
+
+      const results = await Promise.all(
+        unidades.map(async (unidade) => {
+          const empreendimentos = await storage.getEmpreendimentos({});
+          const empreendimentosAtivos = empreendimentos.filter(e => e.status === 'planejamento' || e.status === 'em_andamento');
+          const empreendimentosConcluidos = empreendimentos.filter(e => e.status === 'concluido');
+          
+          const [frota, equipamentos, rh, demandas, contratos] = await Promise.all([
+            storage.getFrotaStats(),
+            storage.getEquipamentosStats(),
+            storage.getRhStats(),
+            storage.getDemandasStats(),
+            storage.getContratosStats(),
+          ]);
+
+          return {
+            unidade: unidade.nome,
+            empreendimentos: {
+              total: empreendimentos.length,
+              ativos: empreendimentosAtivos.length,
+              concluidos: empreendimentosConcluidos.length,
+            },
+            frota,
+            equipamentos,
+            rh,
+            demandas,
+            contratos,
+          };
+        })
+      );
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error fetching executive dashboard stats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Enhanced Stats routes
   app.get("/api/stats/licenses", requireAuth, async (req, res) => {
     try {
