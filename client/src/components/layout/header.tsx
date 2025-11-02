@@ -7,13 +7,17 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationsCenter } from "@/components/notifications-center";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 export default function Header() {
   const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const logout = useLogout();
   const { toast } = useToast();
+  const { getNomeUnidade } = useUnidade();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -86,6 +90,20 @@ export default function Header() {
           {/* Busca desktop */}
           <div className="hidden md:flex items-center space-x-4">
             <GlobalSearch />
+          </div>
+
+          {/* Unidade selecionada */}
+          <div className="hidden md:flex items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/selecionar-unidade")}
+              className="text-xs font-semibold bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900"
+              data-testid="button-change-unit"
+            >
+              <Building2 className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
+              {getNomeUnidade()}
+            </Button>
           </div>
 
           {/* Navegação desktop */}
