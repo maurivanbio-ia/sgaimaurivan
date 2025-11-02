@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Save, ArrowLeft } from "lucide-react";
+import { useUnidade } from "@/contexts/UnidadeContext";
 
 const projectSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
@@ -37,6 +38,7 @@ export default function NewProject() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { unidadeSelecionada } = useUnidade();
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -54,7 +56,10 @@ export default function NewProject() {
 
   const createProject = useMutation({
     mutationFn: async (data: ProjectFormData) => {
-      const response = await apiRequest("POST", "/api/empreendimentos", data);
+      const response = await apiRequest("POST", "/api/empreendimentos", {
+        ...data,
+        unidade: unidadeSelecionada,
+      });
       return response.json();
     },
     onSuccess: () => {
