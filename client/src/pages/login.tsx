@@ -19,11 +19,9 @@ import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import loginBackground from "@assets/login-background-correct.jpg";
 
 /**
- * EcoGestor . Tela de Login
- * Estilo: Escuro elegante . Realista e ambiental . Cinemático
- * Paleta institucional: #1E6146 (verde) . #00599C (azul)
- * Iluminação dinâmica: gradiente que se desloca lentamente + caustics em SVG
- * Acessibilidade: labels, foco visível, redução de animação respeitada
+ * EcoGestor — Tela de Login
+ * Tema: Escuro elegante, realista e ambiental. Cinemático.
+ * Card com 90% de transparência real e fundo tratado profissionalmente.
  */
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -31,7 +29,6 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -56,7 +53,7 @@ export default function Login() {
 
       toast({
         title: "Login realizado",
-        description: "Bem-vindo ao sistema.",
+        description: "Bem-vindo ao sistema EcoGestor.",
       });
 
       rememberMe
@@ -102,77 +99,34 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Imagem de fundo */}
+      {/* Fundo florestal tratado (cinematográfico e profissional) */}
       <div
         className="absolute inset-0 z-0"
         style={{
           backgroundImage: `url(${loginBackground})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          filter:
+            "contrast(1.15) brightness(0.85) saturate(1.2)",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/20" />
       </div>
 
-      {/* Camada 2. “Caustics” aquáticas em SVG com animação lenta */}
-      <svg
-        className="pointer-events-none absolute inset-0 opacity-[0.10] mix-blend-screen"
-        aria-hidden
-      >
-        <defs>
-          <filter id="eco-caustics">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.008"
-              numOctaves="2"
-              seed="3"
-              result="noise"
-            />
-            <feColorMatrix
-              in="noise"
-              type="matrix"
-              values="
-                1 0 0 0 0
-                0 1 0 0 0
-                0 0 1 0 0
-                0 0 0 0.7 0"
-              result="softNoise"
-            />
-            <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="20" />
-          </filter>
-        </defs>
-        <rect
-          width="100%"
-          height="100%"
-          fill="url(#eco-gradient)"
-          filter="url(#eco-caustics)"
-        />
-        <defs>
-          <linearGradient id="eco-gradient" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="#1E6146" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#00599C" stopOpacity="0.55" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      {/* Camada 3. “Foco” de luz se movendo lentamente (cinematográfico) */}
+      {/* Luz ambiental suave */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-[20%] blur-[80px] opacity-60"
+        className="pointer-events-none absolute -inset-[20%] blur-[80px] opacity-50"
         style={{
           background:
-            "radial-gradient(40% 60% at 20% 30%, rgba(0,89,156,0.25), transparent 60%), radial-gradient(40% 60% at 80% 70%, rgba(30,97,70,0.28), transparent 60%)",
-          animation: "ecoLightSweep 40s ease-in-out infinite alternate",
+            "radial-gradient(40% 60% at 20% 30%, rgba(0,89,156,0.25), transparent 60%), radial-gradient(40% 60% at 80% 70%, rgba(30,97,70,0.25), transparent 60%)",
+          animation: "ecoLightSweep 45s ease-in-out infinite alternate",
         }}
       />
 
-      {/* Respeito a prefers-reduced-motion */}
       <style>
         {`
-          @media (prefers-reduced-motion: reduce) {
-            .reduce-motion\\:none { animation: none !important; transition: none !important; }
-          }
           @keyframes ecoLightSweep {
             0% { transform: translateX(-8%) translateY(-4%); }
             100% { transform: translateX(8%) translateY(6%); }
@@ -184,53 +138,49 @@ export default function Login() {
         `}
       </style>
 
-      {/* Cartão. Glassmorphism natural com borda institucional - Mais transparente */}
+      {/* Card com 90% de transparência */}
       <Card
         className="relative z-10 w-[92%] max-w-md rounded-3xl border shadow-2xl
-                   bg-white/3 backdrop-blur-xl 
-                   border-[color:rgba(30,97,70,0.25)]
-                   [box-shadow:0_0_0_1px_rgba(0,89,156,0.08),0_25px_80px_rgba(0,0,0,0.35)]
-                   animate-[ecoFadeUp_700ms_ease-out] reduce-motion:none"
+                   bg-white/10 backdrop-blur-xl backdrop-saturate-[180%]
+                   border-white/10
+                   shadow-[0_8px_32px_rgba(0,0,0,0.3)]
+                   animate-[ecoFadeUp_700ms_ease-out]"
       >
-        <CardContent className="p-8 md:p-10">
-          {/* Logo com realce sutil */}
-          <div className="flex justify-center mb-7">
-            <div className="relative">
-              <img
-                src={logoEcoBrasil}
-                alt="EcoBrasil Consultoria"
-                className="w-52 h-auto md:w-56 select-none"
-                draggable={false}
-              />
-              <div
-                className="pointer-events-none absolute inset-0 rounded-xl opacity-35 blur-2xl"
-                style={{
-                  background:
-                    "linear-gradient(90deg, rgba(30,97,70,0.55), rgba(0,89,156,0.55))",
-                }}
-                aria-hidden
-              />
-            </div>
+        {/* Brilho e reflexo sutil */}
+        <div
+          className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent opacity-60 pointer-events-none"
+          style={{
+            backdropFilter: "blur(25px) saturate(200%) brightness(1.15)",
+          }}
+        />
+
+        <CardContent className="p-8 md:p-10 relative z-10">
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <img
+              src={logoEcoBrasil}
+              alt="EcoBrasil Consultoria"
+              className="w-52 h-auto md:w-56 select-none drop-shadow-[0_0_25px_rgba(30,97,70,0.25)]"
+              draggable={false}
+            />
           </div>
 
-          {/* Título e subtítulo */}
+          {/* Título */}
           <div className="text-center mb-8">
             <h1
-              className="text-3xl md:text-4xl font-extrabold tracking-tight 
-                         bg-clip-text text-transparent
+              className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent
                          [background-image:linear-gradient(90deg,#1E6146,#00599C)]"
             >
               EcoGestor
             </h1>
             <p className="text-sm text-neutral-300/90">
-              Sistema de Gestão Ambiental
+              Sistema de Gestão Ambiental Integrada
             </p>
           </div>
 
           {/* Formulário */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* E-mail */}
-            <div className="transition-transform duration-300 hover:scale-[1.01]">
+            <div>
               <Label
                 htmlFor="email"
                 className="mb-2 block text-[0.9rem] font-medium text-neutral-200"
@@ -240,20 +190,16 @@ export default function Login() {
               <Input
                 id="email"
                 type="email"
-                inputMode="email"
-                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@ecobrasil.bio.br"
-                className="bg-white/10 border-white/15 text-neutral-50 placeholder:text-neutral-400
+                className="bg-white/5 border-white/10 text-neutral-50 placeholder:text-neutral-400
                            focus-visible:ring-2 focus-visible:ring-[#1E6146]/50 focus-visible:border-[#1E6146]/40"
-                data-testid="input-email"
                 required
               />
             </div>
 
-            {/* Senha */}
-            <div className="transition-transform duration-300 hover:scale-[1.01]">
+            <div>
               <Label
                 htmlFor="password"
                 className="mb-2 block text-[0.9rem] font-medium text-neutral-200"
@@ -264,20 +210,18 @@ export default function Login() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pr-11 bg-white/10 border-white/15 text-neutral-50 placeholder:text-neutral-400
+                  className="pr-11 bg-white/5 border-white/10 text-neutral-50 placeholder:text-neutral-400
                              focus-visible:ring-2 focus-visible:ring-[#00599C]/50 focus-visible:border-[#00599C]/40"
-                  data-testid="input-password"
                   required
                 />
                 <button
                   type="button"
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-200 transition-colors"
+                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-200 transition"
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -302,13 +246,12 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setIsForgotOpen(true)}
-                className="text-[#1E6146] hover:text-[#1E6146]/90 font-medium transition-colors"
+                className="text-[#1E6146] hover:text-[#1E6146]/90 font-medium transition"
               >
                 Esqueceu a senha?
               </button>
             </div>
 
-            {/* Erro */}
             {error && (
               <div className="text-red-300 bg-red-900/20 border border-red-800/60 px-4 py-2 rounded-lg text-sm">
                 {error}
@@ -319,12 +262,10 @@ export default function Login() {
             <Button
               type="submit"
               disabled={login.isPending}
-              className="w-full py-6 text-base font-semibold
-                         text-white
+              className="w-full py-6 text-base font-semibold text-white
                          [background-image:linear-gradient(90deg,#1E6146,#00599C)]
                          hover:brightness-110 transition-all duration-300
                          shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_40px_rgba(0,0,0,0.35)]"
-              data-testid="button-login"
             >
               {login.isPending ? (
                 <>
@@ -335,24 +276,21 @@ export default function Login() {
                 "Entrar no Sistema"
               )}
             </Button>
-
-            {/* Cadastro */}
-            <div className="text-center">
-              <p className="text-sm text-neutral-400 mb-2">
-                Ainda não tem uma conta?
-              </p>
-              <button
-                type="button"
-                onClick={() => setLocation("/register")}
-                className="text-[#00599C] hover:text-[#00599C]/90 font-medium transition-colors"
-                data-testid="link-register"
-              >
-                Criar nova conta
-              </button>
-            </div>
           </form>
 
-          {/* Rodapé */}
+          <div className="text-center mt-6">
+            <p className="text-sm text-neutral-400 mb-2">
+              Ainda não tem uma conta?
+            </p>
+            <button
+              type="button"
+              onClick={() => setLocation("/register")}
+              className="text-[#00599C] hover:text-[#00599C]/90 font-medium transition"
+            >
+              Criar nova conta
+            </button>
+          </div>
+
           <div className="mt-8 text-center">
             <p className="text-[11px] tracking-wide text-neutral-400">
               Desenvolvido por <span className="text-neutral-200">Maurivan Vaz Ribeiro</span>
@@ -365,7 +303,7 @@ export default function Login() {
       <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
         <DialogContent className="bg-[#0E1B17]/90 text-white border border-white/10 backdrop-blur-xl rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-semibold [color:#1E6146]">
+            <DialogTitle className="font-semibold text-[#1E6146]">
               Recuperar senha
             </DialogTitle>
           </DialogHeader>
@@ -377,7 +315,7 @@ export default function Login() {
             value={forgotEmail}
             onChange={(e) => setForgotEmail(e.target.value)}
             placeholder="seu@ecobrasil.bio.br"
-            className="bg-white/10 border-white/15 text-neutral-50 placeholder:text-neutral-400
+            className="bg-white/5 border-white/10 text-neutral-50 placeholder:text-neutral-400
                        focus-visible:ring-2 focus-visible:ring-[#1E6146]/50 focus-visible:border-[#1E6146]/40"
           />
           <Button
