@@ -72,7 +72,7 @@ import {
   type InsertSegDocumento,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -336,13 +336,18 @@ export class DatabaseStorage implements IStorage {
   // Empreendimento operations
   async getEmpreendimentos(unidade?: string): Promise<Empreendimento[]> {
     if (unidade) {
-      return db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade)).orderBy(desc(empreendimentos.criadoEm));
+      return db.select().from(empreendimentos).where(
+        and(
+          eq(empreendimentos.unidade, unidade),
+          isNull(empreendimentos.deletedAt)
+        )
+      ).orderBy(desc(empreendimentos.criadoEm));
     }
-    return db.select().from(empreendimentos).orderBy(desc(empreendimentos.criadoEm));
+    return db.select().from(empreendimentos).where(isNull(empreendimentos.deletedAt)).orderBy(desc(empreendimentos.criadoEm));
   }
 
   async getEmpreendimento(id: number, unidade?: string): Promise<EmpreendimentoWithLicencas | undefined> {
-    const conditions = [eq(empreendimentos.id, id)];
+    const conditions = [eq(empreendimentos.id, id), isNull(empreendimentos.deletedAt)];
     if (unidade) {
       conditions.push(eq(empreendimentos.unidade, unidade));
     }
