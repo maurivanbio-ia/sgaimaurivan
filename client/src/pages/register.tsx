@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
+import registerBackground from "@assets/register-background-puma.png";
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -55,8 +56,32 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
+      {/* Imagem de fundo da onça-parda */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: `url(${registerBackground})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          filter: "contrast(1.1) brightness(0.9) saturate(1.15)",
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40" />
+      </div>
+
+      {/* Créditos da foto no rodapé direito */}
+      <div className="absolute bottom-4 right-4 z-20 text-right">
+        <p className="text-white/90 text-xs drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+          <em>Puma concolor</em> - onça-parda
+        </p>
+        <p className="text-white/80 text-xs drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+          Foto: Patrick Rodrigues
+        </p>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
         <Card className="w-full shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
           <CardContent className="pt-8 pb-8 px-8">
             <div className="text-center mb-8">
