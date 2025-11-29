@@ -1,17 +1,33 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, Plus, User, MapPin, Bus, Eye, Map } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Building, Plus, User, MapPin, Bus, Eye, Map, Trash2 } from "lucide-react";
 import { ExportButton } from "@/components/ExportButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import MapComponent from "@/components/MapComponent";
 import type { Empreendimento } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Projects() {
   const { unidadeSelecionada } = useUnidade();
+  const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Empreendimento | null>(null);
   
   const { data: projects, isLoading } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos", unidadeSelecionada],
@@ -25,6 +41,39 @@ export default function Projects() {
       return response.json();
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/empreendimentos/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      toast({
+        title: "Empreendimento excluído",
+        description: "O empreendimento foi removido com sucesso.",
+      });
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error?.message || "Não foi possível excluir o empreendimento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteClick = (project: Empreendimento) => {
+    setProjectToDelete(project);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (projectToDelete) {
+      deleteMutation.mutate(projectToDelete.id);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -103,13 +152,23 @@ export default function Projects() {
                           )}
                         </div>
                       </div>
-                      <div className="ml-4">
+                      <div className="ml-4 flex gap-2">
                         <Link href={`/empreendimentos/${project.id}`}>
                           <Button variant="outline" size="sm" data-testid={`button-view-details-${project.id}`}>
                             <Eye className="mr-1 h-4 w-4" />
                             Ver Detalhes
                           </Button>
                         </Link>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteClick(project)}
+                          data-testid={`button-delete-${project.id}`}
+                        >
+                          <Trash2 className="mr-1 h-4 w-4" />
+                          Excluir
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -149,6 +208,31 @@ export default function Projects() {
           </Link>
         </div>
       )}
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o empreendimento{" "}
+              <strong>{projectToDelete?.nome}</strong>? Esta ação não pode ser desfeita
+              e todos os dados relacionados (licenças, demandas, etc.) serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
