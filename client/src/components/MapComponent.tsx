@@ -192,20 +192,6 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
         )}
       </div>
 
-      {/* Legenda */}
-      {empreendimentosComCoordenadas.length > 0 && (
-        <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border max-w-xs">
-          <h4 className="text-xs font-semibold mb-2">Tipos de Empreendimento</h4>
-          <div className="grid grid-cols-2 gap-2">
-            {Object.entries(tipoConfig).map(([key, config]) => (
-              <div key={key} className="flex items-center gap-1.5 text-xs">
-                <span style={{ fontSize: '14px' }}>{config.icon}</span>
-                <span className="text-gray-600">{config.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
   );
 }
