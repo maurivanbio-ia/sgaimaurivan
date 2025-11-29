@@ -1,7 +1,7 @@
 import { useLocation } from 'wouter';
 import { MapPin } from 'lucide-react';
 import { useUnidade, Unidade } from '@/contexts/UnidadeContext';
-import logoEcoBrasil from '@assets/IMG_1748_1762043636173.png';
+const logoEcoBrasil = "http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-Retina-a.png";
 
 const CerradoIcon = () => (
   <svg viewBox="0 0 120 120" className="w-24 h-24" fill="none" xmlns="http://www.w3.org/2000/svg">
