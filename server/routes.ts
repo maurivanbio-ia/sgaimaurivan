@@ -1055,7 +1055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update demanda
-  app.patch('/api/demandas/:id', async (req, res) => {
+  app.patch('/api/demandas/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1073,7 +1073,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Demanda not found' });
       }
 
-      const user = req.user as { id: number } | undefined;
+      const userId = req.session.userId;
+      const user = userId ? { id: userId } : undefined;
       
       // Create history record if any significant field changed
       if (user) {
