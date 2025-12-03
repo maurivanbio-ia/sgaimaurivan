@@ -1062,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid demanda ID' });
       }
       
-      // Get current demanda to track status change
+      // Get current demanda to track changes
       const currentDemanda = await storage.getDemandaById(id);
       if (!currentDemanda) {
         return res.status(404).json({ error: 'Demanda not found' });
@@ -1073,17 +1073,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Demanda not found' });
       }
 
-      // Create history record if status changed
-      if (req.body.status && req.body.status !== currentDemanda.status) {
-        const user = req.user as { id: number } | undefined;
-        if (user) {
+      const user = req.user as { id: number } | undefined;
+      
+      // Create history record if any significant field changed
+      if (user) {
+        const changes: string[] = [];
+        let statusAnterior = null;
+        let statusNovo = null;
+        let acao = 'editou';
+
+        // Check for status change
+        if (req.body.status && req.body.status !== currentDemanda.status) {
+          statusAnterior = currentDemanda.status || null;
+          statusNovo = req.body.status;
+          acao = 'moveu';
+          changes.push(`Status: ${currentDemanda.status} → ${req.body.status}`);
+        }
+
+        // Check for date change
+        if (req.body.dataEntrega) {
+          const currentDate = currentDemanda.dataEntrega ? new Date(currentDemanda.dataEntrega).toISOString().split('T')[0] : null;
+          const newDate = new Date(req.body.dataEntrega).toISOString().split('T')[0];
+          if (currentDate !== newDate) {
+            changes.push(`Data de Entrega: ${currentDate || 'sem data'} → ${newDate}`);
+          }
+        }
+
+        // Check for responsible change
+        if (req.body.responsavel && req.body.responsavel !== currentDemanda.responsavel) {
+          changes.push(`Responsável: ${currentDemanda.responsavel} → ${req.body.responsavel}`);
+        }
+
+        // Check for priority change
+        if (req.body.prioridade && req.body.prioridade !== currentDemanda.prioridade) {
+          changes.push(`Prioridade: ${currentDemanda.prioridade} → ${req.body.prioridade}`);
+        }
+
+        // Check for sector change
+        if (req.body.setor && req.body.setor !== currentDemanda.setor) {
+          changes.push(`Setor: ${currentDemanda.setor} → ${req.body.setor}`);
+        }
+
+        // Create history record if there were changes
+        if (changes.length > 0) {
           await storage.createHistoricoMovimentacao({
             demandaId: id,
             usuarioId: user.id,
-            acao: 'moveu',
-            statusAnterior: currentDemanda.status || null,
-            statusNovo: req.body.status,
-            descricao: `Status alterado de ${currentDemanda.status} para ${req.body.status}`,
+            acao,
+            statusAnterior,
+            statusNovo,
+            descricao: changes.join('; '),
           });
         }
       }
