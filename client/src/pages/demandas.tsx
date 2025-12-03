@@ -177,10 +177,12 @@ function DemandaForm({
   const [form, setForm] = useState({
     titulo: initial?.titulo ?? "",
     descricao: initial?.descricao ?? "",
-    setor: initial?.setor ?? "",
+    setor: initial?.setor ?? SETORES[0],
     prioridade: (initial?.prioridade ?? "media") as Prioridade,
     responsavel: initial?.responsavel ?? "",
-    dataEntrega: initial?.dataEntrega ? toYmd(initial.dataEntrega) : "",
+    dataEntrega: initial?.dataEntrega 
+      ? new Date(initial.dataEntrega).toISOString().split('T')[0]
+      : "",
     status: (initial?.status ?? "a_fazer") as Status,
     empreendimentoId: (initial?.empreendimentoId?.toString() ?? "") as string,
   });
@@ -193,7 +195,7 @@ function DemandaForm({
         setor: form.setor,
         prioridade: form.prioridade,
         responsavel: form.responsavel.trim(),
-        dataEntrega: toYmd(form.dataEntrega),
+        dataEntrega: form.dataEntrega,
         status: form.status,
       };
 
