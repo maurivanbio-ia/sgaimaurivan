@@ -345,7 +345,7 @@ export const demandas = pgTable("demandas", {
 // Comentários das demandas
 export const comentariosDemandas = pgTable("comentarios_demandas", {
   id: serial("id").primaryKey(),
-  demandaId: integer("demanda_id").references(() => demandas.id).notNull(),
+  demandaId: integer("demanda_id").references(() => demandas.id, { onDelete: "cascade" }).notNull(),
   autorId: integer("autor_id").references(() => users.id).notNull(),
   comentario: text("comentario").notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
@@ -354,7 +354,7 @@ export const comentariosDemandas = pgTable("comentarios_demandas", {
 // Subtarefas das demandas
 export const subtarefasDemandas = pgTable("subtarefas_demandas", {
   id: serial("id").primaryKey(),
-  demandaId: integer("demanda_id").references(() => demandas.id).notNull(),
+  demandaId: integer("demanda_id").references(() => demandas.id, { onDelete: "cascade" }).notNull(),
   titulo: text("titulo").notNull(),
   concluida: boolean("concluida").default(false).notNull(),
   ordem: integer("ordem").default(0).notNull(),
