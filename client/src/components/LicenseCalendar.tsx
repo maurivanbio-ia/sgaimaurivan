@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, ChevronLeft, ChevronRight, Shield, AlertTriangle } from "lucide-react";
+import { parseISO } from "date-fns";
 
 interface LicenseEvent {
   id: number;
@@ -49,7 +50,7 @@ export default function LicenseCalendar() {
   const licensesByDate = useMemo(() => {
     const grouped: Record<string, LicenseEvent[]> = {};
     licenses.forEach(license => {
-      const date = new Date(license.validade).toDateString();
+      const date = parseISO(license.validade).toDateString();
       if (!grouped[date]) {
         grouped[date] = [];
       }
