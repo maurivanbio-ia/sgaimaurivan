@@ -1196,6 +1196,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDemanda(id: number): Promise<boolean> {
+    // First delete all related history records
+    await db.delete(historicoDemandasMovimentacoes).where(eq(historicoDemandasMovimentacoes.demandaId, id));
+    // Then delete the demanda
     const result = await db.delete(demandas).where(eq(demandas.id, id));
     return (result.rowCount || 0) > 0;
   }
