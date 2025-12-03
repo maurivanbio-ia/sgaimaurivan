@@ -165,6 +165,15 @@ function DemandaForm({
   const queryClient = useQueryClient();
   const isEdit = Boolean(initial?.id);
 
+  const { data: empreendimentos = [] } = useQuery({
+    queryKey: ["/api/empreendimentos"],
+    queryFn: async () => {
+      const res = await fetch("/api/empreendimentos");
+      if (!res.ok) throw new Error("Failed to fetch empreendimentos");
+      return res.json();
+    },
+  });
+
   const [form, setForm] = useState({
     titulo: initial?.titulo ?? "",
     descricao: initial?.descricao ?? "",
@@ -173,11 +182,12 @@ function DemandaForm({
     responsavel: initial?.responsavel ?? "",
     dataEntrega: initial?.dataEntrega ? toYmd(initial.dataEntrega) : "",
     status: (initial?.status ?? "a_fazer") as Status,
+    empreendimentoId: (initial?.empreendimentoId?.toString() ?? "") as string,
   });
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim(),
         setor: form.setor,
@@ -186,6 +196,10 @@ function DemandaForm({
         dataEntrega: toYmd(form.dataEntrega),
         status: form.status,
       };
+
+      if (form.empreendimentoId) {
+        payload.empreendimentoId = parseInt(form.empreendimentoId);
+      }
 
       if (isEdit && initial?.id != null) {
         return apiRequest("PATCH", `/api/demandas/${initial.id}`, payload);
@@ -234,6 +248,26 @@ function DemandaForm({
           required
           data-testid="input-descricao"
         />
+      </div>
+
+      <div>
+        <Label>Empreendimento</Label>
+        <Select
+          value={form.empreendimentoId}
+          onValueChange={(v) => setForm({ ...form, empreendimentoId: v })}
+        >
+          <SelectTrigger data-testid="select-empreendimento">
+            <SelectValue placeholder="Selecione um empreendimento (opcional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Sem empreendimento</SelectItem>
+            {empreendimentos.map((emp: any) => (
+              <SelectItem key={emp.id} value={emp.id.toString()}>
+                {emp.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
