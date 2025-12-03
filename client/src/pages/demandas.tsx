@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { format as formatDate } from "date-fns";
+import { format as formatDate, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import {
@@ -458,7 +458,7 @@ function DemandaCard({
             {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {formatDate(new Date(demanda.dataEntrega), "dd/MM/yyyy", {
+            {formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", {
               locale: ptBR,
             })}
           </Badge>
