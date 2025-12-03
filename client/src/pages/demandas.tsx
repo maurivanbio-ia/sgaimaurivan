@@ -253,14 +253,13 @@ function DemandaForm({
       <div>
         <Label>Empreendimento</Label>
         <Select
-          value={form.empreendimentoId}
+          value={form.empreendimentoId || ""}
           onValueChange={(v) => setForm({ ...form, empreendimentoId: v })}
         >
           <SelectTrigger data-testid="select-empreendimento">
             <SelectValue placeholder="Selecione um empreendimento (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Sem empreendimento</SelectItem>
             {empreendimentos.map((emp: any) => (
               <SelectItem key={emp.id} value={emp.id.toString()}>
                 {emp.nome}
