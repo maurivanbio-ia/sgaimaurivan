@@ -1213,6 +1213,19 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(historicoDemandasMovimentacoes.criadoEm));
   }
 
+  async getDemandasByDateRange(startDate: Date, endDate: Date): Promise<Demanda[]> {
+    return await db
+      .select()
+      .from(demandas)
+      .where(
+        and(
+          gte(demandas.dataEntrega, startDate.toISOString().split('T')[0]),
+          lte(demandas.dataEntrega, endDate.toISOString().split('T')[0])
+        )
+      )
+      .orderBy(demandas.dataEntrega);
+  }
+
   async getAllHistorico(): Promise<Array<HistoricoMovimentacao & { demandaTitulo?: string; usuarioEmail?: string }>> {
     const historico = await db
       .select({

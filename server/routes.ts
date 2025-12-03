@@ -309,7 +309,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const licencas = await storage.getLicencasByDateRange(start, end);
-      res.json(licencas);
+      const demandas = await storage.getDemandasByDateRange(start, end);
+      
+      const events = [
+        ...licencas.map((l: any) => ({ ...l, tipo: 'licenca', eventType: 'licenca' })),
+        ...demandas.map((d: any) => ({ 
+          id: d.id, 
+          tipo: d.setor, 
+          validade: d.dataEntrega, 
+          empreendimentoNome: d.titulo, 
+          orgaoEmissor: d.responsavel,
+          eventType: 'demanda'
+        }))
+      ];
+      
+      res.json(events);
     } catch (error) {
       console.error("Get licenças calendar error:", error);
       res.status(500).json({ message: "Erro ao buscar licenças do calendário" });
