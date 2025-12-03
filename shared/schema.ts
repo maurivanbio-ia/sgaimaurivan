@@ -364,7 +364,7 @@ export const subtarefasDemandas = pgTable("subtarefas_demandas", {
 // Histórico de movimentações das demandas (audit trail)
 export const historicoDemandasMovimentacoes = pgTable("historico_demandas_movimentacoes", {
   id: serial("id").primaryKey(),
-  demandaId: integer("demanda_id").references(() => demandas.id).notNull(),
+  demandaId: integer("demanda_id").references(() => demandas.id, { onDelete: "set null" }),
   usuarioId: integer("usuario_id").references(() => users.id).notNull(),
   acao: text("acao").notNull(), // criou, moveu, comentou, anexou, etc.
   statusAnterior: text("status_anterior"),
