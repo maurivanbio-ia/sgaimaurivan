@@ -195,6 +195,7 @@ function DemandaForm({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
       toast({ title: isEdit ? "Demanda atualizada!" : "Demanda criada!" });
       onSuccess();
     },
