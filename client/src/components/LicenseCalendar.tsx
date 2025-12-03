@@ -12,6 +12,7 @@ interface LicenseEvent {
   validade: string;
   empreendimentoNome: string;
   orgaoEmissor: string;
+  eventType?: 'licenca' | 'demanda';
 }
 
 const MONTHS = [
