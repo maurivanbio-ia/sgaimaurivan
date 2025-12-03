@@ -582,6 +582,7 @@ export default function DemandasPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas/calendar"], exact: false });
       toast({ title: "Demanda excluída com sucesso!" });
     },
     onError: (e: any) =>
