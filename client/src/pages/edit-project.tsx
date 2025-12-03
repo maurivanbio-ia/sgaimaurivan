@@ -19,13 +19,13 @@ const projectSchema = z.object({
   cliente: z.string().min(1, "Cliente é obrigatório"),
   localizacao: z.string().min(1, "Localização é obrigatória"),
   latitude: z.string().optional().refine((val) => {
-    if (!val) return true;
-    const num = parseFloat(val);
+    if (!val || val.trim() === "") return true;
+    const num = Number(val);
     return !isNaN(num) && num >= -90 && num <= 90;
   }, "Latitude deve estar entre -90 e 90"),
   longitude: z.string().optional().refine((val) => {
-    if (!val) return true;
-    const num = parseFloat(val);
+    if (!val || val.trim() === "") return true;
+    const num = Number(val);
     return !isNaN(num) && num >= -180 && num <= 180;
   }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
