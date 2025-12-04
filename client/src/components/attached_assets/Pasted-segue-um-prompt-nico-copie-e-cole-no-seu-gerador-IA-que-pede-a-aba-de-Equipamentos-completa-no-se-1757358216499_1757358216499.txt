@@ -1,0 +1,268 @@
+segue um prompt único (copie e cole no seu gerador/IA) que pede a aba de Equipamentos completa no seu stack (React + TS + Wouter + TanStack Query + RHF/Zod + shadcn/ui) já com os Itens de Acompanhamento (manutenção, calibração, garantia, descarte/ESG etc.), rotas, validação, toasts, e testes.
+
+Você é um(a) engenheiro(a) front-end sênior. Gere uma aba completa de **Gestão de Equipamentos** para um app React + TypeScript usando:
+
+- Router: `wouter`
+- UI: `shadcn/ui` + Tailwind
+- Estado remoto: `@tanstack/react-query`
+- Formulários: `react-hook-form` + `zod` (validação)
+- Ícones: `lucide-react`
+- A11y: aria labels e `role="status/alert"`
+- Qualidade: testIDs (data-testid) nos pontos-chave
+- DX: utilitário `safeFetch` com mensagens de erro padronizadas
+
+## Arquivo único a gerar
+Crie **um único arquivo** `src/modules/EquipamentosModule.tsx` que exporta o módulo roteável dessa aba.
+
+## Rotas (em ordem, mais específicas primeiro)
+- `/equipamentos/:id/editar` → **EditarEquipamento**
+- `/equipamentos/:id/qr` → **QREquipamento** (placeholder)
+- `/equipamentos/novo` → **NovoEquipamento** (placeholder)
+- `/equipamentos/:id` → **VerEquipamento**
+- `/equipamentos` → **EquipamentosList**
+- fallback 404 com link de retorno para `/equipamentos`
+
+## Modelo (TypeScript)
+Assuma o tipo vindo de `@shared/schema`:
+
+```ts
+export type Equipamento = {
+  id: string | number;
+  numeroPatrimonio: string;
+  marca: string;
+  modelo: string;
+  tipoEquipamento: "Notebook" | "Desktop" | "Monitor" | "Impressora" | "Tablet" | "Smartphone" | "Equipamento de Campo" | "Outro";
+  status: "funcionando" | "com_defeito" | "em_manutencao" | "descartado";
+  localizacaoAtual: "escritorio" | "cliente" | "colaborador";
+  responsavelAtual: string | null;
+  dataAquisicao: string | null;         // ISO YYYY-MM-DD
+  proximaManutencao: string | null;     // ISO YYYY-MM-DD
+  valorAquisicao: number | string | null;
+  observacoes?: string | null;
+};
+
+Endpoints esperados (REST)
+
+GET /api/equipamentos (lista)
+
+GET /api/equipamentos/search?q&status&tipo&localizacao (lista filtrada)
+
+GET /api/equipamentos/:id (detalhe)
+
+PUT /api/equipamentos/:id (atualiza)
+
+DELETE /api/equipamentos/:id (exclui)
+
+Implemente safeFetch<T>(input, init?) para padronizar erros (tentar json().message, depois text(), fallback “Erro inesperado.”).
+
+Página: Lista (/equipamentos)
+
+Header com título e botão Novo Equipamento (usa <Link asChild>).
+
+Filtros:
+
+Texto (debounced 350ms): busca por patrimônio/marca/modelo
+
+Select Status (all/funcionando/com_defeito/em_manutencao/descartado)
+
+Select Tipo (all + lista)
+
+Select Localização (all + lista)
+
+Tabela com colunas: Patrimônio, Tipo/Modelo, Status (badge), Localização, Responsável, Aquisição, Valor, Manutenção, Ações.
+
+Ações (cada uma como <Button asChild><Link ...>...</Link></Button>):
+
+Visualizar → /equipamentos/:id
+
+Editar → /equipamentos/:id/editar
+
+QR → /equipamentos/:id/qr
+
+Paginação client-side (page/pageSize), com estado preservado.
+
+Estados de carregamento/erro/vazio, com role="status" e CTA “Limpar filtros” e “Cadastrar primeiro equipamento”.
+
+Página: Ver (/equipamentos/:id)
+
+Header com Voltar (Link para /equipamentos), Badge de status, botões QR Code e Editar.
+
+Grid de detalhes (tipo, localização, responsável, aquisição, próxima manutenção, valor).
+
+Seção “Itens de Acompanhamento” (ver especificação abaixo) exibida nesta página:
+
+Lista paginável dos itens relacionados ao equipamento
+
+Botão Adicionar Item (abre diálogo/controlado) → cria item localmente (mock) ou integração se endpoint existir
+
+Filtros rápidos: por tipo (manutenção, calibração, garantia, descarte, software/licença, incidente), por status (pendente, em_progresso, concluído, vencido), por prazo (vencidos, próximos 30 dias)
+
+Badges de severidade (ver regras)
+
+Página: Editar (/equipamentos/:id/editar)
+
+Form com react-hook-form + zod:
+
+Nº Patrimônio, Marca, Modelo (required)
+
+Tipo (select)
+
+Status (select)
+
+Localização (select)
+
+Responsável (livre/optional)
+
+Data de Aquisição (input date, ISO)
+
+Próxima Manutenção (input date)
+
+Valor de Aquisição (input controlado que exibe BRL, salva como number | null)
+
+Observações (textarea)
+
+Tira-dúvidas: placeholder/tooltip sobre formatos de data e moeda.
+
+Footer com Cancelar (Link) | Salvar alterações (mutation + toast) | Excluir com AlertDialog.
+
+Aviso de “Alterações não salvas” + beforeunload quando isDirty.
+
+QREquipamento (/equipamentos/:id/qr)
+
+Placeholder mostrando a URL do detalhe. (Observação no código: “trocar por componente qrcode.react quando disponível”)
+
+NovoEquipamento (/equipamentos/novo)
+
+Placeholder de criação, botão Voltar.
+
+Itens de Acompanhamento (ESPECIFICAÇÃO)
+
+Crie um submódulo inline no mesmo arquivo para renderizar dentro de VerEquipamento, com o tipo:
+
+type ItemAcompanhamento = {
+  id: string;
+  equipamentoId: string | number;
+  tipo: "manutencao" | "calibracao" | "garantia" | "software_licenca" | "descarte" | "incidente";
+  titulo: string;
+  descricao?: string;
+  dataCriacao: string;        // ISO
+  dataEvento?: string | null; // quando ocorreu (manutenção, calibração, incidente)
+  prazo?: string | null;      // deadline (garantia vence, calibração próxima, descarte programado, renovação de licença)
+  custo?: number | null;
+  fornecedor?: string | null;
+  anexoUrls?: string[];       // evidências
+  status: "pendente" | "em_progresso" | "concluido" | "vencido";
+  severidade?: "info" | "baixa" | "media" | "alta";
+  meta?: Record<string, any>; // campos específicos por tipo (ex.: certificado de calibração)
+};
+
+Regras de status/severidade
+
+vencido se prazo < hoje e status !== concluido
+
+alta se tipo = descarte vencido OU calibracao vencida OU manutencao crítica; media se vence em ≤ 30 dias; baixa caso contrário; info para concluídos.
+
+Badge de cor: alta (vermelho), média (amarelo), baixa (azul), info (cinza).
+
+Campos específicos por tipo (em meta)
+
+manutencao: { ordemServico, tipo: "preventiva"|"corretiva", checklist?: string[] }
+
+calibracao: { certificadoNumero, laboratorio, incerteza, proximaCalibracao }
+
+garantia: { fornecedor, slaHoras, fimGarantia }
+
+software_licenca: { produto, chaveUlt4, validade }
+
+descarte: { destino: "reuso"|"reciclagem"|"aterro", comprovanteUrl, orgaoResponsavel }
+
+incidente: { categoria, impacto, causaRaiz }
+
+UI dos Itens
+
+Tabela com colunas: Tipo, Título, Status, Prazo, Custo, Fornecedor, Ações (Ver/Editar/Concluir)
+
+Filtros (select + search), paginação simples
+
+Botão Adicionar abre Dialog com formulário mínimo:
+
+tipo, titulo (required), prazo (opcional), custo (opcional numérico BRL), descrição, fornecedor, anexoUrls (comma)
+
+Persistência: pode simular via estado local (mock) se não houver endpoints; o componente deve ser facilmente adaptável para useQuery/useMutation.
+
+Indicadores ESG (visuais)
+
+Contadores no topo da seção:
+
+Manutenções vencidas (n)
+
+Calibrações vencidas (n)
+
+Descarte programado ≤ 30 dias (n)
+
+% reuso/reciclagem (com base nos itens de descarte concluídos por destino)
+
+Utilidades
+
+formatDate, toDateInput, formatCurrency, formatBRL, parseBRL, safeFetch
+
+Mapa de statusColors e statusLabels; localizacaoLabels
+
+Acessibilidade/A11y
+
+Ícones em botões com aria-label
+
+Estados de carregamento com role="status" e aria-live="polite"
+
+Alertas de erro com role="alert"
+
+Qualidade
+
+Coloque data-testid em: botões de ação na lista, inputs principais do form, tabela de itens de acompanhamento, botões do diálogo.
+
+Tratamento de erro padrão com toasts (use useToast()).
+
+Aceite (funcional)
+
+Clicar Visualizar abre /equipamentos/:id sem 404.
+
+Clicar Editar abre /equipamentos/:id/editar, salvar volta para /equipamentos/:id e invalida cache.
+
+Em Ver, a seção Itens de Acompanhamento lista itens mock iniciais (2–3 exemplos variados) e permite Adicionar um novo (fica visível na lista).
+
+Badges de severidade refletem as regras de prazo/status.
+
+Filtros e paginação na lista de equipamentos funcionam e não quebram navegação.
+
+Campos monetários exibem BRL, salvam número.
+
+Observações Ambientais (obrigatório)
+
+Itens descarte devem contemplar destinação ambientalmente adequada (reuso/reciclagem/aterro) e armazenar comprovantes (URL).
+
+Mostrar alertas de calibração/manutenção vencidas, pois impactam segurança e conformidade.
+
+Preparar exportação futura (CSV) dos itens de acompanhamento para anexar a relatórios ESG.
+
+Extra
+
+Use <Button asChild><Link href="...">...</Link></Button> para navegação; evite navigate() em ações de tabela.
+
+Rotas específicas antes das genéricas no <Switch> do wouter.
+
+Provider de React Query no export padrão do módulo.
+
+Entregue apenas um arquivo EquipamentosModule.tsx com tudo acima integrado e comentado de forma sucinta nas seções principais.
+
+
+---
+
+### Itens de acompanhamento — checklist resumido (para alinhar com time)
+- Manutenção (preventiva/corretiva) — OS, custo, fornecedor, prazo, evidências.
+- Calibração — certificado, laboratório, próxima calibração.
+- Garantia/Contrato — fim de garantia, SLA, fornecedor.
+- Software/Licença — produto, chave (parcial), validade.
+- Descarte — destino (reuso/reciclagem/aterro), comprovante, órgão responsável.
+- Incidente — categoria, impacto, causa raiz, data.
+
+Se quiser, eu já te devolvo o arquivo pronto seguindo esse prompt.
