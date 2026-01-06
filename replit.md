@@ -1,142 +1,6 @@
 # Overview
 
-EcoGestor (LicençaFácil) is an environmental license management system for environmental consulting companies. It tracks and manages environmental licenses by enterprise, centralizing license management to prevent expiration oversights and provide visibility into deadlines and compliance. The system features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses. Recent enhancements have transformed it into a full platform for project management, including contracts, campaigns, HR, and detailed project timelines.
-
-The platform now supports multi-unit operation for ECOBRASIL with three units: Goiânia, Salvador, and Luiz Eduardo Magalhães. Users are assigned to a unit during registration, and can only access data from their assigned unit. This ensures complete data isolation between units.
-
-## Recent Changes (November 2025)
-
-### UI/UX Improvements
-- **Login Page Background**: Custom branded background image with enhanced glassmorphism
-  - Background: Custom EcoGestor branded image (image_1762101182539.png)
-  - Card transparency: Increased to bg-white/3 (3% opacity) for better background visibility
-  - Glassmorphism effect: backdrop-blur-xl with subtle border and shadow
-  - Text remains readable with proper contrast
-- **Other Pages - Clean Gradients**: 
-  - Register page: Solid gradient background (gray-900 → gray-800 → gray-900)
-  - Unit selection: Solid gradient background (gray-900 → gray-800 → gray-900)
-  - Dashboard: Solid gradient background (gray-50 → white → gray-50 in light mode)
-  - Improved performance and accessibility with gradient-only backgrounds
-
-### EcoGestor-AI (AI Assistant) - MULTI-TENANCY IMPLEMENTATION
-- **New AI Conversational Agent**: `/ia` page with intelligent assistant capabilities
-  - Natural language query interface with chat UI
-  - Document indexing and vector search using OpenAI embeddings (text-embedding-3-small)
-  - Conversational responses powered by GPT-4o-mini
-  - Automated action execution: check licenses, vehicles, equipment, demands
-  - Context-aware responses with document retrieval
-  - **🔒 Multi-Tenancy**: AI isolado por unidade - cada unidade só acessa seus próprios dados
-- **Database Schema**: Three new tables for AI functionality (✅ updated with unidade field)
-  - `ai_documents`: Stores indexed documents with vector embeddings (1536 dimensions) + **unidade field**
-  - `ai_conversations`: Tracks user conversations and AI responses + **unidade field**
-  - `ai_logs`: Audit log for all AI actions and queries + **unidade field**
-- **Backend AI Services** (✅ updated for multi-tenancy):
-  - `server/ai/embeddings.ts`: Generate OpenAI embeddings and calculate cosine similarity
-  - `server/ai/retriever.ts`: Vector search and document indexing **with unidade filter**
-  - `server/ai/actions.ts`: Executable actions **filtered by unidade**
-  - `server/ai/aiService.ts`: Main AI service **with unidade isolation**
-- **API Endpoints** (✅ updated with unidade validation):
-  - `POST /api/ai/query`: Send message to AI assistant (requires unidade)
-  - `GET /api/ai/history`: Retrieve conversation history (requires unidade)
-  - `POST /api/ai/index`: Index new documents for search (requires unidade)
-  - `GET /api/ai/actions`: List available AI actions
-- **UI Features**:
-  - Modern glassmorphism design with gradient backgrounds
-  - Real-time chat interface with message history
-  - Suggestion chips for common queries
-  - Auto-scroll to latest messages
-  - Loading states with animated indicators
-  - Accessible from header menu with robot emoji 🤖
-  - **Frontend sends unidade** from UnidadeContext in all requests
-- **⚠️ TODO - Storage Methods**: Need to update storage.ts methods (getLicenseStats, getFrotaStats, etc.) to accept and filter by unidade parameter
-
-### Dashboard Executivo (Executive Dashboard)
-- **New Executive Dashboard**: `/dashboard-executivo` page for directors (standalone page, not using Card components)
-  - Consolidated view of all three ECOBRASIL units (Goiânia, Salvador, Luiz Eduardo Magalhães)
-  - Overview header with total units, empreendimentos, collaborators, and contract value
-  - Aggregated KPI sections for Frota, Equipamentos, and Demandas across all units (using direct divs instead of Card components)
-  - Per-unit detail sections showing comprehensive metrics:
-    - Empreendimentos (total, ativos, concluídos)
-    - Frota (total, disponíveis, em uso, manutenção, alugados)
-    - Equipamentos (total, disponíveis, em uso, manutenção)
-    - RH (total, ativos, afastados)
-    - Demandas (total, pendentes, em andamento, concluídas)
-    - Contratos (total, ativos, valor total)
-  - Color-coded sections with unit-specific gradients
-  - Accessible from header navigation menu
-  - **Design**: Standalone page without shadcn Card components - uses direct divs with custom styling
-- **API Endpoint**: `GET /api/dashboard/executivo`
-  - Returns consolidated statistics from all units
-  - Fetches data in parallel for optimal performance
-
-### User-Level Unit Access Control (January 2026)
-- **Registration with Unit**: Users must select their unit during registration
-  - Unit field added to users table: 'goiania', 'salvador', 'luiz-eduardo-magalhaes'
-  - Unit selection is mandatory and permanent (cannot be changed by user)
-  - Registration form includes dropdown for unit selection
-- **Authentication Flow**: Login → Dashboard (no unit selection page)
-  - User's unit is loaded from their account data
-  - No manual unit switching allowed
-  - Unit is enforced server-side for all data access
-- **UnidadeContext**: Syncs with authenticated user's unit
-  - Reads unit from user authentication data (not localStorage)
-  - Provides `getNomeUnidade()` helper for display
-  - Accessible via `useUnidade()` hook throughout the app
-- **Header Integration**: Shows user's unit with Building2 icon
-  - Green badge displays unit name (read-only)
-  - No "Trocar" (change) button - users cannot switch units
-- **Backend Security**: 
-  - requireAuth middleware attaches user info (including unidade) to req.user
-  - Empreendimentos routes filter by req.user.unidade (not client-provided values)
-  - AI routes use req.user.unidade for multi-tenant isolation
-  - POST/PUT/DELETE operations verify ownership before executing
-- **Route Structure**: 
-  - `/selecionar-unidade`: Legacy unit selection page (not used in main flow)
-  - `/dashboard-executivo`: Executive dashboard for directors
-  - All other routes show header with unit indicator
-  - Unit context wrapped around entire application
-
-### Vehicle Ownership Type Feature (Próprio/Alugado)
-- **Frota Enhancement**: Vehicles can now be classified as owned (próprio) or rented (alugado)
-  - Added `tipo_propriedade` column to veiculos table (default: 'proprio')
-  - Added `data_aluguel`, `data_entrega`, `termo_vistoria_id` columns for rental vehicles
-  - Conditional validation: if vehicle is "alugado", rental and delivery dates are required
-  - UI dynamically shows/hides rental fields based on ownership type selection
-  - Form uses Zod `.refine()` for conditional validation
-  - Termo de vistoria (inspection report) upload placeholder for future implementation
-  - Prevents validation errors with proper defaultValues initialization
-
-### Empreendimento Resource Assignment Integration
-- **Frota (Vehicles)**: Vehicles can now be assigned to specific empreendimentos
-  - Simplified Zod schema for `empreendimentoId` validation (`.number().int().positive().optional()`)
-  - Fixed FrotaTab to use correct API endpoint `/api/frota` with empreendimentoId filter
-  - Backend GET `/api/frota` now accepts and properly filters by `empreendimentoId` query parameter
-  - Storage layer `getVeiculos()` filters vehicles by `empreendimentoId`
-  - Vehicles appear in both global frota list AND empreendimento-specific Frota tab
-- **RH (Human Resources)**: RH records can be assigned to specific empreendimentos
-  - Created main RH page at `/rh` with full CRUD functionality
-  - RhTab properly filters by empreendimentoId using dedicated queryFn
-  - Menu updated: "Segurança do Trabalho" renamed to "SST/RH" with new "RH" link
-- **Equipamentos (Equipment)**: Equipment assignment to empreendimentos already functional
-  - EquipamentosTab correctly filters by empreendimentoId
-- All resource assignment is optional - resources can exist without empreendimento assignment
-
-### Map Visualization Replacement
-- Replaced react-leaflet with custom grid-based visualization
-- Empreendimentos now displayed in a responsive grid layout with type-specific icons
-- Improved performance and eliminated leaflet dependency issues
-
-### Critical Database Schema Fixes
-- **Fixed FK Constraint Bug**: Removed auto-increment sequences from foreign key columns in `demandas`, `veiculos`, and `equipamentos` tables
-  - `empreendimento_id`, `responsavel_id`, and `criado_por` no longer have invalid DEFAULT sequences
-  - These FK columns now properly accept NULL (empreendimento_id) or explicit values from backend
-  - Prevents FK constraint violations during record creation
-
-### UX Improvements
-- Fixed "Nova Demanda" dialog to close automatically after successful creation
-- Dialog now uses controlled state pattern with proper open/close handlers
-- Toast notifications display correctly for all CRUD operations
-- Form validation improved with proper error handling
+EcoGestor (LicençaFácil) is an environmental license management system designed for environmental consulting companies. Its primary purpose is to centralize and track environmental licenses by enterprise, preventing expiration oversights and providing clear visibility into deadlines and compliance. The system has evolved into a comprehensive platform encompassing project management, contracts, campaigns, human resources, and detailed project timelines. It supports multi-unit operations for ECOBRASIL (Goiânia, Salvador, Luiz Eduardo Magalhães), ensuring data isolation, and features dashboard analytics, automated alerts, and full CRUD capabilities. Recent additions include an AI conversational agent and specialized dashboards for executive oversight and coordinator gamification.
 
 # User Preferences
 
@@ -144,92 +8,67 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
-## Frontend Architecture
-- **Framework**: React with TypeScript using Vite
-- **Routing**: Wouter
-- **State Management**: TanStack Query (React Query)
-- **UI Framework**: Shadcn/UI (built on Radix UI)
-- **Styling**: Tailwind CSS
-- **Forms**: React Hook Form with Zod validation
-- **Charts**: Chart.js
+## UI/UX Decisions
+The system features a modern UI with glassmorphism effects and clean gradient backgrounds for improved aesthetics and performance. The login page uses a custom branded background with increased card transparency. Dashboards leverage gradient-only backgrounds. Navigation includes a header with unit indicators and specific links for executive and coordinator dashboards. Map visualizations use a custom grid-based layout instead of `react-leaflet`.
 
-## Backend Architecture
-- **Framework**: Express.js with TypeScript
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Session-based using express-session
-- **Password Security**: bcrypt
-- **API Design**: RESTful API with centralized error handling
-- **File Upload**: Multer for PDF upload with checksum and metadata tracking
-- **Job Scheduling**: `node-cron` for future automation features
+## Technical Implementations
+The frontend is built with React, TypeScript, Vite, Wouter for routing, TanStack Query for state management, and Shadcn/UI with Tailwind CSS for styling. Forms are handled by React Hook Form with Zod validation. The backend uses Express.js with TypeScript, PostgreSQL with Drizzle ORM, and session-based authentication using `express-session` and `bcrypt`. File uploads are managed by Multer, and job scheduling by `node-cron`.
 
-## Data Storage Solutions
-- **Primary Database**: PostgreSQL hosted on Neon serverless platform
-- **ORM**: Drizzle ORM (schema-first approach)
-- **Migrations**: Drizzle-kit for database schema management
+## Feature Specifications
+### Multi-Tenancy
+The system implements multi-tenancy at the unit level, ensuring complete data isolation. Users are assigned a unit during registration and can only access data pertinent to their unit. The unit context is enforced server-side for all data access, including API endpoints and AI functionalities. The Executive Dashboard provides a consolidated view across all units for directors.
 
-## Authentication and Authorization
-- **Authentication Method**: Email/password login with session management
-- **Session Management**: Express-session middleware
-- **Authorization**: Middleware-based route protection
+### EcoGestor-AI
+An AI conversational agent is integrated, accessible via a chat UI. It uses OpenAI embeddings for document indexing and vector search, and GPT-4o-mini for conversational responses. It can execute automated actions (e.g., check licenses, vehicles) and provides context-aware responses with document retrieval. AI data and conversations are isolated by unit.
 
-## Key Design Patterns
-- **Component Architecture**: Modular React components
-- **Type Safety**: End-to-end TypeScript with shared schemas
-- **Data Validation**: Zod schemas shared across client and server
-- **Error Handling**: Centralized with user-friendly messages
-- **Responsive Design**: Mobile-first approach
+### Dashboards
+- **Executive Dashboard**: Provides a consolidated, high-level overview of all ECOBRASIL units, displaying aggregated KPIs for frota, equipment, demands, RH, and contracts.
+- **Coordinator Dashboard**: Features gamification with a coordinator ranking based on project efficiency, achievement badges, project status pie charts, and expense trends. This dashboard also supports multi-tenant isolation.
+
+### Resource Management
+- **Vehicle Ownership**: Vehicles can be classified as owned or rented, with conditional validation for rental-specific fields.
+- **Empreendimento Resource Assignment**: Vehicles, RH records, and equipment can be optionally assigned to specific `empreendimentos`, with proper filtering in UI tabs and backend APIs.
+
+### Database and Data Handling
+The PostgreSQL database uses Drizzle ORM with a schema-first approach. Key tables (`empreendimentos`, `demandas`, `veiculos`, `equipamentos`, `rh_registros`, `ai_documents`, `ai_conversations`, `ai_logs`, `projetos`) have been enhanced with fields supporting multi-tenancy, project management, and AI features. Foreign key constraints have been fixed, and soft deletion is implemented. File uploads include metadata tracking and checksums.
 
 ## System Design Choices
-- **Database Schema Expansion**: Includes tables for `arquivos`, `campanhas`, `contratos`, `contrato_aditivos`, `contrato_pagamentos`, `cronograma_itens`, `rh_registros`, `jobs_agendados`.
-- **Empreendimentos Table Enhancement**: Added fields for `tipo`, `status`, `municipio`, `uf`, `gestorName`, `gestorEmail`, `gestorTelefone`, `visivel`, `dataInicio`, `dataFimPrevista`, `dataFimReal`, `atualizadoEm`, `deletedAt`.
-- **Demandas Table Enhancement**: Added `origem`, `campanhaId`, `contratoId`, `recorrente`, `recorrenciaCron`, `recorrenciaFim`.
-- **File Upload System**: Multer for PDF upload (10MB limit), automatic filename, checksum, physical storage in `/uploads`, database metadata tracking.
-- **Technical Features**: Foreign key relationships, soft delete (`deletedAt`), automatic timestamps, JSON field support, decimal precision for financial values.
-- **Performance Optimizations**: Reduced notification polling, database indexing on frequently queried columns, optimized cron job frequency, consolidated dashboard API endpoint, implemented transactional cascade deletion.
+The architecture emphasizes modular React components, end-to-end TypeScript with shared Zod schemas for data validation, and centralized error handling. It adopts a mobile-first responsive design. Performance optimizations include reduced notification polling, database indexing, and optimized API endpoints.
 
 # External Dependencies
 
 ## AI Services
-- **OpenAI**: Embeddings (text-embedding-3-small) and chat completion (gpt-4o-mini)
-- **Integration**: Via @anthropic-ai/sdk and openai packages
-- **Features**: Document vectorization, semantic search, conversational AI
+- **OpenAI**: Used for text embeddings (text-embedding-3-small) and chat completion (gpt-4o-mini) via `@anthropic-ai/sdk` and `openai` packages.
 
 ## Database Services
-- **Neon Database**: Serverless PostgreSQL hosting
-- **Connection**: @neondatabase/serverless
+- **Neon Database**: Serverless PostgreSQL hosting, connected via `@neondatabase/serverless`.
 
 ## UI and Styling
-- **Radix UI**: Accessible UI primitives
-- **Tailwind CSS**: Utility-first CSS framework
-- **Lucide React**: Icon library
-- **Chart.js**: Data visualization library
-- **@radix-ui/react-scroll-area**: Scroll area UI component
-- **@tailwindcss/typography**: Typography plugin
+- **Shadcn/UI (Radix UI)**: Accessible UI primitives.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **Lucide React**: Icon library.
+- **Chart.js**: Data visualization library.
 
 ## Development Tools
-- **Vite**: Fast build tool and development server
-- **@replit/vite-plugin-runtime-error-modal**: Vite development error overlay
-- **@replit/vite-plugin-cartographer**: Replit development tools
+- **Vite**: Fast build tool and development server.
 
 ## Validation and Forms
-- **Zod**: TypeScript-first schema validation
-- **React Hook Form**: Performant form library
-- **Hookform/Resolvers**: Integration between React Hook Form and Zod
+- **Zod**: TypeScript-first schema validation.
+- **React Hook Form**: Performant form library.
 
 ## State Management
-- **TanStack Query**: Server state management
-- **Wouter**: Minimalist routing library
+- **TanStack Query**: Server state management.
+- **Wouter**: Minimalist routing library.
 
 ## Security
-- **bcrypt**: Password hashing library
-- **Express Session**: Session management middleware
-- **CORS**: Cross-origin resource sharing configuration
+- **bcrypt**: Password hashing.
+- **Express Session**: Session management.
+- **CORS**: Cross-origin resource sharing.
 
 ## Utilities & Integrations
-- **multer**: File upload handling
-- **node-cron**: Job scheduling
-- **nanoid**: Unique ID generation
-- **xlsx**: Excel export functionality
-- **csv-writer**: CSV export functionality
-- **nodemailer**: Email service
-- **react-leaflet + leaflet**: Map components
+- **multer**: File upload handling.
+- **node-cron**: Job scheduling.
+- **nanoid**: Unique ID generation.
+- **xlsx**: Excel export functionality.
+- **csv-writer**: CSV export functionality.
+- **nodemailer**: Email service.
