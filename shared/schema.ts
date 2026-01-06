@@ -18,6 +18,7 @@ export const empreendimentos = pgTable("empreendimentos", {
   id: serial("id").primaryKey(),
   nome: text("nome").notNull(),
   cliente: text("cliente").notNull(),
+  clienteId: integer("cliente_id"),
   clienteEmail: text("cliente_email"),
   clienteTelefone: text("cliente_telefone"),
   localizacao: text("localizacao").notNull(),
@@ -1117,6 +1118,103 @@ export type InsertColaborador = z.infer<typeof insertColaboradorSchema>;
 export type Colaborador = typeof colaboradores.$inferSelect;
 export type InsertSegDocumento = z.infer<typeof insertSegDocumentoSchema>;
 export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSelect;
+
+// =============================================
+// PORTAL DO CLIENTE - Clientes e Usuários de Cliente
+// =============================================
+
+export const clientes = pgTable("clientes", {
+  id: serial("id").primaryKey(),
+  razaoSocial: text("razao_social").notNull(),
+  nomeFantasia: text("nome_fantasia"),
+  cnpj: varchar("cnpj", { length: 18 }).unique(),
+  email: text("email"),
+  telefone: text("telefone"),
+  endereco: text("endereco"),
+  cidade: text("cidade"),
+  uf: varchar("uf", { length: 2 }),
+  cep: varchar("cep", { length: 9 }),
+  contatoPrincipal: text("contato_principal"),
+  unidade: text("unidade").notNull().default("goiania"),
+  ativo: boolean("ativo").notNull().default(true),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const clienteUsuarios = pgTable("cliente_usuarios", {
+  id: serial("id").primaryKey(),
+  clienteId: integer("cliente_id").references(() => clientes.id).notNull(),
+  nome: text("nome").notNull(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  cargo: text("cargo"),
+  telefone: text("telefone"),
+  role: text("role").notNull().default("visualizador"),
+  ativo: boolean("ativo").notNull().default(true),
+  ultimoAcesso: timestamp("ultimo_acesso"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const clienteDocumentos = pgTable("cliente_documentos", {
+  id: serial("id").primaryKey(),
+  clienteUsuarioId: integer("cliente_usuario_id").references(() => clienteUsuarios.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  arquivoUrl: text("arquivo_url").notNull(),
+  tipo: text("tipo").notNull(),
+  tamanho: integer("tamanho").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const clientesRelations = relations(clientes, ({ many }) => ({
+  usuarios: many(clienteUsuarios),
+}));
+
+export const clienteUsuariosRelations = relations(clienteUsuarios, ({ one, many }) => ({
+  cliente: one(clientes, {
+    fields: [clienteUsuarios.clienteId],
+    references: [clientes.id],
+  }),
+  documentos: many(clienteDocumentos),
+}));
+
+export const clienteDocumentosRelations = relations(clienteDocumentos, ({ one }) => ({
+  clienteUsuario: one(clienteUsuarios, {
+    fields: [clienteDocumentos.clienteUsuarioId],
+    references: [clienteUsuarios.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [clienteDocumentos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
+export const insertClienteSchema = createInsertSchema(clientes).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertClienteUsuarioSchema = createInsertSchema(clienteUsuarios).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  ultimoAcesso: true,
+});
+
+export const insertClienteDocumentoSchema = createInsertSchema(clienteDocumentos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertCliente = z.infer<typeof insertClienteSchema>;
+export type Cliente = typeof clientes.$inferSelect;
+export type InsertClienteUsuario = z.infer<typeof insertClienteUsuarioSchema>;
+export type ClienteUsuario = typeof clienteUsuarios.$inferSelect;
+export type InsertClienteDocumento = z.infer<typeof insertClienteDocumentoSchema>;
+export type ClienteDocumento = typeof clienteDocumentos.$inferSelect;
 
 // Extended types with relations
 export type EmpreendimentoWithLicencas = Empreendimento & {
