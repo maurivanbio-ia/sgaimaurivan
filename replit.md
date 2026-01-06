@@ -2,7 +2,7 @@
 
 EcoGestor (LicençaFácil) is an environmental license management system for environmental consulting companies. It tracks and manages environmental licenses by enterprise, centralizing license management to prevent expiration oversights and provide visibility into deadlines and compliance. The system features dashboard analytics, automated alerts, and comprehensive CRUD operations for enterprises and their environmental licenses. Recent enhancements have transformed it into a full platform for project management, including contracts, campaigns, HR, and detailed project timelines.
 
-The platform now supports multi-unit operation for ECOBRASIL with three units: Goiânia, Salvador, and Luiz Eduardo Magalhães. Users select their unit after login, with the selection persisting across sessions.
+The platform now supports multi-unit operation for ECOBRASIL with three units: Goiânia, Salvador, and Luiz Eduardo Magalhães. Users are assigned to a unit during registration, and can only access data from their assigned unit. This ensures complete data isolation between units.
 
 ## Recent Changes (November 2025)
 
@@ -69,22 +69,29 @@ The platform now supports multi-unit operation for ECOBRASIL with three units: G
   - Returns consolidated statistics from all units
   - Fetches data in parallel for optimal performance
 
-### Unit Selection System (Multi-Unit Support)
-- **New Authentication Flow**: Login → Unit Selection → Dashboard
-  - Three units available: ECOBRASIL Goiânia, ECOBRASIL Salvador, ECOBRASIL Luiz Eduardo Magalhães
-  - Unit selection page features clean gradient background (no images)
-  - Selected unit persists in localStorage via UnidadeContext
-  - **Fixed card heights**: All unit selection cards now have uniform height with flexbox layout
-- **UnidadeContext**: Global context for unit selection
-  - Stores selected unit: 'goiania', 'salvador', 'luiz-eduardo-magalhaes'
+### User-Level Unit Access Control (January 2026)
+- **Registration with Unit**: Users must select their unit during registration
+  - Unit field added to users table: 'goiania', 'salvador', 'luiz-eduardo-magalhaes'
+  - Unit selection is mandatory and permanent (cannot be changed by user)
+  - Registration form includes dropdown for unit selection
+- **Authentication Flow**: Login → Dashboard (no unit selection page)
+  - User's unit is loaded from their account data
+  - No manual unit switching allowed
+  - Unit is enforced server-side for all data access
+- **UnidadeContext**: Syncs with authenticated user's unit
+  - Reads unit from user authentication data (not localStorage)
   - Provides `getNomeUnidade()` helper for display
   - Accessible via `useUnidade()` hook throughout the app
-- **Header Integration**: Shows selected unit with Building2 icon
-  - Green-highlighted button displays current unit name
-  - Click to return to unit selection page
-  - Ready for future unit-based data filtering
+- **Header Integration**: Shows user's unit with Building2 icon
+  - Green badge displays unit name (read-only)
+  - No "Trocar" (change) button - users cannot switch units
+- **Backend Security**: 
+  - requireAuth middleware attaches user info (including unidade) to req.user
+  - Empreendimentos routes filter by req.user.unidade (not client-provided values)
+  - AI routes use req.user.unidade for multi-tenant isolation
+  - POST/PUT/DELETE operations verify ownership before executing
 - **Route Structure**: 
-  - `/selecionar-unidade`: Full-screen unit selection (no header)
+  - `/selecionar-unidade`: Legacy unit selection page (not used in main flow)
   - `/dashboard-executivo`: Executive dashboard for directors
   - All other routes show header with unit indicator
   - Unit context wrapped around entire application
