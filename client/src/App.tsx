@@ -34,6 +34,10 @@ import GestaoDados from "./pages/gestaoDados";
 import SegurancaTrabalho from "./pages/segurancaTrabalho";
 import PainelIntegrado from "./pages/painel-integrado";
 import Sidebar from "./components/layout/sidebar";
+import ClienteSidebar from "./components/layout/cliente-sidebar";
+import ClienteLogin from "./pages/cliente/login";
+import ClienteDashboard from "./pages/cliente/dashboard";
+import ClienteEmpreendimentoDetail from "./pages/cliente/empreendimento-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -44,6 +48,26 @@ function Router() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
+  // Portal do Cliente - rotas públicas e autenticadas separadas
+  if (location.startsWith("/cliente")) {
+    if (location === "/cliente/login") {
+      return <ClienteLogin />;
+    }
+    // Rotas autenticadas do portal do cliente
+    return (
+      <div className="flex min-h-screen">
+        <ClienteSidebar />
+        <main className="flex-1 md:ml-64 pt-16 md:pt-0 transition-all duration-300">
+          <Switch>
+            <Route path="/cliente" component={ClienteDashboard} />
+            <Route path="/cliente/empreendimentos/:id" component={ClienteEmpreendimentoDetail} />
+            <Route component={NotFound} />
+          </Switch>
+        </main>
       </div>
     );
   }

@@ -12,9 +12,18 @@ import {
   insertCronogramaItemSchema,
   insertRhRegistroSchema,
   insertProjetoSchema,
+  insertClienteSchema,
+  insertClienteUsuarioSchema,
+  insertClienteDocumentoSchema,
   campanhas,
   cronogramaItens,
   rhRegistros,
+  clientes,
+  clienteUsuarios,
+  clienteDocumentos,
+  empreendimentos,
+  licencasAmbientais,
+  demandas,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull } from "drizzle-orm";
@@ -44,10 +53,18 @@ const registerSchema = z.object({
   cargo: z.enum(["coordenador", "diretor", "rh", "financeiro", "colaborador"]),
 });
 
+// Client login schema
+const clienteLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
 // Session configuration
 declare module 'express-session' {
   interface SessionData {
     userId?: number;
+    clienteUsuarioId?: number;
+    clienteId?: number;
   }
 }
 
@@ -95,6 +112,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(403).json({ message: "Acesso negado. Apenas administradores podem realizar esta ação." });
     }
     
+    next();
+  };
+
+  // Client portal authentication middleware
+  const requireClienteAuth = async (req: any, res: any, next: any) => {
+    if (!req.session.clienteUsuarioId || !req.session.clienteId) {
+      return res.status(401).json({ message: "Acesso não autorizado. Faça login no portal do cliente." });
+    }
+    
+    const [clienteUsuario] = await db
+      .select()
+      .from(clienteUsuarios)
+      .where(and(
+        eq(clienteUsuarios.id, req.session.clienteUsuarioId),
+        eq(clienteUsuarios.ativo, true)
+      ))
+      .limit(1);
+    
+    if (!clienteUsuario) {
+      return res.status(401).json({ message: "Usuário não encontrado ou inativo" });
+    }
+    
+    req.clienteUsuario = clienteUsuario;
+    req.clienteId = req.session.clienteId;
     next();
   };
 
@@ -2353,6 +2394,532 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get actions error:", error);
       res.status(500).json({ message: "Erro ao buscar ações" });
+    }
+  });
+
+  // =============================================
+  // CLIENT PORTAL AUTHENTICATION ROUTES
+  // =============================================
+
+  // POST /api/cliente-auth/login - Login for cliente_usuarios
+  app.post("/api/cliente-auth/login", async (req, res) => {
+    try {
+      const { email, password } = clienteLoginSchema.parse(req.body);
+      
+      const [clienteUsuario] = await db
+        .select()
+        .from(clienteUsuarios)
+        .where(and(
+          eq(clienteUsuarios.email, email),
+          eq(clienteUsuarios.ativo, true)
+        ))
+        .limit(1);
+      
+      if (!clienteUsuario) {
+        return res.status(401).json({ message: "E-mail ou senha inválidos" });
+      }
+
+      const isValidPassword = await bcrypt.compare(password, clienteUsuario.passwordHash);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "E-mail ou senha inválidos" });
+      }
+
+      // Update ultimo acesso
+      await db
+        .update(clienteUsuarios)
+        .set({ ultimoAcesso: new Date() })
+        .where(eq(clienteUsuarios.id, clienteUsuario.id));
+
+      // Create session with cliente info
+      req.session.clienteUsuarioId = clienteUsuario.id;
+      req.session.clienteId = clienteUsuario.clienteId;
+
+      // Get cliente info
+      const [cliente] = await db
+        .select()
+        .from(clientes)
+        .where(eq(clientes.id, clienteUsuario.clienteId))
+        .limit(1);
+
+      res.json({ 
+        message: "Login bem-sucedido",
+        user: { 
+          id: clienteUsuario.id, 
+          nome: clienteUsuario.nome,
+          email: clienteUsuario.email, 
+          role: clienteUsuario.role,
+          cargo: clienteUsuario.cargo,
+        },
+        cliente: cliente ? {
+          id: cliente.id,
+          razaoSocial: cliente.razaoSocial,
+          nomeFantasia: cliente.nomeFantasia,
+        } : null
+      });
+    } catch (error) {
+      console.error("Cliente login error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos" });
+      }
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // POST /api/cliente-auth/logout - Logout for clients
+  app.post("/api/cliente-auth/logout", (req, res) => {
+    req.session.clienteUsuarioId = undefined;
+    req.session.clienteId = undefined;
+    req.session.save((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Erro ao fazer logout" });
+      }
+      res.json({ message: "Logout bem-sucedido" });
+    });
+  });
+
+  // GET /api/cliente-auth/me - Get current client user info
+  app.get("/api/cliente-auth/me", requireClienteAuth, async (req, res) => {
+    try {
+      const [cliente] = await db
+        .select()
+        .from(clientes)
+        .where(eq(clientes.id, req.clienteId))
+        .limit(1);
+
+      res.json({
+        user: {
+          id: req.clienteUsuario.id,
+          nome: req.clienteUsuario.nome,
+          email: req.clienteUsuario.email,
+          role: req.clienteUsuario.role,
+          cargo: req.clienteUsuario.cargo,
+        },
+        cliente: cliente ? {
+          id: cliente.id,
+          razaoSocial: cliente.razaoSocial,
+          nomeFantasia: cliente.nomeFantasia,
+          cnpj: cliente.cnpj,
+          email: cliente.email,
+          telefone: cliente.telefone,
+        } : null
+      });
+    } catch (error) {
+      console.error("Get cliente user error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // =============================================
+  // CLIENT PORTAL API ROUTES (read-only access)
+  // =============================================
+
+  // GET /api/cliente/empreendimentos - List empreendimentos for logged-in client
+  app.get("/api/cliente/empreendimentos", requireClienteAuth, async (req, res) => {
+    try {
+      const result = await db
+        .select({
+          id: empreendimentos.id,
+          nome: empreendimentos.nome,
+          localizacao: empreendimentos.localizacao,
+          tipo: empreendimentos.tipo,
+          status: empreendimentos.status,
+          municipio: empreendimentos.municipio,
+          uf: empreendimentos.uf,
+          dataInicio: empreendimentos.dataInicio,
+          dataFimPrevista: empreendimentos.dataFimPrevista,
+        })
+        .from(empreendimentos)
+        .where(and(
+          eq(empreendimentos.clienteId, req.clienteId),
+          isNull(empreendimentos.deletedAt)
+        ));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Get cliente empreendimentos error:", error);
+      res.status(500).json({ message: "Erro ao buscar empreendimentos" });
+    }
+  });
+
+  // GET /api/cliente/empreendimentos/:id - Get single empreendimento detail
+  app.get("/api/cliente/empreendimentos/:id", requireClienteAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [empreendimento] = await db
+        .select()
+        .from(empreendimentos)
+        .where(and(
+          eq(empreendimentos.id, id),
+          eq(empreendimentos.clienteId, req.clienteId),
+          isNull(empreendimentos.deletedAt)
+        ))
+        .limit(1);
+
+      if (!empreendimento) {
+        return res.status(404).json({ message: "Empreendimento não encontrado" });
+      }
+
+      // Get counts for licencas and demandas
+      const [licencasResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(licencasAmbientais)
+        .where(eq(licencasAmbientais.empreendimentoId, id));
+
+      const [demandasResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(demandas)
+        .where(eq(demandas.empreendimentoId, id));
+
+      res.json({
+        ...empreendimento,
+        licencasCount: licencasResult?.count || 0,
+        demandasCount: demandasResult?.count || 0,
+      });
+    } catch (error) {
+      console.error("Get cliente empreendimento error:", error);
+      res.status(500).json({ message: "Erro ao buscar empreendimento" });
+    }
+  });
+
+  // GET /api/cliente/empreendimentos/:id/licencas - List licenses for an empreendimento
+  app.get("/api/cliente/empreendimentos/:id/licencas", requireClienteAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Verify ownership
+      const [empreendimento] = await db
+        .select({ id: empreendimentos.id })
+        .from(empreendimentos)
+        .where(and(
+          eq(empreendimentos.id, id),
+          eq(empreendimentos.clienteId, req.clienteId),
+          isNull(empreendimentos.deletedAt)
+        ))
+        .limit(1);
+
+      if (!empreendimento) {
+        return res.status(404).json({ message: "Empreendimento não encontrado" });
+      }
+
+      const licencas = await db
+        .select({
+          id: licencasAmbientais.id,
+          numero: licencasAmbientais.numero,
+          tipo: licencasAmbientais.tipo,
+          orgaoEmissor: licencasAmbientais.orgaoEmissor,
+          dataEmissao: licencasAmbientais.dataEmissao,
+          validade: licencasAmbientais.validade,
+          status: licencasAmbientais.status,
+        })
+        .from(licencasAmbientais)
+        .where(eq(licencasAmbientais.empreendimentoId, id));
+
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get cliente licencas error:", error);
+      res.status(500).json({ message: "Erro ao buscar licenças" });
+    }
+  });
+
+  // GET /api/cliente/empreendimentos/:id/demandas - List demandas for an empreendimento
+  app.get("/api/cliente/empreendimentos/:id/demandas", requireClienteAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Verify ownership
+      const [empreendimento] = await db
+        .select({ id: empreendimentos.id })
+        .from(empreendimentos)
+        .where(and(
+          eq(empreendimentos.id, id),
+          eq(empreendimentos.clienteId, req.clienteId),
+          isNull(empreendimentos.deletedAt)
+        ))
+        .limit(1);
+
+      if (!empreendimento) {
+        return res.status(404).json({ message: "Empreendimento não encontrado" });
+      }
+
+      const demandasList = await db
+        .select({
+          id: demandas.id,
+          titulo: demandas.titulo,
+          descricao: demandas.descricao,
+          setor: demandas.setor,
+          prioridade: demandas.prioridade,
+          status: demandas.status,
+          dataEntrega: demandas.dataEntrega,
+          criadoEm: demandas.criadoEm,
+        })
+        .from(demandas)
+        .where(eq(demandas.empreendimentoId, id));
+
+      res.json(demandasList);
+    } catch (error) {
+      console.error("Get cliente demandas error:", error);
+      res.status(500).json({ message: "Erro ao buscar demandas" });
+    }
+  });
+
+  // GET /api/cliente/documentos - List uploaded documents by client
+  app.get("/api/cliente/documentos", requireClienteAuth, async (req, res) => {
+    try {
+      const documentos = await db
+        .select({
+          id: clienteDocumentos.id,
+          nome: clienteDocumentos.nome,
+          descricao: clienteDocumentos.descricao,
+          arquivoUrl: clienteDocumentos.arquivoUrl,
+          tipo: clienteDocumentos.tipo,
+          tamanho: clienteDocumentos.tamanho,
+          criadoEm: clienteDocumentos.criadoEm,
+          empreendimentoId: clienteDocumentos.empreendimentoId,
+        })
+        .from(clienteDocumentos)
+        .where(eq(clienteDocumentos.clienteUsuarioId, req.session.clienteUsuarioId!));
+
+      res.json(documentos);
+    } catch (error) {
+      console.error("Get cliente documentos error:", error);
+      res.status(500).json({ message: "Erro ao buscar documentos" });
+    }
+  });
+
+  // POST /api/cliente/documentos - Upload document (client can upload)
+  app.post("/api/cliente/documentos", requireClienteAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, nome, descricao, arquivoUrl, tipo, tamanho } = req.body;
+
+      if (!empreendimentoId || !nome || !arquivoUrl || !tipo || !tamanho) {
+        return res.status(400).json({ message: "Campos obrigatórios faltando" });
+      }
+
+      // Verify empreendimento belongs to client
+      const [empreendimento] = await db
+        .select({ id: empreendimentos.id })
+        .from(empreendimentos)
+        .where(and(
+          eq(empreendimentos.id, empreendimentoId),
+          eq(empreendimentos.clienteId, req.clienteId),
+          isNull(empreendimentos.deletedAt)
+        ))
+        .limit(1);
+
+      if (!empreendimento) {
+        return res.status(403).json({ message: "Empreendimento não pertence ao cliente" });
+      }
+
+      const [documento] = await db
+        .insert(clienteDocumentos)
+        .values({
+          clienteUsuarioId: req.session.clienteUsuarioId!,
+          empreendimentoId,
+          nome,
+          descricao,
+          arquivoUrl,
+          tipo,
+          tamanho,
+        })
+        .returning();
+
+      res.status(201).json(documento);
+    } catch (error) {
+      console.error("Create cliente documento error:", error);
+      res.status(500).json({ message: "Erro ao criar documento" });
+    }
+  });
+
+  // =============================================
+  // INTERNAL ADMIN ROUTES FOR MANAGING CLIENTES
+  // =============================================
+
+  // GET /api/clientes - List all clientes (for internal users)
+  app.get("/api/clientes", requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      
+      const result = await db
+        .select()
+        .from(clientes)
+        .where(unidade ? eq(clientes.unidade, unidade) : sql`1=1`)
+        .orderBy(clientes.razaoSocial);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Get clientes error:", error);
+      res.status(500).json({ message: "Erro ao buscar clientes" });
+    }
+  });
+
+  // POST /api/clientes - Create new cliente (for internal users)
+  app.post("/api/clientes", requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      if (!userUnidade) {
+        return res.status(400).json({ message: "Unidade do usuário não definida" });
+      }
+
+      const data = insertClienteSchema.parse({
+        ...req.body,
+        unidade: userUnidade,
+      });
+
+      const [cliente] = await db
+        .insert(clientes)
+        .values(data)
+        .returning();
+
+      res.status(201).json(cliente);
+    } catch (error) {
+      console.error("Create cliente error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao criar cliente" });
+    }
+  });
+
+  // PATCH /api/clientes/:id - Update cliente (for internal users)
+  app.patch("/api/clientes/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+
+      // Verify cliente exists and belongs to user's unit
+      const [existing] = await db
+        .select()
+        .from(clientes)
+        .where(and(
+          eq(clientes.id, id),
+          userUnidade ? eq(clientes.unidade, userUnidade) : sql`1=1`
+        ))
+        .limit(1);
+
+      if (!existing) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      const { unidade: _ignored, ...bodyWithoutUnidade } = req.body;
+      const data = insertClienteSchema.partial().parse(bodyWithoutUnidade);
+
+      const [updated] = await db
+        .update(clientes)
+        .set({ ...data, atualizadoEm: new Date() })
+        .where(eq(clientes.id, id))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Update cliente error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar cliente" });
+    }
+  });
+
+  // POST /api/clientes/:id/usuarios - Create user for cliente (for internal users)
+  app.post("/api/clientes/:id/usuarios", requireAuth, async (req, res) => {
+    try {
+      const clienteId = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+
+      // Verify cliente exists and belongs to user's unit
+      const [cliente] = await db
+        .select()
+        .from(clientes)
+        .where(and(
+          eq(clientes.id, clienteId),
+          userUnidade ? eq(clientes.unidade, userUnidade) : sql`1=1`
+        ))
+        .limit(1);
+
+      if (!cliente) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      const { password, ...userData } = req.body;
+
+      if (!password || password.length < 6) {
+        return res.status(400).json({ message: "Senha deve ter no mínimo 6 caracteres" });
+      }
+
+      // Check if email already exists
+      const [existingUser] = await db
+        .select()
+        .from(clienteUsuarios)
+        .where(eq(clienteUsuarios.email, userData.email))
+        .limit(1);
+
+      if (existingUser) {
+        return res.status(400).json({ message: "E-mail já está em uso" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const data = insertClienteUsuarioSchema.parse({
+        ...userData,
+        clienteId,
+        passwordHash,
+      });
+
+      const [usuario] = await db
+        .insert(clienteUsuarios)
+        .values(data)
+        .returning();
+
+      const { passwordHash: _, ...userWithoutPassword } = usuario;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Create cliente usuario error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao criar usuário do cliente" });
+    }
+  });
+
+  // GET /api/clientes/:id/usuarios - List users for a cliente (for internal users)
+  app.get("/api/clientes/:id/usuarios", requireAuth, async (req, res) => {
+    try {
+      const clienteId = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+
+      // Verify cliente exists and belongs to user's unit
+      const [cliente] = await db
+        .select()
+        .from(clientes)
+        .where(and(
+          eq(clientes.id, clienteId),
+          userUnidade ? eq(clientes.unidade, userUnidade) : sql`1=1`
+        ))
+        .limit(1);
+
+      if (!cliente) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      const usuarios = await db
+        .select({
+          id: clienteUsuarios.id,
+          nome: clienteUsuarios.nome,
+          email: clienteUsuarios.email,
+          cargo: clienteUsuarios.cargo,
+          telefone: clienteUsuarios.telefone,
+          role: clienteUsuarios.role,
+          ativo: clienteUsuarios.ativo,
+          ultimoAcesso: clienteUsuarios.ultimoAcesso,
+          criadoEm: clienteUsuarios.criadoEm,
+        })
+        .from(clienteUsuarios)
+        .where(eq(clienteUsuarios.clienteId, clienteId));
+
+      res.json(usuarios);
+    } catch (error) {
+      console.error("Get cliente usuarios error:", error);
+      res.status(500).json({ message: "Erro ao buscar usuários do cliente" });
     }
   });
 
