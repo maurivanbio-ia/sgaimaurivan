@@ -33,6 +33,8 @@ import Rh from "./pages/rh";
 import GestaoDados from "./pages/gestaoDados";
 import SegurancaTrabalho from "./pages/segurancaTrabalho";
 import PainelIntegrado from "./pages/painel-integrado";
+import MapaEmpreendimentos from "./pages/mapa";
+import Calendario from "./pages/calendario";
 import Sidebar from "./components/layout/sidebar";
 import ClienteSidebar from "./components/layout/cliente-sidebar";
 import ClienteLogin from "./pages/cliente/login";
@@ -103,6 +105,8 @@ function Router() {
                   <Route path="/dashboard-executivo" component={DashboardExecutivo} />
                   <Route path="/dashboard-coordenador" component={DashboardCoordenador} />
                   <Route path="/ia" component={EcoAssistente} />
+                  <Route path="/mapa" component={MapaEmpreendimentos} />
+                  <Route path="/calendario" component={Calendario} />
                   <Route path="/empreendimentos" component={Projects} />
                   <Route path="/empreendimentos/novo" component={NewProject} />
                   <Route path="/empreendimentos/:id/editar" component={EditProject} />
