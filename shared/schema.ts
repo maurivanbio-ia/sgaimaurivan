@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("colaborador"), // admin ou colaborador
+  unidade: text("unidade").notNull().default("goiania"), // goiania, salvador, luiz-eduardo-magalhaes
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
