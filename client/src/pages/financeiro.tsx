@@ -144,6 +144,7 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
       valor: 0,
       descricao: "",
       observacoes: "",
+      data: new Date(),
     },
   });
 
@@ -152,8 +153,12 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
       return apiRequest("POST", "/api/financeiro/lancamentos", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/financeiro/lancamentos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/financeiro/stats"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.startsWith?.("/api/financeiro") ?? false;
+        }
+      });
       toast({
         title: "Lançamento criado",
         description: "Novo lançamento financeiro foi criado com sucesso!",
@@ -418,9 +423,27 @@ export default function FinanceiroPage() {
   });
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Fetch financial data
+  // Build query string from filters
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    if (filters.tipo && filters.tipo !== "todos") params.append("tipo", filters.tipo);
+    if (filters.status && filters.status !== "todos") params.append("status", filters.status);
+    if (filters.empreendimento) params.append("empreendimentoId", filters.empreendimento);
+    if (filters.search) params.append("search", filters.search);
+    const queryStr = params.toString();
+    return queryStr ? `?${queryStr}` : "";
+  };
+
+  // Fetch financial data with proper query string
   const { data: lancamentos = [], isLoading } = useQuery<FinanceiroLancamento[]>({
-    queryKey: ["/api/financeiro/lancamentos", filters],
+    queryKey: ["/api/financeiro/lancamentos", filters.tipo, filters.status, filters.empreendimento, filters.search],
+    queryFn: async () => {
+      const res = await fetch(`/api/financeiro/lancamentos${buildQueryString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch lancamentos");
+      return res.json();
+    },
   });
 
   // Fetch financial stats for charts
