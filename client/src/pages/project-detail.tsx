@@ -19,7 +19,8 @@ import {
   Wrench,
   MapPin,
   Phone,
-  Mail
+  Mail,
+  FolderKanban
 } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 import { LicencasTab } from "@/components/empreendimento/LicencasTab";
@@ -31,6 +32,7 @@ import { SstTab } from "@/components/empreendimento/SstTab";
 import { GestaoDadosTab } from "@/components/empreendimento/GestaoDadosTab";
 import { EquipamentosTab } from "@/components/empreendimento/EquipamentosTab";
 import { FrotaTab } from "@/components/empreendimento/FrotaTab";
+import { ProjetosTab } from "@/components/empreendimento/ProjetosTab";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const getTipoLabel = (tipo: string) => {
@@ -221,10 +223,14 @@ export default function ProjectDetail() {
 
       {/* Tabs System */}
       <Tabs defaultValue="licencas" className="w-full">
-        <TabsList className="grid w-full grid-cols-9 mb-6">
+        <TabsList className="grid w-full grid-cols-10 mb-6">
           <TabsTrigger value="licencas" className="flex items-center gap-2" data-testid="tab-licencas">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Licenças</span>
+          </TabsTrigger>
+          <TabsTrigger value="projetos" className="flex items-center gap-2" data-testid="tab-projetos">
+            <FolderKanban className="h-4 w-4" />
+            <span className="hidden sm:inline">Projetos</span>
           </TabsTrigger>
           <TabsTrigger value="contratos" className="flex items-center gap-2" data-testid="tab-contratos">
             <Briefcase className="h-4 w-4" />
@@ -262,6 +268,10 @@ export default function ProjectDetail() {
 
         <TabsContent value="licencas">
           <LicencasTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="projetos">
+          <ProjetosTab empreendimentoId={parseInt(id!)} />
         </TabsContent>
 
         <TabsContent value="contratos">
