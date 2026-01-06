@@ -220,6 +220,31 @@ export default function Register() {
                 </Select>
               </div>
 
+              <div>
+                <Label
+                  htmlFor="cargo"
+                  className="block text-sm font-medium text-white mb-2 drop-shadow"
+                >
+                  <UserCircle className="h-4 w-4 inline mr-2" />
+                  Cargo
+                </Label>
+                <Select value={cargo} onValueChange={setCargo}>
+                  <SelectTrigger 
+                    className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white focus:bg-white/30 focus:border-white/50"
+                    data-testid="select-cargo"
+                  >
+                    <SelectValue placeholder="Selecione seu cargo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="coordenador">Coordenador(a)</SelectItem>
+                    <SelectItem value="diretor">Diretor(a)</SelectItem>
+                    <SelectItem value="rh">Recursos Humanos</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="colaborador">Colaborador(a)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {error && (
                 <div className="text-red-200 text-sm bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3">
                   {error}

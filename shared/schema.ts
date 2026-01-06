@@ -760,6 +760,55 @@ export const insertVeiculoSchema = createInsertSchema(veiculos).omit({
 });
 
 // =============================================
+// PROJETOS - Projetos dentro de Empreendimentos
+// =============================================
+
+export const projetos = pgTable("projetos", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  status: text("status").notNull().default("ativo"), // ativo, em_andamento, concluido, pausado, cancelado
+  coordenadorId: integer("coordenador_id").references(() => users.id),
+  // Valores financeiros para gamificação
+  valorContratado: decimal("valor_contratado", { precision: 15, scale: 2 }).default("0"), // Valor hipotético (contrato)
+  valorRecebido: decimal("valor_recebido", { precision: 15, scale: 2 }).default("0"), // Valor real recebido
+  orcamentoPrevisto: decimal("orcamento_previsto", { precision: 15, scale: 2 }).default("0"), // Orçamento de gastos previsto
+  metaReducaoGastos: decimal("meta_reducao_gastos", { precision: 5, scale: 2 }).default("0"), // Meta de redução em %
+  // Datas
+  inicioPrevisto: date("inicio_previsto"),
+  inicioReal: date("inicio_real"),
+  fimPrevisto: date("fim_previsto"),
+  fimReal: date("fim_real"),
+  // BMM e ND
+  bmmServicos: text("bmm_servicos"), // Número do BMM - Serviços
+  ndReembolsaveis: text("nd_reembolsaveis"), // Número ND - Reembolsáveis
+  // Timestamps
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const projetosRelations = relations(projetos, ({ one, many }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [projetos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  coordenador: one(users, {
+    fields: [projetos.coordenadorId],
+    references: [users.id],
+  }),
+}));
+
+export type Projeto = typeof projetos.$inferSelect;
+export type InsertProjeto = z.infer<typeof insertProjetoSchema>;
+
+export const insertProjetoSchema = createInsertSchema(projetos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+// =============================================
 // FINANCIAL MODULE SCHEMA
 // =============================================
 
@@ -777,11 +826,16 @@ export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
   id: serial("id").primaryKey(),
   tipo: text("tipo").notNull(), // receita, despesa, reembolso, solicitacao_recurso
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  projetoId: integer("projeto_id").references(() => projetos.id), // Projeto vinculado (opcional)
   categoriaId: integer("categoria_id").references(() => categoriasFinanceiras.id).notNull(),
   valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
   data: date("data").notNull(),
   descricao: text("descricao").notNull(),
   status: text("status").notNull().default("aguardando"), // aguardando, aprovado, pago, recusado
+  // BMM e ND para rastreamento
+  bmmServicos: text("bmm_servicos"), // Número BMM - Serviços
+  ndReembolsaveis: text("nd_reembolsaveis"), // Número ND - Reembolsáveis
+  statusPagamento: text("status_pagamento").notNull().default("pendente"), // pendente, pago
   comprovanteUrl: text("comprovante_url"), // URL do arquivo de comprovante
   observacoes: text("observacoes"),
   unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
@@ -830,6 +884,10 @@ export const financeiroLancamentosRelations = relations(financeiroLancamentos, (
   empreendimento: one(empreendimentos, {
     fields: [financeiroLancamentos.empreendimentoId],
     references: [empreendimentos.id],
+  }),
+  projeto: one(projetos, {
+    fields: [financeiroLancamentos.projetoId],
+    references: [projetos.id],
   }),
   categoria: one(categoriasFinanceiras, {
     fields: [financeiroLancamentos.categoriaId],

@@ -70,6 +70,9 @@ import {
   type InsertColaborador,
   type SegDocumentoColaborador,
   type InsertSegDocumento,
+  projetos,
+  type Projeto,
+  type InsertProjeto,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
@@ -307,6 +310,14 @@ export interface IStorage {
     colaboradoresConformes: number;
     totalColaboradores: number;
   }>;
+
+  // Projetos operations
+  getProjetos(empreendimentoId?: number): Promise<Projeto[]>;
+  getProjetoById(id: number): Promise<Projeto | undefined>;
+  createProjeto(projeto: InsertProjeto): Promise<Projeto>;
+  updateProjeto(id: number, projeto: Partial<InsertProjeto>): Promise<Projeto>;
+  deleteProjeto(id: number): Promise<boolean>;
+  getProjetosByUnidade(unidade: string): Promise<Projeto[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2167,6 +2178,79 @@ export class DatabaseStorage implements IStorage {
       colaboradoresConformes,
       totalColaboradores: colaboradoresAtivos.length,
     };
+  }
+
+  // Projetos operations
+  async getProjetos(empreendimentoId?: number): Promise<Projeto[]> {
+    if (empreendimentoId) {
+      return db.select()
+        .from(projetos)
+        .where(eq(projetos.empreendimentoId, empreendimentoId))
+        .orderBy(desc(projetos.criadoEm));
+    }
+    return db.select().from(projetos).orderBy(desc(projetos.criadoEm));
+  }
+
+  async getProjetoById(id: number): Promise<Projeto | undefined> {
+    const [projeto] = await db
+      .select()
+      .from(projetos)
+      .where(eq(projetos.id, id));
+    return projeto || undefined;
+  }
+
+  async createProjeto(projeto: InsertProjeto): Promise<Projeto> {
+    const [newProjeto] = await db
+      .insert(projetos)
+      .values(projeto)
+      .returning();
+    return newProjeto;
+  }
+
+  async updateProjeto(id: number, updates: Partial<InsertProjeto>): Promise<Projeto> {
+    const [updated] = await db
+      .update(projetos)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(projetos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProjeto(id: number): Promise<boolean> {
+    const result = await db.delete(projetos).where(eq(projetos.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getProjetosByUnidade(unidade: string): Promise<Projeto[]> {
+    const result = await db
+      .select({
+        id: projetos.id,
+        empreendimentoId: projetos.empreendimentoId,
+        nome: projetos.nome,
+        descricao: projetos.descricao,
+        status: projetos.status,
+        coordenadorId: projetos.coordenadorId,
+        valorContratado: projetos.valorContratado,
+        valorRecebido: projetos.valorRecebido,
+        orcamentoPrevisto: projetos.orcamentoPrevisto,
+        metaReducaoGastos: projetos.metaReducaoGastos,
+        inicioPrevisto: projetos.inicioPrevisto,
+        inicioReal: projetos.inicioReal,
+        fimPrevisto: projetos.fimPrevisto,
+        fimReal: projetos.fimReal,
+        bmmServicos: projetos.bmmServicos,
+        ndReembolsaveis: projetos.ndReembolsaveis,
+        criadoEm: projetos.criadoEm,
+        atualizadoEm: projetos.atualizadoEm,
+      })
+      .from(projetos)
+      .innerJoin(empreendimentos, eq(projetos.empreendimentoId, empreendimentos.id))
+      .where(eq(empreendimentos.unidade, unidade))
+      .orderBy(desc(projetos.criadoEm));
+    return result;
   }
 }
 

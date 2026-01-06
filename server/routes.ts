@@ -11,6 +11,7 @@ import {
   insertCampanhaSchema,
   insertCronogramaItemSchema,
   insertRhRegistroSchema,
+  insertProjetoSchema,
   campanhas,
   cronogramaItens,
   rhRegistros,
@@ -40,6 +41,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
   unidade: z.enum(["goiania", "salvador", "luiz-eduardo-magalhaes"]),
+  cargo: z.enum(["coordenador", "diretor", "rh", "financeiro", "colaborador"]),
 });
 
 // Session configuration
@@ -148,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { email, password, unidade } = registerSchema.parse(req.body);
+      const { email, password, unidade, cargo } = registerSchema.parse(req.body);
       
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
@@ -159,11 +161,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         passwordHash: password,
         role: "colaborador",
+        cargo,
         unidade,
       });
 
       req.session.userId = newUser.id;
-      res.json({ message: "Registro bem-sucedido", user: { id: newUser.id, email: newUser.email, role: newUser.role, unidade: newUser.unidade } });
+      res.json({ message: "Registro bem-sucedido", user: { id: newUser.id, email: newUser.email, role: newUser.role, cargo: newUser.cargo, unidade: newUser.unidade } });
     } catch (error) {
       console.error("Register error:", error);
       if (error instanceof z.ZodError) {
@@ -2016,6 +2019,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== END SEGURANÇA DO TRABALHO ROUTES ====
+
+  // =============================================
+  // PROJETOS MODULE - Gestão de Projetos
+  // =============================================
+
+  // Get all projetos with optional filter by empreendimentoId
+  app.get('/api/projetos', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const projetos = await storage.getProjetos(
+        empreendimentoId ? parseInt(String(empreendimentoId)) : undefined
+      );
+      res.json(projetos);
+    } catch (error) {
+      console.error('Error fetching projetos:', error);
+      res.status(500).json({ error: 'Failed to fetch projetos' });
+    }
+  });
+
+  // Get single projeto by ID
+  app.get('/api/projetos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid projeto ID' });
+      }
+      const projeto = await storage.getProjetoById(id);
+      if (!projeto) {
+        return res.status(404).json({ error: 'Projeto not found' });
+      }
+      res.json(projeto);
+    } catch (error) {
+      console.error('Error fetching projeto:', error);
+      res.status(500).json({ error: 'Failed to fetch projeto' });
+    }
+  });
+
+  // Create new projeto
+  app.post('/api/projetos', requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertProjetoSchema.parse(req.body);
+      const projeto = await storage.createProjeto(validatedData);
+      res.status(201).json(projeto);
+    } catch (error) {
+      console.error('Error creating projeto:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation error', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create projeto' });
+    }
+  });
+
+  // Update projeto
+  app.put('/api/projetos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid projeto ID' });
+      }
+      const projeto = await storage.updateProjeto(id, req.body);
+      res.json(projeto);
+    } catch (error) {
+      console.error('Error updating projeto:', error);
+      res.status(500).json({ error: 'Failed to update projeto' });
+    }
+  });
+
+  // Delete projeto
+  app.delete('/api/projetos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid projeto ID' });
+      }
+      const deleted = await storage.deleteProjeto(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Projeto not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting projeto:', error);
+      res.status(500).json({ error: 'Failed to delete projeto' });
+    }
+  });
+
+  // ==== END PROJETOS ROUTES ====
 
   // ==== ARQUIVO ROUTES ====
   app.post('/api/arquivos/upload', requireAuth, arquivoController.upload.single('file'), arquivoController.uploadArquivo);
