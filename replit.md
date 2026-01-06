@@ -25,6 +25,16 @@ An AI conversational agent is integrated, accessible via a chat UI. It uses Open
 - **Executive Dashboard**: Provides a consolidated, high-level overview of all ECOBRASIL units, displaying aggregated KPIs for frota, equipment, demands, RH, and contracts.
 - **Coordinator Dashboard**: Features gamification with a coordinator ranking based on project efficiency, achievement badges, project status pie charts, and expense trends. This dashboard also supports multi-tenant isolation.
 
+### Client Portal (Portal do Cliente)
+A separate portal for external clients (empresas) to access their projects and licenses:
+- **Separate Authentication**: Clients login via `/cliente/login` using credentials stored in `cliente_usuarios` table, isolated from internal user sessions
+- **Read-Only Access**: Clients can view their empreendimentos, licenses, and demandas but cannot modify data
+- **Document Upload**: Clients can upload documents related to their projects via `/cliente/documentos`
+- **Data Isolation**: All client API routes verify ownership via `clienteId` before returning data
+- **UI Differentiation**: Uses blue/cyan gradient branding (vs green for internal portal)
+- **Tables**: `clientes` (company info), `cliente_usuarios` (user accounts), `cliente_documentos` (uploaded files)
+- **Test Credentials**: `cliente@empresateste.com.br` / `cliente123`
+
 ### Resource Management
 - **Vehicle Ownership**: Vehicles can be classified as owned or rented, with conditional validation for rental-specific fields.
 - **Empreendimento Resource Assignment**: Vehicles, RH records, and equipment can be optionally assigned to specific `empreendimentos`, with proper filtering in UI tabs and backend APIs.
