@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff, ArrowLeft, Building2 } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft, Building2, UserCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import registerBackground from "@assets/register-background-puma.png";
@@ -17,6 +17,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [unidade, setUnidade] = useState<string>("");
+  const [cargo, setCargo] = useState<string>("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -43,9 +44,14 @@ export default function Register() {
       return;
     }
 
+    if (!cargo) {
+      setError("Selecione seu cargo");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/auth/register", { email, password, unidade });
+      const response = await apiRequest("POST", "/api/auth/register", { email, password, unidade, cargo });
 
       toast({
         title: "Conta criada com sucesso!",

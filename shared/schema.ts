@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("colaborador"), // admin ou colaborador
+  cargo: text("cargo").notNull().default("colaborador"), // coordenador, diretor, rh, financeiro, colaborador
   unidade: text("unidade").notNull().default("goiania"), // goiania, salvador, luiz-eduardo-magalhaes
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -37,6 +38,11 @@ export const empreendimentos = pgTable("empreendimentos", {
   dataFimPrevista: date("data_fim_prevista"),
   dataFimReal: date("data_fim_real"),
   unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  // Campos para gamificação e acompanhamento financeiro
+  coordenadorId: integer("coordenador_id").references(() => users.id), // Coordenador responsável pelo projeto
+  valorContratado: decimal("valor_contratado", { precision: 15, scale: 2 }).default("0"), // Valor hipotético (contrato)
+  valorRecebido: decimal("valor_recebido", { precision: 15, scale: 2 }).default("0"), // Valor real (efetivamente recebido)
+  orcamentoPrevisto: decimal("orcamento_previsto", { precision: 15, scale: 2 }).default("0"), // Orçamento de gastos previsto
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
