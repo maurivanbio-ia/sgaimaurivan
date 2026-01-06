@@ -1289,6 +1289,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Initialize default financial categories
+  app.post('/api/categorias-financeiras/init', async (req, res) => {
+    try {
+      const existingCategorias = await storage.getCategorias();
+      if (existingCategorias.length > 0) {
+        return res.json({ message: 'Categories already initialized', categorias: existingCategorias });
+      }
+
+      const defaultCategories = [
+        // Despesas
+        { nome: 'Combustível', tipo: 'despesa', cor: '#ef4444', descricao: 'Gastos com combustível para veículos' },
+        { nome: 'Hospedagem', tipo: 'despesa', cor: '#f97316', descricao: 'Gastos com hotéis e pousadas' },
+        { nome: 'Alimentação', tipo: 'despesa', cor: '#eab308', descricao: 'Gastos com refeições e alimentação' },
+        { nome: 'Transporte', tipo: 'despesa', cor: '#22c55e', descricao: 'Gastos com passagens e deslocamentos' },
+        { nome: 'Material de Campo', tipo: 'despesa', cor: '#14b8a6', descricao: 'EPIs, equipamentos e materiais de campo' },
+        { nome: 'Equipamentos', tipo: 'despesa', cor: '#06b6d4', descricao: 'Compra e aluguel de equipamentos' },
+        { nome: 'Serviços Terceirizados', tipo: 'despesa', cor: '#3b82f6', descricao: 'Consultoria e serviços externos' },
+        { nome: 'Taxas e Impostos', tipo: 'despesa', cor: '#8b5cf6', descricao: 'Taxas ambientais e impostos' },
+        { nome: 'Manutenção', tipo: 'despesa', cor: '#d946ef', descricao: 'Manutenção de veículos e equipamentos' },
+        { nome: 'Comunicação', tipo: 'despesa', cor: '#ec4899', descricao: 'Telefone, internet e comunicação' },
+        { nome: 'Material de Escritório', tipo: 'despesa', cor: '#f43f5e', descricao: 'Papelaria e materiais de escritório' },
+        { nome: 'Locação', tipo: 'despesa', cor: '#64748b', descricao: 'Aluguel de espaços e veículos' },
+        { nome: 'Salários e Benefícios', tipo: 'despesa', cor: '#475569', descricao: 'Folha de pagamento e benefícios' },
+        { nome: 'Outros Gastos', tipo: 'despesa', cor: '#94a3b8', descricao: 'Despesas diversas não categorizadas' },
+        // Receitas
+        { nome: 'Contrato de Serviço', tipo: 'receita', cor: '#22c55e', descricao: 'Receita de contratos firmados' },
+        { nome: 'Consultoria', tipo: 'receita', cor: '#10b981', descricao: 'Receita de serviços de consultoria' },
+        { nome: 'Licenciamento', tipo: 'receita', cor: '#059669', descricao: 'Receita de processos de licenciamento' },
+        { nome: 'Monitoramento', tipo: 'receita', cor: '#047857', descricao: 'Receita de serviços de monitoramento' },
+        { nome: 'Estudos Ambientais', tipo: 'receita', cor: '#065f46', descricao: 'Receita de estudos e relatórios' },
+        { nome: 'Outras Receitas', tipo: 'receita', cor: '#14532d', descricao: 'Receitas diversas não categorizadas' },
+      ];
+
+      const createdCategories = [];
+      for (const cat of defaultCategories) {
+        const created = await storage.createCategoria(cat);
+        createdCategories.push(created);
+      }
+
+      res.status(201).json({ message: 'Categories initialized', categorias: createdCategories });
+    } catch (error) {
+      console.error('Error initializing categorias:', error);
+      res.status(500).json({ error: 'Failed to initialize categorias' });
+    }
+  });
+
   // Lançamentos Financeiros routes
   app.get('/api/financeiro/lancamentos', async (req, res) => {
     try {
