@@ -59,7 +59,7 @@ export default function Login() {
         ? localStorage.setItem("savedEmail", email)
         : localStorage.removeItem("savedEmail");
 
-      setLocation("/selecionar-unidade");
+      setLocation("/dashboard");
     } catch (err: any) {
       setError(
         err?.message?.includes?.("401")
