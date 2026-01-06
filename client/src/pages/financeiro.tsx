@@ -34,8 +34,11 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   LineChart,
-  Wallet
+  Wallet,
+  MoreVertical,
+  RefreshCw
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
@@ -164,15 +167,6 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
         description: "Novo lançamento financeiro foi criado com sucesso!",
       });
       form.reset();
-      onSuccess();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar o lançamento. Tente novamente.",
-        variant: "destructive",
-      });
-      console.error("Erro ao criar lançamento:", error);
     },
   });
 
@@ -422,6 +416,34 @@ export default function FinanceiroPage() {
     search: ""
   });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      return apiRequest("PUT", `/api/financeiro/lancamentos/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.startsWith?.("/api/financeiro") ?? false;
+        }
+      });
+      toast({
+        title: "Status atualizado",
+        description: "O status do lançamento foi alterado com sucesso!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status. Tente novamente.",
+        variant: "destructive",
+      });
+      console.error("Erro ao atualizar status:", error);
+    },
+  });
 
   // Build query string from filters
   const buildQueryString = () => {
@@ -962,6 +984,7 @@ export default function FinanceiroPage() {
                         <th className="text-left p-4">Valor</th>
                         <th className="text-left p-4">Status</th>
                         <th className="text-left p-4">Empreendimento</th>
+                        <th className="text-left p-4">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1002,6 +1025,49 @@ export default function FinanceiroPage() {
                                 <Building className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm">{empMap.get(lancamento.empreendimentoId) || `#${lancamento.empreendimentoId}`}</span>
                               </div>
+                            </td>
+                            <td className="p-4">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" data-testid={`button-actions-${lancamento.id}`}>
+                                    <RefreshCw className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => updateStatusMutation.mutate({ id: lancamento.id, status: "aprovado" })}
+                                    disabled={lancamento.status === "aprovado"}
+                                    data-testid={`action-approve-${lancamento.id}`}
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                                    Aprovar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => updateStatusMutation.mutate({ id: lancamento.id, status: "aguardando" })}
+                                    disabled={lancamento.status === "aguardando"}
+                                    data-testid={`action-pending-${lancamento.id}`}
+                                  >
+                                    <Clock className="h-4 w-4 mr-2 text-yellow-500" />
+                                    Aguardando
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => updateStatusMutation.mutate({ id: lancamento.id, status: "pago" })}
+                                    disabled={lancamento.status === "pago"}
+                                    data-testid={`action-paid-${lancamento.id}`}
+                                  >
+                                    <DollarSign className="h-4 w-4 mr-2 text-blue-500" />
+                                    Marcar como Pago
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => updateStatusMutation.mutate({ id: lancamento.id, status: "cancelado" })}
+                                    disabled={lancamento.status === "cancelado"}
+                                    data-testid={`action-cancel-${lancamento.id}`}
+                                  >
+                                    <XCircle className="h-4 w-4 mr-2 text-red-500" />
+                                    Cancelar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           </tr>
                         );
