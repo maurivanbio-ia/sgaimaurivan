@@ -38,6 +38,7 @@ import ClienteSidebar from "./components/layout/cliente-sidebar";
 import ClienteLogin from "./pages/cliente/login";
 import ClienteDashboard from "./pages/cliente/dashboard";
 import ClienteEmpreendimentoDetail from "./pages/cliente/empreendimento-detail";
+import ClienteDocumentos from "./pages/cliente/documentos";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -65,6 +66,7 @@ function Router() {
           <Switch>
             <Route path="/cliente" component={ClienteDashboard} />
             <Route path="/cliente/empreendimentos/:id" component={ClienteEmpreendimentoDetail} />
+            <Route path="/cliente/documentos" component={ClienteDocumentos} />
             <Route component={NotFound} />
           </Switch>
         </main>
