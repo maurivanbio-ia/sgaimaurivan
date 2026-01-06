@@ -1,6 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,31 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLocation } from "wouter";
 import { MapPin, Building, Filter, RefreshCw } from "lucide-react";
 import "leaflet/dist/leaflet.css";
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
-
-const createColoredIcon = (color: string) => {
-  return L.divIcon({
-    className: "custom-marker",
-    html: `<div style="
-      background-color: ${color};
-      width: 24px;
-      height: 24px;
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      border: 2px solid white;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-    "></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 24],
-    popupAnchor: [0, -24],
-  });
-};
 
 const statusColors: Record<string, string> = {
   ativo: "#22c55e",
@@ -66,16 +40,11 @@ interface Empreendimento {
   responsavelInterno: string;
 }
 
-function MapController({ center }: { center: [number, number] }) {
-  const map = useMap();
-  useMemo(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
-  return null;
-}
-
 export default function MapaEmpreendimentos() {
   const [, navigate] = useLocation();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [tipoFilter, setTipoFilter] = useState<string>("todos");
 
@@ -103,23 +72,109 @@ export default function MapaEmpreendimentos() {
     return Array.from(uniqueTipos);
   }, [empreendimentos]);
 
-  const defaultCenter: [number, number] = [-15.7942, -47.8822];
-  
-  const mapCenter = useMemo(() => {
-    if (empreendimentosFiltrados.length > 0) {
-      const lat = empreendimentosFiltrados.reduce((sum, emp) => sum + parseFloat(emp.latitude!), 0) / empreendimentosFiltrados.length;
-      const lng = empreendimentosFiltrados.reduce((sum, emp) => sum + parseFloat(emp.longitude!), 0) / empreendimentosFiltrados.length;
-      return [lat, lng] as [number, number];
-    }
-    return defaultCenter;
-  }, [empreendimentosFiltrados]);
-
   const statusCounts = useMemo(() => {
     return empreendimentosComCoordenadas.reduce((acc, emp) => {
       acc[emp.status] = (acc[emp.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
   }, [empreendimentosComCoordenadas]);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const defaultCenter: [number, number] = [-15.7942, -47.8822];
+    
+    mapInstanceRef.current = L.map(mapRef.current).setView(defaultCenter, 5);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(mapInstanceRef.current);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    empreendimentosFiltrados.forEach(emp => {
+      const color = statusColors[emp.status] || statusColors.ativo;
+      
+      const icon = L.divIcon({
+        className: "custom-marker",
+        html: `<div style="
+          background-color: ${color};
+          width: 24px;
+          height: 24px;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          border: 2px solid white;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        "></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 24],
+        popupAnchor: [0, -24],
+      });
+
+      const marker = L.marker(
+        [parseFloat(emp.latitude!), parseFloat(emp.longitude!)],
+        { icon }
+      ).addTo(mapInstanceRef.current!);
+
+      const popupContent = `
+        <div style="min-width: 200px;">
+          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${emp.nome}</h3>
+          <div style="font-size: 14px;">
+            <p><strong>Cliente:</strong> ${emp.cliente}</p>
+            <p><strong>Local:</strong> ${emp.municipio || ''}, ${emp.uf || ''}</p>
+            <p><strong>Responsável:</strong> ${emp.responsavelInterno}</p>
+            <div style="margin-top: 8px;">
+              <span style="
+                background-color: ${color};
+                color: white;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+              ">${statusLabels[emp.status] || emp.status}</span>
+            </div>
+            <button 
+              onclick="window.location.href='/empreendimentos/${emp.id}'"
+              style="
+                margin-top: 12px;
+                width: 100%;
+                padding: 8px;
+                background-color: #16a34a;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+              "
+            >Ver Detalhes</button>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+      markersRef.current.push(marker);
+    });
+
+    if (empreendimentosFiltrados.length > 0) {
+      const bounds = L.latLngBounds(
+        empreendimentosFiltrados.map(emp => [
+          parseFloat(emp.latitude!),
+          parseFloat(emp.longitude!)
+        ] as [number, number])
+      );
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [empreendimentosFiltrados]);
 
   if (isLoading) {
     return (
@@ -134,7 +189,7 @@ export default function MapaEmpreendimentos() {
     <div className="p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2" data-testid="text-page-title">
             <MapPin className="h-8 w-8 text-green-600" />
             Mapa de Empreendimentos
           </h1>
@@ -206,53 +261,12 @@ export default function MapaEmpreendimentos() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg overflow-hidden border" style={{ height: "500px" }}>
-            <MapContainer
-              center={mapCenter}
-              zoom={5}
-              style={{ height: "100%", width: "100%" }}
-              scrollWheelZoom={true}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapController center={mapCenter} />
-              {empreendimentosFiltrados.map(emp => (
-                <Marker
-                  key={emp.id}
-                  position={[parseFloat(emp.latitude!), parseFloat(emp.longitude!)]}
-                  icon={createColoredIcon(statusColors[emp.status] || statusColors.ativo)}
-                >
-                  <Popup>
-                    <div className="min-w-[200px]">
-                      <h3 className="font-bold text-lg mb-2">{emp.nome}</h3>
-                      <div className="space-y-1 text-sm">
-                        <p><strong>Cliente:</strong> {emp.cliente}</p>
-                        <p><strong>Local:</strong> {emp.municipio}, {emp.uf}</p>
-                        <p><strong>Responsável:</strong> {emp.responsavelInterno}</p>
-                        <div className="mt-2">
-                          <Badge 
-                            style={{ backgroundColor: statusColors[emp.status] }}
-                            className="text-white"
-                          >
-                            {statusLabels[emp.status] || emp.status}
-                          </Badge>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          className="mt-3 w-full"
-                          onClick={() => navigate(`/empreendimentos/${emp.id}`)}
-                        >
-                          Ver Detalhes
-                        </Button>
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          </div>
+          <div 
+            ref={mapRef}
+            className="rounded-lg overflow-hidden border" 
+            style={{ height: "500px" }}
+            data-testid="map-container"
+          />
           <p className="text-sm text-muted-foreground mt-2">
             Mostrando {empreendimentosFiltrados.length} de {empreendimentosComCoordenadas.length} empreendimentos com coordenadas
           </p>
