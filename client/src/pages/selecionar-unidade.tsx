@@ -1,6 +1,7 @@
 import { useLocation } from 'wouter';
 import { MapPin } from 'lucide-react';
 import { useUnidade, Unidade } from '@/contexts/UnidadeContext';
+import backgroundImage from '@assets/image_1767715712640.png';
 const logoEcoBrasil = "http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-Retina-a.png";
 
 const CerradoIcon = () => (
@@ -51,7 +52,6 @@ const unidades = [
     nome: 'Goiânia',
     cidade: 'Goiânia',
     estado: 'Goiás',
-    descricao: 'Gestão de Projetos e Licenciamento Ambiental',
     gradient: 'from-emerald-500 via-green-600 to-teal-600',
     accentColor: 'emerald',
     icon: CerradoIcon,
@@ -61,7 +61,6 @@ const unidades = [
     nome: 'Salvador',
     cidade: 'Salvador',
     estado: 'Bahia',
-    descricao: 'Consultoria Ambiental e Monitoramento',
     gradient: 'from-blue-500 via-cyan-600 to-teal-600',
     accentColor: 'blue',
     icon: OceanIcon,
@@ -71,7 +70,6 @@ const unidades = [
     nome: 'Luiz Eduardo Magalhães',
     cidade: 'Luiz Eduardo Magalhães',
     estado: 'Bahia',
-    descricao: 'Gestão de Recursos e SST',
     gradient: 'from-violet-500 via-purple-600 to-indigo-600',
     accentColor: 'violet',
     icon: FieldsIcon,
@@ -88,7 +86,17 @@ export default function SelecionarUnidade() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black flex flex-col items-center justify-center p-6">
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center p-6 relative"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className="absolute inset-0 bg-black/50"></div>
+      <div className="relative z-10 flex flex-col items-center justify-center w-full">
         <div className="text-center mb-16">
           <div className="inline-block mb-6">
             <img
@@ -137,10 +145,6 @@ export default function SelecionarUnidade() {
                     </div>
                   </div>
 
-                  <p className="text-white/80 text-sm leading-relaxed mb-8 flex-grow">
-                    {unidade.descricao}
-                  </p>
-
                   <div className={`w-full py-4 rounded-xl bg-gradient-to-r ${unidade.gradient} text-white font-bold text-center transition-all duration-300 group-hover:shadow-lg group-hover:shadow-${unidade.accentColor}-500/50 mt-auto`}>
                     Acessar Unidade
                   </div>
@@ -160,6 +164,7 @@ export default function SelecionarUnidade() {
             <span>Sistema de Gestão Ambiental</span>
           </div>
         </div>
+      </div>
     </div>
   );
 }
