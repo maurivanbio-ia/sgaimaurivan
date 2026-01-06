@@ -2205,22 +2205,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/coordenadores/ranking', requireAuth, async (req, res) => {
     try {
-      // Get all empreendimentos grouped by coordenadorId with their financial totals
+      // Get current user to filter by their unidade (multi-tenant isolation)
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const userUnidade = currentUser.unidade || 'goiania';
+      
+      // Get all projetos grouped by coordenadorId with their financial totals - filtered by unidade
       const result = await db.execute(sql`
         SELECT 
           u.id as "userId",
           u.email,
-          COUNT(e.id) as "totalProjetos",
-          COALESCE(SUM(CAST(e.valor_contratado AS DECIMAL(15,2))), 0) as "valorContratado",
-          COALESCE(SUM(CAST(e.valor_recebido AS DECIMAL(15,2))), 0) as "valorRecebido"
+          COUNT(p.id) as "totalProjetos",
+          COALESCE(SUM(CAST(p.valor_contratado AS DECIMAL(15,2))), 0) as "valorContratado",
+          COALESCE(SUM(CAST(p.valor_recebido AS DECIMAL(15,2))), 0) as "valorRecebido"
         FROM users u
-        INNER JOIN empreendimentos e ON e.coordenador_id = u.id
-        WHERE e.deleted_at IS NULL
+        INNER JOIN projetos p ON p.coordenador_id = u.id
+        INNER JOIN empreendimentos e ON p.empreendimento_id = e.id
+        WHERE e.deleted_at IS NULL 
+          AND e.unidade = ${userUnidade}
         GROUP BY u.id, u.email
         ORDER BY 
           CASE 
-            WHEN COALESCE(SUM(CAST(e.valor_contratado AS DECIMAL(15,2))), 0) = 0 THEN 0
-            ELSE COALESCE(SUM(CAST(e.valor_recebido AS DECIMAL(15,2))), 0) / COALESCE(SUM(CAST(e.valor_contratado AS DECIMAL(15,2))), 1) * 100
+            WHEN COALESCE(SUM(CAST(p.valor_contratado AS DECIMAL(15,2))), 0) = 0 THEN 0
+            ELSE COALESCE(SUM(CAST(p.valor_recebido AS DECIMAL(15,2))), 0) / COALESCE(SUM(CAST(p.valor_contratado AS DECIMAL(15,2))), 1) * 100
           END DESC
         LIMIT 10
       `);

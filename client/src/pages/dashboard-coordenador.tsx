@@ -17,14 +17,25 @@ interface User {
   unidade: string;
 }
 
+interface Projeto {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  status: string;
+  coordenadorId: number | null;
+  empreendimentoId: number;
+  valorContratado: string | null;
+  valorRecebido: string | null;
+  orcamentoPrevisto: string | null;
+  metaReducaoGastos: string | null;
+  bmmServicos: string | null;
+  ndReembolsaveis: string | null;
+}
+
 interface Empreendimento {
   id: number;
   nome: string;
   cliente: string;
-  status: string;
-  coordenadorId: number | null;
-  valorContratado: string | number;
-  valorRecebido: string | number;
 }
 
 interface CoordinatorRanking {
@@ -78,7 +89,11 @@ export default function DashboardCoordenador() {
     queryKey: ['/api/auth/me'],
   });
 
-  const { data: empreendimentos = [], isLoading: projectsLoading } = useQuery<Empreendimento[]>({
+  const { data: projetos = [], isLoading: projectsLoading } = useQuery<Projeto[]>({
+    queryKey: ['/api/projetos'],
+  });
+
+  const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ['/api/empreendimentos'],
   });
 
@@ -90,10 +105,10 @@ export default function DashboardCoordenador() {
     queryKey: ['/api/financeiro/lancamentos'],
   });
 
-  const myProjects = empreendimentos.filter(e => e.coordenadorId === user?.id);
+  const myProjects = projetos.filter(p => p.coordenadorId === user?.id);
   
-  const totalContratado = myProjects.reduce((sum, p) => sum + (parseFloat(String(p.valorContratado)) || 0), 0);
-  const totalRecebido = myProjects.reduce((sum, p) => sum + (parseFloat(String(p.valorRecebido)) || 0), 0);
+  const totalContratado = myProjects.reduce((sum, p) => sum + (parseFloat(String(p.valorContratado || 0)) || 0), 0);
+  const totalRecebido = myProjects.reduce((sum, p) => sum + (parseFloat(String(p.valorRecebido || 0)) || 0), 0);
   const eficienciaGeral = totalContratado > 0 ? (totalRecebido / totalContratado) * 100 : 0;
   
   const badgeInfo = getBadgeInfo(eficienciaGeral);
@@ -109,8 +124,9 @@ export default function DashboardCoordenador() {
     value
   }));
 
-  const myProjectIds = new Set(myProjects.map(p => p.id));
-  const myLancamentos = lancamentos.filter(l => myProjectIds.has(l.empreendimentoId));
+  const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e]));
+  const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
+  const myLancamentos = lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId));
 
   const last12Months = Array.from({ length: 12 }, (_, i) => {
     const date = new Date();
@@ -347,7 +363,7 @@ export default function DashboardCoordenador() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>Empreendimento</TableHead>
                   <TableHead className="text-right">Valor Contratado</TableHead>
                   <TableHead className="text-right">Valor Recebido</TableHead>
                   <TableHead className="text-right">Eficiência</TableHead>
@@ -356,19 +372,20 @@ export default function DashboardCoordenador() {
               </TableHeader>
               <TableBody>
                 {myProjects.map((projeto) => {
-                  const contratado = parseFloat(String(projeto.valorContratado)) || 0;
-                  const recebido = parseFloat(String(projeto.valorRecebido)) || 0;
+                  const contratado = parseFloat(String(projeto.valorContratado || 0)) || 0;
+                  const recebido = parseFloat(String(projeto.valorRecebido || 0)) || 0;
                   const efficiency = contratado > 0 ? (recebido / contratado) * 100 : 0;
+                  const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
                   
                   return (
                     <TableRow 
                       key={projeto.id} 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/empreendimentos/${projeto.id}`)}
+                      onClick={() => navigate(`/empreendimentos/${projeto.empreendimentoId}`)}
                       data-testid={`project-row-${projeto.id}`}
                     >
                       <TableCell className="font-medium">{projeto.nome}</TableCell>
-                      <TableCell>{projeto.cliente}</TableCell>
+                      <TableCell>{empreendimento?.nome || '-'}</TableCell>
                       <TableCell className="text-right">{formatCurrency(contratado)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(recebido)}</TableCell>
                       <TableCell className={`text-right font-semibold ${getEfficiencyColor(efficiency)}`}>
@@ -376,7 +393,7 @@ export default function DashboardCoordenador() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {projeto.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          {(projeto.status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </Badge>
                       </TableCell>
                     </TableRow>
