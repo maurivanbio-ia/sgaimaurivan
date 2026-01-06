@@ -210,8 +210,9 @@ export interface IStorage {
     totalDespesas: number;
     totalPendente: number;
     saldoAtual: number;
-    porCategoria: Array<{ categoria: string; valor: number }>;
-    porEmpreendimento: Array<{ empreendimento: string; valor: number }>;
+    porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
+    porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
+    evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
   }>;
 
   // Equipment operations
@@ -1530,10 +1531,11 @@ export class DatabaseStorage implements IStorage {
     totalDespesas: number;
     totalPendente: number;
     saldoAtual: number;
-    porCategoria: Array<{ categoria: string; valor: number }>;
-    porEmpreendimento: Array<{ empreendimento: string; valor: number }>;
+    porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
+    porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
+    evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
   }> {
-    // Get all paid transactions
+    // Get all transactions
     const lancamentos = await db.select().from(financeiroLancamentos);
     
     const totalReceitas = lancamentos
@@ -1558,15 +1560,56 @@ export class DatabaseStorage implements IStorage {
       const valor = lancamentos
         .filter(l => l.categoriaId === cat.id && l.status === "pago")
         .reduce((sum, l) => sum + Number(l.valor), 0);
-      return { categoria: cat.nome, valor };
+      return { categoria: cat.nome, valor, tipo: cat.tipo };
     }).filter(item => item.valor > 0);
 
+    // Per empreendimento with receitas, despesas and lucro
     const porEmpreendimento = empreendimentosList.map(emp => {
-      const valor = lancamentos
-        .filter(l => l.empreendimentoId === emp.id && l.status === "pago")
+      const empLancamentos = lancamentos.filter(l => l.empreendimentoId === emp.id && l.status === "pago");
+      const receitas = empLancamentos
+        .filter(l => l.tipo === "receita")
         .reduce((sum, l) => sum + Number(l.valor), 0);
-      return { empreendimento: emp.nome, valor };
-    }).filter(item => item.valor > 0);
+      const despesas = empLancamentos
+        .filter(l => l.tipo === "despesa")
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      return { 
+        empreendimento: emp.nome, 
+        empreendimentoId: emp.id,
+        receitas, 
+        despesas, 
+        lucro: receitas - despesas 
+      };
+    }).filter(item => item.receitas > 0 || item.despesas > 0);
+
+    // Monthly evolution (last 12 months)
+    const now = new Date();
+    const evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }> = [];
+    
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mesLabel = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      const mesLancamentos = lancamentos.filter(l => {
+        const lDate = new Date(l.data);
+        return lDate.getMonth() === date.getMonth() && 
+               lDate.getFullYear() === date.getFullYear() &&
+               l.status === "pago";
+      });
+      
+      const receitas = mesLancamentos
+        .filter(l => l.tipo === "receita")
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      const despesas = mesLancamentos
+        .filter(l => l.tipo === "despesa")
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      
+      evolucaoMensal.push({
+        mes: mesLabel,
+        receitas,
+        despesas,
+        lucro: receitas - despesas
+      });
+    }
 
     return {
       totalReceitas,
@@ -1575,6 +1618,7 @@ export class DatabaseStorage implements IStorage {
       saldoAtual,
       porCategoria,
       porEmpreendimento,
+      evolucaoMensal,
     };
   }
 

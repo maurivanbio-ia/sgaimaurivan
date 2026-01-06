@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { 
@@ -29,20 +29,46 @@ import {
   PieChart,
   Receipt,
   FileText,
-  AlertCircle,
   Building,
   Loader2,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  LineChart,
+  Wallet
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { FinanceiroLancamento, InsertFinanceiroLancamento, Empreendimento, CategoriaFinanceira } from "@shared/schema";
-import { createInsertSchema } from "drizzle-zod";
-import { financeiroLancamentos } from "@shared/schema";
+import type { FinanceiroLancamento, Empreendimento, CategoriaFinanceira } from "@shared/schema";
 import * as z from "zod";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js';
+import { Line, Pie, Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 // Status configuration
 const STATUS_CONFIG = {
@@ -73,6 +99,17 @@ const novoLancamentoSchema = z.object({
 
 type NovoLancamentoFormData = z.infer<typeof novoLancamentoSchema>;
 
+// Types for financial stats
+interface FinancialStats {
+  totalReceitas: number;
+  totalDespesas: number;
+  totalPendente: number;
+  saldoAtual: number;
+  porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
+  porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
+  evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
+}
+
 // Novo Lançamento Form Component
 interface NovoLancamentoFormProps {
   onSuccess: () => void;
@@ -82,19 +119,15 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch empreendimentos for dropdown
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
   });
 
-  // Fetch categorias for dropdown  
-  // Auto-initialize categories if empty and fetch categories
   const { data: categorias = [], refetch: refetchCategorias } = useQuery<CategoriaFinanceira[]>({
     queryKey: ["/api/categorias-financeiras"],
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Initialize categories if empty
   const initCategoriesMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/categorias-financeiras/init");
@@ -103,13 +136,6 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
       refetchCategorias();
     },
   });
-
-  // Auto-initialize categories on mount if empty
-  React.useEffect(() => {
-    if (categorias.length === 0) {
-      initCategoriesMutation.mutate();
-    }
-  }, [categorias.length]);
 
   const form = useForm<NovoLancamentoFormData>({
     resolver: zodResolver(novoLancamentoSchema),
@@ -127,6 +153,7 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/financeiro/lancamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financeiro/stats"] });
       toast({
         title: "Lançamento criado",
         description: "Novo lançamento financeiro foi criado com sucesso!",
@@ -370,6 +397,18 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   );
 }
 
+// Chart color palette
+const CHART_COLORS = [
+  'rgba(34, 197, 94, 0.8)',   // green
+  'rgba(239, 68, 68, 0.8)',   // red
+  'rgba(59, 130, 246, 0.8)',  // blue
+  'rgba(168, 85, 247, 0.8)',  // purple
+  'rgba(245, 158, 11, 0.8)',  // amber
+  'rgba(236, 72, 153, 0.8)',  // pink
+  'rgba(20, 184, 166, 0.8)',  // teal
+  'rgba(249, 115, 22, 0.8)',  // orange
+];
+
 export default function FinanceiroPage() {
   const [filters, setFilters] = useState({
     tipo: "todos",
@@ -377,11 +416,25 @@ export default function FinanceiroPage() {
     empreendimento: "",
     search: ""
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Fetch financial data
   const { data: lancamentos = [], isLoading } = useQuery<FinanceiroLancamento[]>({
     queryKey: ["/api/financeiro/lancamentos", filters],
   });
+
+  // Fetch financial stats for charts
+  const { data: stats } = useQuery<FinancialStats>({
+    queryKey: ["/api/financeiro/stats"],
+  });
+
+  // Fetch empreendimentos for lookup
+  const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
+    queryKey: ["/api/empreendimentos"],
+  });
+
+  // Create empreendimento lookup map
+  const empMap = new Map(empreendimentos.map(e => [e.id, e.nome]));
 
   // Calculate totals for dashboard cards
   const totalReceitas = lancamentos
@@ -398,10 +451,89 @@ export default function FinanceiroPage() {
 
   const saldoAtual = totalReceitas - totalDespesas;
 
+  // Line chart data for monthly evolution
+  const lineChartData = {
+    labels: stats?.evolucaoMensal?.map(m => m.mes) || [],
+    datasets: [
+      {
+        label: 'Receitas',
+        data: stats?.evolucaoMensal?.map(m => m.receitas) || [],
+        borderColor: 'rgba(34, 197, 94, 1)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+      {
+        label: 'Despesas',
+        data: stats?.evolucaoMensal?.map(m => m.despesas) || [],
+        borderColor: 'rgba(239, 68, 68, 1)',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+      {
+        label: 'Lucro',
+        data: stats?.evolucaoMensal?.map(m => m.lucro) || [],
+        borderColor: 'rgba(59, 130, 246, 1)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+
+  // Pie chart data for categories
+  const pieChartData = {
+    labels: stats?.porCategoria?.map(c => c.categoria) || [],
+    datasets: [
+      {
+        data: stats?.porCategoria?.map(c => c.valor) || [],
+        backgroundColor: CHART_COLORS,
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  };
+
+  // Bar chart data for empreendimentos
+  const barChartData = {
+    labels: stats?.porEmpreendimento?.map(e => e.empreendimento) || [],
+    datasets: [
+      {
+        label: 'Receitas',
+        data: stats?.porEmpreendimento?.map(e => e.receitas) || [],
+        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+      },
+      {
+        label: 'Despesas',
+        data: stats?.porEmpreendimento?.map(e => e.despesas) || [],
+        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+      },
+      {
+        label: 'Lucro',
+        data: stats?.porEmpreendimento?.map(e => e.lucro) || [],
+        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+    },
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-8">
-        <div className="text-center">Carregando módulo financeiro...</div>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Carregando módulo financeiro...</p>
+        </div>
       </div>
     );
   }
@@ -420,7 +552,7 @@ export default function FinanceiroPage() {
         </div>
         
         <div className="flex gap-3">
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-novo-lancamento">
                 <Plus className="h-4 w-4 mr-2" />
@@ -431,7 +563,7 @@ export default function FinanceiroPage() {
               <DialogHeader>
                 <DialogTitle>Novo Lançamento Financeiro</DialogTitle>
               </DialogHeader>
-              <NovoLancamentoForm onSuccess={() => {}} />
+              <NovoLancamentoForm onSuccess={() => setDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>
@@ -447,7 +579,7 @@ export default function FinanceiroPage() {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-600" data-testid="text-total-receitas">
               R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -464,7 +596,7 @@ export default function FinanceiroPage() {
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-red-600" data-testid="text-total-despesas">
               R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -478,10 +610,10 @@ export default function FinanceiroPage() {
             <CardTitle className="text-sm font-medium">
               Saldo Atual
             </CardTitle>
-            <DollarSign className={`h-4 w-4 ${saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+            <Wallet className={`h-4 w-4 ${saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-2xl font-bold ${saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="text-saldo-atual">
               R$ {saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -498,7 +630,7 @@ export default function FinanceiroPage() {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-2xl font-bold text-yellow-600" data-testid="text-total-pendente">
               R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -508,149 +640,357 @@ export default function FinanceiroPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar lançamentos..."
-                value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
-                className="pl-9"
-                data-testid="filter-search"
-              />
-            </div>
-            
-            <Select value={filters.tipo} onValueChange={(value) => setFilters({...filters, tipo: value})}>
-              <SelectTrigger data-testid="filter-tipo">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="despesa">Despesa</SelectItem>
-                <SelectItem value="reembolso">Reembolso</SelectItem>
-                <SelectItem value="solicitacao_recurso">Solicitação</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Tabs for different views */}
+      <Tabs defaultValue="resumo" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="resumo" data-testid="tab-resumo">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Resumo
+          </TabsTrigger>
+          <TabsTrigger value="evolucao" data-testid="tab-evolucao">
+            <LineChart className="h-4 w-4 mr-2" />
+            Evolução
+          </TabsTrigger>
+          <TabsTrigger value="projetos" data-testid="tab-projetos">
+            <Building className="h-4 w-4 mr-2" />
+            Por Projeto
+          </TabsTrigger>
+          <TabsTrigger value="lancamentos" data-testid="tab-lancamentos">
+            <FileText className="h-4 w-4 mr-2" />
+            Lançamentos
+          </TabsTrigger>
+        </TabsList>
 
-            <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
-              <SelectTrigger data-testid="filter-status">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="aguardando">Aguardando</SelectItem>
-                <SelectItem value="aprovado">Aprovado</SelectItem>
-                <SelectItem value="pago">Pago</SelectItem>
-                <SelectItem value="recusado">Recusado</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Resumo Tab - Overview with charts */}
+        <TabsContent value="resumo" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Monthly Evolution Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LineChart className="h-5 w-5" />
+                  Evolução Mensal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {stats?.evolucaoMensal && stats.evolucaoMensal.length > 0 ? (
+                    <Line data={lineChartData} options={chartOptions} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      <div className="text-center">
+                        <LineChart className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Sem dados para exibir</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            <Input
-              placeholder="Empreendimento"
-              value={filters.empreendimento}
-              onChange={(e) => setFilters({...filters, empreendimento: e.target.value})}
-              data-testid="filter-empreendimento"
-            />
-
-            <Button 
-              onClick={() => setFilters({ tipo: "todos", status: "todos", empreendimento: "", search: "" })}
-              variant="outline"
-              data-testid="button-clear-filters"
-            >
-              Limpar
-            </Button>
+            {/* Category Breakdown Pie Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  Gastos por Categoria
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {stats?.porCategoria && stats.porCategoria.length > 0 ? (
+                    <Pie data={pieChartData} options={chartOptions} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      <div className="text-center">
+                        <PieChart className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Sem dados para exibir</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* Financial Transactions Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Lançamentos Financeiros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {lancamentos.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">Nenhum lançamento encontrado</p>
-              <p className="text-sm">
-                Comece criando seu primeiro lançamento financeiro clicando no botão "Novo Lançamento"
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-4">Data</th>
-                    <th className="text-left p-4">Tipo</th>
-                    <th className="text-left p-4">Descrição</th>
-                    <th className="text-left p-4">Valor</th>
-                    <th className="text-left p-4">Status</th>
-                    <th className="text-left p-4">Empreendimento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lancamentos.map((lancamento) => {
-                    const tipoConfig = TIPO_CONFIG[lancamento.tipo as keyof typeof TIPO_CONFIG];
-                    const statusConfig = STATUS_CONFIG[lancamento.status as keyof typeof STATUS_CONFIG];
-                    
-                    return (
-                      <tr key={lancamento.id} className="border-b hover:bg-muted/50">
-                        <td className="p-4">
-                          {format(new Date(lancamento.data), "dd/MM/yyyy", { locale: ptBR })}
-                        </td>
-                        <td className="p-4">
-                          <Badge className={tipoConfig?.color}>
-                            {tipoConfig?.label}
-                          </Badge>
-                        </td>
-                        <td className="p-4">
-                          <div className="max-w-xs truncate">
-                            {lancamento.descricao}
-                          </div>
-                        </td>
-                        <td className="p-4 font-medium">
-                          <span className={lancamento.tipo === 'receita' ? 'text-green-600' : 'text-red-600'}>
-                            {lancamento.tipo === 'receita' ? '+' : '-'}R$ {Number(lancamento.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <Badge 
-                            variant="outline" 
-                            className={`${statusConfig?.color} text-white border-transparent`}
-                          >
-                            {statusConfig?.label}
-                          </Badge>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Building className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">Empreendimento #{lancamento.empreendimentoId}</span>
-                          </div>
-                        </td>
+        {/* Evolução Tab - Detailed monthly evolution */}
+        <TabsContent value="evolucao" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LineChart className="h-5 w-5" />
+                Evolução Financeira (Últimos 12 meses)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                {stats?.evolucaoMensal && stats.evolucaoMensal.length > 0 ? (
+                  <Line data={lineChartData} options={chartOptions} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <LineChart className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Adicione lançamentos para visualizar a evolução</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Monthly Summary Table */}
+          {stats?.evolucaoMensal && stats.evolucaoMensal.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Detalhamento Mensal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-4">Mês</th>
+                        <th className="text-right p-4">Receitas</th>
+                        <th className="text-right p-4">Despesas</th>
+                        <th className="text-right p-4">Lucro/Prejuízo</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {stats.evolucaoMensal.map((mes, idx) => (
+                        <tr key={idx} className="border-b hover:bg-muted/50">
+                          <td className="p-4 font-medium">{mes.mes}</td>
+                          <td className="p-4 text-right text-green-600">
+                            R$ {mes.receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-4 text-right text-red-600">
+                            R$ {mes.despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className={`p-4 text-right font-bold ${mes.lucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            R$ {mes.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Projetos Tab - Per project analysis */}
+        <TabsContent value="projetos" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Receitas e Despesas por Projeto
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                {stats?.porEmpreendimento && stats.porEmpreendimento.length > 0 ? (
+                  <Bar data={barChartData} options={chartOptions} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <Building className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Adicione lançamentos para visualizar por projeto</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Project Cards */}
+          {stats?.porEmpreendimento && stats.porEmpreendimento.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stats.porEmpreendimento.map((emp, idx) => (
+                <Card key={idx} className="border-l-4" style={{ borderLeftColor: emp.lucro >= 0 ? '#22c55e' : '#ef4444' }}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Building className="h-4 w-4" />
+                      {emp.empreendimento}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Receitas:</span>
+                      <span className="text-green-600 font-medium">
+                        R$ {emp.receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Despesas:</span>
+                      <span className="text-red-600 font-medium">
+                        R$ {emp.despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="font-medium">Lucro:</span>
+                      <span className={`font-bold ${emp.lucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        R$ {emp.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Margem: {emp.receitas > 0 ? ((emp.lucro / emp.receitas) * 100).toFixed(1) : 0}%
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        {/* Lançamentos Tab - Transaction list */}
+        <TabsContent value="lancamentos" className="space-y-6">
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar lançamentos..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({...filters, search: e.target.value})}
+                    className="pl-9"
+                    data-testid="filter-search"
+                  />
+                </div>
+                
+                <Select value={filters.tipo} onValueChange={(value) => setFilters({...filters, tipo: value})}>
+                  <SelectTrigger data-testid="filter-tipo">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os tipos</SelectItem>
+                    <SelectItem value="receita">Receita</SelectItem>
+                    <SelectItem value="despesa">Despesa</SelectItem>
+                    <SelectItem value="reembolso">Reembolso</SelectItem>
+                    <SelectItem value="solicitacao_recurso">Solicitação</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
+                  <SelectTrigger data-testid="filter-status">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="aguardando">Aguardando</SelectItem>
+                    <SelectItem value="aprovado">Aprovado</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="recusado">Recusado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  placeholder="Empreendimento"
+                  value={filters.empreendimento}
+                  onChange={(e) => setFilters({...filters, empreendimento: e.target.value})}
+                  data-testid="filter-empreendimento"
+                />
+
+                <Button 
+                  onClick={() => setFilters({ tipo: "todos", status: "todos", empreendimento: "", search: "" })}
+                  variant="outline"
+                  data-testid="button-clear-filters"
+                >
+                  Limpar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Financial Transactions Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Lançamentos Financeiros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {lancamentos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Nenhum lançamento encontrado</p>
+                  <p className="text-sm">
+                    Comece criando seu primeiro lançamento financeiro clicando no botão "Novo Lançamento"
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-4">Data</th>
+                        <th className="text-left p-4">Tipo</th>
+                        <th className="text-left p-4">Descrição</th>
+                        <th className="text-left p-4">Valor</th>
+                        <th className="text-left p-4">Status</th>
+                        <th className="text-left p-4">Empreendimento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lancamentos.map((lancamento) => {
+                        const tipoConfig = TIPO_CONFIG[lancamento.tipo as keyof typeof TIPO_CONFIG];
+                        const statusConfig = STATUS_CONFIG[lancamento.status as keyof typeof STATUS_CONFIG];
+                        
+                        return (
+                          <tr key={lancamento.id} className="border-b hover:bg-muted/50" data-testid={`row-lancamento-${lancamento.id}`}>
+                            <td className="p-4">
+                              {format(new Date(lancamento.data), "dd/MM/yyyy", { locale: ptBR })}
+                            </td>
+                            <td className="p-4">
+                              <Badge className={tipoConfig?.color}>
+                                {tipoConfig?.label}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              <div className="max-w-xs truncate">
+                                {lancamento.descricao}
+                              </div>
+                            </td>
+                            <td className="p-4 font-medium">
+                              <span className={lancamento.tipo === 'receita' ? 'text-green-600' : 'text-red-600'}>
+                                {lancamento.tipo === 'receita' ? '+' : '-'}R$ {Number(lancamento.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <Badge 
+                                variant="outline" 
+                                className={`${statusConfig?.color} text-white border-transparent`}
+                              >
+                                {statusConfig?.label}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <Building className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">{empMap.get(lancamento.empreendimentoId) || `#${lancamento.empreendimentoId}`}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
