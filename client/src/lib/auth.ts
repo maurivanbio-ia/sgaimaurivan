@@ -5,6 +5,8 @@ import { queryClient } from "./queryClient";
 export interface User {
   id: number;
   email: string;
+  role?: string;
+  unidade?: string;
 }
 
 export interface LoginData {

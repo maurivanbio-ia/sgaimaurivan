@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth, User } from '@/lib/auth';
 
 export type Unidade = 'goiania' | 'salvador' | 'luiz-eduardo-magalhaes';
 
@@ -7,23 +8,23 @@ interface UnidadeContextType {
   setUnidade: (unidade: Unidade) => void;
   limparUnidade: () => void;
   getNomeUnidade: () => string;
+  isLoading: boolean;
 }
 
 const UnidadeContext = createContext<UnidadeContextType | undefined>(undefined);
 
 export function UnidadeProvider({ children }: { children: ReactNode }) {
-  const [unidadeSelecionada, setUnidadeSelecionada] = useState<Unidade | null>(() => {
-    const stored = localStorage.getItem('unidade_ecobrasil');
-    return stored as Unidade | null;
-  });
+  const { user, isLoading: authLoading } = useAuth();
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState<Unidade | null>(null);
 
   useEffect(() => {
-    if (unidadeSelecionada) {
-      localStorage.setItem('unidade_ecobrasil', unidadeSelecionada);
-    } else {
-      localStorage.removeItem('unidade_ecobrasil');
+    const typedUser = user as User | null | undefined;
+    if (typedUser?.unidade) {
+      setUnidadeSelecionada(typedUser.unidade as Unidade);
+    } else if (!authLoading && !typedUser) {
+      setUnidadeSelecionada(null);
     }
-  }, [unidadeSelecionada]);
+  }, [user, authLoading]);
 
   const setUnidade = (unidade: Unidade) => {
     setUnidadeSelecionada(unidade);
@@ -47,7 +48,7 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UnidadeContext.Provider value={{ unidadeSelecionada, setUnidade, limparUnidade, getNomeUnidade }}>
+    <UnidadeContext.Provider value={{ unidadeSelecionada, setUnidade, limparUnidade, getNomeUnidade, isLoading: authLoading }}>
       {children}
     </UnidadeContext.Provider>
   );
