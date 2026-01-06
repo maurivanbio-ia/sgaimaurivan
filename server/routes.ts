@@ -2200,6 +2200,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // COORDENADORES RANKING - GAMIFICATION
+  // ========================================
+  
+  app.get('/api/coordenadores/ranking', requireAuth, async (req, res) => {
+    try {
+      // Get all empreendimentos grouped by coordenadorId with their financial totals
+      const result = await db.execute(sql`
+        SELECT 
+          u.id as "userId",
+          u.email,
+          COUNT(e.id) as "totalProjetos",
+          COALESCE(SUM(CAST(e.valor_contratado AS DECIMAL(15,2))), 0) as "valorContratado",
+          COALESCE(SUM(CAST(e.valor_recebido AS DECIMAL(15,2))), 0) as "valorRecebido"
+        FROM users u
+        INNER JOIN empreendimentos e ON e.coordenador_id = u.id
+        WHERE e.deleted_at IS NULL
+        GROUP BY u.id, u.email
+        ORDER BY 
+          CASE 
+            WHEN COALESCE(SUM(CAST(e.valor_contratado AS DECIMAL(15,2))), 0) = 0 THEN 0
+            ELSE COALESCE(SUM(CAST(e.valor_recebido AS DECIMAL(15,2))), 0) / COALESCE(SUM(CAST(e.valor_contratado AS DECIMAL(15,2))), 1) * 100
+          END DESC
+        LIMIT 10
+      `);
+      
+      const ranking = result.rows.map((row: any) => ({
+        userId: row.userId,
+        email: row.email,
+        totalProjetos: parseInt(row.totalProjetos) || 0,
+        valorContratado: parseFloat(row.valorContratado) || 0,
+        valorRecebido: parseFloat(row.valorRecebido) || 0,
+        eficiencia: row.valorContratado > 0 
+          ? (parseFloat(row.valorRecebido) / parseFloat(row.valorContratado)) * 100 
+          : 0
+      }));
+      
+      res.json(ranking);
+    } catch (error) {
+      console.error('Error fetching coordenadores ranking:', error);
+      res.status(500).json({ error: 'Failed to fetch ranking' });
+    }
+  });
+
+  // Get current user info (for dashboard)
+  app.get('/api/auth/me', requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ id: user.id, email: user.email, role: user.role, cargo: user.cargo, unidade: user.unidade });
+    } catch (error) {
+      console.error("Get me error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ========================================
   // AI AGENT ROUTES - MULTI-TENANCY ENABLED
   // ========================================
   
