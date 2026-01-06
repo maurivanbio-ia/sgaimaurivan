@@ -48,7 +48,7 @@ export default function Header() {
 
   const NAV = [
     { href: "/", label: "Dashboard", testid: "nav-dashboard" },
-    { href: "/dashboard-executivo", label: "Dashboard Executivo", testid: "nav-dashboard-executivo" },
+    // { href: "/dashboard-executivo", label: "Dashboard Executivo", testid: "nav-dashboard-executivo" }, // Standby
     { href: "/empreendimentos", label: "Empreendimentos", testid: "nav-projects" },
     { href: "/demandas", label: "Demandas", testid: "nav-demandas" },
     { href: "/financeiro", label: "Financeiro", testid: "nav-financeiro" },
