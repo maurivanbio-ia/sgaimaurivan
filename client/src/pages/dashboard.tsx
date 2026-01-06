@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
-import LicenseCalendar from "@/components/LicenseCalendar";
 import MapComponent from "@/components/MapComponent";
-import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter } from "lucide-react";
+import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter, Map, CalendarDays } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 
 interface DashboardStats {
@@ -87,11 +86,6 @@ export default function Dashboard() {
           </div>
           <ExportButton entity="relatorio-completo" variant="default" />
         </div>
-      </div>
-
-      {/* License Calendar Section */}
-      <div className="mb-8">
-        <LicenseCalendar />
       </div>
 
       {/* Enhanced KPI Stats Cards */}
@@ -282,6 +276,59 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground">
                     {contratos.ativos} ativos
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Acesso Rápido - Mapa e Calendário */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-card-foreground mb-4 flex items-center">
+          <Eye className="mr-2 h-5 w-5" />
+          Acesso Rápido
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="shadow-2xl backdrop-blur-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-200/50 dark:border-green-700/50 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all" onClick={() => navigate("/mapa")}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-green-500/20 rounded-xl">
+                    <Map className="text-green-600 dark:text-green-400 h-8 w-8" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">Mapa de Empreendimentos</p>
+                    <p className="text-sm text-muted-foreground">Visualize a localização geográfica</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400" data-testid="stat-empreendimentos-total">
+                    {empreendimentos?.length || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">empreendimentos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-2xl backdrop-blur-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-900/30 dark:to-indigo-900/30 border-2 border-blue-200/50 dark:border-blue-700/50 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all" onClick={() => navigate("/calendario")}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-500/20 rounded-xl">
+                    <CalendarDays className="text-blue-600 dark:text-blue-400 h-8 w-8" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">Calendário Integrado</p>
+                    <p className="text-sm text-muted-foreground">Acompanhe prazos e vencimentos</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400" data-testid="stat-prazos-proximos">
+                    {prazos.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">próximos eventos</p>
                 </div>
               </div>
             </CardContent>
