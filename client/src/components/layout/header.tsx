@@ -14,7 +14,6 @@ import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 export default function Header() {
   const [location] = useLocation();
-  const [, setLocation] = useLocation();
   const logout = useLogout();
   const { toast } = useToast();
   const { getNomeUnidade } = useUnidade();
@@ -92,28 +91,12 @@ export default function Header() {
             <GlobalSearch />
           </div>
 
-          {/* Unidade selecionada */}
+          {/* Unidade do usuário (fixa) */}
           <div className="hidden md:flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md">
               <Building2 className="h-4 w-4" />
               <span className="text-sm font-bold">{getNomeUnidade()}</span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLocation("/selecionar-unidade")}
-              className="text-xs font-semibold border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950 hover:border-green-300 dark:hover:border-green-700 transition-all"
-              data-testid="button-change-unit"
-              title="Trocar de unidade"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                <path d="M21 3v5h-5"/>
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                <path d="M8 16H3v5"/>
-              </svg>
-              Trocar
-            </Button>
           </div>
 
           {/* Navegação desktop */}
@@ -189,28 +172,13 @@ export default function Header() {
           <GlobalSearch />
         </div>
 
-        {/* Unidade selecionada - Mobile */}
+        {/* Unidade do usuário - Mobile (fixa) */}
         <div className="md:hidden py-2 border-t border-border">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md flex-1">
+          <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md">
               <Building2 className="h-4 w-4" />
               <span className="text-sm font-bold">{getNomeUnidade()}</span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLocation("/selecionar-unidade")}
-              className="text-xs font-semibold border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950"
-              data-testid="button-change-unit-mobile"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                <path d="M21 3v5h-5"/>
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                <path d="M8 16H3v5"/>
-              </svg>
-              <span className="ml-1">Trocar</span>
-            </Button>
           </div>
         </div>
 
