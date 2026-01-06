@@ -23,7 +23,9 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MapPin,
+  Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -65,6 +67,8 @@ export default function Sidebar() {
   const NAV = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
     { href: "/dashboard-coordenador", label: "Meu Painel", icon: User, testid: "nav-dashboard-coordenador" },
+    { href: "/mapa", label: "Mapa", icon: MapPin, testid: "nav-mapa" },
+    { href: "/calendario", label: "Calendário", icon: Calendar, testid: "nav-calendario" },
     { href: "/empreendimentos", label: "Empreendimentos", icon: Building, testid: "nav-projects" },
     { href: "/demandas", label: "Demandas", icon: ClipboardList, testid: "nav-demandas" },
     { href: "/financeiro", label: "Financeiro", icon: DollarSign, testid: "nav-financeiro" },
