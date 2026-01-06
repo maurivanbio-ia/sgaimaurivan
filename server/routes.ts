@@ -68,11 +68,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Authentication middleware
-  const requireAuth = (req: any, res: any, next: any) => {
+  // Authentication middleware - also attaches user info to request
+  const requireAuth = async (req: any, res: any, next: any) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    // Attach user info including unidade to request for downstream use
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    req.user = user;
     next();
   };
 
@@ -192,7 +198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Empreendimento routes
   app.get("/api/empreendimentos", requireAuth, async (req, res) => {
     try {
-      const unidade = req.query.unidade as string | undefined;
+      // Use unidade from authenticated user, not from query string (security)
+      const unidade = req.user?.unidade;
       const empreendimentos = await storage.getEmpreendimentos(unidade);
       res.json(empreendimentos);
     } catch (error) {
@@ -204,7 +211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const unidade = req.query.unidade as string | undefined;
+      // Use unidade from authenticated user, not from query string (security)
+      const unidade = req.user?.unidade;
       const empreendimento = await storage.getEmpreendimento(id, unidade);
       if (!empreendimento) {
         return res.status(404).json({ message: "Empreendimento not found" });
@@ -218,8 +226,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/empreendimentos", requireAuth, async (req, res) => {
     try {
+      // Force unidade from authenticated user (security - ignore client-provided value)
+      const userUnidade = req.user?.unidade;
+      if (!userUnidade) {
+        return res.status(400).json({ message: "Unidade do usuário não definida" });
+      }
+      
       const data = insertEmpreendimentoSchema.parse({
         ...req.body,
+        unidade: userUnidade, // Override any client-provided unidade
         criadoPor: req.session.userId,
       });
       const empreendimento = await storage.createEmpreendimento(data);
@@ -233,7 +248,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const data = insertEmpreendimentoSchema.partial().parse(req.body);
+      const userUnidade = req.user?.unidade;
+      
+      // Verify the empreendimento belongs to user's unit before updating
+      const existing = await storage.getEmpreendimento(id, userUnidade);
+      if (!existing) {
+        return res.status(404).json({ message: "Empreendimento not found" });
+      }
+      
+      // Parse data and strip unidade (users cannot change empreendimento's unit)
+      const { unidade: _ignored, ...bodyWithoutUnidade } = req.body;
+      const data = insertEmpreendimentoSchema.partial().parse(bodyWithoutUnidade);
       const empreendimento = await storage.updateEmpreendimento(id, data);
       res.json(empreendimento);
     } catch (error) {
@@ -245,6 +270,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+      
+      // Verify the empreendimento belongs to user's unit before deleting
+      const existing = await storage.getEmpreendimento(id, userUnidade);
+      if (!existing) {
+        return res.status(404).json({ message: "Empreendimento not found" });
+      }
+      
       await storage.deleteEmpreendimento(id);
       res.status(204).send();
     } catch (error) {
@@ -2038,20 +2071,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Query the AI agent
   app.post("/api/ai/query", requireAuth, async (req, res) => {
     try {
-      const { unidade, message, empreendimentoId } = req.body;
+      const { message, empreendimentoId } = req.body;
+      // Use unidade from authenticated user (security - ignore client-provided value)
+      const unidade = req.user?.unidade;
       
       if (!unidade) {
-        return res.status(400).json({ message: "Unidade é obrigatória" });
+        return res.status(400).json({ message: "Unidade do usuário não definida" });
       }
       
       if (!message) {
         return res.status(400).json({ message: "Mensagem é obrigatória" });
-      }
-      
-      // Valida unidade (segurança multi-tenancy)
-      const validUnidades = ['goiania', 'salvador', 'luiz-eduardo-magalhaes'];
-      if (!validUnidades.includes(unidade)) {
-        return res.status(400).json({ message: "Unidade inválida" });
       }
       
       const { processQuery } = await import("./ai/aiService");
@@ -2072,16 +2101,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get conversation history
   app.get("/api/ai/history", requireAuth, async (req, res) => {
     try {
-      const { unidade } = req.query;
+      // Use unidade from authenticated user (security - ignore client-provided value)
+      const unidade = req.user?.unidade;
       
-      if (!unidade || typeof unidade !== 'string') {
-        return res.status(400).json({ message: "Unidade é obrigatória" });
-      }
-      
-      // Valida unidade
-      const validUnidades = ['goiania', 'salvador', 'luiz-eduardo-magalhaes'];
-      if (!validUnidades.includes(unidade)) {
-        return res.status(400).json({ message: "Unidade inválida" });
+      if (!unidade) {
+        return res.status(400).json({ message: "Unidade do usuário não definida" });
       }
       
       const { getConversationHistory } = await import("./ai/aiService");
@@ -2096,20 +2120,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Index a document
   app.post("/api/ai/index", requireAuth, async (req, res) => {
     try {
-      const { unidade, content, source, sourceType, empreendimentoId, metadata } = req.body;
+      const { content, source, sourceType, empreendimentoId, metadata } = req.body;
+      // Use unidade from authenticated user (security - ignore client-provided value)
+      const unidade = req.user?.unidade;
       
       if (!unidade) {
-        return res.status(400).json({ message: "Unidade é obrigatória" });
+        return res.status(400).json({ message: "Unidade do usuário não definida" });
       }
       
       if (!content || !source || !sourceType) {
         return res.status(400).json({ message: "Campos obrigatórios faltando" });
-      }
-      
-      // Valida unidade
-      const validUnidades = ['goiania', 'salvador', 'luiz-eduardo-magalhaes'];
-      if (!validUnidades.includes(unidade)) {
-        return res.status(400).json({ message: "Unidade inválida" });
       }
       
       const { indexDocument } = await import("./ai/retriever");
