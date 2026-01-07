@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +28,16 @@ export default function Projects() {
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Empreendimento | null>(null);
+  
+  const search = useSearch();
+  const urlParams = new URLSearchParams(search);
+  const initialTab = urlParams.get("tab") === "map" ? "map" : "list";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
+  useEffect(() => {
+    const newTab = urlParams.get("tab") === "map" ? "map" : "list";
+    setActiveTab(newTab);
+  }, [search]);
   
   const { data: projects, isLoading } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos", unidadeSelecionada],
@@ -103,7 +113,7 @@ export default function Projects() {
       </div>
 
       {projects && projects.length > 0 ? (
-        <Tabs defaultValue="list" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="list">
               <Building className="mr-2 h-4 w-4" />

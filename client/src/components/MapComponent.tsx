@@ -171,8 +171,8 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
                         </div>
                       </div>
 
-                      {/* Botão Ver Detalhes */}
-                      <Link href={`/empreendimentos/${empreendimento.id}`}>
+                      {/* Botão Ver no Mapa */}
+                      <Link href="/empreendimentos?tab=map">
                         <Button 
                           size="sm"
                           variant="outline"
