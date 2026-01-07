@@ -5,7 +5,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, Users, Loader2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Users, Loader2, RefreshCw } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -239,9 +240,12 @@ export default function RhPage() {
             Gerencie colaboradores, certificações e documentos de RH
           </p>
         </div>
-        <Button onClick={handleNew} data-testid="button-novo-rh">
-          <Plus className="h-4 w-4 mr-2" /> Novo Registro
-        </Button>
+        <div className="flex gap-2">
+          <RefreshButton />
+          <Button onClick={handleNew} data-testid="button-novo-rh">
+            <Plus className="h-4 w-4 mr-2" /> Novo Registro
+          </Button>
+        </div>
       </div>
 
       <Card>

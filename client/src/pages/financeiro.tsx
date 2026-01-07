@@ -38,6 +38,7 @@ import {
   MoreVertical,
   RefreshCw
 } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -597,6 +598,7 @@ export default function FinanceiroPage() {
         </div>
         
         <div className="flex gap-3">
+          <RefreshButton />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-novo-lancamento">

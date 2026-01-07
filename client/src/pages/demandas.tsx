@@ -54,7 +54,9 @@ import {
   Loader2,
   GripVertical,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 
 // ===================================================
 // Tipos e Constantes
@@ -652,12 +654,14 @@ export default function DemandasPage() {
             Arraste os cards entre as colunas para alterar o status
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-nova-demanda">
-              <Plus className="h-4 w-4 mr-2" /> Nova Demanda
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <RefreshButton />
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-nova-demanda">
+                <Plus className="h-4 w-4 mr-2" /> Nova Demanda
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>Nova Demanda</DialogTitle>
@@ -669,7 +673,8 @@ export default function DemandasPage() {
               }}
             />
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <DndContext

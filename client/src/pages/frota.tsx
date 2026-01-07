@@ -32,8 +32,10 @@ import {
   Clock,
   Edit,
   Eye,
-  Trash2
+  Trash2,
+  RefreshCw
 } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
@@ -852,20 +854,23 @@ export default function FrotaPage() {
             Gerencie veículos, manutenções e agendamentos da frota
           </p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-novo-veiculo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Veículo
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <RefreshButton />
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-novo-veiculo">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Veículo
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Cadastrar Novo Veículo</DialogTitle>
             </DialogHeader>
             <NovoVeiculoForm onSuccess={handleFormSuccess} />
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {/* Statistics Cards */}

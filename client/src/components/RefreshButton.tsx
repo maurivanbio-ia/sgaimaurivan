@@ -23,8 +23,9 @@ export function RefreshButton({
     setIsRefreshing(true);
     
     try {
-      // Invalida todas as queries para forçar atualização
-      await queryClient.invalidateQueries();
+      // Invalida e força refetch de todas as queries
+      await queryClient.invalidateQueries({ refetchType: 'all' });
+      await queryClient.refetchQueries({ type: 'active' });
       
       toast({
         title: "Sistema Atualizado",

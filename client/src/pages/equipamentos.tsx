@@ -5,7 +5,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, Wrench, Loader2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Wrench, Loader2, RefreshCw } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -267,9 +268,12 @@ export default function EquipamentosPage() {
             Gerencie equipamentos ambientais e operacionais utilizados nos projetos
           </p>
         </div>
-        <Button onClick={handleNew} data-testid="button-novo-equipamento">
-          <Plus className="h-4 w-4 mr-2" /> Novo Equipamento
-        </Button>
+        <div className="flex gap-2">
+          <RefreshButton />
+          <Button onClick={handleNew} data-testid="button-novo-equipamento">
+            <Plus className="h-4 w-4 mr-2" /> Novo Equipamento
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
