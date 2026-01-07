@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -132,9 +133,24 @@ export default function Projects() {
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-card-foreground mb-2" data-testid={`text-project-name-${project.id}`}>
-                          {project.nome}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold text-card-foreground" data-testid={`text-project-name-${project.id}`}>
+                            {project.nome}
+                          </h3>
+                          <Badge 
+                            variant={project.status === "ativo" ? "default" : "secondary"}
+                            className={project.status === "ativo" 
+                              ? "bg-green-100 text-green-800 hover:bg-green-100" 
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-100"}
+                            data-testid={`badge-status-${project.id}`}
+                          >
+                            {project.status === "ativo" ? "Ativo" : 
+                             project.status === "inativo" ? "Inativo" :
+                             project.status === "em_planejamento" ? "Em Planejamento" :
+                             project.status === "em_execucao" ? "Em Execução" :
+                             project.status === "concluido" ? "Concluído" : project.status}
+                          </Badge>
+                        </div>
                         <div className="space-y-1">
                           <p className="text-sm text-muted-foreground">
                             <User className="inline mr-2 h-4 w-4" />
