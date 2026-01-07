@@ -14,7 +14,9 @@ import {
   ClipboardList,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  CalendarDays,
+  Target
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -48,21 +50,37 @@ interface Condicionante {
   status: string;
 }
 
+interface CronogramaItem {
+  id: number;
+  titulo: string;
+  tipo: string;
+  descricao: string | null;
+  dataInicio: string;
+  dataFim: string;
+  status: string;
+  empreendimentoId: number;
+  projetoId: number | null;
+  responsavel: string | null;
+  prioridade: string | null;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
   date: Date;
-  type: "licenca" | "demanda" | "condicionante";
+  type: "licenca" | "demanda" | "condicionante" | "cronograma";
   status: string;
   link: string;
   color: string;
   prioridade?: string;
+  cronogramaTipo?: string;
 }
 
 const eventColors = {
   licenca: "#ef4444",
   demanda: "#3b82f6", 
   condicionante: "#f59e0b",
+  cronograma: "#8b5cf6",
 };
 
 const priorityColors: Record<string, string> = {
@@ -90,7 +108,11 @@ export default function Calendario() {
     queryKey: ['/api/condicionantes'],
   });
 
-  const isLoading = licencasLoading || demandasLoading || condicionantesLoading;
+  const { data: cronogramaItens = [], isLoading: cronogramaLoading } = useQuery<CronogramaItem[]>({
+    queryKey: ['/api/cronograma'],
+  });
+
+  const isLoading = licencasLoading || demandasLoading || condicionantesLoading || cronogramaLoading;
 
   const events = useMemo(() => {
     const allEvents: CalendarEvent[] = [];
@@ -138,8 +160,27 @@ export default function Calendario() {
       }
     });
 
+    cronogramaItens.forEach(item => {
+      if (item.dataFim) {
+        const tipoLabel = item.tipo === "campanha" ? "Campanha" : 
+                          item.tipo === "relatorio" ? "Relatório" : 
+                          item.tipo === "marco" ? "Marco" : "Etapa";
+        allEvents.push({
+          id: `cron-${item.id}`,
+          title: `${tipoLabel}: ${item.titulo}`,
+          date: parseISO(item.dataFim),
+          type: "cronograma",
+          status: item.status,
+          link: `/cronograma`,
+          color: eventColors.cronograma,
+          prioridade: item.prioridade || undefined,
+          cronogramaTipo: item.tipo,
+        });
+      }
+    });
+
     return allEvents;
-  }, [licencas, demandas, condicionantes]);
+  }, [licencas, demandas, condicionantes, cronogramaItens]);
 
   const filteredEvents = useMemo(() => {
     if (filterType === "todos") return events;
@@ -165,6 +206,7 @@ export default function Calendario() {
       licencas: thisMonth.filter(e => e.type === "licenca").length,
       demandas: thisMonth.filter(e => e.type === "demanda").length,
       condicionantes: thisMonth.filter(e => e.type === "condicionante").length,
+      cronograma: thisMonth.filter(e => e.type === "cronograma").length,
       total: thisMonth.length,
     };
   }, [filteredEvents, currentDate]);
@@ -194,7 +236,7 @@ export default function Calendario() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card 
           className={`cursor-pointer transition-all ${filterType === "licenca" ? 'ring-2 ring-red-500' : ''}`}
           onClick={() => setFilterType(filterType === "licenca" ? "todos" : "licenca")}
@@ -239,6 +281,22 @@ export default function Calendario() {
             <div>
               <p className="text-2xl font-bold">{eventCounts.condicionantes}</p>
               <p className="text-xs text-muted-foreground">Condicionantes</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer transition-all ${filterType === "cronograma" ? 'ring-2 ring-purple-500' : ''}`}
+          onClick={() => setFilterType(filterType === "cronograma" ? "todos" : "cronograma")}
+          data-testid="filter-cronograma"
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-full bg-purple-100">
+              <Target className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{eventCounts.cronograma}</p>
+              <p className="text-xs text-muted-foreground">Cronograma</p>
             </div>
           </CardContent>
         </Card>
