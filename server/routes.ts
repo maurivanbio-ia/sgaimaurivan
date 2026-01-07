@@ -386,6 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licencas/calendar", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const { startDate, endDate } = req.query;
       
       if (!startDate || !endDate) {
@@ -399,8 +400,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Datas inválidas" });
       }
 
-      const licencas = await storage.getLicencasByDateRange(start, end);
-      const demandas = await storage.getDemandasByDateRange(start, end);
+      const licencas = await storage.getLicencasByDateRange(userUnidade, start, end);
+      const demandas = await storage.getDemandasByDateRange(userUnidade, start, end);
       
       const events = [
         ...licencas.map((l: any) => ({ ...l, tipo: 'licenca', eventType: 'licenca' })),
@@ -647,6 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Consolidated dashboard stats endpoint (reduces 6+ requests to 1)
   app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
     try {
+      const unidade = req.user?.unidade || '';
       const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
       
       const [
@@ -661,16 +663,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         demandasStats,
         contratosStats
       ] = await Promise.all([
-        storage.getLicenseStats(empreendimentoId),
-        storage.getCondicionanteStats(empreendimentoId),
-        storage.getEntregaStats(empreendimentoId),
-        storage.getAgendaPrazos(empreendimentoId),
-        storage.getMonthlyExpiryData(empreendimentoId),
-        storage.getFrotaStats(empreendimentoId),
-        storage.getEquipamentosStats(empreendimentoId),
-        storage.getRhStats(empreendimentoId),
-        storage.getDemandasStats(empreendimentoId),
-        storage.getContratosStats(empreendimentoId)
+        storage.getLicenseStats(unidade, empreendimentoId),
+        storage.getCondicionanteStats(unidade, empreendimentoId),
+        storage.getEntregaStats(unidade, empreendimentoId),
+        storage.getAgendaPrazos(unidade, empreendimentoId),
+        storage.getMonthlyExpiryData(unidade, empreendimentoId),
+        storage.getFrotaStats(unidade, empreendimentoId),
+        storage.getEquipamentosStats(unidade, empreendimentoId),
+        storage.getRhStats(unidade, empreendimentoId),
+        storage.getDemandasStats(unidade, empreendimentoId),
+        storage.getContratosStats(unidade, empreendimentoId)
       ]);
 
       res.json({
@@ -701,23 +703,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
 
       const results = await Promise.all(
-        unidades.map(async (unidade) => {
-          const empreendimentos = await storage.getEmpreendimentos({});
-          const empreendimentosAtivos = empreendimentos.filter(e => e.status === 'planejamento' || e.status === 'em_andamento');
-          const empreendimentosConcluidos = empreendimentos.filter(e => e.status === 'concluido');
+        unidades.map(async (unidadeItem) => {
+          const empreendimentosData = await storage.getEmpreendimentos(unidadeItem.id);
+          const empreendimentosAtivos = empreendimentosData.filter(e => e.status === 'planejamento' || e.status === 'em_andamento');
+          const empreendimentosConcluidos = empreendimentosData.filter(e => e.status === 'concluido');
           
           const [frota, equipamentos, rh, demandas, contratos] = await Promise.all([
-            storage.getFrotaStats(),
-            storage.getEquipamentosStats(),
-            storage.getRhStats(),
-            storage.getDemandasStats(),
-            storage.getContratosStats(),
+            storage.getFrotaStats(unidadeItem.id),
+            storage.getEquipamentosStats(unidadeItem.id),
+            storage.getRhStats(unidadeItem.id),
+            storage.getDemandasStats(unidadeItem.id),
+            storage.getContratosStats(unidadeItem.id),
           ]);
 
           return {
-            unidade: unidade.nome,
+            unidade: unidadeItem.nome,
             empreendimentos: {
-              total: empreendimentos.length,
+              total: empreendimentosData.length,
               ativos: empreendimentosAtivos.length,
               concluidos: empreendimentosConcluidos.length,
             },
@@ -740,8 +742,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced Stats routes
   app.get("/api/stats/licenses", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
-      const stats = await storage.getLicenseStats(empreendimentoId);
+      const stats = await storage.getLicenseStats(userUnidade, empreendimentoId);
       res.json(stats);
     } catch (error) {
       console.error("Get license stats error:", error);
@@ -752,8 +755,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced Stats routes with empreendimento filter
   app.get("/api/stats/licenses/:empreendimentoId", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const empreendimentoId = parseInt(req.params.empreendimentoId);
-      const stats = await storage.getLicenseStats(empreendimentoId);
+      const stats = await storage.getLicenseStats(userUnidade, empreendimentoId);
       res.json(stats);
     } catch (error) {
       console.error("Get license stats error:", error);
@@ -763,7 +767,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/condicionantes", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getCondicionanteStats();
+      const userUnidade = req.user?.unidade || '';
+      const stats = await storage.getCondicionanteStats(userUnidade);
       res.json(stats);
     } catch (error) {
       console.error("Get condicionante stats error:", error);
@@ -773,7 +778,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/entregas", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getEntregaStats();
+      const userUnidade = req.user?.unidade || '';
+      const stats = await storage.getEntregaStats(userUnidade);
       res.json(stats);
     } catch (error) {
       console.error("Get entrega stats error:", error);
@@ -793,7 +799,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/agenda/prazos", requireAuth, async (req, res) => {
     try {
-      const agenda = await storage.getAgendaPrazos();
+      const userUnidade = req.user?.unidade || '';
+      const agenda = await storage.getAgendaPrazos(userUnidade);
       res.json(agenda);
     } catch (error) {
       console.error("Get agenda prazos error:", error);
@@ -803,8 +810,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/expiry-monthly", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
-      const monthlyData = await storage.getMonthlyExpiryData(empreendimentoId);
+      const monthlyData = await storage.getMonthlyExpiryData(userUnidade, empreendimentoId);
       res.json(monthlyData);
     } catch (error) {
       console.error("Get monthly expiry data error:", error);
@@ -814,8 +822,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/expiry-monthly/:empreendimentoId", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const empreendimentoId = parseInt(req.params.empreendimentoId);
-      const monthlyData = await storage.getMonthlyExpiryData(empreendimentoId);
+      const monthlyData = await storage.getMonthlyExpiryData(userUnidade, empreendimentoId);
       res.json(monthlyData);
     } catch (error) {
       console.error("Get monthly expiry data error:", error);
@@ -1067,10 +1076,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get demandas statistics for dashboard
-  app.get('/api/demandas/dashboard/stats', async (req, res) => {
+  app.get('/api/demandas/dashboard/stats', requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
-      const stats = await storage.getDemandasStats(empreendimentoId);
+      const stats = await storage.getDemandasStats(userUnidade, empreendimentoId);
       res.json(stats);
     } catch (error) {
       console.error('Error fetching demandas stats:', error);
@@ -1078,10 +1088,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/demandas/dashboard/stats/:empreendimentoId', async (req, res) => {
+  app.get('/api/demandas/dashboard/stats/:empreendimentoId', requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const empreendimentoId = parseInt(req.params.empreendimentoId);
-      const stats = await storage.getDemandasStats(empreendimentoId);
+      const stats = await storage.getDemandasStats(userUnidade, empreendimentoId);
       res.json(stats);
     } catch (error) {
       console.error('Error fetching demandas stats:', error);
