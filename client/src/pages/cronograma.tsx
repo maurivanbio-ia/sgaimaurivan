@@ -28,8 +28,10 @@ import {
   Loader2,
   CalendarDays,
   Building2,
-  FolderOpen
+  FolderOpen,
+  RefreshCw
 } from "lucide-react";
+import { RefreshButton } from "@/components/RefreshButton";
 import type { CronogramaItem, Empreendimento, Projeto } from "@shared/schema";
 
 const TIPO_OPTIONS = [
@@ -181,13 +183,15 @@ export default function CronogramaPage() {
             Gerencie campanhas, relatórios e marcos dos seus projetos
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingItem(null); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-novo-cronograma">
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Item
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <RefreshButton />
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingItem(null); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-novo-cronograma">
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Item
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingItem ? "Editar Item" : "Novo Item do Cronograma"}</DialogTitle>
@@ -206,7 +210,8 @@ export default function CronogramaPage() {
               isLoading={createMutation.isPending || updateMutation.isPending}
             />
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
