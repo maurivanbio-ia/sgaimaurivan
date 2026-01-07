@@ -24,6 +24,8 @@ import {
   empreendimentos,
   licencasAmbientais,
   demandas,
+  arquivos,
+  contratos,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull } from "drizzle-orm";
@@ -2167,6 +2169,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/contratos', requireAuth, contratoController.createContrato);
   app.patch('/api/contratos/:id', requireAuth, contratoController.updateContrato);
   app.delete('/api/contratos/:id', requireAuth, contratoController.deleteContrato);
+  
+  // Upload de documento para contrato
+  app.post('/api/contratos/upload', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
+      }
+      
+      const contratoId = parseInt(req.body.contratoId);
+      if (isNaN(contratoId)) {
+        return res.status(400).json({ message: "ID do contrato inválido" });
+      }
+      
+      const userId = (req.session as any).userId;
+      const crypto = await import("crypto");
+      const fs = await import("fs");
+      
+      // Calcular checksum do arquivo
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const checksum = crypto.createHash("md5").update(fileBuffer).digest("hex");
+      
+      // Salvar arquivo no banco
+      const [arquivo] = await db.insert(arquivos).values({
+        nome: req.file.originalname,
+        mime: req.file.mimetype,
+        tamanho: req.file.size,
+        caminho: req.file.path,
+        checksum,
+        origem: "contrato",
+        uploaderId: userId,
+      }).returning();
+      
+      // Atualizar contrato com o ID do arquivo
+      await db.update(contratos).set({ arquivoPdfId: arquivo.id }).where(eq(contratos.id, contratoId));
+      
+      res.json({ success: true, arquivo });
+    } catch (error: any) {
+      console.error("Erro ao fazer upload de documento do contrato:", error);
+      res.status(500).json({ message: error.message || "Erro ao fazer upload" });
+    }
+  });
   app.get('/api/contratos/:id/aditivos', requireAuth, contratoController.getAditivosByContrato);
   app.post('/api/contratos/:id/aditivos', requireAuth, contratoController.createAditivo);
   app.get('/api/contratos/:id/pagamentos', requireAuth, contratoController.getPagamentosByContrato);
