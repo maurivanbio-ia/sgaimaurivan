@@ -35,6 +35,7 @@ import SegurancaTrabalho from "./pages/segurancaTrabalho";
 import PainelIntegrado from "./pages/painel-integrado";
 import MapaEmpreendimentos from "./pages/mapa";
 import Calendario from "./pages/calendario";
+import Cronograma from "./pages/cronograma";
 import Sidebar from "./components/layout/sidebar";
 import ClienteSidebar from "./components/layout/cliente-sidebar";
 import ClienteLogin from "./pages/cliente/login";
@@ -107,6 +108,7 @@ function Router() {
                   <Route path="/ia" component={EcoAssistente} />
                   <Route path="/mapa" component={MapaEmpreendimentos} />
                   <Route path="/calendario" component={Calendario} />
+                  <Route path="/cronograma" component={Cronograma} />
                   <Route path="/empreendimentos" component={Projects} />
                   <Route path="/empreendimentos/novo" component={NewProject} />
                   <Route path="/empreendimentos/:id/editar" component={EditProject} />
