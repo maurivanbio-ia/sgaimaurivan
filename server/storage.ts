@@ -121,17 +121,18 @@ export interface IStorage {
 
   // Enhanced Stats - MULTI-TENANCY: unidade obrigatória
   getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; proxVencer?: number }>;
-  getCondicionanteStats(empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }>;
-  getEntregaStats(empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
+  getCondicionanteStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }>;
+  getEntregaStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
   getEntregasDoMes(): Promise<Entrega[]>;
-  getAgendaPrazos(empreendimentoId?: number): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; }>>;
-  getMonthlyExpiryData(empreendimentoId?: number): Promise<Array<{ month: string; count: number }>>;
-  getLicencasByDateRange(startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>>;
+  getAgendaPrazos(unidade: string, empreendimentoId?: number): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>>;
+  getMonthlyExpiryData(unidade: string, empreendimentoId?: number): Promise<Array<{ month: string; count: number }>>;
+  getLicencasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>>;
   getFrotaStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number; alugados: number }>;
   getEquipamentosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number }>;
-  getRhStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }>;
+  getRhStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }>;
   getDemandasStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; pendentes: number; emAndamento: number; concluidas: number }>;
-  getContratosStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }>;
+  getContratosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }>;
+  getLicencasByEmpreendimento(empreendimentoId: number): Promise<LicencaAmbiental[]>;
 
   // Alert operations
   getAlertConfigs(): Promise<AlertConfig[]>;
@@ -701,30 +702,65 @@ export class DatabaseStorage implements IStorage {
     return { active, expiring, expired, proxVencer };
   }
 
-  async getCondicionanteStats(): Promise<{ pendentes: number; cumpridas: number; vencidas: number }> {
-    const condicionantes = await this.getCondicionantes();
+  async getCondicionanteStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }> {
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    const empIds = emps.map(e => e.id);
+    
+    if (empIds.length === 0) {
+      return { pendentes: 0, cumpridas: 0, vencidas: 0 };
+    }
+    
+    const allCondicionantes = await this.getCondicionantes();
+    const licencas = await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+    const licencaIds = licencas.map(l => l.id);
+    
+    const condicionantesFiltradas = allCondicionantes.filter(c => licencaIds.includes(c.licencaId));
+    
     return {
-      pendentes: condicionantes.filter(c => c.status === 'pendente').length,
-      cumpridas: condicionantes.filter(c => c.status === 'cumprida').length,
-      vencidas: condicionantes.filter(c => c.status === 'vencida').length,
+      pendentes: condicionantesFiltradas.filter(c => c.status === 'pendente').length,
+      cumpridas: condicionantesFiltradas.filter(c => c.status === 'cumprida').length,
+      vencidas: condicionantesFiltradas.filter(c => c.status === 'vencida').length,
     };
   }
 
-  async getEntregaStats(): Promise<{ pendentes: number; entregues: number; atrasadas: number }> {
-    const entregas = await this.getEntregas();
+  async getEntregaStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }> {
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    const empIds = emps.map(e => e.id);
+    
+    if (empIds.length === 0) {
+      return { pendentes: 0, entregues: 0, atrasadas: 0 };
+    }
+    
+    const allEntregas = await this.getEntregas();
+    const licencas = await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+    const licencaIds = licencas.map(l => l.id);
+    
+    const entregasFiltradas = allEntregas.filter(e => licencaIds.includes(e.licencaId));
+    
     return {
-      pendentes: entregas.filter(e => e.status === 'pendente').length,
-      entregues: entregas.filter(e => e.status === 'entregue').length,
-      atrasadas: entregas.filter(e => e.status === 'atrasada').length,
+      pendentes: entregasFiltradas.filter(e => e.status === 'pendente').length,
+      entregues: entregasFiltradas.filter(e => e.status === 'entregue').length,
+      atrasadas: entregasFiltradas.filter(e => e.status === 'atrasada').length,
     };
   }
 
-  async getMonthlyExpiryData(): Promise<Array<{ month: string; count: number }>> {
-    const licencas = await this.getLicencas();
+  async getMonthlyExpiryData(unidade: string, empreendimentoId?: number): Promise<Array<{ month: string; count: number }>> {
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    const empIds = emps.map(e => e.id);
+    
+    if (empIds.length === 0) {
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const now = new Date();
+      return monthNames.slice(now.getMonth()).concat(monthNames.slice(0, now.getMonth())).map(m => ({ month: m, count: 0 }));
+    }
+    
+    const licencas = empreendimentoId 
+      ? await this.getLicencasByEmpreendimento(empreendimentoId)
+      : await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+    
     const now = new Date();
     const currentYear = now.getFullYear();
     
-    // Create array for next 12 months starting from current month
     const monthlyData: Array<{ month: string; count: number }> = [];
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
@@ -733,8 +769,7 @@ export class DatabaseStorage implements IStorage {
       const monthName = monthNames[targetDate.getMonth()];
       const year = targetDate.getFullYear();
       
-      // Count licences expiring in this month
-      const count = licencas.filter(licenca => {
+      const count = licencas.filter((licenca: any) => {
         const validadeDate = new Date(licenca.validade);
         return validadeDate.getMonth() === targetDate.getMonth() && 
                validadeDate.getFullYear() === year;
@@ -750,60 +785,68 @@ export class DatabaseStorage implements IStorage {
   }
 
 
-  async getAgendaPrazos(): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>> {
-    const [licencas, condicionantes, entregas, empreendimentos] = await Promise.all([
-      this.getLicencas(),
-      this.getCondicionantes(),
-      this.getEntregas(),
-      this.getEmpreendimentos(),
-    ]);
+  async getAgendaPrazos(unidade: string, empreendimentoId?: number): Promise<Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>> {
+    const empsData = await this.getEmpreendimentos(unidade);
+    const empIds = empsData.map(e => e.id);
+    
+    if (empIds.length === 0) {
+      return [];
+    }
+    
+    const allLicencas = await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+    const licencaIds = allLicencas.map(l => l.id);
+    
+    const allCondicionantes = await this.getCondicionantes();
+    const allEntregas = await this.getEntregas();
+    
+    const licencas = allLicencas.map(l => ({ ...l, status: this.calculateLicenseStatus(l.validade) }));
+    const condicionantesFiltradas = allCondicionantes.filter(c => licencaIds.includes(c.licencaId));
+    const entregasFiltradas = allEntregas.filter(e => licencaIds.includes(e.licencaId));
 
     const agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }> = [];
     
     // Add licenses with upcoming expiration
     licencas.forEach(licenca => {
       if (licenca.status !== 'ativa') {
-        const empreendimento = empreendimentos.find(e => e.id === licenca.empreendimentoId);
+        const emp = empsData.find(e => e.id === licenca.empreendimentoId);
         agenda.push({
           tipo: 'Licença',
           titulo: `${licenca.tipo} - ${licenca.orgaoEmissor}`,
           prazo: licenca.validade,
           status: licenca.status,
           id: licenca.id,
-          empreendimento: empreendimento?.nome,
+          empreendimento: emp?.nome,
           orgaoEmissor: licenca.orgaoEmissor,
         });
       }
     });
 
     // Add condicionantes
-    condicionantes.forEach(condicionante => {
-      // Find the license and empreendimento for this condicionante
+    condicionantesFiltradas.forEach(condicionante => {
       const licenca = licencas.find(l => l.id === condicionante.licencaId);
-      const empreendimento = licenca ? empreendimentos.find(e => e.id === licenca.empreendimentoId) : undefined;
+      const emp = licenca ? empsData.find(e => e.id === licenca.empreendimentoId) : undefined;
       agenda.push({
         tipo: 'Condicionante',
         titulo: condicionante.descricao,
         prazo: condicionante.prazo,
         status: condicionante.status,
         id: condicionante.id,
-        empreendimento: empreendimento?.nome,
+        empreendimento: emp?.nome,
         orgaoEmissor: licenca?.orgaoEmissor,
       });
     });
 
     // Add entregas
-    entregas.forEach(entrega => {
-      // Find the license and empreendimento for this entrega
+    entregasFiltradas.forEach(entrega => {
       const licenca = licencas.find(l => l.id === entrega.licencaId);
-      const empreendimento = licenca ? empreendimentos.find(e => e.id === licenca.empreendimentoId) : undefined;
+      const emp = licenca ? empsData.find(e => e.id === licenca.empreendimentoId) : undefined;
       agenda.push({
         tipo: 'Entrega',
         titulo: entrega.titulo || entrega.descricao || '',
         prazo: entrega.prazo,
         status: entrega.status,
         id: entrega.id,
-        empreendimento: empreendimento?.nome,
+        empreendimento: emp?.nome,
       });
     });
 
@@ -832,12 +875,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getRhStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }> {
-    const rh = await this.getRhRegistros({ empreendimentoId });
+  async getRhStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }> {
+    const rh = await this.getRhRegistros({ empreendimentoId, unidade });
     return {
       total: rh.length,
-      ativos: rh.filter(r => r.status === 'ativo').length,
-      afastados: rh.filter(r => r.status === 'afastado').length,
+      ativos: rh.filter((r: any) => r.situacao === 'ativo').length,
+      afastados: rh.filter((r: any) => r.situacao === 'afastado').length,
     };
   }
 
@@ -867,8 +910,8 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getContratosStats(empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }> {
-    const contratos = await this.getContratos({ empreendimentoId });
+  async getContratosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }> {
+    const contratos = await this.getContratos({ empreendimentoId, unidade });
     const ativos = contratos.filter(c => !c.deletedAt);
     const valorTotal = ativos.reduce((sum, c) => sum + (parseFloat(c.valorTotal || '0')), 0);
     return {
@@ -876,6 +919,16 @@ export class DatabaseStorage implements IStorage {
       ativos: ativos.length,
       valorTotal: Math.round(valorTotal * 100) / 100,
     };
+  }
+
+  async getLicencasByEmpreendimento(empreendimentoId: number): Promise<LicencaAmbiental[]> {
+    const licencas = await db.select().from(licencasAmbientais)
+      .where(eq(licencasAmbientais.empreendimentoId, empreendimentoId))
+      .orderBy(desc(licencasAmbientais.criadoEm));
+    return licencas.map(licenca => ({
+      ...licenca,
+      status: this.calculateLicenseStatus(licenca.validade)
+    }));
   }
 
   private calculateCondicionanteStatus(prazo: string): string {
@@ -1143,7 +1196,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getLicencasByDateRange(startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>> {
+  async getLicencasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Array<{ id: number; tipo: string; validade: string; empreendimentoNome: string; orgaoEmissor: string; }>> {
     try {
       const licencas = await db
         .select({
@@ -1152,11 +1205,13 @@ export class DatabaseStorage implements IStorage {
           validade: licencasAmbientais.validade,
           orgaoEmissor: licencasAmbientais.orgaoEmissor,
           empreendimentoNome: empreendimentos.nome,
+          unidade: empreendimentos.unidade,
         })
         .from(licencasAmbientais)
         .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
         .where(
           and(
+            eq(empreendimentos.unidade, unidade),
             gte(licencasAmbientais.validade, startDate.toISOString()),
             lte(licencasAmbientais.validade, endDate.toISOString())
           )
@@ -1256,12 +1311,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(historicoDemandasMovimentacoes.criadoEm));
   }
 
-  async getDemandasByDateRange(startDate: Date, endDate: Date): Promise<Demanda[]> {
+  async getDemandasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Demanda[]> {
     return await db
       .select()
       .from(demandas)
       .where(
         and(
+          eq(demandas.unidade, unidade),
           gte(demandas.dataEntrega, startDate.toISOString().split('T')[0]),
           lte(demandas.dataEntrega, endDate.toISOString().split('T')[0])
         )
