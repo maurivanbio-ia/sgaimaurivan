@@ -84,8 +84,6 @@ const projetoFormSchema = z.object({
   metaReducaoGastos: z.string().optional(),
   inicioPrevisto: z.string().optional(),
   fimPrevisto: z.string().optional(),
-  bmmServicos: z.string().optional(),
-  ndReembolsaveis: z.string().optional(),
 });
 
 type ProjetoFormData = z.infer<typeof projetoFormSchema>;
@@ -122,8 +120,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
       metaReducaoGastos: "0",
       inicioPrevisto: "",
       fimPrevisto: "",
-      bmmServicos: "",
-      ndReembolsaveis: "",
     },
   });
 
@@ -186,8 +182,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
         metaReducaoGastos: projeto.metaReducaoGastos || "0",
         inicioPrevisto: projeto.inicioPrevisto || "",
         fimPrevisto: projeto.fimPrevisto || "",
-        bmmServicos: projeto.bmmServicos || "",
-        ndReembolsaveis: projeto.ndReembolsaveis || "",
       });
     } else {
       setEditingProjeto(null);
@@ -203,8 +197,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
         metaReducaoGastos: "0",
         inicioPrevisto: "",
         fimPrevisto: "",
-        bmmServicos: "",
-        ndReembolsaveis: "",
       });
     }
     setDialogOpen(true);
@@ -429,34 +421,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="bmmServicos"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>BMM Serviços</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-projeto-bmm" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="ndReembolsaveis"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ND Reembolsáveis</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-projeto-nd" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
