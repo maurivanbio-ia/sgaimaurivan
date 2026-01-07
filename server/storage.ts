@@ -15,6 +15,8 @@ import {
   financeiroLancamentos,
   solicitacoesRecursos,
   orcamentos,
+  cronogramaItens,
+  campanhas,
   type User,
   type InsertUser,
   type Empreendimento,
