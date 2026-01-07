@@ -172,7 +172,7 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
                       </div>
 
                       {/* Botão Ver no Mapa */}
-                      <Link href="/empreendimentos?tab=map">
+                      <Link href="/mapa">
                         <Button 
                           size="sm"
                           variant="outline"

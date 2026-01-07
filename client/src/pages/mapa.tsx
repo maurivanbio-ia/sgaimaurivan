@@ -26,6 +26,16 @@ const statusLabels: Record<string, string> = {
   inativo: "Inativo",
 };
 
+const tipoConfig: Record<string, { color: string; icon: string; label: string }> = {
+  hidreletrica: { color: '#3b82f6', icon: '💧', label: 'Hidrelétrica' },
+  parque_eolico: { color: '#10b981', icon: '🌪️', label: 'Parque Eólico' },
+  termoeletrica: { color: '#ef4444', icon: '🔥', label: 'Termelétrica' },
+  linha_transmissao: { color: '#f59e0b', icon: '⚡', label: 'Linha de Transmissão' },
+  mina: { color: '#8b5cf6', icon: '⛏️', label: 'Mineração' },
+  pchs: { color: '#06b6d4', icon: '🏭', label: 'PCH' },
+  outro: { color: '#6b7280', icon: '📍', label: 'Outro' },
+};
+
 interface Empreendimento {
   id: number;
   nome: string;
@@ -105,22 +115,26 @@ export default function MapaEmpreendimentos() {
     markersRef.current = [];
 
     empreendimentosFiltrados.forEach(emp => {
-      const color = statusColors[emp.status] || statusColors.ativo;
+      const statusColor = statusColors[emp.status] || statusColors.ativo;
+      const tipoInfo = tipoConfig[emp.tipo] || tipoConfig.outro;
       
       const icon = L.divIcon({
         className: "custom-marker",
         html: `<div style="
-          background-color: ${color};
-          width: 24px;
-          height: 24px;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          border: 2px solid white;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        "></div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 24],
-        popupAnchor: [0, -24],
+          background-color: ${tipoInfo.color};
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 3px solid ${statusColor};
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+        ">${tipoInfo.icon}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -18],
       });
 
       const marker = L.marker(
@@ -130,14 +144,15 @@ export default function MapaEmpreendimentos() {
 
       const popupContent = `
         <div style="min-width: 200px;">
-          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${emp.nome}</h3>
+          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${tipoInfo.icon} ${emp.nome}</h3>
           <div style="font-size: 14px;">
+            <p><strong>Tipo:</strong> ${tipoInfo.label}</p>
             <p><strong>Cliente:</strong> ${emp.cliente}</p>
             <p><strong>Local:</strong> ${emp.municipio || ''}, ${emp.uf || ''}</p>
             <p><strong>Responsável:</strong> ${emp.responsavelInterno}</p>
             <div style="margin-top: 8px;">
               <span style="
-                background-color: ${color};
+                background-color: ${statusColor};
                 color: white;
                 padding: 2px 8px;
                 border-radius: 4px;
