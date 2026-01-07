@@ -230,15 +230,32 @@ export const contratoPagamentos = pgTable("contrato_pagamentos", {
 export const cronogramaItens = pgTable("cronograma_itens", {
   id: serial("id").primaryKey(),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
-  etapa: text("etapa").notNull(),
+  projetoId: integer("projeto_id"), // Vinculo opcional com projeto
+  demandaId: integer("demanda_id"), // Vinculo opcional com demanda
+  tipo: text("tipo").notNull().default("etapa"), // campanha, relatorio, marco, etapa
+  titulo: text("titulo").notNull(), // Nome do item (substituindo etapa)
+  etapa: text("etapa"), // Mantido para compatibilidade
+  descricao: text("descricao"),
   dataInicio: date("data_inicio").notNull(),
   dataFim: date("data_fim").notNull(),
+  status: text("status").notNull().default("pendente"), // pendente, em_andamento, concluido, atrasado
   concluido: boolean("concluido").notNull().default(false),
   responsavel: text("responsavel"),
   observacoes: text("observacoes"),
+  prioridade: text("prioridade").default("media"), // baixa, media, alta
+  unidade: text("unidade").notNull().default('goiania'),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
+
+export const cronogramaItensRelations = relations(cronogramaItens, ({ one }) => ({
+  empreendimento: one(empreendimentos, {
+    fields: [cronogramaItens.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
+export type CronogramaItem = typeof cronogramaItens.$inferSelect;
 
 // =============================================
 // RH MODULE - Recursos Humanos por empreendimento
@@ -482,13 +499,6 @@ export const contratoPagamentosRelations = relations(contratoPagamentos, ({ one 
   contrato: one(contratos, {
     fields: [contratoPagamentos.contratoId],
     references: [contratos.id],
-  }),
-}));
-
-export const cronogramaItensRelations = relations(cronogramaItens, ({ one }) => ({
-  empreendimento: one(empreendimentos, {
-    fields: [cronogramaItens.empreendimentoId],
-    references: [empreendimentos.id],
   }),
 }));
 
