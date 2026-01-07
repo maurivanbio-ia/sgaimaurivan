@@ -9,8 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Save, ArrowLeft } from "lucide-react";
+
+const tipologiaOptions = [
+  { value: "hidreletrica", label: "💧 Hidrelétrica" },
+  { value: "parque_eolico", label: "🌪️ Parque Eólico" },
+  { value: "termoeletrica", label: "🔥 Termelétrica" },
+  { value: "linha_transmissao", label: "⚡ Linha de Transmissão" },
+  { value: "mina", label: "⛏️ Mineração" },
+  { value: "pchs", label: "🏭 PCH" },
+  { value: "outro", label: "📍 Outro" },
+];
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const projectSchema = z.object({
@@ -30,6 +41,7 @@ const projectSchema = z.object({
     return !isNaN(num) && num >= -180 && num <= 180;
   }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
+  tipo: z.enum(["hidreletrica", "parque_eolico", "termoeletrica", "linha_transmissao", "mina", "pchs", "outro"]).default("outro"),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -51,6 +63,7 @@ export default function NewProject() {
       latitude: "",
       longitude: "",
       responsavelInterno: "",
+      tipo: "outro",
     },
   });
 
@@ -107,6 +120,31 @@ export default function NewProject() {
                         data-testid="input-project-name"
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tipo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipologia do Empreendimento</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-tipologia">
+                          <SelectValue placeholder="Selecione a tipologia" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {tipologiaOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
