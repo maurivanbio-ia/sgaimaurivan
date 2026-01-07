@@ -9,10 +9,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Save, ArrowLeft } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
+
+const tipologiaOptions = [
+  { value: "hidreletrica", label: "💧 Hidrelétrica" },
+  { value: "parque_eolico", label: "🌪️ Parque Eólico" },
+  { value: "termoeletrica", label: "🔥 Termelétrica" },
+  { value: "linha_transmissao", label: "⚡ Linha de Transmissão" },
+  { value: "mina", label: "⛏️ Mineração" },
+  { value: "pchs", label: "🏭 PCH" },
+  { value: "outro", label: "📍 Outro" },
+];
+
+const statusOptions = [
+  { value: "ativo", label: "✅ Ativo" },
+  { value: "em_planejamento", label: "📋 Em Planejamento" },
+  { value: "em_execucao", label: "🔄 Em Execução" },
+  { value: "concluido", label: "🏁 Concluído" },
+  { value: "inativo", label: "⏸️ Inativo" },
+  { value: "cancelado", label: "❌ Cancelado" },
+];
 
 const projectSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
@@ -29,6 +49,8 @@ const projectSchema = z.object({
     return !isNaN(num) && num >= -180 && num <= 180;
   }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
+  tipo: z.string().default("outro"),
+  status: z.string().default("ativo"),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -62,6 +84,8 @@ export default function EditProject() {
       latitude: "",
       longitude: "",
       responsavelInterno: "",
+      tipo: "outro",
+      status: "ativo",
     },
   });
 
@@ -75,6 +99,8 @@ export default function EditProject() {
         latitude: project.latitude || "",
         longitude: project.longitude || "",
         responsavelInterno: project.responsavelInterno,
+        tipo: project.tipo || "outro",
+        status: project.status || "ativo",
       });
     }
   }, [project, form]);
@@ -150,6 +176,58 @@ export default function EditProject() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="tipo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipologia do Empreendimento</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-tipologia">
+                            <SelectValue placeholder="Selecione a tipologia" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tipologiaOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status do Empreendimento</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-status">
+                            <SelectValue placeholder="Selecione o status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {statusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

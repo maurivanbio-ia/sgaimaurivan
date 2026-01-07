@@ -22,6 +22,15 @@ const tipologiaOptions = [
   { value: "pchs", label: "🏭 PCH" },
   { value: "outro", label: "📍 Outro" },
 ];
+
+const statusOptions = [
+  { value: "ativo", label: "✅ Ativo" },
+  { value: "em_planejamento", label: "📋 Em Planejamento" },
+  { value: "em_execucao", label: "🔄 Em Execução" },
+  { value: "concluido", label: "🏁 Concluído" },
+  { value: "inativo", label: "⏸️ Inativo" },
+  { value: "cancelado", label: "❌ Cancelado" },
+];
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const projectSchema = z.object({
@@ -42,6 +51,7 @@ const projectSchema = z.object({
   }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
   tipo: z.enum(["hidreletrica", "parque_eolico", "termoeletrica", "linha_transmissao", "mina", "pchs", "outro"]).default("outro"),
+  status: z.enum(["ativo", "em_planejamento", "em_execucao", "concluido", "inativo", "cancelado"]).default("ativo"),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -64,6 +74,7 @@ export default function NewProject() {
       longitude: "",
       responsavelInterno: "",
       tipo: "outro",
+      status: "ativo",
     },
   });
 
@@ -125,30 +136,57 @@ export default function NewProject() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="tipo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipologia do Empreendimento</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-tipologia">
-                          <SelectValue placeholder="Selecione a tipologia" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {tipologiaOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="tipo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipologia do Empreendimento</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-tipologia">
+                            <SelectValue placeholder="Selecione a tipologia" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tipologiaOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status do Empreendimento</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-status">
+                            <SelectValue placeholder="Selecione o status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {statusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
