@@ -110,6 +110,11 @@ export default function Calendario() {
 
   const { data: cronogramaItens = [], isLoading: cronogramaLoading } = useQuery<CronogramaItem[]>({
     queryKey: ['/api/cronograma'],
+    queryFn: async () => {
+      const res = await fetch('/api/cronograma', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch cronograma');
+      return res.json();
+    },
   });
 
   const isLoading = licencasLoading || demandasLoading || condicionantesLoading || cronogramaLoading;
