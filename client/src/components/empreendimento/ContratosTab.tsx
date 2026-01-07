@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, DollarSign, Calendar, Edit, Trash2 } from "lucide-react";
+import { Plus, FileText, DollarSign, Calendar, Edit, Trash2, Upload, Loader2, Download, X } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +16,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { insertContratoAditivoSchema, insertContratoPagamentoSchema } from "@shared/schema";
 
 export interface ContratosTabProps {
   empreendimentoId: number;
@@ -29,6 +29,8 @@ type Contrato = {
   vigenciaFim: string;
   situacao: string;
   valorTotal: string;
+  arquivoPdfId?: number | null;
+  observacoes?: string | null;
   aditivos?: Aditivo[];
   pagamentos?: Pagamento[];
 };
@@ -51,16 +53,186 @@ type Pagamento = {
   status: string;
 };
 
+const contratoFormSchema = z.object({
+  numero: z.string().min(1, "Número do contrato é obrigatório"),
+  objeto: z.string().min(1, "Objeto do contrato é obrigatório"),
+  vigenciaInicio: z.string().min(1, "Data de início é obrigatória"),
+  vigenciaFim: z.string().min(1, "Data de fim é obrigatória"),
+  situacao: z.string().default("vigente"),
+  valorTotal: z.string().min(1, "Valor total é obrigatório"),
+  observacoes: z.string().optional().nullable(),
+});
+
+type ContratoFormData = z.infer<typeof contratoFormSchema>;
+
+const aditivoFormSchema = z.object({
+  descricao: z.string().min(1, "Descrição é obrigatória"),
+  valorAdicional: z.string().optional().nullable(),
+  vigenciaNovaFim: z.string().optional().nullable(),
+  dataAssinatura: z.string().min(1, "Data de assinatura é obrigatória"),
+});
+
+type AditivoFormData = z.infer<typeof aditivoFormSchema>;
+
+const pagamentoFormSchema = z.object({
+  descricao: z.string().min(1, "Descrição é obrigatória"),
+  valorPrevisto: z.string().min(1, "Valor previsto é obrigatório"),
+  dataPrevista: z.string().min(1, "Data prevista é obrigatória"),
+  status: z.string().default("pendente"),
+});
+
+type PagamentoFormData = z.infer<typeof pagamentoFormSchema>;
+
 export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const { toast } = useToast();
   const [selectedContrato, setSelectedContrato] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingContrato, setEditingContrato] = useState<Contrato | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: contratos = [], isLoading } = useQuery<Contrato[]>({
     queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"],
   });
 
+  const form = useForm<ContratoFormData>({
+    resolver: zodResolver(contratoFormSchema),
+    defaultValues: {
+      numero: "",
+      objeto: "",
+      vigenciaInicio: new Date().toISOString().split('T')[0],
+      vigenciaFim: new Date().toISOString().split('T')[0],
+      situacao: "vigente",
+      valorTotal: "0",
+      observacoes: "",
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: ContratoFormData) => {
+      return apiRequest("POST", "/api/contratos", {
+        ...data,
+        empreendimentoId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contratos"] });
+      toast({ title: "Contrato criado com sucesso!" });
+      setDialogOpen(false);
+      form.reset();
+    },
+    onError: () => {
+      toast({ title: "Erro ao criar contrato", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: ContratoFormData) => {
+      return apiRequest("PATCH", `/api/contratos/${editingContrato?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contratos"] });
+      toast({ title: "Contrato atualizado com sucesso!" });
+      setDialogOpen(false);
+      setEditingContrato(null);
+      form.reset();
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar contrato", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/contratos/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contratos"] });
+      toast({ title: "Contrato excluído com sucesso!" });
+      setDeleteId(null);
+    },
+    onError: () => {
+      toast({ title: "Erro ao excluir contrato", variant: "destructive" });
+    },
+  });
+
+  const handleOpenDialog = (contrato?: Contrato) => {
+    if (contrato) {
+      setEditingContrato(contrato);
+      form.reset({
+        numero: contrato.numero,
+        objeto: contrato.objeto,
+        vigenciaInicio: contrato.vigenciaInicio,
+        vigenciaFim: contrato.vigenciaFim,
+        situacao: contrato.situacao,
+        valorTotal: contrato.valorTotal,
+        observacoes: contrato.observacoes || "",
+      });
+    } else {
+      setEditingContrato(null);
+      form.reset({
+        numero: "",
+        objeto: "",
+        vigenciaInicio: new Date().toISOString().split('T')[0],
+        vigenciaFim: new Date().toISOString().split('T')[0],
+        situacao: "vigente",
+        valorTotal: "0",
+        observacoes: "",
+      });
+    }
+    setDialogOpen(true);
+  };
+
+  const onSubmit = (data: ContratoFormData) => {
+    if (editingContrato) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, contratoId: number) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("contratoId", contratoId.toString());
+
+    try {
+      const response = await fetch("/api/contratos/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
+        toast({ title: "Documento anexado com sucesso!" });
+      } else {
+        toast({ title: "Erro ao anexar documento", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro ao anexar documento", variant: "destructive" });
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   if (isLoading) {
-    return <div className="text-center py-8">Carregando contratos...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   const contrato = selectedContrato 
@@ -71,7 +243,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-semibold">Contratos</h3>
-        <Button data-testid="button-new-contrato">
+        <Button onClick={() => handleOpenDialog()} data-testid="button-new-contrato">
           <Plus className="mr-2 h-4 w-4" />
           Novo Contrato
         </Button>
@@ -79,7 +251,6 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
 
       {contratos.length > 0 ? (
         <>
-          {/* Seletor de contratos */}
           {contratos.length > 1 && (
             <Select value={selectedContrato?.toString() || contratos[0].id.toString()} onValueChange={(v) => setSelectedContrato(Number(v))}>
               <SelectTrigger data-testid="select-contrato">
@@ -97,7 +268,6 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
 
           {contrato && (
             <div className="space-y-6">
-              {/* Resumo do contrato */}
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -109,9 +279,17 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                         {contrato.objeto}
                       </p>
                     </div>
-                    <Badge className={contrato.situacao === 'vigente' ? 'bg-green-500' : 'bg-red-500'} data-testid={`badge-situacao-${contrato.id}`}>
-                      {contrato.situacao}
-                    </Badge>
+                    <div className="flex gap-2">
+                      <Badge className={contrato.situacao === 'vigente' ? 'bg-green-500' : 'bg-red-500'} data-testid={`badge-situacao-${contrato.id}`}>
+                        {contrato.situacao}
+                      </Badge>
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(contrato)} data-testid={`button-edit-contrato-${contrato.id}`}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(contrato.id)} data-testid={`button-delete-contrato-${contrato.id}`}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -135,15 +313,59 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                       </p>
                     </div>
                   </div>
+
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">Documento do Contrato:</p>
+                        {contrato.arquivoPdfId ? (
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-blue-500" />
+                            <span className="text-sm">Documento anexado</span>
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={`/api/arquivos/${contrato.arquivoPdfId}/download`} target="_blank" data-testid={`button-download-${contrato.id}`}>
+                                <Download className="h-4 w-4 mr-1" />
+                                Baixar
+                              </a>
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Nenhum documento anexado</p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => handleFileUpload(e, contrato.id)}
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingFile}
+                          data-testid={`button-upload-${contrato.id}`}
+                        >
+                          {uploadingFile ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4 mr-2" />
+                          )}
+                          {contrato.arquivoPdfId ? "Substituir" : "Anexar"} Documento
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Aditivos */}
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <CardTitle>Aditivos</CardTitle>
-                    <AditivoDialog contratoId={contrato.id} />
+                    <AditivoDialog contratoId={contrato.id} empreendimentoId={empreendimentoId} />
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -157,18 +379,12 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                                 {aditivo.descricao}
                               </p>
                               <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-muted-foreground">
-                                <p>
-                                  Assinatura: {formatDate(aditivo.dataAssinatura)}
-                                </p>
+                                <p>Assinatura: {formatDate(aditivo.dataAssinatura)}</p>
                                 {aditivo.valorAdicional && (
-                                  <p>
-                                    Valor: R$ {Number(aditivo.valorAdicional).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </p>
+                                  <p>Valor: R$ {Number(aditivo.valorAdicional).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 )}
                                 {aditivo.vigenciaNovaFim && (
-                                  <p>
-                                    Nova vigência: {formatDate(aditivo.vigenciaNovaFim)}
-                                  </p>
+                                  <p>Nova vigência: {formatDate(aditivo.vigenciaNovaFim)}</p>
                                 )}
                               </div>
                             </div>
@@ -182,12 +398,11 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                 </CardContent>
               </Card>
 
-              {/* Pagamentos */}
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <CardTitle>Pagamentos</CardTitle>
-                    <PagamentoDialog contratoId={contrato.id} />
+                    <PagamentoDialog contratoId={contrato.id} empreendimentoId={empreendimentoId} />
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -201,32 +416,22 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                                 <p className="font-medium" data-testid={`text-pagamento-descricao-${pag.id}`}>
                                   {pag.descricao}
                                 </p>
-                                <Badge 
-                                  className={
-                                    pag.status === 'pago' ? 'bg-green-500' : 
-                                    pag.status === 'atrasado' ? 'bg-red-500' : 'bg-yellow-500'
-                                  }
-                                  data-testid={`badge-pagamento-status-${pag.id}`}
-                                >
+                                <Badge className={
+                                  pag.status === 'pago' ? 'bg-green-500' : 
+                                  pag.status === 'atrasado' ? 'bg-red-500' : 
+                                  'bg-yellow-500'
+                                }>
                                   {pag.status}
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm text-muted-foreground">
-                                <p>
-                                  Previsto: R$ {Number(pag.valorPrevisto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </p>
-                                <p>
-                                  Data prevista: {formatDate(pag.dataPrevista)}
-                                </p>
+                              <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-muted-foreground">
+                                <p>Valor previsto: R$ {Number(pag.valorPrevisto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                <p>Data prevista: {formatDate(pag.dataPrevista)}</p>
                                 {pag.valorPago && (
-                                  <p>
-                                    Pago: R$ {Number(pag.valorPago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </p>
+                                  <p>Valor pago: R$ {Number(pag.valorPago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                 )}
                                 {pag.dataPagamento && (
-                                  <p>
-                                    Data pagamento: {formatDate(pag.dataPagamento)}
-                                  </p>
+                                  <p>Data pagamento: {formatDate(pag.dataPagamento)}</p>
                                 )}
                               </div>
                             </div>
@@ -251,39 +456,184 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
           <p className="text-muted-foreground mb-4">
             Comece cadastrando o primeiro contrato para este empreendimento
           </p>
-          <Button data-testid="button-new-contrato-empty">
+          <Button onClick={() => handleOpenDialog()} data-testid="button-new-contrato-empty">
             <Plus className="mr-2 h-4 w-4" />
             Novo Contrato
           </Button>
         </div>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingContrato ? "Editar Contrato" : "Novo Contrato"}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="numero"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número do Contrato</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Ex: CT-2024-001" data-testid="input-contrato-numero" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="situacao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Situação</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-contrato-situacao">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="vigente">Vigente</SelectItem>
+                          <SelectItem value="vencido">Vencido</SelectItem>
+                          <SelectItem value="rescindido">Rescindido</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="objeto"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Objeto do Contrato</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Descreva o objeto do contrato" data-testid="input-contrato-objeto" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="vigenciaInicio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Início da Vigência</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-contrato-inicio" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="vigenciaFim"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fim da Vigência</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-contrato-fim" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="valorTotal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor Total (R$)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} data-testid="input-contrato-valor" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="observacoes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observações</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={field.value || ""} placeholder="Observações adicionais" data-testid="input-contrato-obs" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel-contrato">
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-contrato">
+                  {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingContrato ? "Atualizar" : "Criar Contrato"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este contrato? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-// Dialog para adicionar aditivo
-function AditivoDialog({ contratoId }: { contratoId: number }) {
+function AditivoDialog({ contratoId, empreendimentoId }: { contratoId: number; empreendimentoId: number }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   
-  const form = useForm<z.infer<typeof insertContratoAditivoSchema>>({
-    resolver: zodResolver(insertContratoAditivoSchema),
+  const form = useForm<AditivoFormData>({
+    resolver: zodResolver(aditivoFormSchema),
     defaultValues: {
-      contratoId,
       descricao: "",
+      valorAdicional: "",
+      vigenciaNovaFim: "",
       dataAssinatura: new Date().toISOString().split('T')[0],
     },
   });
 
   const mutation = useMutation({
-    mutationFn: async (data: z.infer<typeof insertContratoAditivoSchema>) => {
-      return apiRequest(`/api/contratos/${contratoId}/aditivos`, {
-        method: "POST",
-        body: JSON.stringify(data),
+    mutationFn: async (data: AditivoFormData) => {
+      return apiRequest("POST", `/api/contratos/${contratoId}/aditivos`, {
+        ...data,
+        contratoId,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
       toast({ title: "Aditivo adicionado com sucesso!" });
       setOpen(false);
       form.reset();
@@ -376,15 +726,13 @@ function AditivoDialog({ contratoId }: { contratoId: number }) {
   );
 }
 
-// Dialog para adicionar pagamento
-function PagamentoDialog({ contratoId }: { contratoId: number }) {
+function PagamentoDialog({ contratoId, empreendimentoId }: { contratoId: number; empreendimentoId: number }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   
-  const form = useForm<z.infer<typeof insertContratoPagamentoSchema>>({
-    resolver: zodResolver(insertContratoPagamentoSchema),
+  const form = useForm<PagamentoFormData>({
+    resolver: zodResolver(pagamentoFormSchema),
     defaultValues: {
-      contratoId,
       descricao: "",
       valorPrevisto: "0",
       dataPrevista: new Date().toISOString().split('T')[0],
@@ -393,14 +741,14 @@ function PagamentoDialog({ contratoId }: { contratoId: number }) {
   });
 
   const mutation = useMutation({
-    mutationFn: async (data: z.infer<typeof insertContratoPagamentoSchema>) => {
-      return apiRequest(`/api/contratos/${contratoId}/pagamentos`, {
-        method: "POST",
-        body: JSON.stringify(data),
+    mutationFn: async (data: PagamentoFormData) => {
+      return apiRequest("POST", `/api/contratos/${contratoId}/pagamentos`, {
+        ...data,
+        contratoId,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
       toast({ title: "Pagamento adicionado com sucesso!" });
       setOpen(false);
       form.reset();
@@ -431,7 +779,7 @@ function PagamentoDialog({ contratoId }: { contratoId: number }) {
                 <FormItem>
                   <FormLabel>Descrição</FormLabel>
                   <FormControl>
-                    <Input {...field} data-testid="input-pagamento-descricao" />
+                    <Input {...field} placeholder="Ex: Parcela 1/12" data-testid="input-pagamento-descricao" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -443,7 +791,7 @@ function PagamentoDialog({ contratoId }: { contratoId: number }) {
                 name="valorPrevisto"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Valor Previsto</FormLabel>
+                    <FormLabel>Valor Previsto (R$)</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" {...field} data-testid="input-pagamento-valor" />
                     </FormControl>
@@ -471,10 +819,10 @@ function PagamentoDialog({ contratoId }: { contratoId: number }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-pagamento-status">
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
