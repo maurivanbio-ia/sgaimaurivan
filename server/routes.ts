@@ -2188,26 +2188,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== CRONOGRAMA ROUTES ====
+  
+  // GET all cronograma items (with filters)
+  app.get('/api/cronograma', requireAuth, async (req, res) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const userUnidade = currentUser.unidade || 'goiania';
+      const { empreendimentoId, projetoId, tipo, status } = req.query;
+      
+      const conditions = [eq(cronogramaItens.unidade, userUnidade)];
+      
+      if (empreendimentoId) {
+        conditions.push(eq(cronogramaItens.empreendimentoId, parseInt(empreendimentoId as string)));
+      }
+      if (projetoId) {
+        conditions.push(eq(cronogramaItens.projetoId, parseInt(projetoId as string)));
+      }
+      if (tipo && tipo !== 'todos') {
+        conditions.push(eq(cronogramaItens.tipo, tipo as string));
+      }
+      if (status && status !== 'todos') {
+        conditions.push(eq(cronogramaItens.status, status as string));
+      }
+      
+      const result = await db.select().from(cronogramaItens).where(and(...conditions)).orderBy(cronogramaItens.dataInicio);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // GET cronograma by empreendimento
   app.get('/api/empreendimentos/:empreendimentoId/cronograma', requireAuth, async (req, res) => {
     try {
       const empreendimentoId = parseInt(req.params.empreendimentoId);
       if (isNaN(empreendimentoId)) {
         return res.status(400).json({ message: "ID de empreendimento inválido" });
       }
-      const result = await db.select().from(cronogramaItens).where(eq(cronogramaItens.empreendimentoId, empreendimentoId));
+      const result = await db.select().from(cronogramaItens).where(eq(cronogramaItens.empreendimentoId, empreendimentoId)).orderBy(cronogramaItens.dataInicio);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
+  
+  // GET cronograma by projeto
+  app.get('/api/projetos/:projetoId/cronograma', requireAuth, async (req, res) => {
+    try {
+      const projetoId = parseInt(req.params.projetoId);
+      if (isNaN(projetoId)) {
+        return res.status(400).json({ message: "ID de projeto inválido" });
+      }
+      const result = await db.select().from(cronogramaItens).where(eq(cronogramaItens.projetoId, projetoId)).orderBy(cronogramaItens.dataInicio);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // GET single cronograma item
+  app.get('/api/cronograma/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      const [item] = await db.select().from(cronogramaItens).where(eq(cronogramaItens.id, id));
+      if (!item) {
+        return res.status(404).json({ message: "Item não encontrado" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
+  // CREATE cronograma item
   app.post('/api/cronograma', requireAuth, async (req, res) => {
     try {
-      const data = insertCronogramaItemSchema.parse(req.body);
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const data = insertCronogramaItemSchema.parse({
+        ...req.body,
+        unidade: currentUser.unidade || 'goiania'
+      });
       const [item] = await db.insert(cronogramaItens).values(data).returning();
       res.json(item);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+  
+  // UPDATE cronograma item
+  app.put('/api/cronograma/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      const [updated] = await db.update(cronogramaItens)
+        .set({ ...req.body, atualizadoEm: new Date() })
+        .where(eq(cronogramaItens.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Item não encontrado" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+  
+  // DELETE cronograma item
+  app.delete('/api/cronograma/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      const [deleted] = await db.delete(cronogramaItens).where(eq(cronogramaItens.id, id)).returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Item não encontrado" });
+      }
+      res.json({ message: "Item excluído com sucesso" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 
