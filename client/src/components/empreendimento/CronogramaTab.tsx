@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,6 +80,7 @@ export function CronogramaTab({ empreendimentoId }: CronogramaTabProps) {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/cronograma/${id}`),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cronograma", { empreendimentoId }] });
       queryClient.invalidateQueries({ queryKey: ["/api/cronograma"] });
       toast({ title: "Item excluído com sucesso!" });
       setDeleteId(null);
@@ -287,33 +288,35 @@ function CronogramaDialog({ empreendimentoId, open, onOpenChange, editingItem, p
     },
   });
 
-  useState(() => {
-    if (editingItem) {
-      form.reset({
-        titulo: editingItem.titulo || editingItem.etapa || "",
-        tipo: editingItem.tipo || "etapa",
-        status: editingItem.status || "pendente",
-        prioridade: editingItem.prioridade || "media",
-        dataInicio: editingItem.dataInicio,
-        dataFim: editingItem.dataFim,
-        responsavel: editingItem.responsavel || "",
-        descricao: editingItem.descricao || "",
-        projetoId: editingItem.projetoId || null,
-      });
-    } else {
-      form.reset({
-        titulo: "",
-        tipo: "etapa",
-        status: "pendente",
-        prioridade: "media",
-        dataInicio: new Date().toISOString().split('T')[0],
-        dataFim: new Date().toISOString().split('T')[0],
-        responsavel: "",
-        descricao: "",
-        projetoId: null,
-      });
+  useEffect(() => {
+    if (open) {
+      if (editingItem) {
+        form.reset({
+          titulo: editingItem.titulo || editingItem.etapa || "",
+          tipo: editingItem.tipo || "etapa",
+          status: editingItem.status || "pendente",
+          prioridade: editingItem.prioridade || "media",
+          dataInicio: editingItem.dataInicio,
+          dataFim: editingItem.dataFim,
+          responsavel: editingItem.responsavel || "",
+          descricao: editingItem.descricao || "",
+          projetoId: editingItem.projetoId || null,
+        });
+      } else {
+        form.reset({
+          titulo: "",
+          tipo: "etapa",
+          status: "pendente",
+          prioridade: "media",
+          dataInicio: new Date().toISOString().split('T')[0],
+          dataFim: new Date().toISOString().split('T')[0],
+          responsavel: "",
+          descricao: "",
+          projetoId: null,
+        });
+      }
     }
-  });
+  }, [open, editingItem, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: CronogramaFormData) => {
@@ -325,6 +328,7 @@ function CronogramaDialog({ empreendimentoId, open, onOpenChange, editingItem, p
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cronograma", { empreendimentoId }] });
       queryClient.invalidateQueries({ queryKey: ["/api/cronograma"] });
       toast({ title: "Item adicionado com sucesso!" });
       onOpenChange(false);
@@ -344,6 +348,7 @@ function CronogramaDialog({ empreendimentoId, open, onOpenChange, editingItem, p
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cronograma", { empreendimentoId }] });
       queryClient.invalidateQueries({ queryKey: ["/api/cronograma"] });
       toast({ title: "Item atualizado com sucesso!" });
       onOpenChange(false);
