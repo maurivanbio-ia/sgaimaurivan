@@ -276,8 +276,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Unidade do usuário não definida" });
       }
       
+      // Convert empty strings to null for numeric fields
+      const body = { ...req.body };
+      if (body.latitude === "" || body.latitude === undefined) body.latitude = null;
+      if (body.longitude === "" || body.longitude === undefined) body.longitude = null;
+      
       const data = insertEmpreendimentoSchema.parse({
-        ...req.body,
+        ...body,
         unidade: userUnidade, // Override any client-provided unidade
         criadoPor: req.session.userId,
       });
@@ -302,6 +307,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Parse data and strip unidade (users cannot change empreendimento's unit)
       const { unidade: _ignored, ...bodyWithoutUnidade } = req.body;
+      
+      // Convert empty strings to null for numeric fields
+      if (bodyWithoutUnidade.latitude === "") bodyWithoutUnidade.latitude = null;
+      if (bodyWithoutUnidade.longitude === "") bodyWithoutUnidade.longitude = null;
+      
       const data = insertEmpreendimentoSchema.partial().parse(bodyWithoutUnidade);
       const empreendimento = await storage.updateEmpreendimento(id, data);
       res.json(empreendimento);
