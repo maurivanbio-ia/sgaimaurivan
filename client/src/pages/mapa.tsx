@@ -148,7 +148,7 @@ export default function MapaEmpreendimentos() {
           <div style="font-size: 14px;">
             <p><strong>Tipo:</strong> ${tipoInfo.label}</p>
             <p><strong>Cliente:</strong> ${emp.cliente}</p>
-            <p><strong>Local:</strong> ${emp.municipio || ''}, ${emp.uf || ''}</p>
+            <p><strong>Local:</strong> ${emp.municipio && emp.uf ? `${emp.municipio}, ${emp.uf}` : emp.localizacao || ''}</p>
             <p><strong>Responsável:</strong> ${emp.responsavelInterno}</p>
             <div style="margin-top: 8px;">
               <span style="
