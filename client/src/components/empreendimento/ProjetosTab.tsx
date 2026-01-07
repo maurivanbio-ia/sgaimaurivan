@@ -80,7 +80,6 @@ const projetoFormSchema = z.object({
   coordenadorId: z.number().optional().nullable(),
   valorContratado: z.string().optional(),
   valorRecebido: z.string().optional(),
-  orcamentoPrevisto: z.string().optional(),
   metaReducaoGastos: z.string().optional(),
   inicioPrevisto: z.string().optional(),
   fimPrevisto: z.string().optional(),
@@ -116,7 +115,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
       coordenadorId: undefined,
       valorContratado: "0",
       valorRecebido: "0",
-      orcamentoPrevisto: "0",
       metaReducaoGastos: "0",
       inicioPrevisto: "",
       fimPrevisto: "",
@@ -178,7 +176,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
         coordenadorId: projeto.coordenadorId || undefined,
         valorContratado: projeto.valorContratado || "0",
         valorRecebido: projeto.valorRecebido || "0",
-        orcamentoPrevisto: projeto.orcamentoPrevisto || "0",
         metaReducaoGastos: projeto.metaReducaoGastos || "0",
         inicioPrevisto: projeto.inicioPrevisto || "",
         fimPrevisto: projeto.fimPrevisto || "",
@@ -193,7 +190,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
         coordenadorId: undefined,
         valorContratado: "0",
         valorRecebido: "0",
-        orcamentoPrevisto: "0",
         metaReducaoGastos: "0",
         inicioPrevisto: "",
         fimPrevisto: "",
@@ -379,7 +375,7 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="valorContratado"
@@ -401,19 +397,6 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
                         <FormLabel>Valor Recebido (R$)</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" {...field} value={field.value || ""} data-testid="input-projeto-valor-recebido" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="orcamentoPrevisto"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Orçamento Previsto (R$)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" {...field} value={field.value || ""} data-testid="input-projeto-orcamento" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
