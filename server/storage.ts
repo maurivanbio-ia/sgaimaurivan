@@ -59,6 +59,8 @@ import {
   type RhRegistro,
   type InsertRhRegistro,
   contratos,
+  contratoAditivos,
+  contratoPagamentos,
   type Contrato,
   type InsertContrato,
   datasets,
@@ -452,6 +454,33 @@ export class DatabaseStorage implements IStorage {
       
       // Delete orçamentos associados ao empreendimento
       await tx.delete(orcamentos).where(eq(orcamentos.empreendimentoId, id));
+      
+      // Delete cronograma itens associados ao empreendimento
+      await tx.delete(cronogramaItens).where(eq(cronogramaItens.empreendimentoId, id));
+      
+      // Delete campanhas associadas ao empreendimento
+      await tx.delete(campanhas).where(eq(campanhas.empreendimentoId, id));
+      
+      // Delete projetos associados ao empreendimento
+      await tx.delete(projetos).where(eq(projetos.empreendimentoId, id));
+      
+      // Delete contratos e suas dependências
+      const contratosDoEmp = await tx
+        .select({ id: contratos.id })
+        .from(contratos)
+        .where(eq(contratos.empreendimentoId, id));
+      
+      for (const contrato of contratosDoEmp) {
+        await tx.delete(contratoAditivos).where(eq(contratoAditivos.contratoId, contrato.id));
+        await tx.delete(contratoPagamentos).where(eq(contratoPagamentos.contratoId, contrato.id));
+      }
+      await tx.delete(contratos).where(eq(contratos.empreendimentoId, id));
+      
+      // Delete veículos associados ao empreendimento
+      await tx.delete(veiculos).where(eq(veiculos.empreendimentoId, id));
+      
+      // Delete RH registros associados ao empreendimento
+      await tx.delete(rhRegistros).where(eq(rhRegistros.empreendimentoId, id));
       
       // Finalmente delete o empreendimento
       await tx.delete(empreendimentos).where(eq(empreendimentos.id, id));
