@@ -295,12 +295,12 @@ export default function CronogramaPage() {
             </div>
             <div>
               <Label>Empreendimento</Label>
-              <Select value={filters.empreendimentoId} onValueChange={(v) => setFilters(prev => ({ ...prev, empreendimentoId: v }))}>
+              <Select value={filters.empreendimentoId || "all"} onValueChange={(v) => setFilters(prev => ({ ...prev, empreendimentoId: v === "all" ? "" : v }))}>
                 <SelectTrigger data-testid="select-filter-empreendimento">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {empreendimentos.map(e => (
                     <SelectItem key={e.id} value={String(e.id)}>{e.nome}</SelectItem>
                   ))}
@@ -309,12 +309,12 @@ export default function CronogramaPage() {
             </div>
             <div>
               <Label>Projeto</Label>
-              <Select value={filters.projetoId} onValueChange={(v) => setFilters(prev => ({ ...prev, projetoId: v }))}>
+              <Select value={filters.projetoId || "all"} onValueChange={(v) => setFilters(prev => ({ ...prev, projetoId: v === "all" ? "" : v }))}>
                 <SelectTrigger data-testid="select-filter-projeto">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {projetos.map(p => (
                     <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
                   ))}
@@ -574,14 +574,14 @@ function CronogramaForm({
         <div>
           <Label htmlFor="projeto">Projeto (opcional)</Label>
           <Select 
-            value={formData.projetoId} 
-            onValueChange={(v) => setFormData(prev => ({ ...prev, projetoId: v }))}
+            value={formData.projetoId || "none"} 
+            onValueChange={(v) => setFormData(prev => ({ ...prev, projetoId: v === "none" ? "" : v }))}
           >
             <SelectTrigger data-testid="select-projeto">
               <SelectValue placeholder="Selecione..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum</SelectItem>
+              <SelectItem value="none">Nenhum</SelectItem>
               {filteredProjetos.map(p => (
                 <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
               ))}
