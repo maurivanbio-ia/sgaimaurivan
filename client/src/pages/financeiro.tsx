@@ -98,6 +98,8 @@ const novoLancamentoSchema = z.object({
   categoriaId: z.number({ required_error: "Categoria é obrigatória" }),
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
   data: z.date({ required_error: "Data é obrigatória" }),
+  dataVencimento: z.date().optional().nullable(),
+  dataPagamento: z.date().optional().nullable(),
   descricao: z.string().min(5, "Descrição deve ter pelo menos 5 caracteres"),
   observacoes: z.string().optional(),
 });
@@ -150,6 +152,8 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
       descricao: "",
       observacoes: "",
       data: new Date(),
+      dataVencimento: null,
+      dataPagamento: null,
     },
   });
 
@@ -292,8 +296,8 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
             control={form.control}
             name="data"
             render={({ field }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Data *</FormLabel>
+              <FormItem>
+                <FormLabel>Data do Lançamento *</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -318,6 +322,86 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
                     <CalendarComponent
                       mode="single"
                       selected={field.value}
+                      onSelect={field.onChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dataVencimento"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Data de Vencimento</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        data-testid="button-data-vencimento"
+                      >
+                        {field.value ? (
+                          format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                        ) : (
+                          <span>Selecione a data</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={field.value ?? undefined}
+                      onSelect={field.onChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dataPagamento"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Data de Pagamento</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        data-testid="button-data-pagamento"
+                      >
+                        {field.value ? (
+                          format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                        ) : (
+                          <span>Selecione a data</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={field.value ?? undefined}
                       onSelect={field.onChange}
                       initialFocus
                     />
@@ -984,6 +1068,8 @@ export default function FinanceiroPage() {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-4">Data</th>
+                        <th className="text-left p-4">Vencimento</th>
+                        <th className="text-left p-4">Pagamento</th>
                         <th className="text-left p-4">Tipo</th>
                         <th className="text-left p-4">Descrição</th>
                         <th className="text-left p-4">Valor</th>
@@ -1001,6 +1087,22 @@ export default function FinanceiroPage() {
                           <tr key={lancamento.id} className="border-b hover:bg-muted/50" data-testid={`row-lancamento-${lancamento.id}`}>
                             <td className="p-4">
                               {format(new Date(lancamento.data), "dd/MM/yyyy", { locale: ptBR })}
+                            </td>
+                            <td className="p-4 text-sm">
+                              {lancamento.dataVencimento ? (
+                                <span className={new Date(lancamento.dataVencimento) < new Date() && lancamento.status !== 'pago' ? 'text-red-600 font-medium' : ''}>
+                                  {format(new Date(lancamento.dataVencimento), "dd/MM/yyyy", { locale: ptBR })}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-sm">
+                              {lancamento.dataPagamento ? (
+                                format(new Date(lancamento.dataPagamento), "dd/MM/yyyy", { locale: ptBR })
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </td>
                             <td className="p-4">
                               <Badge className={tipoConfig?.color}>
