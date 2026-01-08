@@ -4844,6 +4844,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ======== RELATÓRIO COMPLETO DA PLATAFORMA ========
+  
+  app.get('/api/relatorio-plataforma', requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user.unidade;
+      const userCargo = req.user.cargo;
+      const userRole = req.user.role;
+      
+      // Only directors, coordinators, finance, and admins can access the full report
+      const allowedRoles = ['diretor', 'coordenador', 'financeiro', 'rh'];
+      if (userRole !== 'admin' && !allowedRoles.includes(userCargo)) {
+        return res.status(403).json({ error: 'Acesso negado. Apenas coordenadores, diretores e administradores podem acessar este relatório.' });
+      }
+      
+      // Directors and admins can see all units, others see only their unit
+      const isAdmin = userRole === 'admin' || userCargo === 'diretor';
+      const unidadeFilter = isAdmin ? undefined : userUnidade;
+      
+      // Fetch all module data in parallel
+      const [
+        empreendimentosList,
+        licencasList,
+        demandasList,
+        veiculosList,
+        equipamentosList,
+        rhList,
+        contratosList,
+        campanhasList,
+        projetosList,
+        financeiroStats,
+        tarefasList,
+        membrosEquipeList,
+      ] = await Promise.all([
+        storage.getEmpreendimentos(unidadeFilter),
+        storage.getLicencas(unidadeFilter),
+        storage.getDemandas(unidadeFilter),
+        storage.getVeiculos(unidadeFilter),
+        storage.getEquipamentos(unidadeFilter),
+        storage.getRhRegistros(unidadeFilter),
+        storage.getContratos(unidadeFilter),
+        storage.getCampanhas(unidadeFilter),
+        storage.getProjetos(unidadeFilter),
+        storage.getFinanceiroStats(undefined, unidadeFilter),
+        storage.getTarefas({ unidade: unidadeFilter }),
+        storage.getMembrosEquipe(unidadeFilter),
+      ]);
+      
+      // Calculate KPIs
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      // License KPIs
+      const licencasVencidas = licencasList.filter(l => l.dataVencimento && new Date(l.dataVencimento) < now).length;
+      const licencasProxVencer = licencasList.filter(l => {
+        if (!l.dataVencimento) return false;
+        const venc = new Date(l.dataVencimento);
+        return venc >= now && venc <= thirtyDaysFromNow;
+      }).length;
+      const licencasVigentes = licencasList.filter(l => l.dataVencimento && new Date(l.dataVencimento) >= now).length;
+      
+      // Demand KPIs
+      const demandasAbertas = demandasList.filter(d => d.status === 'aberta' || d.status === 'em_andamento').length;
+      const demandasConcluidas = demandasList.filter(d => d.status === 'concluida').length;
+      const demandasAtrasadas = demandasList.filter(d => {
+        if (!d.prazo || d.status === 'concluida') return false;
+        return new Date(d.prazo) < now;
+      }).length;
+      
+      // Fleet KPIs
+      const veiculosDisponiveis = veiculosList.filter(v => v.status === 'disponivel').length;
+      const veiculosManutencao = veiculosList.filter(v => v.status === 'manutencao').length;
+      
+      // Equipment KPIs
+      const equipamentosAtivos = equipamentosList.filter(e => e.status === 'ativo').length;
+      const equipamentosManutencao = equipamentosList.filter(e => e.status === 'manutencao').length;
+      
+      // RH KPIs
+      const funcionariosAtivos = rhList.filter(r => r.status === 'ativo').length;
+      const funcionariosFerias = rhList.filter(r => r.status === 'ferias').length;
+      
+      // Contract KPIs
+      const contratosAtivos = contratosList.filter(c => c.status === 'ativo').length;
+      const contratosVencendo = contratosList.filter(c => {
+        if (!c.dataFim || c.status !== 'ativo') return false;
+        const fim = new Date(c.dataFim);
+        return fim >= now && fim <= thirtyDaysFromNow;
+      }).length;
+      
+      // Project KPIs
+      const projetosEmAndamento = projetosList.filter(p => p.status === 'em_andamento').length;
+      const projetosConcluidos = projetosList.filter(p => p.status === 'concluido').length;
+      
+      // Task KPIs
+      const tarefasPendentes = tarefasList.filter(t => t.status === 'pendente' || t.status === 'em_andamento').length;
+      const tarefasConcluidas = tarefasList.filter(t => t.status === 'concluida').length;
+      
+      // Build response
+      const relatorio = {
+        geradoEm: new Date().toISOString(),
+        unidade: isAdmin ? 'Todas as Unidades' : userUnidade,
+        
+        resumoGeral: {
+          totalEmpreendimentos: empreendimentosList.length,
+          totalLicencas: licencasList.length,
+          totalDemandas: demandasList.length,
+          totalVeiculos: veiculosList.length,
+          totalEquipamentos: equipamentosList.length,
+          totalFuncionarios: rhList.length,
+          totalContratos: contratosList.length,
+          totalCampanhas: campanhasList.length,
+          totalProjetos: projetosList.length,
+          totalMembrosEquipe: membrosEquipeList.length,
+        },
+        
+        licencas: {
+          total: licencasList.length,
+          vencidas: licencasVencidas,
+          proximasVencer: licencasProxVencer,
+          vigentes: licencasVigentes,
+          porTipo: licencasList.reduce((acc: any, l) => {
+            acc[l.tipo] = (acc[l.tipo] || 0) + 1;
+            return acc;
+          }, {}),
+          lista: licencasList.slice(0, 20).map(l => ({
+            id: l.id,
+            tipo: l.tipo,
+            orgaoEmissor: l.orgaoEmissor,
+            dataEmissao: l.dataEmissao,
+            dataVencimento: l.dataVencimento,
+            status: l.status,
+          })),
+        },
+        
+        demandas: {
+          total: demandasList.length,
+          abertas: demandasAbertas,
+          concluidas: demandasConcluidas,
+          atrasadas: demandasAtrasadas,
+          porPrioridade: demandasList.reduce((acc: any, d) => {
+            acc[d.prioridade || 'media'] = (acc[d.prioridade || 'media'] || 0) + 1;
+            return acc;
+          }, {}),
+          lista: demandasList.slice(0, 20).map(d => ({
+            id: d.id,
+            titulo: d.titulo,
+            status: d.status,
+            prioridade: d.prioridade,
+            prazo: d.prazo,
+          })),
+        },
+        
+        frota: {
+          total: veiculosList.length,
+          disponiveis: veiculosDisponiveis,
+          emManutencao: veiculosManutencao,
+          emUso: veiculosList.filter(v => v.status === 'em_uso').length,
+          lista: veiculosList.map(v => ({
+            id: v.id,
+            modelo: v.modelo,
+            placa: v.placa,
+            status: v.status,
+            quilometragem: v.quilometragem,
+          })),
+        },
+        
+        equipamentos: {
+          total: equipamentosList.length,
+          ativos: equipamentosAtivos,
+          emManutencao: equipamentosManutencao,
+          porTipo: equipamentosList.reduce((acc: any, e) => {
+            acc[e.tipo] = (acc[e.tipo] || 0) + 1;
+            return acc;
+          }, {}),
+          lista: equipamentosList.slice(0, 20).map(e => ({
+            id: e.id,
+            nome: e.nome,
+            tipo: e.tipo,
+            status: e.status,
+          })),
+        },
+        
+        rh: {
+          total: rhList.length,
+          ativos: funcionariosAtivos,
+          ferias: funcionariosFerias,
+          afastados: rhList.filter(r => r.status === 'afastado').length,
+          porCargo: rhList.reduce((acc: any, r) => {
+            acc[r.cargo || 'outros'] = (acc[r.cargo || 'outros'] || 0) + 1;
+            return acc;
+          }, {}),
+          lista: rhList.slice(0, 20).map(r => ({
+            id: r.id,
+            nome: r.nome,
+            cargo: r.cargo,
+            status: r.status,
+          })),
+        },
+        
+        contratos: {
+          total: contratosList.length,
+          ativos: contratosAtivos,
+          vencendo: contratosVencendo,
+          valorTotal: contratosList.reduce((sum, c) => sum + Number(c.valor || 0), 0),
+          lista: contratosList.slice(0, 20).map(c => ({
+            id: c.id,
+            numero: c.numero,
+            tipo: c.tipo,
+            valor: c.valor,
+            status: c.status,
+            dataInicio: c.dataInicio,
+            dataFim: c.dataFim,
+          })),
+        },
+        
+        campanhas: {
+          total: campanhasList.length,
+          ativas: campanhasList.filter(c => c.status === 'ativa').length,
+          concluidas: campanhasList.filter(c => c.status === 'concluida').length,
+          lista: campanhasList.slice(0, 20).map(c => ({
+            id: c.id,
+            nome: c.nome,
+            tipo: c.tipo,
+            status: c.status,
+            dataInicio: c.dataInicio,
+            dataFim: c.dataFim,
+          })),
+        },
+        
+        projetos: {
+          total: projetosList.length,
+          emAndamento: projetosEmAndamento,
+          concluidos: projetosConcluidos,
+          porStatus: projetosList.reduce((acc: any, p) => {
+            acc[p.status] = (acc[p.status] || 0) + 1;
+            return acc;
+          }, {}),
+          lista: projetosList.slice(0, 20).map(p => ({
+            id: p.id,
+            nome: p.nome,
+            status: p.status,
+            dataInicio: p.dataInicio,
+            dataFim: p.dataFim,
+          })),
+        },
+        
+        financeiro: financeiroStats || {
+          totalReceitas: 0,
+          totalDespesas: 0,
+          saldoAtual: 0,
+          totalPendente: 0,
+          porCategoria: [],
+          porEmpreendimento: [],
+          evolucaoMensal: [],
+        },
+        
+        tarefas: {
+          total: tarefasList.length,
+          pendentes: tarefasPendentes,
+          concluidas: tarefasConcluidas,
+          porCategoria: tarefasList.reduce((acc: any, t) => {
+            acc[t.categoria || 'outros'] = (acc[t.categoria || 'outros'] || 0) + 1;
+            return acc;
+          }, {}),
+        },
+        
+        empreendimentos: {
+          total: empreendimentosList.length,
+          porTipo: empreendimentosList.reduce((acc: any, e) => {
+            acc[e.tipo || 'outros'] = (acc[e.tipo || 'outros'] || 0) + 1;
+            return acc;
+          }, {}),
+          lista: empreendimentosList.slice(0, 20).map(e => ({
+            id: e.id,
+            nome: e.nome,
+            tipo: e.tipo,
+            municipio: e.municipio,
+            uf: e.uf,
+          })),
+        },
+      };
+      
+      res.json(relatorio);
+    } catch (error) {
+      console.error('Error generating platform report:', error);
+      res.status(500).json({ error: 'Erro ao gerar relatório da plataforma' });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Initialize WebSocket server
