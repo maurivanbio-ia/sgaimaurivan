@@ -12,10 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
+import { DateInput } from "@/components/DateInput";
 import { 
   Plus, 
   Search, 
@@ -422,35 +420,14 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Próxima Revisão *</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                      data-testid="button-revisao"
-                    >
-                      {field.value ? (
-                        format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                      ) : (
-                        <span>Selecione a data da próxima revisão</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <FormControl>
+                <DateInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="DD/MM/AAAA"
+                  data-testid="input-revisao"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -517,35 +494,14 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Data de Aluguel *</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="button-data-aluguel"
-                          >
-                            {field.value ? (
-                              format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                            ) : (
-                              <span>Selecione a data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <DateInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="DD/MM/AAAA"
+                        data-testid="input-data-aluguel"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -557,35 +513,14 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Data de Entrega Prevista *</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="button-data-entrega"
-                          >
-                            {field.value ? (
-                              format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                            ) : (
-                              <span>Selecione a data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <DateInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="DD/MM/AAAA"
+                        data-testid="input-data-entrega"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
