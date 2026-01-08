@@ -1730,6 +1730,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/financeiro/expense-evolution', async (req, res) => {
+    try {
+      const { empreendimentoId, categoriaId } = req.query;
+      const empId = empreendimentoId ? parseInt(String(empreendimentoId)) : undefined;
+      const catId = categoriaId ? parseInt(String(categoriaId)) : undefined;
+      const data = await storage.getExpenseEvolutionByCategory(empId, catId);
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching expense evolution:', error);
+      res.status(500).json({ error: 'Failed to fetch expense evolution' });
+    }
+  });
+
   // ==== END FINANCIAL ROUTES ====
 
   // ==== EQUIPMENT ROUTES ====

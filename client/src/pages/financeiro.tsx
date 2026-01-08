@@ -745,6 +745,11 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
   );
 }
 
+interface ExpenseEvolutionData {
+  categorias: Array<{ id: number; nome: string; tipo: string }>;
+  evolucao: Array<{ mes: string; valores: { [categoriaId: number]: number } }>;
+}
+
 export default function FinanceiroPage() {
   const [filters, setFilters] = useState({
     tipo: "todos",
@@ -757,6 +762,7 @@ export default function FinanceiroPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingLancamentoId, setDeletingLancamentoId] = useState<number | null>(null);
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<string>("todas");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -764,6 +770,7 @@ export default function FinanceiroPage() {
   const lineChartRef = useRef<HTMLCanvasElement>(null);
   const pieChartRef = useRef<HTMLCanvasElement>(null);
   const barChartRef = useRef<HTMLCanvasElement>(null);
+  const expenseEvolutionChartRef = useRef<HTMLCanvasElement>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -875,6 +882,11 @@ export default function FinanceiroPage() {
     queryKey: ["/api/financeiro/stats"],
   });
 
+  // Fetch expense evolution by category
+  const { data: expenseEvolution } = useQuery<ExpenseEvolutionData>({
+    queryKey: ["/api/financeiro/expense-evolution", selectedExpenseCategory],
+  });
+
   // Fetch empreendimentos for lookup
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
@@ -962,6 +974,24 @@ export default function FinanceiroPage() {
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
       },
     ],
+  };
+
+  // Expense evolution by category bar chart data
+  const expenseEvolutionChartData = {
+    labels: expenseEvolution?.evolucao?.map(e => e.mes) || [],
+    datasets: (() => {
+      if (!expenseEvolution) return [];
+      
+      const categoriasToShow = selectedExpenseCategory === "todas"
+        ? expenseEvolution.categorias
+        : expenseEvolution.categorias.filter(c => c.id.toString() === selectedExpenseCategory);
+      
+      return categoriasToShow.map((cat, index) => ({
+        label: cat.nome,
+        data: expenseEvolution.evolucao.map(e => e.valores[cat.id] || 0),
+        backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+      }));
+    })(),
   };
 
   const chartOptions = {
@@ -1187,6 +1217,65 @@ export default function FinanceiroPage() {
                     <div className="text-center">
                       <LineChart className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       <p>Adicione lançamentos para visualizar a evolução</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Expense Evolution by Category Bar Chart */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Evolução de Despesas por Tipo
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium whitespace-nowrap">Filtrar por tipo:</Label>
+                  <Select value={selectedExpenseCategory} onValueChange={setSelectedExpenseCategory}>
+                    <SelectTrigger className="w-[200px]" data-testid="select-expense-category-filter">
+                      <SelectValue placeholder="Todas as categorias" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as categorias</SelectItem>
+                      {expenseEvolution?.categorias?.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id.toString()}>
+                          {cat.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                {expenseEvolutionChartData.datasets.length > 0 ? (
+                  <Bar 
+                    ref={expenseEvolutionChartRef as any} 
+                    data={expenseEvolutionChartData} 
+                    options={{
+                      ...chartOptions,
+                      scales: {
+                        x: { stacked: false },
+                        y: { 
+                          stacked: false,
+                          ticks: {
+                            callback: function(value) {
+                              return 'R$ ' + Number(value).toLocaleString('pt-BR');
+                            }
+                          }
+                        }
+                      }
+                    }} 
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Adicione despesas para visualizar a evolução por tipo</p>
                     </div>
                   </div>
                 )}

@@ -223,6 +223,11 @@ export interface IStorage {
     evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
     empreendimentoNome?: string;
   }>;
+  
+  getExpenseEvolutionByCategory(empreendimentoId?: number, categoriaId?: number): Promise<{
+    categorias: Array<{ id: number; nome: string; tipo: string }>;
+    evolucao: Array<{ mes: string; valores: { [categoriaId: number]: number } }>;
+  }>;
 
   // Equipment operations
   getEquipamentos(filters?: {
@@ -1732,6 +1737,67 @@ export class DatabaseStorage implements IStorage {
       porEmpreendimento,
       evolucaoMensal,
       empreendimentoNome,
+    };
+  }
+
+  async getExpenseEvolutionByCategory(empreendimentoId?: number, categoriaId?: number): Promise<{
+    categorias: Array<{ id: number; nome: string; tipo: string }>;
+    evolucao: Array<{
+      mes: string;
+      valores: { [categoriaId: number]: number };
+    }>;
+  }> {
+    let allLancamentos = await db.select().from(financeiroLancamentos);
+    
+    // Apply empreendimento filter if specified
+    let lancamentos = empreendimentoId 
+      ? allLancamentos.filter(l => l.empreendimentoId === empreendimentoId)
+      : allLancamentos;
+    
+    // Only include paid expenses
+    lancamentos = lancamentos.filter(l => l.tipo === "despesa" && l.status === "pago");
+    
+    // Apply category filter if specified
+    if (categoriaId) {
+      lancamentos = lancamentos.filter(l => l.categoriaId === categoriaId);
+    }
+    
+    // Get all expense categories
+    const todasCategorias = await db.select().from(categoriasFinanceiras);
+    const despesaCategorias = todasCategorias.filter(c => c.tipo === "despesa");
+    
+    // Monthly evolution (last 12 months)
+    const now = new Date();
+    const evolucao: Array<{ mes: string; valores: { [categoriaId: number]: number } }> = [];
+    
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mesLabel = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      const mesLancamentos = lancamentos.filter(l => {
+        const lDate = new Date(l.data);
+        return lDate.getMonth() === date.getMonth() && 
+               lDate.getFullYear() === date.getFullYear();
+      });
+      
+      const valores: { [categoriaId: number]: number } = {};
+      
+      // Calculate value for each category
+      for (const cat of despesaCategorias) {
+        const catValor = mesLancamentos
+          .filter(l => l.categoriaId === cat.id)
+          .reduce((sum, l) => sum + Number(l.valor), 0);
+        if (catValor > 0 || categoriaId === cat.id) {
+          valores[cat.id] = catValor;
+        }
+      }
+      
+      evolucao.push({ mes: mesLabel, valores });
+    }
+    
+    return {
+      categorias: despesaCategorias.map(c => ({ id: c.id, nome: c.nome, tipo: c.tipo })),
+      evolucao
     };
   }
 
