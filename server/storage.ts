@@ -77,6 +77,18 @@ import {
   projetos,
   type Projeto,
   type InsertProjeto,
+  membrosEquipe,
+  tarefas,
+  tarefaAtualizacoes,
+  registroHoras,
+  type MembroEquipe,
+  type InsertMembroEquipe,
+  type Tarefa,
+  type InsertTarefa,
+  type TarefaAtualizacao,
+  type InsertTarefaAtualizacao,
+  type RegistroHoras,
+  type InsertRegistroHoras,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
@@ -329,6 +341,64 @@ export interface IStorage {
   updateProjeto(id: number, projeto: Partial<InsertProjeto>): Promise<Projeto>;
   deleteProjeto(id: number): Promise<boolean>;
   getProjetosByUnidade(unidade: string): Promise<Projeto[]>;
+
+  // ========== GESTÃO DE EQUIPE ==========
+  getMembrosEquipe(filters?: {
+    unidade?: string;
+    coordenadorId?: number;
+    ativo?: boolean;
+  }): Promise<MembroEquipe[]>;
+  getMembroEquipeById(id: number): Promise<MembroEquipe | undefined>;
+  getMembroEquipeByUserId(userId: number): Promise<MembroEquipe | undefined>;
+  createMembroEquipe(membro: InsertMembroEquipe): Promise<MembroEquipe>;
+  updateMembroEquipe(id: number, updates: Partial<InsertMembroEquipe>): Promise<MembroEquipe>;
+  deleteMembroEquipe(id: number): Promise<boolean>;
+  getEquipeDoCoordenador(coordenadorId: number): Promise<MembroEquipe[]>;
+
+  // ========== TAREFAS ==========
+  getTarefas(filters?: {
+    unidade?: string;
+    responsavelId?: number;
+    criadoPor?: number;
+    status?: string;
+    prioridade?: string;
+    categoria?: string;
+    empreendimentoId?: number;
+    dataInicio?: string;
+    dataFim?: string;
+  }): Promise<Tarefa[]>;
+  getTarefaById(id: number): Promise<Tarefa | undefined>;
+  createTarefa(tarefa: InsertTarefa): Promise<Tarefa>;
+  updateTarefa(id: number, updates: Partial<InsertTarefa>): Promise<Tarefa>;
+  deleteTarefa(id: number): Promise<boolean>;
+  getTarefasDoDia(responsavelId: number, data?: string): Promise<Tarefa[]>;
+  getTarefasAtrasadas(responsavelId?: number, unidade?: string): Promise<Tarefa[]>;
+  getEstatisticasTarefas(filters?: {
+    unidade?: string;
+    responsavelId?: number;
+    criadoPor?: number;
+  }): Promise<{
+    total: number;
+    pendentes: number;
+    emAndamento: number;
+    concluidas: number;
+    atrasadas: number;
+    porCategoria: Array<{ categoria: string; count: number }>;
+  }>;
+
+  // ========== ATUALIZAÇÕES DE TAREFAS ==========
+  getAtualizacoesTarefa(tarefaId: number): Promise<TarefaAtualizacao[]>;
+  createAtualizacaoTarefa(atualizacao: InsertTarefaAtualizacao): Promise<TarefaAtualizacao>;
+
+  // ========== REGISTRO DE HORAS ==========
+  getRegistrosHoras(filters?: {
+    tarefaId?: number;
+    colaboradorId?: number;
+    dataInicio?: string;
+    dataFim?: string;
+  }): Promise<RegistroHoras[]>;
+  createRegistroHoras(registro: InsertRegistroHoras): Promise<RegistroHoras>;
+  aprovarRegistroHoras(id: number, aprovadoPor: number): Promise<RegistroHoras>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2429,6 +2499,345 @@ export class DatabaseStorage implements IStorage {
       .where(eq(empreendimentos.unidade, unidade))
       .orderBy(desc(projetos.criadoEm));
     return result;
+  }
+
+  // ========== GESTÃO DE EQUIPE ==========
+  async getMembrosEquipe(filters?: {
+    unidade?: string;
+    coordenadorId?: number;
+    ativo?: boolean;
+  }): Promise<MembroEquipe[]> {
+    let query = db.select().from(membrosEquipe).$dynamic();
+    const conditions: any[] = [];
+
+    if (filters?.unidade) {
+      conditions.push(eq(membrosEquipe.unidade, filters.unidade));
+    }
+    if (filters?.coordenadorId) {
+      conditions.push(eq(membrosEquipe.coordenadorId, filters.coordenadorId));
+    }
+    if (filters?.ativo !== undefined) {
+      conditions.push(eq(membrosEquipe.ativo, filters.ativo));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.orderBy(asc(membrosEquipe.nome));
+  }
+
+  async getMembroEquipeById(id: number): Promise<MembroEquipe | undefined> {
+    const [membro] = await db
+      .select()
+      .from(membrosEquipe)
+      .where(eq(membrosEquipe.id, id));
+    return membro || undefined;
+  }
+
+  async getMembroEquipeByUserId(userId: number): Promise<MembroEquipe | undefined> {
+    const [membro] = await db
+      .select()
+      .from(membrosEquipe)
+      .where(eq(membrosEquipe.userId, userId));
+    return membro || undefined;
+  }
+
+  async createMembroEquipe(membro: InsertMembroEquipe): Promise<MembroEquipe> {
+    const [newMembro] = await db
+      .insert(membrosEquipe)
+      .values(membro)
+      .returning();
+    return newMembro;
+  }
+
+  async updateMembroEquipe(id: number, updates: Partial<InsertMembroEquipe>): Promise<MembroEquipe> {
+    const [updated] = await db
+      .update(membrosEquipe)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(membrosEquipe.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMembroEquipe(id: number): Promise<boolean> {
+    const result = await db.delete(membrosEquipe).where(eq(membrosEquipe.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getEquipeDoCoordenador(coordenadorId: number): Promise<MembroEquipe[]> {
+    return db
+      .select()
+      .from(membrosEquipe)
+      .where(
+        and(
+          eq(membrosEquipe.coordenadorId, coordenadorId),
+          eq(membrosEquipe.ativo, true)
+        )
+      )
+      .orderBy(asc(membrosEquipe.nome));
+  }
+
+  // ========== TAREFAS ==========
+  async getTarefas(filters?: {
+    unidade?: string;
+    responsavelId?: number;
+    criadoPor?: number;
+    status?: string;
+    prioridade?: string;
+    categoria?: string;
+    empreendimentoId?: number;
+    dataInicio?: string;
+    dataFim?: string;
+  }): Promise<Tarefa[]> {
+    let query = db.select().from(tarefas).$dynamic();
+    const conditions: any[] = [];
+
+    if (filters?.unidade) {
+      conditions.push(eq(tarefas.unidade, filters.unidade));
+    }
+    if (filters?.responsavelId) {
+      conditions.push(eq(tarefas.responsavelId, filters.responsavelId));
+    }
+    if (filters?.criadoPor) {
+      conditions.push(eq(tarefas.criadoPor, filters.criadoPor));
+    }
+    if (filters?.status) {
+      conditions.push(eq(tarefas.status, filters.status));
+    }
+    if (filters?.prioridade) {
+      conditions.push(eq(tarefas.prioridade, filters.prioridade));
+    }
+    if (filters?.categoria) {
+      conditions.push(eq(tarefas.categoria, filters.categoria));
+    }
+    if (filters?.empreendimentoId) {
+      conditions.push(eq(tarefas.empreendimentoId, filters.empreendimentoId));
+    }
+    if (filters?.dataInicio) {
+      conditions.push(gte(tarefas.dataFim, filters.dataInicio));
+    }
+    if (filters?.dataFim) {
+      conditions.push(lte(tarefas.dataInicio, filters.dataFim));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.orderBy(desc(tarefas.criadoEm));
+  }
+
+  async getTarefaById(id: number): Promise<Tarefa | undefined> {
+    const [tarefa] = await db
+      .select()
+      .from(tarefas)
+      .where(eq(tarefas.id, id));
+    return tarefa || undefined;
+  }
+
+  async createTarefa(tarefa: InsertTarefa): Promise<Tarefa> {
+    const [newTarefa] = await db
+      .insert(tarefas)
+      .values(tarefa)
+      .returning();
+    return newTarefa;
+  }
+
+  async updateTarefa(id: number, updates: Partial<InsertTarefa>): Promise<Tarefa> {
+    const updateData: any = {
+      ...updates,
+      atualizadoEm: new Date(),
+    };
+
+    if (updates.status === 'em_andamento' && !updates.iniciadaEm) {
+      updateData.iniciadaEm = new Date();
+    }
+    if (updates.status === 'concluida' && !updates.concluidaEm) {
+      updateData.concluidaEm = new Date();
+    }
+
+    const [updated] = await db
+      .update(tarefas)
+      .set(updateData)
+      .where(eq(tarefas.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTarefa(id: number): Promise<boolean> {
+    const result = await db.delete(tarefas).where(eq(tarefas.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getTarefasDoDia(responsavelId: number, data?: string): Promise<Tarefa[]> {
+    const hoje = data || new Date().toISOString().split('T')[0];
+    return db
+      .select()
+      .from(tarefas)
+      .where(
+        and(
+          eq(tarefas.responsavelId, responsavelId),
+          lte(tarefas.dataInicio, hoje),
+          gte(tarefas.dataFim, hoje),
+          ne(tarefas.status, 'concluida'),
+          ne(tarefas.status, 'cancelada')
+        )
+      )
+      .orderBy(asc(tarefas.prioridade));
+  }
+
+  async getTarefasAtrasadas(responsavelId?: number, unidade?: string): Promise<Tarefa[]> {
+    const hoje = new Date().toISOString().split('T')[0];
+    const conditions: any[] = [
+      lte(tarefas.dataFim, hoje),
+      ne(tarefas.status, 'concluida'),
+      ne(tarefas.status, 'cancelada')
+    ];
+
+    if (responsavelId) {
+      conditions.push(eq(tarefas.responsavelId, responsavelId));
+    }
+    if (unidade) {
+      conditions.push(eq(tarefas.unidade, unidade));
+    }
+
+    return db
+      .select()
+      .from(tarefas)
+      .where(and(...conditions))
+      .orderBy(asc(tarefas.dataFim));
+  }
+
+  async getEstatisticasTarefas(filters?: {
+    unidade?: string;
+    responsavelId?: number;
+    criadoPor?: number;
+  }): Promise<{
+    total: number;
+    pendentes: number;
+    emAndamento: number;
+    concluidas: number;
+    atrasadas: number;
+    porCategoria: Array<{ categoria: string; count: number }>;
+  }> {
+    const conditions: any[] = [];
+
+    if (filters?.unidade) {
+      conditions.push(eq(tarefas.unidade, filters.unidade));
+    }
+    if (filters?.responsavelId) {
+      conditions.push(eq(tarefas.responsavelId, filters.responsavelId));
+    }
+    if (filters?.criadoPor) {
+      conditions.push(eq(tarefas.criadoPor, filters.criadoPor));
+    }
+
+    let query = db.select().from(tarefas).$dynamic();
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const todasTarefas = await query;
+    const hoje = new Date().toISOString().split('T')[0];
+
+    const total = todasTarefas.length;
+    const pendentes = todasTarefas.filter(t => t.status === 'pendente').length;
+    const emAndamento = todasTarefas.filter(t => t.status === 'em_andamento').length;
+    const concluidas = todasTarefas.filter(t => t.status === 'concluida').length;
+    const atrasadas = todasTarefas.filter(t => 
+      t.dataFim < hoje && t.status !== 'concluida' && t.status !== 'cancelada'
+    ).length;
+
+    const categoriaMap = new Map<string, number>();
+    todasTarefas.forEach(t => {
+      categoriaMap.set(t.categoria, (categoriaMap.get(t.categoria) || 0) + 1);
+    });
+
+    const porCategoria = Array.from(categoriaMap.entries()).map(([categoria, count]) => ({
+      categoria,
+      count,
+    }));
+
+    return {
+      total,
+      pendentes,
+      emAndamento,
+      concluidas,
+      atrasadas,
+      porCategoria,
+    };
+  }
+
+  // ========== ATUALIZAÇÕES DE TAREFAS ==========
+  async getAtualizacoesTarefa(tarefaId: number): Promise<TarefaAtualizacao[]> {
+    return db
+      .select()
+      .from(tarefaAtualizacoes)
+      .where(eq(tarefaAtualizacoes.tarefaId, tarefaId))
+      .orderBy(desc(tarefaAtualizacoes.criadoEm));
+  }
+
+  async createAtualizacaoTarefa(atualizacao: InsertTarefaAtualizacao): Promise<TarefaAtualizacao> {
+    const [newAtualizacao] = await db
+      .insert(tarefaAtualizacoes)
+      .values(atualizacao)
+      .returning();
+    return newAtualizacao;
+  }
+
+  // ========== REGISTRO DE HORAS ==========
+  async getRegistrosHoras(filters?: {
+    tarefaId?: number;
+    colaboradorId?: number;
+    dataInicio?: string;
+    dataFim?: string;
+  }): Promise<RegistroHoras[]> {
+    let query = db.select().from(registroHoras).$dynamic();
+    const conditions: any[] = [];
+
+    if (filters?.tarefaId) {
+      conditions.push(eq(registroHoras.tarefaId, filters.tarefaId));
+    }
+    if (filters?.colaboradorId) {
+      conditions.push(eq(registroHoras.colaboradorId, filters.colaboradorId));
+    }
+    if (filters?.dataInicio) {
+      conditions.push(gte(registroHoras.data, filters.dataInicio));
+    }
+    if (filters?.dataFim) {
+      conditions.push(lte(registroHoras.data, filters.dataFim));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.orderBy(desc(registroHoras.data));
+  }
+
+  async createRegistroHoras(registro: InsertRegistroHoras): Promise<RegistroHoras> {
+    const [newRegistro] = await db
+      .insert(registroHoras)
+      .values(registro)
+      .returning();
+    return newRegistro;
+  }
+
+  async aprovarRegistroHoras(id: number, aprovadoPor: number): Promise<RegistroHoras> {
+    const [updated] = await db
+      .update(registroHoras)
+      .set({
+        aprovado: true,
+        aprovadoPor,
+        aprovadoEm: new Date(),
+      })
+      .where(eq(registroHoras.id, id))
+      .returning();
+    return updated;
   }
 }
 
