@@ -25,6 +25,16 @@ An AI conversational agent is integrated, accessible via a chat UI. It uses Open
 - **Executive Dashboard**: Provides a consolidated, high-level overview of all ECOBRASIL units, displaying aggregated KPIs for frota, equipment, demands, RH, and contracts.
 - **Coordinator Dashboard**: Features gamification with a coordinator ranking based on project efficiency, achievement badges, project status pie charts, and expense trends. This dashboard also supports multi-tenant isolation.
 
+### Platform Report (Relatório 360° EcoBrasil)
+A comprehensive PDF report generator accessible from the dashboard:
+- **Access Control**: Only coordinators, directors, finance, RH, and admins can generate reports
+- **Multi-Tenant Isolation**: Directors/admins see all units, others see only their unit
+- **Content**: Cover page, executive summary with KPIs, all modules (licenses, demands, fleet, equipment, RH, contracts, projects, campaigns), and empreendimentos
+- **Financial Charts**: Bar chart (monthly receitas vs despesas), pie chart (despesas by category), bar chart (receitas by empreendimento)
+- **Financial Tables**: Monthly evolution table with lucro/prejuízo, expenses by category table with percentages
+- **Branding**: EcoBrasil logo, color scheme, professional footers on all pages
+- **Component**: `PlatformReportPDF.tsx` using jsPDF and autoTable libraries
+
 ### Client Portal (Portal do Cliente)
 A separate portal for external clients (empresas) to access their projects and licenses:
 - **Separate Authentication**: Clients login via `/cliente/login` using credentials stored in `cliente_usuarios` table, isolated from internal user sessions
