@@ -36,6 +36,17 @@ import { cronService } from "./cronService";
 import { exportService } from "./exportService";
 import { alertService } from "./alertService";
 import { notificationService } from "./notificationService";
+import { websocketService } from "./services/websocketService";
+import { auditLogService } from "./services/auditLogService";
+import { scheduledReportsService } from "./services/scheduledReportsService";
+import { 
+  auditLogs,
+  documentos,
+  scheduledReports,
+  realTimeNotifications,
+  insertDocumentoSchema,
+  insertScheduledReportSchema
+} from "@shared/schema";
 
 // Import new controllers
 import * as contratoController from "./controllers/contratoController";
@@ -3495,6 +3506,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ======== AUDIT LOG ROUTES ========
+  app.get('/api/audit-logs', requireAuth, async (req, res) => {
+    try {
+      const { tabela, registroId, acao, usuarioId, startDate, endDate, search, limit, offset } = req.query;
+      
+      const logs = await auditLogService.getHistory({
+        tabela: tabela as string,
+        registroId: registroId ? parseInt(String(registroId)) : undefined,
+        acao: acao as string,
+        usuarioId: usuarioId ? parseInt(String(usuarioId)) : undefined,
+        startDate: startDate ? new Date(String(startDate)) : undefined,
+        endDate: endDate ? new Date(String(endDate)) : undefined,
+        search: search as string,
+        limit: limit ? parseInt(String(limit)) : 50,
+        offset: offset ? parseInt(String(offset)) : 0
+      });
+      
+      res.json(logs);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({ error: 'Erro ao buscar histórico de alterações' });
+    }
+  });
+
+  app.get('/api/audit-logs/record/:tabela/:registroId', requireAuth, async (req, res) => {
+    try {
+      const { tabela, registroId } = req.params;
+      const logs = await auditLogService.getRecordHistory(tabela, parseInt(registroId));
+      res.json(logs);
+    } catch (error) {
+      console.error('Error fetching record history:', error);
+      res.status(500).json({ error: 'Erro ao buscar histórico do registro' });
+    }
+  });
+
+  // ======== REAL-TIME NOTIFICATIONS ROUTES ========
+  app.get('/api/notifications/realtime', requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const notifications = await db.select()
+        .from(realTimeNotifications)
+        .where(eq(realTimeNotifications.usuarioId, userId))
+        .orderBy(realTimeNotifications.criadoEm)
+        .limit(50);
+      
+      res.json(notifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ error: 'Erro ao buscar notificações' });
+    }
+  });
+
+  app.get('/api/notifications/unread-count', requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const count = await websocketService.getUnreadCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+      res.status(500).json({ error: 'Erro ao buscar contagem de notificações' });
+    }
+  });
+
+  app.post('/api/notifications/:id/read', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await websocketService.markNotificationAsRead(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ error: 'Erro ao marcar notificação como lida' });
+    }
+  });
+
+  app.post('/api/notifications/mark-all-read', requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      await websocketService.markAllAsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      res.status(500).json({ error: 'Erro ao marcar todas notificações como lidas' });
+    }
+  });
+
+  // ======== DOCUMENTS ROUTES ========
+  app.get('/api/documentos', requireAuth, async (req, res) => {
+    try {
+      const { categoria, empreendimentoId, licencaId, lancamentoId, contratoId, equipamentoId, veiculoId } = req.query;
+      
+      let query = db.select().from(documentos);
+      const conditions = [];
+      
+      if (categoria) conditions.push(eq(documentos.categoria, String(categoria)));
+      if (empreendimentoId) conditions.push(eq(documentos.empreendimentoId, parseInt(String(empreendimentoId))));
+      if (licencaId) conditions.push(eq(documentos.licencaId, parseInt(String(licencaId))));
+      if (lancamentoId) conditions.push(eq(documentos.lancamentoId, parseInt(String(lancamentoId))));
+      if (contratoId) conditions.push(eq(documentos.contratoId, parseInt(String(contratoId))));
+      if (equipamentoId) conditions.push(eq(documentos.equipamentoId, parseInt(String(equipamentoId))));
+      if (veiculoId) conditions.push(eq(documentos.veiculoId, parseInt(String(veiculoId))));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+      
+      const docs = await query;
+      res.json(docs);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      res.status(500).json({ error: 'Erro ao buscar documentos' });
+    }
+  });
+
+  app.post('/api/documentos', requireAuth, async (req, res) => {
+    try {
+      const data = insertDocumentoSchema.parse({
+        ...req.body,
+        uploadedBy: req.session.userId,
+        uploadedByNome: req.user?.email
+      });
+      
+      const [doc] = await db.insert(documentos).values(data).returning();
+      
+      await auditLogService.logCreate('documentos', doc.id, doc, req.session.userId, req.user?.email, req);
+      
+      res.status(201).json(doc);
+    } catch (error) {
+      console.error('Error creating document:', error);
+      res.status(500).json({ error: 'Erro ao criar documento' });
+    }
+  });
+
+  app.delete('/api/documentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [existing] = await db.select().from(documentos).where(eq(documentos.id, id));
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Documento não encontrado' });
+      }
+      
+      await db.delete(documentos).where(eq(documentos.id, id));
+      
+      await auditLogService.logDelete('documentos', id, existing, req.session.userId, req.user?.email, req);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      res.status(500).json({ error: 'Erro ao excluir documento' });
+    }
+  });
+
+  // ======== SCHEDULED REPORTS ROUTES ========
+  app.get('/api/scheduled-reports', requireAuth, async (req, res) => {
+    try {
+      const reports = await scheduledReportsService.getReports();
+      res.json(reports);
+    } catch (error) {
+      console.error('Error fetching scheduled reports:', error);
+      res.status(500).json({ error: 'Erro ao buscar relatórios agendados' });
+    }
+  });
+
+  app.post('/api/scheduled-reports', requireAuth, async (req, res) => {
+    try {
+      const data = insertScheduledReportSchema.parse({
+        ...req.body,
+        criadoPor: req.session.userId
+      });
+      
+      const report = await scheduledReportsService.addReport(data);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error('Error creating scheduled report:', error);
+      res.status(500).json({ error: 'Erro ao criar relatório agendado' });
+    }
+  });
+
+  app.put('/api/scheduled-reports/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const report = await scheduledReportsService.updateReport(id, req.body);
+      res.json(report);
+    } catch (error) {
+      console.error('Error updating scheduled report:', error);
+      res.status(500).json({ error: 'Erro ao atualizar relatório agendado' });
+    }
+  });
+
+  app.delete('/api/scheduled-reports/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await scheduledReportsService.deleteReport(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting scheduled report:', error);
+      res.status(500).json({ error: 'Erro ao excluir relatório agendado' });
+    }
+  });
+
+  app.post('/api/scheduled-reports/:id/execute', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await scheduledReportsService.executeReport(id);
+      res.json({ success: true, message: 'Relatório enviado com sucesso' });
+    } catch (error) {
+      console.error('Error executing scheduled report:', error);
+      res.status(500).json({ error: 'Erro ao executar relatório' });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server
+  websocketService.initialize(httpServer);
+  
+  // Initialize scheduled reports service
+  scheduledReportsService.initialize();
+  
   return httpServer;
 }

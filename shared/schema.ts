@@ -1263,3 +1263,141 @@ export type LicencaWithDetails = LicencaAmbiental & {
   entregas: Entrega[];
 };
 
+// ======== AUDIT LOG (Histórico de Alterações) ========
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  tabela: text("tabela").notNull(), // nome da tabela afetada
+  registroId: integer("registro_id").notNull(), // ID do registro alterado
+  acao: text("acao").notNull(), // create, update, delete
+  dadosAnteriores: json("dados_anteriores"), // estado anterior (para update/delete)
+  dadosNovos: json("dados_novos"), // novo estado (para create/update)
+  camposAlterados: text("campos_alterados").array(), // lista de campos que mudaram
+  usuarioId: integer("usuario_id").references(() => users.id),
+  usuarioNome: text("usuario_nome"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
+// ======== DOCUMENTOS DIGITALIZADOS ========
+export const documentos = pgTable("documentos", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  arquivoUrl: text("arquivo_url").notNull(),
+  arquivoNome: text("arquivo_nome").notNull(),
+  arquivoTipo: text("arquivo_tipo").notNull(), // mime type
+  arquivoTamanho: integer("arquivo_tamanho").notNull(), // bytes
+  categoria: text("categoria").notNull().default("geral"), // licenca, contrato, relatorio, comprovante, outro
+  // Vínculos opcionais (um documento pode estar vinculado a vários tipos)
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  licencaId: integer("licenca_id").references(() => licencasAmbientais.id),
+  lancamentoId: integer("lancamento_id").references(() => financeiroLancamentos.id),
+  contratoId: integer("contrato_id").references(() => contratos.id),
+  equipamentoId: integer("equipamento_id").references(() => equipamentos.id),
+  veiculoId: integer("veiculo_id").references(() => veiculos.id),
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  uploadedByNome: text("uploaded_by_nome"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertDocumentoSchema = createInsertSchema(documentos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertDocumento = z.infer<typeof insertDocumentoSchema>;
+export type Documento = typeof documentos.$inferSelect;
+
+// ======== RELATÓRIOS AGENDADOS ========
+export const scheduledReports = pgTable("scheduled_reports", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  tipo: text("tipo").notNull(), // financeiro, licencas, equipamentos, frota, geral
+  frequencia: text("frequencia").notNull(), // diario, semanal, mensal
+  diaSemana: integer("dia_semana"), // 0-6 (domingo-sábado) para semanal
+  diaMes: integer("dia_mes"), // 1-31 para mensal
+  horario: text("horario").notNull().default("08:00"), // HH:mm
+  destinatarios: text("destinatarios").array().notNull(), // emails
+  filtros: json("filtros").default({}), // filtros específicos do relatório
+  formatoArquivo: text("formato_arquivo").notNull().default("pdf"), // pdf, excel
+  ativo: boolean("ativo").notNull().default(true),
+  ultimoEnvio: timestamp("ultimo_envio"),
+  proximoEnvio: timestamp("proximo_envio"),
+  criadoPor: integer("criado_por").references(() => users.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertScheduledReportSchema = createInsertSchema(scheduledReports).omit({
+  id: true,
+  ultimoEnvio: true,
+  proximoEnvio: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertScheduledReport = z.infer<typeof insertScheduledReportSchema>;
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
+
+// ======== NOTIFICAÇÕES EM TEMPO REAL ========
+export const realTimeNotifications = pgTable("realtime_notifications", {
+  id: serial("id").primaryKey(),
+  tipo: text("tipo").notNull(), // alerta, info, sucesso, erro
+  titulo: text("titulo").notNull(),
+  mensagem: text("mensagem").notNull(),
+  link: text("link"), // link para redirecionar ao clicar
+  icone: text("icone"), // nome do ícone lucide
+  usuarioId: integer("usuario_id").references(() => users.id), // null = todos os usuários
+  lida: boolean("lida").notNull().default(false),
+  lidaEm: timestamp("lida_em"),
+  expiracaoEm: timestamp("expiracao_em"), // notificação expira após esta data
+  metadados: json("metadados").default({}),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertRealTimeNotificationSchema = createInsertSchema(realTimeNotifications).omit({
+  id: true,
+  lida: true,
+  lidaEm: true,
+  criadoEm: true,
+});
+
+export type InsertRealTimeNotification = z.infer<typeof insertRealTimeNotificationSchema>;
+export type RealTimeNotification = typeof realTimeNotifications.$inferSelect;
+
+// ======== CONFIGURAÇÕES DE OFFLINE/SYNC ========
+export const offlineSyncQueue = pgTable("offline_sync_queue", {
+  id: serial("id").primaryKey(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  operacao: text("operacao").notNull(), // create, update, delete
+  tabela: text("tabela").notNull(),
+  registroId: integer("registro_id"),
+  dados: json("dados").notNull(),
+  status: text("status").notNull().default("pendente"), // pendente, processando, concluido, erro
+  tentativas: integer("tentativas").notNull().default(0),
+  erro: text("erro"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  processadoEm: timestamp("processado_em"),
+});
+
+export const insertOfflineSyncQueueSchema = createInsertSchema(offlineSyncQueue).omit({
+  id: true,
+  status: true,
+  tentativas: true,
+  erro: true,
+  criadoEm: true,
+  processadoEm: true,
+});
+
+export type InsertOfflineSyncQueue = z.infer<typeof insertOfflineSyncQueueSchema>;
+export type OfflineSyncQueue = typeof offlineSyncQueue.$inferSelect;
+
