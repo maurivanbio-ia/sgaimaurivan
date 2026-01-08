@@ -1035,6 +1035,7 @@ export default function FinanceiroPage() {
             lineChartRef={lineChartRef}
             pieChartRef={pieChartRef}
             barChartRef={barChartRef}
+            expenseEvolutionChartRef={expenseEvolutionChartRef}
           />
           <RefreshButton />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

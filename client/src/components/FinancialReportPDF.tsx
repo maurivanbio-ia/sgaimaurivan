@@ -30,6 +30,7 @@ interface FinancialReportPDFProps {
   lineChartRef?: React.RefObject<any>;
   pieChartRef?: React.RefObject<any>;
   barChartRef?: React.RefObject<any>;
+  expenseEvolutionChartRef?: React.RefObject<any>;
 }
 
 const ECOBRASIL_COLORS = {
@@ -40,7 +41,7 @@ const ECOBRASIL_COLORS = {
   lightGreen: [144, 238, 144] as [number, number, number],
 };
 
-export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieChartRef, barChartRef }: FinancialReportPDFProps) {
+export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieChartRef, barChartRef, expenseEvolutionChartRef }: FinancialReportPDFProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState<string>("all");
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -337,7 +338,8 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       const lineChart = lineChartRef?.current;
       const pieChart = pieChartRef?.current;
       const barChart = barChartRef?.current;
-      const hasCharts = lineChart || pieChart || barChart;
+      const expenseEvolutionChart = expenseEvolutionChartRef?.current;
+      const hasCharts = lineChart || pieChart || barChart || expenseEvolutionChart;
       
       if (hasCharts) {
         doc.addPage();
@@ -351,7 +353,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         const chartWidth = 85;
         const chartHeight = 60;
 
-        // Line chart - Evolution
+        // Line chart - Evolution (full width)
         if (lineChart) {
           try {
             const lineCanvas = lineChart.canvas || lineChart;
@@ -359,13 +361,36 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
             
             doc.setFontSize(11);
             doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
-            doc.text('Evolução Mensal', 20, yPos);
+            doc.text('Evolução Financeira Mensal', 20, yPos);
             yPos += 3;
             
             doc.addImage(lineDataUrl, 'PNG', 20, yPos, pageWidth - 40, 70);
             yPos += 80;
           } catch (e) {
             console.error('Erro ao adicionar gráfico de linha:', e);
+          }
+        }
+
+        // Expense Evolution by Category chart (full width)
+        if (expenseEvolutionChart) {
+          if (yPos > pageHeight - 100) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          try {
+            const expenseCanvas = expenseEvolutionChart.canvas || expenseEvolutionChart;
+            const expenseDataUrl = expenseCanvas.toDataURL('image/png', 1.0);
+            
+            doc.setFontSize(11);
+            doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+            doc.text('Evolução de Despesas por Tipo', 20, yPos);
+            yPos += 3;
+            
+            doc.addImage(expenseDataUrl, 'PNG', 20, yPos, pageWidth - 40, 70);
+            yPos += 80;
+          } catch (e) {
+            console.error('Erro ao adicionar gráfico de evolução de despesas:', e);
           }
         }
 
