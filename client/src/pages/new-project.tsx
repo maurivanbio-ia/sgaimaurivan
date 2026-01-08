@@ -16,6 +16,7 @@ import { Save, ArrowLeft } from "lucide-react";
 const tipologiaOptions = [
   { value: "hidreletrica", label: "💧 Hidrelétrica" },
   { value: "parque_eolico", label: "🌪️ Parque Eólico" },
+  { value: "usina_solar", label: "☀️ Usina Solar" },
   { value: "termoeletrica", label: "🔥 Termelétrica" },
   { value: "linha_transmissao", label: "⚡ Linha de Transmissão" },
   { value: "mina", label: "⛏️ Mineração" },
@@ -50,7 +51,7 @@ const projectSchema = z.object({
     return !isNaN(num) && num >= -180 && num <= 180;
   }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
-  tipo: z.enum(["hidreletrica", "parque_eolico", "termoeletrica", "linha_transmissao", "mina", "pchs", "outro"]).default("outro"),
+  tipo: z.enum(["hidreletrica", "parque_eolico", "usina_solar", "termoeletrica", "linha_transmissao", "mina", "pchs", "outro"]).default("outro"),
   status: z.enum(["ativo", "em_planejamento", "em_execucao", "concluido", "inativo", "cancelado"]).default("ativo"),
 });
 

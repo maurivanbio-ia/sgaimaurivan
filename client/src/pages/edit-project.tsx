@@ -18,6 +18,7 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 const tipologiaOptions = [
   { value: "hidreletrica", label: "💧 Hidrelétrica" },
   { value: "parque_eolico", label: "🌪️ Parque Eólico" },
+  { value: "usina_solar", label: "☀️ Usina Solar" },
   { value: "termoeletrica", label: "🔥 Termelétrica" },
   { value: "linha_transmissao", label: "⚡ Linha de Transmissão" },
   { value: "mina", label: "⛏️ Mineração" },

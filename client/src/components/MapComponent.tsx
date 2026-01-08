@@ -17,6 +17,11 @@ const tipoConfig: Record<string, { color: string; icon: string; label: string }>
     icon: '🌪️', 
     label: 'Parque Eólico' 
   },
+  usina_solar: { 
+    color: '#fbbf24', 
+    icon: '☀️', 
+    label: 'Usina Solar' 
+  },
   termoeletrica: { 
     color: '#ef4444', 
     icon: '🔥', 
