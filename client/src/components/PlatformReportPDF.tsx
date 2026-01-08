@@ -75,6 +75,163 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
     return statusMap[status || ''] || status || '-';
   };
 
+  const CHART_COLORS = [
+    [34, 139, 34],   // Green
+    [200, 50, 50],   // Red
+    [0, 102, 153],   // Blue
+    [218, 165, 32],  // Gold
+    [148, 103, 189], // Purple
+    [255, 127, 14],  // Orange
+    [44, 160, 44],   // Bright Green
+    [214, 39, 40],   // Bright Red
+    [31, 119, 180],  // Bright Blue
+    [255, 152, 150], // Light Red
+  ];
+
+  const drawBarChart = (
+    doc: jsPDF,
+    data: { label: string; receitas: number; despesas: number }[],
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    title: string
+  ) => {
+    if (!data || data.length === 0) return y;
+
+    const maxValue = Math.max(...data.flatMap(d => [d.receitas, d.despesas, 1]));
+    const barAreaHeight = height - 40;
+    const barAreaWidth = width - 40;
+    const groupWidth = barAreaWidth / data.length;
+    const barWidth = groupWidth * 0.35;
+    const startX = x + 35;
+    const startY = y + 25;
+
+    doc.setFontSize(11);
+    doc.setTextColor(60, 60, 60);
+    doc.text(title, x + width / 2, y + 10, { align: 'center' });
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(startX, startY, startX, startY + barAreaHeight);
+    doc.line(startX, startY + barAreaHeight, startX + barAreaWidth, startY + barAreaHeight);
+
+    const gridLines = 5;
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    for (let i = 0; i <= gridLines; i++) {
+      const yLine = startY + (barAreaHeight * i) / gridLines;
+      const value = maxValue * (1 - i / gridLines);
+      doc.setDrawColor(230, 230, 230);
+      doc.line(startX, yLine, startX + barAreaWidth, yLine);
+      doc.text(formatCurrency(value).replace('R$ ', ''), startX - 3, yLine + 2, { align: 'right' });
+    }
+
+    data.forEach((item, index) => {
+      const groupX = startX + index * groupWidth + groupWidth * 0.1;
+
+      const receitaHeight = (item.receitas / maxValue) * barAreaHeight;
+      doc.setFillColor(34, 139, 34);
+      doc.rect(groupX, startY + barAreaHeight - receitaHeight, barWidth, receitaHeight, 'F');
+
+      const despesaHeight = (item.despesas / maxValue) * barAreaHeight;
+      doc.setFillColor(200, 50, 50);
+      doc.rect(groupX + barWidth + 2, startY + barAreaHeight - despesaHeight, barWidth, despesaHeight, 'F');
+
+      doc.setFontSize(6);
+      doc.setTextColor(80, 80, 80);
+      const labelText = item.label.length > 8 ? item.label.substring(0, 6) + '..' : item.label;
+      doc.text(labelText, groupX + barWidth, startY + barAreaHeight + 8, { align: 'center' });
+    });
+
+    const legendY = startY + barAreaHeight + 15;
+    doc.setFillColor(34, 139, 34);
+    doc.rect(x + width / 2 - 40, legendY, 8, 5, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(60, 60, 60);
+    doc.text('Receitas', x + width / 2 - 30, legendY + 4);
+
+    doc.setFillColor(200, 50, 50);
+    doc.rect(x + width / 2 + 10, legendY, 8, 5, 'F');
+    doc.text('Despesas', x + width / 2 + 20, legendY + 4);
+
+    return y + height + 10;
+  };
+
+  const drawPieChart = (
+    doc: jsPDF,
+    data: { categoria: string; valor: number }[],
+    x: number,
+    y: number,
+    radius: number,
+    title: string
+  ) => {
+    if (!data || data.length === 0) return y;
+
+    const total = data.reduce((sum, d) => sum + d.valor, 0);
+    if (total === 0) return y;
+
+    doc.setFontSize(11);
+    doc.setTextColor(60, 60, 60);
+    doc.text(title, x + radius, y + 10, { align: 'center' });
+
+    const centerX = x + radius;
+    const centerY = y + 25 + radius;
+    let startAngle = -Math.PI / 2;
+
+    data.forEach((item, index) => {
+      const sliceAngle = (item.valor / total) * 2 * Math.PI;
+      const endAngle = startAngle + sliceAngle;
+
+      const color = CHART_COLORS[index % CHART_COLORS.length];
+      doc.setFillColor(color[0], color[1], color[2]);
+
+      const segments = Math.ceil(sliceAngle * 30);
+      const points: [number, number][] = [[centerX, centerY]];
+
+      for (let i = 0; i <= segments; i++) {
+        const angle = startAngle + (sliceAngle * i) / segments;
+        points.push([
+          centerX + Math.cos(angle) * radius,
+          centerY + Math.sin(angle) * radius,
+        ]);
+      }
+
+      if (points.length > 2) {
+        doc.setLineWidth(0);
+        for (let i = 1; i < points.length - 1; i++) {
+          doc.triangle(
+            centerX, centerY,
+            points[i][0], points[i][1],
+            points[i + 1][0], points[i + 1][1],
+            'F'
+          );
+        }
+      }
+
+      startAngle = endAngle;
+    });
+
+    let legendY = centerY + radius + 15;
+    const legendX = x;
+    doc.setFontSize(7);
+
+    const legendData = data.slice(0, 8);
+    legendData.forEach((item, index) => {
+      const color = CHART_COLORS[index % CHART_COLORS.length];
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.rect(legendX, legendY, 6, 4, 'F');
+
+      doc.setTextColor(60, 60, 60);
+      const percentage = ((item.valor / total) * 100).toFixed(1);
+      const labelText = item.categoria.length > 15 ? item.categoria.substring(0, 12) + '...' : item.categoria;
+      doc.text(`${labelText}: ${percentage}%`, legendX + 8, legendY + 3);
+      legendY += 6;
+    });
+
+    return legendY + 5;
+  };
+
   const generatePDF = async () => {
     setIsExporting(true);
 
@@ -487,10 +644,75 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
         yPos = (doc as any).lastAutoTable.finalY + 10;
       }
 
-      // === FINANCIAL DETAILS ===
+      // === FINANCIAL CHARTS SECTION ===
+      doc.addPage();
+      yPos = 20;
+      addSectionTitle('Gráficos Financeiros', ECOBRASIL_COLORS.green);
+      addDivider();
+
+      // Bar Chart - Monthly Evolution
+      if (data.financeiro.evolucaoMensal && data.financeiro.evolucaoMensal.length > 0) {
+        const barChartData = data.financeiro.evolucaoMensal.map((m: any) => ({
+          label: m.mes || '',
+          receitas: m.receitas || 0,
+          despesas: m.despesas || 0,
+        }));
+
+        yPos = drawBarChart(
+          doc,
+          barChartData.slice(-12),
+          20,
+          yPos,
+          pageWidth - 40,
+          100,
+          'Evolução Mensal: Receitas x Despesas'
+        );
+      }
+
+      // Pie Chart - Expenses by Category
+      if (data.financeiro.porCategoria && data.financeiro.porCategoria.length > 0) {
+        addNewPageIfNeeded(150);
+        
+        const pieChartData = data.financeiro.porCategoria.map((c: any) => ({
+          categoria: c.categoria || 'Outros',
+          valor: c.total || c.valor || 0,
+        }));
+
+        yPos = drawPieChart(
+          doc,
+          pieChartData.slice(0, 10),
+          pageWidth / 2 - 40,
+          yPos,
+          35,
+          'Despesas por Categoria'
+        );
+      }
+
+      // Bar Chart - Revenues by Empreendimento (if available)
+      if (data.financeiro.porEmpreendimento && data.financeiro.porEmpreendimento.length > 0) {
+        addNewPageIfNeeded(120);
+        
+        const empBarData = data.financeiro.porEmpreendimento.slice(0, 8).map((e: any) => ({
+          label: (e.nome || e.empreendimento || 'N/A').substring(0, 10),
+          receitas: e.receitas || e.total || 0,
+          despesas: e.despesas || 0,
+        }));
+
+        yPos = drawBarChart(
+          doc,
+          empBarData,
+          20,
+          yPos,
+          pageWidth - 40,
+          90,
+          'Receitas por Empreendimento'
+        );
+      }
+
+      // === FINANCIAL DETAILS TABLE ===
       if (data.financeiro.evolucaoMensal && data.financeiro.evolucaoMensal.length > 0) {
         addNewPageIfNeeded(80);
-        addSectionTitle('Evolução Financeira Mensal', ECOBRASIL_COLORS.green);
+        addSectionTitle('Tabela de Evolução Financeira Mensal', ECOBRASIL_COLORS.green);
 
         autoTable(doc, {
           startY: yPos,
@@ -514,6 +736,36 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
               const value = data.financeiro.evolucaoMensal[cellData.row.index]?.lucro || 0;
               cellData.cell.styles.textColor = value >= 0 ? ECOBRASIL_COLORS.green : ECOBRASIL_COLORS.red;
             }
+          },
+          margin: { left: 20, right: 20 },
+        });
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      // === EXPENSES BY CATEGORY TABLE ===
+      if (data.financeiro.porCategoria && data.financeiro.porCategoria.length > 0) {
+        addNewPageIfNeeded(60);
+        addSectionTitle('Despesas por Categoria', ECOBRASIL_COLORS.red);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Categoria', 'Valor Total', '% do Total']],
+          body: data.financeiro.porCategoria.map((c: any) => {
+            const total = data.financeiro.totalDespesas || 1;
+            const valor = c.total || c.valor || 0;
+            const percentage = ((valor / total) * 100).toFixed(1);
+            return [
+              c.categoria || 'Outros',
+              formatCurrency(valor),
+              `${percentage}%`,
+            ];
+          }),
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: ECOBRASIL_COLORS.red, textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [255, 245, 245] },
+          columnStyles: {
+            1: { halign: 'right' },
+            2: { halign: 'right' },
           },
           margin: { left: 20, right: 20 },
         });
