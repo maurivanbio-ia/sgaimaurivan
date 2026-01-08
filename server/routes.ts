@@ -4848,6 +4848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/relatorio-plataforma', requireAuth, async (req, res) => {
     try {
+      console.log('Generating platform report...');
       const userUnidade = req.user.unidade;
       const userCargo = req.user.cargo;
       const userRole = req.user.role;
@@ -4862,34 +4863,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAdmin = userRole === 'admin' || userCargo === 'diretor';
       const unidadeFilter = isAdmin ? undefined : userUnidade;
       
-      // Fetch all module data in parallel
-      const [
-        empreendimentosList,
-        licencasList,
-        demandasList,
-        veiculosList,
-        equipamentosList,
-        rhList,
-        contratosList,
-        campanhasList,
-        projetosList,
-        financeiroStats,
-        tarefasList,
-        membrosEquipeList,
-      ] = await Promise.all([
-        storage.getEmpreendimentos(unidadeFilter),
-        storage.getLicencas(unidadeFilter),
-        storage.getDemandas(unidadeFilter),
-        storage.getVeiculos(unidadeFilter),
-        storage.getEquipamentos(unidadeFilter),
-        storage.getRhRegistros(unidadeFilter),
-        storage.getContratos(unidadeFilter),
-        storage.getCampanhas(unidadeFilter),
-        storage.getProjetos(unidadeFilter),
-        storage.getFinancialStats(),
-        storage.getTarefas({ unidade: unidadeFilter }),
-        storage.getMembrosEquipe(unidadeFilter),
-      ]);
+      console.log('Fetching data for report...', { isAdmin, unidadeFilter });
+      
+      // Fetch all module data - handle errors gracefully
+      let empreendimentosList: any[] = [];
+      let licencasList: any[] = [];
+      let demandasList: any[] = [];
+      let veiculosList: any[] = [];
+      let equipamentosList: any[] = [];
+      let rhList: any[] = [];
+      let contratosList: any[] = [];
+      let campanhasList: any[] = [];
+      let projetosList: any[] = [];
+      let financeiroStats: any = null;
+      let tarefasList: any[] = [];
+      let membrosEquipeList: any[] = [];
+      
+      try {
+        empreendimentosList = await storage.getEmpreendimentos(unidadeFilter) || [];
+        console.log('Loaded empreendimentos:', empreendimentosList.length);
+      } catch (e) { console.error('Error loading empreendimentos:', e); }
+      
+      try {
+        licencasList = await storage.getLicencas(unidadeFilter) || [];
+        console.log('Loaded licencas:', licencasList.length);
+      } catch (e) { console.error('Error loading licencas:', e); }
+      
+      try {
+        demandasList = await storage.getDemandas(unidadeFilter) || [];
+        console.log('Loaded demandas:', demandasList.length);
+      } catch (e) { console.error('Error loading demandas:', e); }
+      
+      try {
+        veiculosList = await storage.getVeiculos(unidadeFilter) || [];
+        console.log('Loaded veiculos:', veiculosList.length);
+      } catch (e) { console.error('Error loading veiculos:', e); }
+      
+      try {
+        equipamentosList = await storage.getEquipamentos(unidadeFilter) || [];
+        console.log('Loaded equipamentos:', equipamentosList.length);
+      } catch (e) { console.error('Error loading equipamentos:', e); }
+      
+      try {
+        rhList = await storage.getRhRegistros(unidadeFilter) || [];
+        console.log('Loaded rh:', rhList.length);
+      } catch (e) { console.error('Error loading rh:', e); }
+      
+      try {
+        contratosList = await storage.getContratos(unidadeFilter) || [];
+        console.log('Loaded contratos:', contratosList.length);
+      } catch (e) { console.error('Error loading contratos:', e); }
+      
+      try {
+        campanhasList = await storage.getCampanhas(unidadeFilter) || [];
+        console.log('Loaded campanhas:', campanhasList.length);
+      } catch (e) { console.error('Error loading campanhas:', e); }
+      
+      try {
+        projetosList = await storage.getProjetos(unidadeFilter) || [];
+        console.log('Loaded projetos:', projetosList.length);
+      } catch (e) { console.error('Error loading projetos:', e); }
+      
+      try {
+        financeiroStats = await storage.getFinancialStats() || {};
+        console.log('Loaded financeiro stats');
+      } catch (e) { console.error('Error loading financeiro:', e); }
+      
+      try {
+        tarefasList = await storage.getTarefas({ unidade: unidadeFilter }) || [];
+        console.log('Loaded tarefas:', tarefasList.length);
+      } catch (e) { console.error('Error loading tarefas:', e); }
+      
+      try {
+        membrosEquipeList = await storage.getMembrosEquipe(unidadeFilter) || [];
+        console.log('Loaded membros equipe:', membrosEquipeList.length);
+      } catch (e) { console.error('Error loading membros equipe:', e); }
       
       // Calculate KPIs
       const now = new Date();
