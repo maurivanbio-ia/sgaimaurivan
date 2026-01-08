@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -96,6 +98,7 @@ const novoLancamentoSchema = z.object({
   tipo: z.enum(["receita", "despesa", "reembolso", "solicitacao_recurso"], { required_error: "Tipo é obrigatório" }),
   empreendimentoId: z.number({ required_error: "Empreendimento é obrigatório" }),
   categoriaId: z.number({ required_error: "Categoria é obrigatória" }),
+  categoriaOutros: z.string().optional(),
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
   data: z.date({ required_error: "Data é obrigatória" }),
   dataVencimento: z.date().optional().nullable(),
@@ -125,6 +128,7 @@ interface NovoLancamentoFormProps {
 function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showOutrosInput, setShowOutrosInput] = useState(false);
 
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
@@ -151,11 +155,14 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
       valor: 0,
       descricao: "",
       observacoes: "",
+      categoriaOutros: "",
       data: new Date(),
       dataVencimento: null,
       dataPagamento: null,
     },
   });
+
+  const tipoSelecionado = form.watch("tipo");
 
   const createLancamentoMutation = useMutation({
     mutationFn: async (data: NovoLancamentoFormData) => {
@@ -237,38 +244,91 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
           <FormField
             control={form.control}
             name="categoriaId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Categoria *</FormLabel>
-                <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-categoria">
-                      <SelectValue placeholder={categorias.length === 0 ? "Carregando categorias..." : "Selecione a categoria"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {categorias.length === 0 ? (
-                      <SelectItem value="loading" disabled>
-                        {initCategoriesMutation.isPending ? "Inicializando categorias..." : "Carregando categorias..."}
-                      </SelectItem>
-                    ) : (
-                      categorias.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: cat.cor }}
+            render={({ field }) => {
+              const categoriasFiltradas = categorias.filter(cat => {
+                if (tipoSelecionado === "receita") return cat.tipo === "receita";
+                return cat.tipo === "despesa";
+              });
+
+              return (
+                <FormItem className="col-span-2">
+                  <FormLabel>Categoria *</FormLabel>
+                  {categorias.length === 0 ? (
+                    <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                      {initCategoriesMutation.isPending ? "Inicializando categorias..." : "Carregando categorias..."}
+                    </div>
+                  ) : (
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={(value) => {
+                          if (value === "outros") {
+                            setShowOutrosInput(true);
+                            const outrosCat = categoriasFiltradas.find(c => 
+                              c.nome === "Outras Despesas" || c.nome === "Outras Receitas"
+                            );
+                            if (outrosCat) field.onChange(outrosCat.id);
+                          } else {
+                            setShowOutrosInput(false);
+                            field.onChange(Number(value));
+                          }
+                        }}
+                        value={showOutrosInput ? "outros" : field.value?.toString()}
+                        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"
+                        data-testid="radio-categoria"
+                      >
+                        {categoriasFiltradas.filter(c => 
+                          c.nome !== "Outras Despesas" && c.nome !== "Outras Receitas"
+                        ).map((cat) => (
+                          <div key={cat.id} className="flex items-center space-x-2">
+                            <RadioGroupItem 
+                              value={cat.id.toString()} 
+                              id={`cat-${cat.id}`}
+                              data-testid={`radio-categoria-${cat.id}`}
                             />
-                            {cat.nome} ({cat.tipo})
+                            <Label 
+                              htmlFor={`cat-${cat.id}`}
+                              className="flex items-center gap-2 cursor-pointer text-sm"
+                            >
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                style={{ backgroundColor: cat.cor }}
+                              />
+                              {cat.nome}
+                            </Label>
                           </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
+                        ))}
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem 
+                            value="outros" 
+                            id="cat-outros"
+                            data-testid="radio-categoria-outros"
+                          />
+                          <Label 
+                            htmlFor="cat-outros"
+                            className="flex items-center gap-2 cursor-pointer text-sm font-medium"
+                          >
+                            <div className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-400" />
+                            Outros
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                  )}
+                  {showOutrosInput && (
+                    <div className="mt-3">
+                      <Input
+                        placeholder="Digite a categoria personalizada..."
+                        value={form.watch("categoriaOutros") || ""}
+                        onChange={(e) => form.setValue("categoriaOutros", e.target.value)}
+                        className="max-w-md"
+                        data-testid="input-categoria-outros"
+                      />
+                    </div>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField
