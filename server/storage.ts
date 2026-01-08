@@ -13,6 +13,7 @@ import {
   historicoDemandasMovimentacoes,
   categoriasFinanceiras,
   financeiroLancamentos,
+  financeiroRateios,
   solicitacoesRecursos,
   orcamentos,
   cronogramaItens,
@@ -47,6 +48,8 @@ import {
   type InsertCategoriaFinanceira,
   type FinanceiroLancamento,
   type InsertFinanceiroLancamento,
+  type FinanceiroRateio,
+  type InsertFinanceiroRateio,
   type SolicitacaoRecurso,
   type InsertSolicitacaoRecurso,
   type Orcamento,
@@ -198,6 +201,11 @@ export interface IStorage {
   createLancamento(lancamento: InsertFinanceiroLancamento): Promise<FinanceiroLancamento>;
   updateLancamento(id: number, lancamento: Partial<InsertFinanceiroLancamento>): Promise<FinanceiroLancamento>;
   deleteLancamento(id: number): Promise<boolean>;
+  
+  // Rateio operations
+  getRateiosByLancamento(lancamentoId: number): Promise<FinanceiroRateio[]>;
+  createRateio(rateio: InsertFinanceiroRateio): Promise<FinanceiroRateio>;
+  deleteRateiosByLancamento(lancamentoId: number): Promise<boolean>;
   
   getSolicitacoes(filters?: { 
     status?: string; 
@@ -1533,8 +1541,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteLancamento(id: number): Promise<boolean> {
+    // First delete associated rateios
+    await db.delete(financeiroRateios).where(eq(financeiroRateios.lancamentoId, id));
     const result = await db.delete(financeiroLancamentos).where(eq(financeiroLancamentos.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Rateio operations
+  async getRateiosByLancamento(lancamentoId: number): Promise<FinanceiroRateio[]> {
+    return await db
+      .select()
+      .from(financeiroRateios)
+      .where(eq(financeiroRateios.lancamentoId, lancamentoId))
+      .orderBy(financeiroRateios.id);
+  }
+
+  async createRateio(rateio: InsertFinanceiroRateio): Promise<FinanceiroRateio> {
+    const [newRateio] = await db.insert(financeiroRateios).values(rateio).returning();
+    return newRateio;
+  }
+
+  async deleteRateiosByLancamento(lancamentoId: number): Promise<boolean> {
+    const result = await db.delete(financeiroRateios).where(eq(financeiroRateios.lancamentoId, lancamentoId));
+    return result.rowCount !== null && result.rowCount >= 0;
   }
 
   // Solicitacao operations
