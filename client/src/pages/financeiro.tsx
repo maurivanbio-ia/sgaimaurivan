@@ -39,6 +39,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
+import { FinancialReportPDF } from "@/components/FinancialReportPDF";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -598,6 +599,7 @@ export default function FinanceiroPage() {
         </div>
         
         <div className="flex gap-3">
+          <FinancialReportPDF stats={stats} />
           <RefreshButton />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
