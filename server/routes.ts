@@ -1422,46 +1422,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/financeiro/lancamentos', async (req, res) => {
     try {
-      const { rateios, ...lancamentoBody } = req.body;
-      
       // Add created by user info to the request
       const lancamentoData = {
-        ...lancamentoBody,
+        ...req.body,
         criadoPor: req.session?.userId || 1, // Default to user ID 1 for now
       };
       const lancamento = await storage.createLancamento(lancamentoData);
-      
-      // Create rateio entries if provided
-      if (rateios && Array.isArray(rateios) && rateios.length > 0) {
-        for (const rateio of rateios) {
-          await storage.createRateio({
-            lancamentoId: lancamento.id,
-            empresaNome: rateio.empresaNome,
-            valor: rateio.valor,
-            observacao: rateio.observacao || null,
-          });
-        }
-      }
-      
       res.status(201).json(lancamento);
     } catch (error) {
       console.error('Error creating lancamento:', error);
       res.status(500).json({ error: 'Failed to create lancamento' });
-    }
-  });
-  
-  // Get rateios for a lancamento
-  app.get('/api/financeiro/lancamentos/:id/rateios', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'Invalid lancamento ID' });
-      }
-      const rateios = await storage.getRateiosByLancamento(id);
-      res.json(rateios);
-    } catch (error) {
-      console.error('Error fetching rateios:', error);
-      res.status(500).json({ error: 'Failed to fetch rateios' });
     }
   });
 
