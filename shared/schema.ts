@@ -1401,3 +1401,147 @@ export const insertOfflineSyncQueueSchema = createInsertSchema(offlineSyncQueue)
 export type InsertOfflineSyncQueue = z.infer<typeof insertOfflineSyncQueueSchema>;
 export type OfflineSyncQueue = typeof offlineSyncQueue.$inferSelect;
 
+// ======== GESTÃO DE EQUIPE E CRONOGRAMA ========
+
+// Tabela de membros da equipe (vinculados a usuários do sistema)
+export const membrosEquipe = pgTable("membros_equipe", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull().unique(),
+  nome: text("nome").notNull(),
+  telefone: text("telefone"),
+  cargo: text("cargo").notNull().default("colaborador"), // coordenador, colaborador
+  departamento: text("departamento"), // campo, escritorio, laboratorio
+  coordenadorId: integer("coordenador_id").references(() => users.id), // quem é o coordenador responsável
+  unidade: text("unidade").notNull().default("goiania"),
+  ativo: boolean("ativo").notNull().default(true),
+  dataAdmissao: date("data_admissao"),
+  observacoes: text("observacoes"),
+  avatar: text("avatar"), // URL da foto
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertMembroEquipeSchema = createInsertSchema(membrosEquipe).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertMembroEquipe = z.infer<typeof insertMembroEquipeSchema>;
+export type MembroEquipe = typeof membrosEquipe.$inferSelect;
+
+// Tabela de tarefas/cronograma
+export const tarefas = pgTable("tarefas", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  dataInicio: date("data_inicio").notNull(),
+  dataFim: date("data_fim").notNull(),
+  prioridade: text("prioridade").notNull().default("media"), // baixa, media, alta, urgente
+  status: text("status").notNull().default("pendente"), // pendente, em_andamento, concluida, cancelada, atrasada
+  categoria: text("categoria").notNull().default("geral"), // campo, escritorio, relatorio, reuniao, vistoria, geral
+  responsavelId: integer("responsavel_id").references(() => users.id).notNull(), // colaborador responsável
+  criadoPor: integer("criado_por").references(() => users.id).notNull(), // coordenador que criou
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id), // projeto relacionado (opcional)
+  unidade: text("unidade").notNull().default("goiania"),
+  recorrente: boolean("recorrente").notNull().default(false),
+  frequenciaRecorrencia: text("frequencia_recorrencia"), // diaria, semanal, mensal
+  horasEstimadas: decimal("horas_estimadas", { precision: 5, scale: 2 }),
+  horasRealizadas: decimal("horas_realizadas", { precision: 5, scale: 2 }),
+  observacoesColaborador: text("observacoes_colaborador"), // notas do colaborador
+  observacoesCoordenador: text("observacoes_coordenador"), // notas do coordenador
+  arquivos: text("arquivos").array(), // URLs de arquivos anexados
+  iniciadaEm: timestamp("iniciada_em"),
+  concluidaEm: timestamp("concluida_em"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertTarefaSchema = createInsertSchema(tarefas).omit({
+  id: true,
+  iniciadaEm: true,
+  concluidaEm: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertTarefa = z.infer<typeof insertTarefaSchema>;
+export type Tarefa = typeof tarefas.$inferSelect;
+
+// Tabela de atualizações/comentários de tarefas
+export const tarefaAtualizacoes = pgTable("tarefa_atualizacoes", {
+  id: serial("id").primaryKey(),
+  tarefaId: integer("tarefa_id").references(() => tarefas.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  tipo: text("tipo").notNull().default("comentario"), // comentario, status_change, anexo
+  conteudo: text("conteudo").notNull(),
+  statusAnterior: text("status_anterior"),
+  statusNovo: text("status_novo"),
+  arquivos: text("arquivos").array(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertTarefaAtualizacaoSchema = createInsertSchema(tarefaAtualizacoes).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertTarefaAtualizacao = z.infer<typeof insertTarefaAtualizacaoSchema>;
+export type TarefaAtualizacao = typeof tarefaAtualizacoes.$inferSelect;
+
+// Tabela de registro de horas (timesheet)
+export const registroHoras = pgTable("registro_horas", {
+  id: serial("id").primaryKey(),
+  tarefaId: integer("tarefa_id").references(() => tarefas.id).notNull(),
+  colaboradorId: integer("colaborador_id").references(() => users.id).notNull(),
+  data: date("data").notNull(),
+  horaInicio: text("hora_inicio").notNull(), // HH:mm
+  horaFim: text("hora_fim").notNull(), // HH:mm
+  duracaoMinutos: integer("duracao_minutos").notNull(),
+  descricao: text("descricao"),
+  aprovado: boolean("aprovado").notNull().default(false),
+  aprovadoPor: integer("aprovado_por").references(() => users.id),
+  aprovadoEm: timestamp("aprovado_em"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertRegistroHorasSchema = createInsertSchema(registroHoras).omit({
+  id: true,
+  aprovado: true,
+  aprovadoPor: true,
+  aprovadoEm: true,
+  criadoEm: true,
+});
+
+export type InsertRegistroHoras = z.infer<typeof insertRegistroHorasSchema>;
+export type RegistroHoras = typeof registroHoras.$inferSelect;
+
+// Relations para tarefas
+export const tarefasRelations = relations(tarefas, ({ one, many }) => ({
+  responsavel: one(users, {
+    fields: [tarefas.responsavelId],
+    references: [users.id],
+  }),
+  criador: one(users, {
+    fields: [tarefas.criadoPor],
+    references: [users.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [tarefas.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  atualizacoes: many(tarefaAtualizacoes),
+  registrosHoras: many(registroHoras),
+}));
+
+export const membrosEquipeRelations = relations(membrosEquipe, ({ one }) => ({
+  user: one(users, {
+    fields: [membrosEquipe.userId],
+    references: [users.id],
+  }),
+  coordenador: one(users, {
+    fields: [membrosEquipe.coordenadorId],
+    references: [users.id],
+  }),
+}));
+
