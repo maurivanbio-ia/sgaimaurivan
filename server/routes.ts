@@ -1365,175 +1365,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const defaultCategories = [
-        // ===== DESPESAS - OPERACIONAIS =====
-        { nome: 'Combustível', tipo: 'despesa', cor: '#ef4444', descricao: 'Gastos com combustível para veículos' },
-        { nome: 'Hospedagem', tipo: 'despesa', cor: '#f97316', descricao: 'Gastos com hotéis e pousadas' },
-        { nome: 'Alimentação', tipo: 'despesa', cor: '#eab308', descricao: 'Gastos com refeições e alimentação' },
-        { nome: 'Transporte', tipo: 'despesa', cor: '#22c55e', descricao: 'Gastos com passagens e deslocamentos' },
-        { nome: 'Passagens Aéreas', tipo: 'despesa', cor: '#16a34a', descricao: 'Passagens de avião para deslocamentos' },
-        { nome: 'Pedágios', tipo: 'despesa', cor: '#65a30d', descricao: 'Taxas de pedágio em rodovias' },
-        { nome: 'Estacionamento', tipo: 'despesa', cor: '#84cc16', descricao: 'Gastos com estacionamento' },
-        
-        // ===== DESPESAS - MATERIAIS E EQUIPAMENTOS =====
-        { nome: 'Material de Campo', tipo: 'despesa', cor: '#14b8a6', descricao: 'EPIs, equipamentos e materiais de campo' },
-        { nome: 'Equipamentos', tipo: 'despesa', cor: '#06b6d4', descricao: 'Compra e aluguel de equipamentos' },
-        { nome: 'Equipamentos de Segurança', tipo: 'despesa', cor: '#0891b2', descricao: 'EPIs e equipamentos de proteção' },
-        { nome: 'Ferramentas', tipo: 'despesa', cor: '#0e7490', descricao: 'Ferramentas manuais e elétricas' },
-        { nome: 'Material de Laboratório', tipo: 'despesa', cor: '#155e75', descricao: 'Reagentes e materiais para análises' },
-        { nome: 'Material de Coleta', tipo: 'despesa', cor: '#164e63', descricao: 'Frascos, recipientes e materiais para amostragem' },
-        { nome: 'Material de Escritório', tipo: 'despesa', cor: '#f43f5e', descricao: 'Papelaria e materiais de escritório' },
-        { nome: 'Material de Informática', tipo: 'despesa', cor: '#e11d48', descricao: 'Periféricos e acessórios de TI' },
-        { nome: 'Material de Limpeza', tipo: 'despesa', cor: '#be185d', descricao: 'Produtos e materiais de limpeza' },
-        { nome: 'Material de Sinalização', tipo: 'despesa', cor: '#9d174d', descricao: 'Placas, faixas e materiais de sinalização' },
-        
-        // ===== DESPESAS - SERVIÇOS =====
-        { nome: 'Serviços Terceirizados', tipo: 'despesa', cor: '#3b82f6', descricao: 'Consultoria e serviços externos' },
-        { nome: 'Análises Laboratoriais', tipo: 'despesa', cor: '#2563eb', descricao: 'Análises de água, solo, ar e outros' },
-        { nome: 'Topografia', tipo: 'despesa', cor: '#1d4ed8', descricao: 'Serviços de topografia e georreferenciamento' },
-        { nome: 'Geoprocessamento', tipo: 'despesa', cor: '#1e40af', descricao: 'Serviços de SIG e sensoriamento remoto' },
-        { nome: 'Drone/Aerofotogrametria', tipo: 'despesa', cor: '#1e3a8a', descricao: 'Serviços de mapeamento aéreo' },
-        { nome: 'Advocacia', tipo: 'despesa', cor: '#312e81', descricao: 'Honorários advocatícios' },
-        { nome: 'Contabilidade', tipo: 'despesa', cor: '#3730a3', descricao: 'Serviços contábeis' },
-        { nome: 'Assessoria Jurídica', tipo: 'despesa', cor: '#4c1d95', descricao: 'Assessoria e consultoria jurídica' },
-        { nome: 'Segurança', tipo: 'despesa', cor: '#5b21b6', descricao: 'Serviços de vigilância e segurança' },
-        { nome: 'Limpeza e Conservação', tipo: 'despesa', cor: '#6d28d9', descricao: 'Serviços de limpeza terceirizados' },
-        { nome: 'Motoboy/Courier', tipo: 'despesa', cor: '#7c3aed', descricao: 'Serviços de entrega e malote' },
-        { nome: 'Serviços Gráficos', tipo: 'despesa', cor: '#8b5cf6', descricao: 'Impressão, plotagem e encadernação' },
-        { nome: 'Cartório', tipo: 'despesa', cor: '#a855f7', descricao: 'Taxas e serviços de cartório' },
-        
-        // ===== DESPESAS - INFRAESTRUTURA =====
-        { nome: 'Aluguel de Imóvel', tipo: 'despesa', cor: '#64748b', descricao: 'Aluguel de escritório e galpões' },
-        { nome: 'Condomínio', tipo: 'despesa', cor: '#475569', descricao: 'Taxas condominiais' },
-        { nome: 'Energia Elétrica', tipo: 'despesa', cor: '#fbbf24', descricao: 'Conta de luz' },
-        { nome: 'Água e Esgoto', tipo: 'despesa', cor: '#0ea5e9', descricao: 'Conta de água e esgoto' },
-        { nome: 'Gás', tipo: 'despesa', cor: '#f97316', descricao: 'Gás encanado ou botijão' },
-        { nome: 'Internet', tipo: 'despesa', cor: '#06b6d4', descricao: 'Serviço de internet' },
-        { nome: 'Telefone Fixo', tipo: 'despesa', cor: '#ec4899', descricao: 'Conta de telefone fixo' },
-        { nome: 'Telefone Móvel', tipo: 'despesa', cor: '#d946ef', descricao: 'Conta de celular corporativo' },
-        { nome: 'Locação de Veículos', tipo: 'despesa', cor: '#84cc16', descricao: 'Aluguel de veículos' },
-        { nome: 'Locação de Equipamentos', tipo: 'despesa', cor: '#22c55e', descricao: 'Aluguel de máquinas e equipamentos' },
-        
-        // ===== DESPESAS - MANUTENÇÃO =====
-        { nome: 'Manutenção de Veículos', tipo: 'despesa', cor: '#dc2626', descricao: 'Revisão, peças e reparos de veículos' },
-        { nome: 'Manutenção de Equipamentos', tipo: 'despesa', cor: '#ea580c', descricao: 'Manutenção de equipamentos técnicos' },
-        { nome: 'Manutenção Predial', tipo: 'despesa', cor: '#d97706', descricao: 'Reparos e manutenção de imóveis' },
-        { nome: 'Manutenção de TI', tipo: 'despesa', cor: '#ca8a04', descricao: 'Suporte e manutenção de informática' },
-        { nome: 'Calibração de Equipamentos', tipo: 'despesa', cor: '#65a30d', descricao: 'Calibração e aferição de instrumentos' },
-        
-        // ===== DESPESAS - PESSOAL =====
-        { nome: 'Salários', tipo: 'despesa', cor: '#475569', descricao: 'Remuneração de funcionários' },
-        { nome: 'Férias', tipo: 'despesa', cor: '#64748b', descricao: 'Pagamento de férias' },
-        { nome: '13º Salário', tipo: 'despesa', cor: '#94a3b8', descricao: 'Gratificação natalina' },
-        { nome: 'FGTS', tipo: 'despesa', cor: '#cbd5e1', descricao: 'Fundo de Garantia' },
-        { nome: 'INSS', tipo: 'despesa', cor: '#e2e8f0', descricao: 'Contribuição previdenciária' },
-        { nome: 'Vale Transporte', tipo: 'despesa', cor: '#334155', descricao: 'Benefício de transporte' },
-        { nome: 'Vale Alimentação', tipo: 'despesa', cor: '#1e293b', descricao: 'Benefício de alimentação' },
-        { nome: 'Vale Refeição', tipo: 'despesa', cor: '#0f172a', descricao: 'Benefício para refeições' },
-        { nome: 'Plano de Saúde', tipo: 'despesa', cor: '#059669', descricao: 'Convênio médico' },
-        { nome: 'Plano Odontológico', tipo: 'despesa', cor: '#0d9488', descricao: 'Convênio odontológico' },
-        { nome: 'Seguro de Vida', tipo: 'despesa', cor: '#0891b2', descricao: 'Seguro de vida em grupo' },
-        { nome: 'Treinamentos', tipo: 'despesa', cor: '#0284c7', descricao: 'Capacitação e treinamentos' },
-        { nome: 'Cursos e Certificações', tipo: 'despesa', cor: '#2563eb', descricao: 'Cursos técnicos e certificações' },
-        { nome: 'Rescisões', tipo: 'despesa', cor: '#4f46e5', descricao: 'Verbas rescisórias' },
-        { nome: 'Estagiários', tipo: 'despesa', cor: '#7c3aed', descricao: 'Bolsas e benefícios de estagiários' },
-        
-        // ===== DESPESAS - TRIBUTOS E TAXAS =====
-        { nome: 'Taxas Ambientais', tipo: 'despesa', cor: '#8b5cf6', descricao: 'Taxas de órgãos ambientais' },
-        { nome: 'TCFA', tipo: 'despesa', cor: '#a855f7', descricao: 'Taxa de Controle e Fiscalização Ambiental' },
-        { nome: 'ART/RRT', tipo: 'despesa', cor: '#c026d3', descricao: 'Anotação de Responsabilidade Técnica' },
-        { nome: 'IPTU', tipo: 'despesa', cor: '#db2777', descricao: 'Imposto Predial e Territorial Urbano' },
-        { nome: 'IPVA', tipo: 'despesa', cor: '#e11d48', descricao: 'Imposto sobre veículos' },
-        { nome: 'Licenciamento Veicular', tipo: 'despesa', cor: '#dc2626', descricao: 'DPVAT e licenciamento anual' },
-        { nome: 'Multas', tipo: 'despesa', cor: '#b91c1c', descricao: 'Multas de trânsito e outras penalidades' },
-        { nome: 'Taxas Bancárias', tipo: 'despesa', cor: '#991b1b', descricao: 'Tarifas e taxas bancárias' },
-        { nome: 'ISS', tipo: 'despesa', cor: '#7f1d1d', descricao: 'Imposto sobre Serviços' },
-        { nome: 'PIS/COFINS', tipo: 'despesa', cor: '#713f12', descricao: 'Contribuições federais' },
-        { nome: 'IRPJ/CSLL', tipo: 'despesa', cor: '#78350f', descricao: 'Impostos sobre lucro' },
-        
-        // ===== DESPESAS - SEGUROS =====
-        { nome: 'Seguro de Veículos', tipo: 'despesa', cor: '#92400e', descricao: 'Seguro automotivo' },
-        { nome: 'Seguro de Equipamentos', tipo: 'despesa', cor: '#a16207', descricao: 'Seguro de equipamentos técnicos' },
-        { nome: 'Seguro Responsabilidade Civil', tipo: 'despesa', cor: '#b45309', descricao: 'Seguro de responsabilidade profissional' },
-        { nome: 'Seguro Patrimonial', tipo: 'despesa', cor: '#c2410c', descricao: 'Seguro de imóveis e bens' },
-        
-        // ===== DESPESAS - MARKETING E COMERCIAL =====
-        { nome: 'Marketing', tipo: 'despesa', cor: '#e11d48', descricao: 'Ações de marketing e publicidade' },
-        { nome: 'Eventos', tipo: 'despesa', cor: '#db2777', descricao: 'Participação em eventos e feiras' },
-        { nome: 'Brindes', tipo: 'despesa', cor: '#c026d3', descricao: 'Brindes corporativos' },
-        { nome: 'Representação', tipo: 'despesa', cor: '#9333ea', descricao: 'Despesas de representação comercial' },
-        { nome: 'Viagens Comerciais', tipo: 'despesa', cor: '#7c3aed', descricao: 'Viagens para prospecção e vendas' },
-        
-        // ===== DESPESAS - TECNOLOGIA =====
-        { nome: 'Software e Licenças', tipo: 'despesa', cor: '#6366f1', descricao: 'Licenças de software' },
-        { nome: 'Assinaturas Digitais', tipo: 'despesa', cor: '#4f46e5', descricao: 'Certificados digitais e assinaturas' },
-        { nome: 'Cloud/Servidores', tipo: 'despesa', cor: '#4338ca', descricao: 'Hospedagem e serviços em nuvem' },
-        { nome: 'Domínios e Sites', tipo: 'despesa', cor: '#3730a3', descricao: 'Registro de domínios e manutenção de sites' },
-        
-        // ===== DESPESAS - OUTROS =====
-        { nome: 'Doações', tipo: 'despesa', cor: '#f472b6', descricao: 'Doações e patrocínios' },
-        { nome: 'Associações e Sindicatos', tipo: 'despesa', cor: '#f9a8d4', descricao: 'Anuidades de associações profissionais' },
-        { nome: 'Despesas Bancárias', tipo: 'despesa', cor: '#fda4af', descricao: 'IOF, tarifas e juros' },
-        { nome: 'Outros Gastos', tipo: 'despesa', cor: '#94a3b8', descricao: 'Despesas diversas não categorizadas' },
-        
-        // ===== RECEITAS - SERVIÇOS AMBIENTAIS =====
-        { nome: 'Licenciamento Ambiental', tipo: 'receita', cor: '#22c55e', descricao: 'Receita de processos de licenciamento' },
-        { nome: 'Licença Prévia (LP)', tipo: 'receita', cor: '#16a34a', descricao: 'Elaboração de LP' },
-        { nome: 'Licença de Instalação (LI)', tipo: 'receita', cor: '#15803d', descricao: 'Elaboração de LI' },
-        { nome: 'Licença de Operação (LO)', tipo: 'receita', cor: '#166534', descricao: 'Elaboração de LO' },
-        { nome: 'Renovação de Licença', tipo: 'receita', cor: '#14532d', descricao: 'Renovação de licenças ambientais' },
-        { nome: 'Regularização Ambiental', tipo: 'receita', cor: '#134e4a', descricao: 'Processos de regularização' },
-        
-        // ===== RECEITAS - ESTUDOS AMBIENTAIS =====
-        { nome: 'EIA/RIMA', tipo: 'receita', cor: '#10b981', descricao: 'Estudo de Impacto Ambiental' },
-        { nome: 'RCA/PCA', tipo: 'receita', cor: '#059669', descricao: 'Relatório e Plano de Controle Ambiental' },
-        { nome: 'EAS/RAS', tipo: 'receita', cor: '#047857', descricao: 'Estudo e Relatório Ambiental Simplificado' },
-        { nome: 'PRAD', tipo: 'receita', cor: '#065f46', descricao: 'Plano de Recuperação de Área Degradada' },
-        { nome: 'PBA', tipo: 'receita', cor: '#064e3b', descricao: 'Plano Básico Ambiental' },
-        { nome: 'Inventário Florestal', tipo: 'receita', cor: '#14b8a6', descricao: 'Inventário e caracterização florestal' },
-        { nome: 'Laudo de Fauna', tipo: 'receita', cor: '#0d9488', descricao: 'Levantamento e estudos de fauna' },
-        { nome: 'Laudo de Flora', tipo: 'receita', cor: '#0f766e', descricao: 'Levantamento e estudos de flora' },
-        { nome: 'Estudo Hidrogeológico', tipo: 'receita', cor: '#115e59', descricao: 'Estudos de águas subterrâneas' },
-        { nome: 'Estudo Hidrológico', tipo: 'receita', cor: '#0891b2', descricao: 'Estudos de recursos hídricos' },
-        { nome: 'Estudo de Solo', tipo: 'receita', cor: '#0e7490', descricao: 'Análise e caracterização de solos' },
-        
-        // ===== RECEITAS - MONITORAMENTO =====
-        { nome: 'Monitoramento Ambiental', tipo: 'receita', cor: '#06b6d4', descricao: 'Monitoramento contínuo' },
-        { nome: 'Monitoramento de Água', tipo: 'receita', cor: '#0284c7', descricao: 'Monitoramento de qualidade da água' },
-        { nome: 'Monitoramento de Ar', tipo: 'receita', cor: '#0369a1', descricao: 'Monitoramento de qualidade do ar' },
-        { nome: 'Monitoramento de Ruído', tipo: 'receita', cor: '#075985', descricao: 'Monitoramento de níveis de ruído' },
-        { nome: 'Monitoramento de Fauna', tipo: 'receita', cor: '#0c4a6e', descricao: 'Acompanhamento de fauna' },
-        { nome: 'Monitoramento de Flora', tipo: 'receita', cor: '#1e3a5f', descricao: 'Acompanhamento de vegetação' },
-        { nome: 'Monitoramento de Efluentes', tipo: 'receita', cor: '#1e3a8a', descricao: 'Controle de efluentes industriais' },
-        
-        // ===== RECEITAS - CONSULTORIA =====
-        { nome: 'Consultoria Ambiental', tipo: 'receita', cor: '#3b82f6', descricao: 'Consultoria geral em meio ambiente' },
-        { nome: 'Consultoria em SST', tipo: 'receita', cor: '#2563eb', descricao: 'Saúde e Segurança do Trabalho' },
-        { nome: 'Consultoria Técnica', tipo: 'receita', cor: '#1d4ed8', descricao: 'Assessoria técnica especializada' },
-        { nome: 'Auditoria Ambiental', tipo: 'receita', cor: '#1e40af', descricao: 'Auditorias e verificações ambientais' },
-        { nome: 'Due Diligence', tipo: 'receita', cor: '#1e3a8a', descricao: 'Avaliação ambiental para transações' },
-        
-        // ===== RECEITAS - PROGRAMAS E PROJETOS =====
-        { nome: 'Programa de Educação Ambiental', tipo: 'receita', cor: '#8b5cf6', descricao: 'Programas de educação ambiental' },
-        { nome: 'Programa de Comunicação', tipo: 'receita', cor: '#7c3aed', descricao: 'Comunicação social de projetos' },
-        { nome: 'Programa de Reassentamento', tipo: 'receita', cor: '#6d28d9', descricao: 'Reassentamento de comunidades' },
-        { nome: 'Compensação Ambiental', tipo: 'receita', cor: '#5b21b6', descricao: 'Projetos de compensação ambiental' },
-        { nome: 'Supressão Vegetal', tipo: 'receita', cor: '#4c1d95', descricao: 'Autorização e gestão de supressão' },
-        { nome: 'Resgate de Fauna', tipo: 'receita', cor: '#3730a3', descricao: 'Resgate e relocação de fauna' },
-        { nome: 'Resgate de Flora', tipo: 'receita', cor: '#312e81', descricao: 'Resgate de germoplasma e mudas' },
-        
-        // ===== RECEITAS - GEOTECNOLOGIA =====
-        { nome: 'Georreferenciamento', tipo: 'receita', cor: '#f59e0b', descricao: 'Serviços de georreferenciamento' },
-        { nome: 'Mapeamento Temático', tipo: 'receita', cor: '#d97706', descricao: 'Elaboração de mapas temáticos' },
-        { nome: 'Sensoriamento Remoto', tipo: 'receita', cor: '#b45309', descricao: 'Análise de imagens de satélite' },
-        { nome: 'Aerolevantamento', tipo: 'receita', cor: '#92400e', descricao: 'Levantamento com drone/aeronave' },
-        
-        // ===== RECEITAS - OUTROS =====
-        { nome: 'Contrato de Serviço', tipo: 'receita', cor: '#84cc16', descricao: 'Receita de contratos firmados' },
-        { nome: 'Medição de Contrato', tipo: 'receita', cor: '#65a30d', descricao: 'Medições parciais de contratos' },
-        { nome: 'Aditivos Contratuais', tipo: 'receita', cor: '#4d7c0f', descricao: 'Aditivos e reajustes de contratos' },
-        { nome: 'Reembolso de Despesas', tipo: 'receita', cor: '#3f6212', descricao: 'Reembolso de despesas pelo cliente' },
-        { nome: 'Juros e Correção', tipo: 'receita', cor: '#365314', descricao: 'Juros recebidos e correção monetária' },
-        { nome: 'Outras Receitas', tipo: 'receita', cor: '#1a2e05', descricao: 'Receitas diversas não categorizadas' },
+        // DESPESAS PRINCIPAIS
+        { nome: 'Combustível', tipo: 'despesa', cor: '#ef4444' },
+        { nome: 'Hospedagem', tipo: 'despesa', cor: '#f97316' },
+        { nome: 'Alimentação', tipo: 'despesa', cor: '#eab308' },
+        { nome: 'Transporte', tipo: 'despesa', cor: '#22c55e' },
+        { nome: 'Material de Campo', tipo: 'despesa', cor: '#14b8a6' },
+        { nome: 'Material de Escritório', tipo: 'despesa', cor: '#06b6d4' },
+        { nome: 'Manutenção de Veículos', tipo: 'despesa', cor: '#8b5cf6' },
+        { nome: 'Manutenção de Equipamentos', tipo: 'despesa', cor: '#a855f7' },
+        { nome: 'Serviços de Terceiros', tipo: 'despesa', cor: '#ec4899' },
+        { nome: 'Análises Laboratoriais', tipo: 'despesa', cor: '#f43f5e' },
+        { nome: 'Taxas e Licenças', tipo: 'despesa', cor: '#64748b' },
+        { nome: 'Seguro', tipo: 'despesa', cor: '#475569' },
+        { nome: 'Salários', tipo: 'despesa', cor: '#0ea5e9' },
+        { nome: 'Encargos Trabalhistas', tipo: 'despesa', cor: '#3b82f6' },
+        { nome: 'Aluguel', tipo: 'despesa', cor: '#6366f1' },
+        { nome: 'Energia e Água', tipo: 'despesa', cor: '#84cc16' },
+        { nome: 'Telefone e Internet', tipo: 'despesa', cor: '#10b981' },
+        { nome: 'Software e Licenças', tipo: 'despesa', cor: '#0d9488' },
+        { nome: 'Marketing e Publicidade', tipo: 'despesa', cor: '#f59e0b' },
+        { nome: 'Outras Despesas', tipo: 'despesa', cor: '#94a3b8' },
+        // RECEITAS PRINCIPAIS
+        { nome: 'Serviços de Licenciamento', tipo: 'receita', cor: '#22c55e' },
+        { nome: 'Consultoria Ambiental', tipo: 'receita', cor: '#16a34a' },
+        { nome: 'Estudos Ambientais', tipo: 'receita', cor: '#15803d' },
+        { nome: 'Monitoramento Ambiental', tipo: 'receita', cor: '#166534' },
+        { nome: 'Georreferenciamento', tipo: 'receita', cor: '#14532d' },
+        { nome: 'Treinamentos', tipo: 'receita', cor: '#65a30d' },
+        { nome: 'Outras Receitas', tipo: 'receita', cor: '#a3e635' },
       ];
 
       const createdCategories = [];
