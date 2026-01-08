@@ -3865,10 +3865,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ======== VINCULAÇÃO MEMBROS-EMPREENDIMENTOS ========
 
-  // Listar empreendimentos vinculados a um membro
+  // Listar empreendimentos vinculados a um membro (scoped by unidade)
   app.get('/api/equipe/:id/empreendimentos', requireAuth, async (req, res) => {
     try {
       const membroId = parseInt(req.params.id);
+      const userUnidade = req.user.unidade;
+      
+      // Verify member belongs to user's unidade (unless admin/diretor)
+      const membro = await storage.getMembroEquipeById(membroId);
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && membro.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para acessar este membro' });
+      }
+      
       const vinculacoes = await storage.getMembroEmpreendimentos(membroId);
       res.json(vinculacoes);
     } catch (error) {
@@ -3877,10 +3888,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Listar membros vinculados a um empreendimento
+  // Listar membros vinculados a um empreendimento (scoped by unidade)
   app.get('/api/empreendimentos/:id/equipe', requireAuth, async (req, res) => {
     try {
       const empreendimentoId = parseInt(req.params.id);
+      const userUnidade = req.user.unidade;
+      
+      // Verify empreendimento belongs to user's unidade
+      const emp = await storage.getEmpreendimento(empreendimentoId, userUnidade);
+      if (!emp && req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Sem permissão para acessar este empreendimento' });
+      }
+      
       const membros = await storage.getMembrosDoEmpreendimento(empreendimentoId);
       res.json(membros);
     } catch (error) {
@@ -3889,15 +3908,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Vincular membro a empreendimento
+  // Vincular membro a empreendimento (scoped by unidade)
   app.post('/api/equipe/:membroId/empreendimentos/:empreendimentoId', requireAuth, requireCoordenador, async (req, res) => {
     try {
       const membroId = parseInt(req.params.membroId);
       const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const userUnidade = req.user.unidade;
       
+      // Verify member belongs to user's unidade
       const membro = await storage.getMembroEquipeById(membroId);
       if (!membro) {
         return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && membro.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para vincular este membro' });
+      }
+      
+      // Verify empreendimento belongs to same unidade
+      const emp = await storage.getEmpreendimento(empreendimentoId, membro.unidade);
+      if (!emp) {
+        return res.status(404).json({ error: 'Empreendimento não encontrado ou não pertence à mesma unidade' });
       }
       
       const vinculacao = await storage.vincularMembroEmpreendimento(membroId, empreendimentoId, membro.unidade);
@@ -3908,11 +3938,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Desvincular membro de empreendimento
+  // Desvincular membro de empreendimento (scoped by unidade)
   app.delete('/api/equipe/:membroId/empreendimentos/:empreendimentoId', requireAuth, requireCoordenador, async (req, res) => {
     try {
       const membroId = parseInt(req.params.membroId);
       const empreendimentoId = parseInt(req.params.empreendimentoId);
+      const userUnidade = req.user.unidade;
+      
+      // Verify member belongs to user's unidade
+      const membro = await storage.getMembroEquipeById(membroId);
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && membro.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para desvincular este membro' });
+      }
       
       const success = await storage.desvincularMembroEmpreendimento(membroId, empreendimentoId);
       res.json({ success });
@@ -3924,10 +3964,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ======== VINCULAÇÃO MEMBROS-PROJETOS ========
 
-  // Listar projetos vinculados a um membro
+  // Listar projetos vinculados a um membro (scoped by unidade)
   app.get('/api/equipe/:id/projetos', requireAuth, async (req, res) => {
     try {
       const membroId = parseInt(req.params.id);
+      const userUnidade = req.user.unidade;
+      
+      // Verify member belongs to user's unidade
+      const membro = await storage.getMembroEquipeById(membroId);
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && membro.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para acessar este membro' });
+      }
+      
       const vinculacoes = await storage.getMembroProjetos(membroId);
       res.json(vinculacoes);
     } catch (error) {
@@ -3936,10 +3987,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Listar membros vinculados a um projeto
+  // Listar membros vinculados a um projeto (scoped by unidade)
   app.get('/api/projetos/:id/equipe', requireAuth, async (req, res) => {
     try {
       const projetoId = parseInt(req.params.id);
+      const userUnidade = req.user.unidade;
+      
+      // Verify projeto belongs to user's unidade
+      const projeto = await storage.getProjetoById(projetoId);
+      if (!projeto) {
+        return res.status(404).json({ error: 'Projeto não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && projeto.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para acessar este projeto' });
+      }
+      
       const membros = await storage.getMembrosDoProjeto(projetoId);
       res.json(membros);
     } catch (error) {
@@ -3948,15 +4010,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Vincular membro a projeto
+  // Vincular membro a projeto (scoped by unidade)
   app.post('/api/equipe/:membroId/projetos/:projetoId', requireAuth, requireCoordenador, async (req, res) => {
     try {
       const membroId = parseInt(req.params.membroId);
       const projetoId = parseInt(req.params.projetoId);
+      const userUnidade = req.user.unidade;
       
+      // Verify member belongs to user's unidade
       const membro = await storage.getMembroEquipeById(membroId);
       if (!membro) {
         return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && membro.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para vincular este membro' });
+      }
+      
+      // Verify projeto belongs to same unidade
+      const projeto = await storage.getProjetoById(projetoId);
+      if (!projeto || projeto.unidade !== membro.unidade) {
+        return res.status(404).json({ error: 'Projeto não encontrado ou não pertence à mesma unidade' });
       }
       
       const vinculacao = await storage.vincularMembroProjeto(membroId, projetoId, membro.unidade);
@@ -3967,11 +4040,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Desvincular membro de projeto
+  // Desvincular membro de projeto (scoped by unidade)
   app.delete('/api/equipe/:membroId/projetos/:projetoId', requireAuth, requireCoordenador, async (req, res) => {
     try {
       const membroId = parseInt(req.params.membroId);
       const projetoId = parseInt(req.params.projetoId);
+      const userUnidade = req.user.unidade;
+      
+      // Verify member belongs to user's unidade
+      const membro = await storage.getMembroEquipeById(membroId);
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && membro.unidade !== userUnidade) {
+        return res.status(403).json({ error: 'Sem permissão para desvincular este membro' });
+      }
       
       const success = await storage.desvincularMembroProjeto(membroId, projetoId);
       res.json({ success });
