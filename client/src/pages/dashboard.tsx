@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
+import { PlatformReportPDF } from "@/components/PlatformReportPDF";
 import MapComponent from "@/components/MapComponent";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter, Map, CalendarDays } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
@@ -84,6 +85,7 @@ export default function Dashboard() {
               </SelectContent>
             </Select>
           </div>
+          <PlatformReportPDF buttonVariant="default" buttonSize="default" />
           <ExportButton entity="relatorio-completo" variant="default" />
         </div>
       </div>
