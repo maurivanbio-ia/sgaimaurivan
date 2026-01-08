@@ -1403,10 +1403,11 @@ export type OfflineSyncQueue = typeof offlineSyncQueue.$inferSelect;
 
 // ======== GESTÃO DE EQUIPE E CRONOGRAMA ========
 
-// Tabela de membros da equipe (vinculados a usuários do sistema)
+// Tabela de membros da equipe (vinculados a usuários do sistema e RH)
 export const membrosEquipe = pgTable("membros_equipe", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull().unique(),
+  rhRegistroId: integer("rh_registro_id").references(() => rhRegistros.id), // vinculo com RH
   nome: text("nome").notNull(),
   telefone: text("telefone"),
   cargo: text("cargo").notNull().default("colaborador"), // coordenador, colaborador
@@ -1420,6 +1421,40 @@ export const membrosEquipe = pgTable("membros_equipe", {
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
+
+// Tabela de vinculação de membros a empreendimentos (many-to-many)
+export const membrosEmpreendimentos = pgTable("membros_empreendimentos", {
+  id: serial("id").primaryKey(),
+  membroEquipeId: integer("membro_equipe_id").references(() => membrosEquipe.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertMembroEmpreendimentoSchema = createInsertSchema(membrosEmpreendimentos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertMembroEmpreendimento = z.infer<typeof insertMembroEmpreendimentoSchema>;
+export type MembroEmpreendimento = typeof membrosEmpreendimentos.$inferSelect;
+
+// Tabela de vinculação de membros a projetos (many-to-many)
+export const membrosProjetos = pgTable("membros_projetos", {
+  id: serial("id").primaryKey(),
+  membroEquipeId: integer("membro_equipe_id").references(() => membrosEquipe.id).notNull(),
+  projetoId: integer("projeto_id").references(() => projetos.id).notNull(),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertMembroProjetoSchema = createInsertSchema(membrosProjetos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertMembroProjeto = z.infer<typeof insertMembroProjetoSchema>;
+export type MembroProjeto = typeof membrosProjetos.$inferSelect;
 
 export const insertMembroEquipeSchema = createInsertSchema(membrosEquipe).omit({
   id: true,
@@ -1534,7 +1569,7 @@ export const tarefasRelations = relations(tarefas, ({ one, many }) => ({
   registrosHoras: many(registroHoras),
 }));
 
-export const membrosEquipeRelations = relations(membrosEquipe, ({ one }) => ({
+export const membrosEquipeRelations = relations(membrosEquipe, ({ one, many }) => ({
   user: one(users, {
     fields: [membrosEquipe.userId],
     references: [users.id],
@@ -1542,6 +1577,34 @@ export const membrosEquipeRelations = relations(membrosEquipe, ({ one }) => ({
   coordenador: one(users, {
     fields: [membrosEquipe.coordenadorId],
     references: [users.id],
+  }),
+  rhRegistro: one(rhRegistros, {
+    fields: [membrosEquipe.rhRegistroId],
+    references: [rhRegistros.id],
+  }),
+  empreendimentos: many(membrosEmpreendimentos),
+  projetos: many(membrosProjetos),
+}));
+
+export const membrosEmpreendimentosRelations = relations(membrosEmpreendimentos, ({ one }) => ({
+  membroEquipe: one(membrosEquipe, {
+    fields: [membrosEmpreendimentos.membroEquipeId],
+    references: [membrosEquipe.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [membrosEmpreendimentos.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+}));
+
+export const membrosProjetosRelations = relations(membrosProjetos, ({ one }) => ({
+  membroEquipe: one(membrosEquipe, {
+    fields: [membrosProjetos.membroEquipeId],
+    references: [membrosEquipe.id],
+  }),
+  projeto: one(projetos, {
+    fields: [membrosProjetos.projetoId],
+    references: [projetos.id],
   }),
 }));
 
