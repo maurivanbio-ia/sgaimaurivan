@@ -78,11 +78,15 @@ import {
   type Projeto,
   type InsertProjeto,
   membrosEquipe,
+  membrosEmpreendimentos,
+  membrosProjetos,
   tarefas,
   tarefaAtualizacoes,
   registroHoras,
   type MembroEquipe,
   type InsertMembroEquipe,
+  type MembroEmpreendimento,
+  type MembroProjeto,
   type Tarefa,
   type InsertTarefa,
   type TarefaAtualizacao,
@@ -354,6 +358,18 @@ export interface IStorage {
   updateMembroEquipe(id: number, updates: Partial<InsertMembroEquipe>): Promise<MembroEquipe>;
   deleteMembroEquipe(id: number): Promise<boolean>;
   getEquipeDoCoordenador(coordenadorId: number): Promise<MembroEquipe[]>;
+  
+  // Vinculação de membros a empreendimentos
+  getMembroEmpreendimentos(membroEquipeId: number): Promise<MembroEmpreendimento[]>;
+  getMembrosDoEmpreendimento(empreendimentoId: number): Promise<MembroEquipe[]>;
+  vincularMembroEmpreendimento(membroEquipeId: number, empreendimentoId: number, unidade: string): Promise<MembroEmpreendimento>;
+  desvincularMembroEmpreendimento(membroEquipeId: number, empreendimentoId: number): Promise<boolean>;
+  
+  // Vinculação de membros a projetos
+  getMembroProjetos(membroEquipeId: number): Promise<MembroProjeto[]>;
+  getMembrosDoProjeto(projetoId: number): Promise<MembroEquipe[]>;
+  vincularMembroProjeto(membroEquipeId: number, projetoId: number, unidade: string): Promise<MembroProjeto>;
+  desvincularMembroProjeto(membroEquipeId: number, projetoId: number): Promise<boolean>;
 
   // ========== TAREFAS ==========
   getTarefas(filters?: {
@@ -2579,6 +2595,94 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(asc(membrosEquipe.nome));
+  }
+
+  // ========== VINCULAÇÃO MEMBROS-EMPREENDIMENTOS ==========
+  async getMembroEmpreendimentos(membroEquipeId: number): Promise<MembroEmpreendimento[]> {
+    return db
+      .select()
+      .from(membrosEmpreendimentos)
+      .where(eq(membrosEmpreendimentos.membroEquipeId, membroEquipeId));
+  }
+
+  async getMembrosDoEmpreendimento(empreendimentoId: number): Promise<MembroEquipe[]> {
+    const vinculacoes = await db
+      .select()
+      .from(membrosEmpreendimentos)
+      .where(eq(membrosEmpreendimentos.empreendimentoId, empreendimentoId));
+    
+    if (vinculacoes.length === 0) return [];
+    
+    const membroIds = vinculacoes.map(v => v.membroEquipeId);
+    return db
+      .select()
+      .from(membrosEquipe)
+      .where(and(
+        sql`${membrosEquipe.id} IN (${sql.join(membroIds.map(id => sql`${id}`), sql`, `)})`,
+        eq(membrosEquipe.ativo, true)
+      ));
+  }
+
+  async vincularMembroEmpreendimento(membroEquipeId: number, empreendimentoId: number, unidade: string): Promise<MembroEmpreendimento> {
+    const [vinculacao] = await db
+      .insert(membrosEmpreendimentos)
+      .values({ membroEquipeId, empreendimentoId, unidade })
+      .returning();
+    return vinculacao;
+  }
+
+  async desvincularMembroEmpreendimento(membroEquipeId: number, empreendimentoId: number): Promise<boolean> {
+    const result = await db
+      .delete(membrosEmpreendimentos)
+      .where(and(
+        eq(membrosEmpreendimentos.membroEquipeId, membroEquipeId),
+        eq(membrosEmpreendimentos.empreendimentoId, empreendimentoId)
+      ));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ========== VINCULAÇÃO MEMBROS-PROJETOS ==========
+  async getMembroProjetos(membroEquipeId: number): Promise<MembroProjeto[]> {
+    return db
+      .select()
+      .from(membrosProjetos)
+      .where(eq(membrosProjetos.membroEquipeId, membroEquipeId));
+  }
+
+  async getMembrosDoProjeto(projetoId: number): Promise<MembroEquipe[]> {
+    const vinculacoes = await db
+      .select()
+      .from(membrosProjetos)
+      .where(eq(membrosProjetos.projetoId, projetoId));
+    
+    if (vinculacoes.length === 0) return [];
+    
+    const membroIds = vinculacoes.map(v => v.membroEquipeId);
+    return db
+      .select()
+      .from(membrosEquipe)
+      .where(and(
+        sql`${membrosEquipe.id} IN (${sql.join(membroIds.map(id => sql`${id}`), sql`, `)})`,
+        eq(membrosEquipe.ativo, true)
+      ));
+  }
+
+  async vincularMembroProjeto(membroEquipeId: number, projetoId: number, unidade: string): Promise<MembroProjeto> {
+    const [vinculacao] = await db
+      .insert(membrosProjetos)
+      .values({ membroEquipeId, projetoId, unidade })
+      .returning();
+    return vinculacao;
+  }
+
+  async desvincularMembroProjeto(membroEquipeId: number, projetoId: number): Promise<boolean> {
+    const result = await db
+      .delete(membrosProjetos)
+      .where(and(
+        eq(membrosProjetos.membroEquipeId, membroEquipeId),
+        eq(membrosProjetos.projetoId, projetoId)
+      ));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   // ========== TAREFAS ==========
