@@ -148,6 +148,19 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
     },
   });
 
+  const syncCategoriesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/categorias-financeiras/sync");
+    },
+    onSuccess: () => {
+      refetchCategorias();
+      toast({
+        title: "Categorias atualizadas",
+        description: "As categorias foram sincronizadas com sucesso!",
+      });
+    },
+  });
+
   const form = useForm<NovoLancamentoFormData>({
     resolver: zodResolver(novoLancamentoSchema),
     defaultValues: {
@@ -163,9 +176,6 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   });
 
   const tipoSelecionado = form.watch("tipo");
-  
-  // Debug - verificar se categorias estão sendo carregadas
-  console.log("Debug categorias:", { categorias: categorias.length, tipoSelecionado });
 
   const createLancamentoMutation = useMutation({
     mutationFn: async (data: NovoLancamentoFormData) => {
@@ -255,7 +265,25 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
 
               return (
                 <FormItem className="col-span-2">
-                  <FormLabel>Categoria *</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Categoria *</FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => syncCategoriesMutation.mutate()}
+                      disabled={syncCategoriesMutation.isPending}
+                      className="text-xs h-6"
+                      data-testid="button-sync-categorias"
+                    >
+                      {syncCategoriesMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                      )}
+                      Atualizar
+                    </Button>
+                  </div>
                   {categorias.length === 0 ? (
                     <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
                       {initCategoriesMutation.isPending ? "Inicializando categorias..." : "Carregando categorias..."}
@@ -275,7 +303,7 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
                             field.onChange(Number(value));
                           }
                         }}
-                        value={showOutrosInput ? "outros" : field.value?.toString()}
+                        value={showOutrosInput ? "outros" : (field.value?.toString() || "")}
                         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"
                         data-testid="radio-categoria"
                       >
