@@ -1745,6 +1745,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Excel upload for financial data import
+  const multer = await import('multer');
+  const XLSX = await import('xlsx');
+  
+  const excelUpload = multer.default({
+    storage: multer.memoryStorage(),
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv'
+      ];
+      if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls|csv)$/i)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas arquivos Excel (.xlsx, .xls) ou CSV são permitidos'));
+      }
+    },
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  });
+
+  app.post('/api/financeiro/import-excel', requireAuth, excelUpload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+      }
+
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd/mm/yyyy' });
+
+      if (!data || data.length === 0) {
+        return res.status(400).json({ error: 'Planilha vazia ou formato inválido' });
+      }
+
+      // Get categories and empreendimentos for lookup
+      const categorias = await storage.getCategorias();
+      const empreendimentos = await storage.getEmpreendimentos();
+      
+      const categoriaMap = new Map(categorias.map(c => [c.nome.toLowerCase(), c.id]));
+      const empreendimentoMap = new Map(empreendimentos.map(e => [e.nome.toLowerCase(), e.id]));
+
+      const results = {
+        imported: 0,
+        errors: [] as string[],
+        skipped: 0
+      };
+
+      for (let i = 0; i < data.length; i++) {
+        const row: any = data[i];
+        const rowNum = i + 2; // Excel row number (1-indexed + header)
+
+        try {
+          // Map columns - support multiple column name variations
+          const tipo = (row['Tipo'] || row['tipo'] || row['TIPO'] || '').toString().toLowerCase().trim();
+          const categoriaName = (row['Categoria'] || row['categoria'] || row['CATEGORIA'] || '').toString().toLowerCase().trim();
+          const empreendimentoName = (row['Empreendimento'] || row['empreendimento'] || row['EMPREENDIMENTO'] || row['Projeto'] || row['projeto'] || '').toString().toLowerCase().trim();
+          const valorStr = (row['Valor'] || row['valor'] || row['VALOR'] || '0').toString().replace(/[R$\s.]/g, '').replace(',', '.');
+          const valor = parseFloat(valorStr);
+          const descricao = (row['Descricao'] || row['descricao'] || row['Descrição'] || row['descrição'] || row['DESCRICAO'] || '').toString().trim();
+          const dataStr = row['Data'] || row['data'] || row['DATA'];
+          const statusStr = (row['Status'] || row['status'] || row['STATUS'] || 'aguardando').toString().toLowerCase().trim();
+
+          // Parse date
+          let dataLancamento: Date;
+          if (dataStr instanceof Date) {
+            dataLancamento = dataStr;
+          } else if (typeof dataStr === 'string') {
+            // Try to parse dd/mm/yyyy format
+            const parts = dataStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+              const day = parseInt(parts[0]);
+              const month = parseInt(parts[1]) - 1;
+              const year = parseInt(parts[2].length === 2 ? '20' + parts[2] : parts[2]);
+              dataLancamento = new Date(year, month, day);
+            } else {
+              dataLancamento = new Date(dataStr);
+            }
+          } else {
+            dataLancamento = new Date();
+          }
+
+          if (isNaN(dataLancamento.getTime())) {
+            results.errors.push(`Linha ${rowNum}: Data inválida`);
+            continue;
+          }
+
+          // Validate tipo
+          const tipoValido = ['receita', 'despesa', 'reembolso', 'solicitacao_recurso'].includes(tipo);
+          if (!tipoValido) {
+            results.errors.push(`Linha ${rowNum}: Tipo inválido "${tipo}" (use: receita, despesa, reembolso, solicitacao_recurso)`);
+            continue;
+          }
+
+          // Find categoria
+          let categoriaId = categoriaMap.get(categoriaName);
+          if (!categoriaId) {
+            // Try partial match
+            for (const [name, id] of categoriaMap) {
+              if (name.includes(categoriaName) || categoriaName.includes(name)) {
+                categoriaId = id;
+                break;
+              }
+            }
+          }
+          if (!categoriaId) {
+            results.errors.push(`Linha ${rowNum}: Categoria não encontrada "${categoriaName}"`);
+            continue;
+          }
+
+          // Find empreendimento
+          let empreendimentoId = empreendimentoMap.get(empreendimentoName);
+          if (!empreendimentoId) {
+            // Try partial match
+            for (const [name, id] of empreendimentoMap) {
+              if (name.includes(empreendimentoName) || empreendimentoName.includes(name)) {
+                empreendimentoId = id;
+                break;
+              }
+            }
+          }
+          if (!empreendimentoId) {
+            results.errors.push(`Linha ${rowNum}: Empreendimento não encontrado "${empreendimentoName}"`);
+            continue;
+          }
+
+          // Validate valor
+          if (isNaN(valor) || valor <= 0) {
+            results.errors.push(`Linha ${rowNum}: Valor inválido "${valorStr}"`);
+            continue;
+          }
+
+          // Validate status
+          const status = ['aguardando', 'aprovado', 'pago', 'recusado'].includes(statusStr) ? statusStr : 'aguardando';
+
+          // Create lancamento
+          await storage.createLancamento({
+            tipo: tipo as 'receita' | 'despesa' | 'reembolso' | 'solicitacao_recurso',
+            categoriaId,
+            empreendimentoId,
+            valor: valor.toString(),
+            data: dataLancamento,
+            descricao: descricao || `Importado do Excel - Linha ${rowNum}`,
+            status: status as 'aguardando' | 'aprovado' | 'pago' | 'recusado',
+            criadoPor: req.session.userId
+          });
+
+          results.imported++;
+        } catch (rowError: any) {
+          results.errors.push(`Linha ${rowNum}: ${rowError.message}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Importação concluída: ${results.imported} lançamentos importados`,
+        imported: results.imported,
+        errors: results.errors.slice(0, 20), // Limit errors shown
+        totalErrors: results.errors.length,
+        totalRows: data.length
+      });
+
+    } catch (error: any) {
+      console.error('Error importing Excel:', error);
+      res.status(500).json({ error: error.message || 'Erro ao processar arquivo Excel' });
+    }
+  });
+
+  // Download Excel template
+  app.get('/api/financeiro/template-excel', requireAuth, async (req, res) => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      // Create template with sample data
+      const templateData = [
+        {
+          'Tipo': 'despesa',
+          'Categoria': 'Combustível',
+          'Empreendimento': 'Nome do Projeto',
+          'Valor': '150,00',
+          'Data': '01/01/2025',
+          'Descrição': 'Descrição do lançamento',
+          'Status': 'aguardando'
+        },
+        {
+          'Tipo': 'receita',
+          'Categoria': 'Serviços',
+          'Empreendimento': 'Nome do Projeto',
+          'Valor': '5000,00',
+          'Data': '15/01/2025',
+          'Descrição': 'Recebimento de contrato',
+          'Status': 'pago'
+        }
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      
+      // Add column widths
+      worksheet['!cols'] = [
+        { wch: 20 }, // Tipo
+        { wch: 25 }, // Categoria
+        { wch: 30 }, // Empreendimento
+        { wch: 15 }, // Valor
+        { wch: 12 }, // Data
+        { wch: 40 }, // Descrição
+        { wch: 15 }  // Status
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
+
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=template_lancamentos_financeiros.xlsx');
+      res.send(buffer);
+
+    } catch (error: any) {
+      console.error('Error generating template:', error);
+      res.status(500).json({ error: 'Erro ao gerar template' });
+    }
+  });
+
   // ==== END FINANCIAL ROUTES ====
 
   // ==== EQUIPMENT ROUTES ====
