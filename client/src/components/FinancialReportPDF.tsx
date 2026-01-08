@@ -1,7 +1,9 @@
-import { useState, useRef } from "react";
-import { FileDown, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { FileDown, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import logoPath from "@assets/image_1767874122366.png";
@@ -20,10 +22,17 @@ interface FinancialStats {
   porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
   porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
   evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
+  empreendimentoNome?: string;
+}
+
+interface Empreendimento {
+  id: number;
+  nome: string;
 }
 
 interface FinancialReportPDFProps {
   stats: FinancialStats | undefined;
+  empreendimentos: Empreendimento[];
   lineChartRef?: React.RefObject<HTMLCanvasElement>;
   pieChartRef?: React.RefObject<HTMLCanvasElement>;
   barChartRef?: React.RefObject<HTMLCanvasElement>;
@@ -37,8 +46,10 @@ const ECOBRASIL_COLORS = {
   lightGreen: [144, 238, 144],
 };
 
-export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartRef }: FinancialReportPDFProps) {
+export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieChartRef, barChartRef }: FinancialReportPDFProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState<string>("all");
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const { toast } = useToast();
 
   const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -56,18 +67,34 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
   };
 
   const generatePDF = async () => {
-    if (!stats) {
-      toast({
-        title: "Dados não disponíveis",
-        description: "Aguarde os dados financeiros carregarem.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsExporting(true);
+    setIsPopoverOpen(false);
     
     try {
+      let reportStats: FinancialStats;
+      let reportTitle = 'Relatório Financeiro Consolidado';
+      
+      if (selectedEmpreendimentoId === "all") {
+        if (!stats) {
+          toast({
+            title: "Dados não disponíveis",
+            description: "Aguarde os dados financeiros carregarem.",
+            variant: "destructive",
+          });
+          setIsExporting(false);
+          return;
+        }
+        reportStats = stats;
+      } else {
+        const response = await fetch(`/api/financeiro/stats?empreendimentoId=${selectedEmpreendimentoId}`);
+        if (!response.ok) {
+          throw new Error("Falha ao buscar dados do empreendimento");
+        }
+        reportStats = await response.json();
+        const empName = reportStats.empreendimentoNome || empreendimentos.find(e => e.id === parseInt(selectedEmpreendimentoId))?.nome;
+        reportTitle = `Relatório Financeiro - ${empName || 'Empreendimento'}`;
+      }
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
@@ -89,7 +116,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
 
       doc.setFontSize(22);
       doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
-      doc.text('Relatório Financeiro', pageWidth / 2, 45, { align: 'center' });
+      doc.text(reportTitle, pageWidth / 2, 45, { align: 'center' });
       
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
@@ -123,7 +150,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
       doc.text('Total Receitas', 25, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(34, 139, 34);
-      doc.text(formatCurrency(stats.totalReceitas), 25, yPos + 18);
+      doc.text(formatCurrency(reportStats.totalReceitas), 25, yPos + 18);
 
       doc.setFillColor(255, 240, 240);
       doc.roundedRect(25 + cardWidth + margin, yPos, cardWidth, cardHeight, 3, 3, 'F');
@@ -132,11 +159,11 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
       doc.text('Total Despesas', 30 + cardWidth + margin, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(200, 50, 50);
-      doc.text(formatCurrency(stats.totalDespesas), 30 + cardWidth + margin, yPos + 18);
+      doc.text(formatCurrency(reportStats.totalDespesas), 30 + cardWidth + margin, yPos + 18);
 
       yPos += cardHeight + margin;
 
-      const balanceColor = stats.saldoAtual >= 0 ? [34, 139, 34] : [200, 50, 50];
+      const balanceColor = reportStats.saldoAtual >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setFillColor(240, 248, 255);
       doc.roundedRect(20, yPos, cardWidth, cardHeight, 3, 3, 'F');
       doc.setFontSize(9);
@@ -144,7 +171,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
       doc.text('Saldo Atual', 25, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(...balanceColor as [number, number, number]);
-      doc.text(formatCurrency(stats.saldoAtual), 25, yPos + 18);
+      doc.text(formatCurrency(reportStats.saldoAtual), 25, yPos + 18);
 
       doc.setFillColor(255, 250, 240);
       doc.roundedRect(25 + cardWidth + margin, yPos, cardWidth, cardHeight, 3, 3, 'F');
@@ -153,11 +180,11 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
       doc.text('Pendente', 30 + cardWidth + margin, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(218, 165, 32);
-      doc.text(formatCurrency(stats.totalPendente), 30 + cardWidth + margin, yPos + 18);
+      doc.text(formatCurrency(reportStats.totalPendente), 30 + cardWidth + margin, yPos + 18);
 
       yPos += cardHeight + 20;
 
-      if (stats.evolucaoMensal && stats.evolucaoMensal.length > 0) {
+      if (reportStats.evolucaoMensal && reportStats.evolucaoMensal.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
         doc.text('Evolução Mensal', 20, yPos);
@@ -166,7 +193,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
         doc.autoTable({
           startY: yPos,
           head: [['Mês', 'Receitas', 'Despesas', 'Lucro/Prejuízo']],
-          body: stats.evolucaoMensal.map(m => [
+          body: reportStats.evolucaoMensal.map(m => [
             m.mes,
             formatCurrency(m.receitas),
             formatCurrency(m.despesas),
@@ -192,7 +219,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
           },
           didParseCell: (data: any) => {
             if (data.section === 'body' && data.column.index === 3) {
-              const value = stats.evolucaoMensal[data.row.index]?.lucro || 0;
+              const value = reportStats.evolucaoMensal[data.row.index]?.lucro || 0;
               data.cell.styles.textColor = value >= 0 ? [34, 139, 34] : [200, 50, 50];
             }
           },
@@ -207,7 +234,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
         yPos = 20;
       }
 
-      if (stats.porCategoria && stats.porCategoria.length > 0) {
+      if (reportStats.porCategoria && reportStats.porCategoria.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
         doc.text('Distribuição por Categoria', 20, yPos);
@@ -216,7 +243,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
         doc.autoTable({
           startY: yPos,
           head: [['Categoria', 'Tipo', 'Valor']],
-          body: stats.porCategoria.map(c => [
+          body: reportStats.porCategoria.map(c => [
             c.categoria,
             c.tipo === 'receita' ? 'Receita' : 'Despesa',
             formatCurrency(c.valor)
@@ -238,11 +265,11 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
           },
           didParseCell: (data: any) => {
             if (data.section === 'body' && data.column.index === 1) {
-              const tipo = stats.porCategoria[data.row.index]?.tipo;
+              const tipo = reportStats.porCategoria[data.row.index]?.tipo;
               data.cell.styles.textColor = tipo === 'receita' ? [34, 139, 34] : [200, 50, 50];
             }
             if (data.section === 'body' && data.column.index === 2) {
-              const tipo = stats.porCategoria[data.row.index]?.tipo;
+              const tipo = reportStats.porCategoria[data.row.index]?.tipo;
               data.cell.styles.textColor = tipo === 'receita' ? [34, 139, 34] : [200, 50, 50];
             }
           },
@@ -257,7 +284,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
         yPos = 20;
       }
 
-      if (stats.porEmpreendimento && stats.porEmpreendimento.length > 0) {
+      if (reportStats.porEmpreendimento && reportStats.porEmpreendimento.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
         doc.text('Resultado por Projeto', 20, yPos);
@@ -266,7 +293,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
         doc.autoTable({
           startY: yPos,
           head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
-          body: stats.porEmpreendimento.map(e => [
+          body: reportStats.porEmpreendimento.map(e => [
             e.empreendimento.length > 25 ? e.empreendimento.substring(0, 25) + '...' : e.empreendimento,
             formatCurrency(e.receitas),
             formatCurrency(e.despesas),
@@ -291,7 +318,7 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
           },
           didParseCell: (data: any) => {
             if (data.section === 'body' && data.column.index === 3) {
-              const value = stats.porEmpreendimento[data.row.index]?.lucro || 0;
+              const value = reportStats.porEmpreendimento[data.row.index]?.lucro || 0;
               data.cell.styles.textColor = value >= 0 ? [34, 139, 34] : [200, 50, 50];
             }
           },
@@ -333,24 +360,76 @@ export function FinancialReportPDF({ stats, lineChartRef, pieChartRef, barChartR
     }
   };
 
+  const selectedLabel = selectedEmpreendimentoId === "all" 
+    ? "Todos os Projetos" 
+    : empreendimentos.find(e => e.id === parseInt(selectedEmpreendimentoId))?.nome || "Selecione";
+
   return (
-    <Button 
-      onClick={generatePDF} 
-      disabled={isExporting || !stats}
-      variant="outline"
-      data-testid="button-gerar-relatorio-financeiro"
-    >
-      {isExporting ? (
-        <>
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Gerando...
-        </>
-      ) : (
-        <>
-          <FileDown className="h-4 w-4 mr-2" />
-          Gerar Relatório PDF
-        </>
-      )}
-    </Button>
+    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="outline"
+          disabled={isExporting}
+          data-testid="button-gerar-relatorio-financeiro"
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Gerando...
+            </>
+          ) : (
+            <>
+              <FileDown className="h-4 w-4 mr-2" />
+              Gerar Relatório PDF
+              <ChevronDown className="h-4 w-4 ml-2" />
+            </>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-medium mb-2">Selecione o Projeto</h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Escolha um projeto específico ou gere o relatório consolidado
+            </p>
+          </div>
+          <Select 
+            value={selectedEmpreendimentoId} 
+            onValueChange={setSelectedEmpreendimentoId}
+          >
+            <SelectTrigger data-testid="select-empreendimento-pdf">
+              <SelectValue placeholder="Selecione um projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos (Consolidado)</SelectItem>
+              {empreendimentos.map((emp) => (
+                <SelectItem key={emp.id} value={emp.id.toString()}>
+                  {emp.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button 
+            className="w-full" 
+            onClick={generatePDF}
+            disabled={isExporting || (!stats && selectedEmpreendimentoId === "all")}
+            data-testid="button-confirmar-gerar-pdf"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4 mr-2" />
+                Gerar PDF - {selectedLabel}
+              </>
+            )}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

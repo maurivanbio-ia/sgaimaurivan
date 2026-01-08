@@ -213,7 +213,7 @@ export interface IStorage {
   updateOrcamento(id: number, orcamento: Partial<InsertOrcamento>): Promise<Orcamento>;
   deleteOrcamento(id: number): Promise<boolean>;
   
-  getFinancialStats(): Promise<{
+  getFinancialStats(empreendimentoId?: number): Promise<{
     totalReceitas: number;
     totalDespesas: number;
     totalPendente: number;
@@ -221,6 +221,7 @@ export interface IStorage {
     porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
     porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
     evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
+    empreendimentoNome?: string;
   }>;
 
   // Equipment operations
@@ -1624,7 +1625,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Financial statistics
-  async getFinancialStats(): Promise<{
+  async getFinancialStats(empreendimentoId?: number): Promise<{
     totalReceitas: number;
     totalDespesas: number;
     totalPendente: number;
@@ -1632,9 +1633,22 @@ export class DatabaseStorage implements IStorage {
     porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
     porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
     evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
+    empreendimentoNome?: string;
   }> {
-    // Get all transactions
-    const lancamentos = await db.select().from(financeiroLancamentos);
+    // Get transactions (filtered by empreendimentoId if provided)
+    let allLancamentos = await db.select().from(financeiroLancamentos);
+    
+    // Apply empreendimento filter if specified
+    const lancamentos = empreendimentoId 
+      ? allLancamentos.filter(l => l.empreendimentoId === empreendimentoId)
+      : allLancamentos;
+    
+    // Get empreendimento name if filtering
+    let empreendimentoNome: string | undefined;
+    if (empreendimentoId) {
+      const emp = await db.select().from(empreendimentos).where(eq(empreendimentos.id, empreendimentoId)).limit(1);
+      empreendimentoNome = emp[0]?.nome;
+    }
     
     const totalReceitas = lancamentos
       .filter(l => l.tipo === "receita" && l.status === "pago")
@@ -1717,6 +1731,7 @@ export class DatabaseStorage implements IStorage {
       porCategoria,
       porEmpreendimento,
       evolucaoMensal,
+      empreendimentoNome,
     };
   }
 
