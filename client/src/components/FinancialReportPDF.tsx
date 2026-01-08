@@ -39,11 +39,11 @@ interface FinancialReportPDFProps {
 }
 
 const ECOBRASIL_COLORS = {
-  green: [34, 139, 34],
-  yellow: [218, 165, 32],
-  blue: [0, 102, 153],
-  darkGreen: [0, 100, 0],
-  lightGreen: [144, 238, 144],
+  green: [34, 139, 34] as [number, number, number],
+  yellow: [218, 165, 32] as [number, number, number],
+  blue: [0, 102, 153] as [number, number, number],
+  darkGreen: [0, 100, 0] as [number, number, number],
+  lightGreen: [144, 238, 144] as [number, number, number],
 };
 
 export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieChartRef, barChartRef }: FinancialReportPDFProps) {
