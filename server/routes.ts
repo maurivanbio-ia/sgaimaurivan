@@ -3863,6 +3863,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ======== VINCULAÇÃO MEMBROS-EMPREENDIMENTOS ========
+
+  // Listar empreendimentos vinculados a um membro
+  app.get('/api/equipe/:id/empreendimentos', requireAuth, async (req, res) => {
+    try {
+      const membroId = parseInt(req.params.id);
+      const vinculacoes = await storage.getMembroEmpreendimentos(membroId);
+      res.json(vinculacoes);
+    } catch (error) {
+      console.error('Error fetching member empreendimentos:', error);
+      res.status(500).json({ error: 'Erro ao buscar empreendimentos do membro' });
+    }
+  });
+
+  // Listar membros vinculados a um empreendimento
+  app.get('/api/empreendimentos/:id/equipe', requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.id);
+      const membros = await storage.getMembrosDoEmpreendimento(empreendimentoId);
+      res.json(membros);
+    } catch (error) {
+      console.error('Error fetching empreendimento team members:', error);
+      res.status(500).json({ error: 'Erro ao buscar membros do empreendimento' });
+    }
+  });
+
+  // Vincular membro a empreendimento
+  app.post('/api/equipe/:membroId/empreendimentos/:empreendimentoId', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const membroId = parseInt(req.params.membroId);
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      
+      const membro = await storage.getMembroEquipeById(membroId);
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      
+      const vinculacao = await storage.vincularMembroEmpreendimento(membroId, empreendimentoId, membro.unidade);
+      res.status(201).json(vinculacao);
+    } catch (error) {
+      console.error('Error linking member to empreendimento:', error);
+      res.status(500).json({ error: 'Erro ao vincular membro ao empreendimento' });
+    }
+  });
+
+  // Desvincular membro de empreendimento
+  app.delete('/api/equipe/:membroId/empreendimentos/:empreendimentoId', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const membroId = parseInt(req.params.membroId);
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      
+      const success = await storage.desvincularMembroEmpreendimento(membroId, empreendimentoId);
+      res.json({ success });
+    } catch (error) {
+      console.error('Error unlinking member from empreendimento:', error);
+      res.status(500).json({ error: 'Erro ao desvincular membro do empreendimento' });
+    }
+  });
+
+  // ======== VINCULAÇÃO MEMBROS-PROJETOS ========
+
+  // Listar projetos vinculados a um membro
+  app.get('/api/equipe/:id/projetos', requireAuth, async (req, res) => {
+    try {
+      const membroId = parseInt(req.params.id);
+      const vinculacoes = await storage.getMembroProjetos(membroId);
+      res.json(vinculacoes);
+    } catch (error) {
+      console.error('Error fetching member projetos:', error);
+      res.status(500).json({ error: 'Erro ao buscar projetos do membro' });
+    }
+  });
+
+  // Listar membros vinculados a um projeto
+  app.get('/api/projetos/:id/equipe', requireAuth, async (req, res) => {
+    try {
+      const projetoId = parseInt(req.params.id);
+      const membros = await storage.getMembrosDoProjeto(projetoId);
+      res.json(membros);
+    } catch (error) {
+      console.error('Error fetching projeto team members:', error);
+      res.status(500).json({ error: 'Erro ao buscar membros do projeto' });
+    }
+  });
+
+  // Vincular membro a projeto
+  app.post('/api/equipe/:membroId/projetos/:projetoId', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const membroId = parseInt(req.params.membroId);
+      const projetoId = parseInt(req.params.projetoId);
+      
+      const membro = await storage.getMembroEquipeById(membroId);
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      
+      const vinculacao = await storage.vincularMembroProjeto(membroId, projetoId, membro.unidade);
+      res.status(201).json(vinculacao);
+    } catch (error) {
+      console.error('Error linking member to projeto:', error);
+      res.status(500).json({ error: 'Erro ao vincular membro ao projeto' });
+    }
+  });
+
+  // Desvincular membro de projeto
+  app.delete('/api/equipe/:membroId/projetos/:projetoId', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const membroId = parseInt(req.params.membroId);
+      const projetoId = parseInt(req.params.projetoId);
+      
+      const success = await storage.desvincularMembroProjeto(membroId, projetoId);
+      res.json({ success });
+    } catch (error) {
+      console.error('Error unlinking member from projeto:', error);
+      res.status(500).json({ error: 'Erro ao desvincular membro do projeto' });
+    }
+  });
+
   // ======== TAREFAS ROUTES ========
   
   // Listar tarefas
