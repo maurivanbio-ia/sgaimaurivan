@@ -67,8 +67,12 @@ declare module 'express-session' {
     userId?: number;
     clienteUsuarioId?: number;
     clienteId?: number;
+    painelUnlocked?: boolean;
   }
 }
+
+// Painel unlock password (retrieved from environment variable)
+const PAINEL_UNLOCK_PASSWORD = process.env.PAINEL_UNLOCK_PASSWORD || "";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Trust proxy for secure cookies behind reverse proxy
@@ -234,9 +238,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json({ id: user.id, email: user.email, role: user.role, unidade: user.unidade });
+      res.json({ 
+        id: user.id, 
+        email: user.email, 
+        role: user.role, 
+        unidade: user.unidade, 
+        cargo: user.cargo,
+        painelUnlocked: req.session.painelUnlocked || false 
+      });
     } catch (error) {
       console.error("Get user error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Painel unlock routes
+  app.post("/api/painel/unlock", requireAuth, async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password || typeof password !== 'string') {
+        return res.status(400).json({ message: "Senha é obrigatória" });
+      }
+
+      if (!PAINEL_UNLOCK_PASSWORD) {
+        return res.status(500).json({ message: "Configuração de desbloqueio não disponível" });
+      }
+
+      if (password === PAINEL_UNLOCK_PASSWORD) {
+        req.session.painelUnlocked = true;
+        console.log(`Painel desbloqueado por usuário ${req.session.userId}`);
+        return res.json({ success: true, message: "Painel desbloqueado com sucesso" });
+      } else {
+        console.log(`Tentativa de desbloqueio falhou para usuário ${req.session.userId}`);
+        return res.status(401).json({ message: "Senha incorreta" });
+      }
+    } catch (error) {
+      console.error("Painel unlock error:", error);
+      res.status(500).json({ message: "Erro ao desbloquear painel" });
+    }
+  });
+
+  app.get("/api/painel/unlock-status", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      const isCoordenador = user?.cargo === "coordenador" || user?.cargo === "diretor";
+      const isUnlocked = isCoordenador || req.session.painelUnlocked === true;
+      
+      res.json({ 
+        unlocked: isUnlocked,
+        isCoordenador,
+        cargo: user?.cargo
+      });
+    } catch (error) {
+      console.error("Get unlock status error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
