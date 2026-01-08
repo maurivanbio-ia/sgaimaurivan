@@ -22,7 +22,12 @@ import {
   Building2,
   FolderKanban,
   X,
-  UserCircle
+  UserCircle,
+  Receipt,
+  DollarSign,
+  Check,
+  XCircle,
+  Eye
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -159,6 +164,10 @@ export default function GestaoEquipePage() {
   
   const [statusFilter, setStatusFilter] = useState("all");
   const [prioridadeFilter, setPrioridadeFilter] = useState("all");
+  
+  const [selectedReembolso, setSelectedReembolso] = useState<any>(null);
+  const [isReembolsoDetailOpen, setIsReembolsoDetailOpen] = useState(false);
+  const [reembolsoObservacao, setReembolsoObservacao] = useState("");
 
   const { data: membros = [], isLoading: loadingMembros } = useQuery<MembroEquipe[]>({
     queryKey: ["/api/equipe"],
@@ -182,6 +191,10 @@ export default function GestaoEquipePage() {
 
   const { data: rhRegistros = [] } = useQuery<any[]>({
     queryKey: ["/api/rh"],
+  });
+
+  const { data: reembolsosPendentes = [], isLoading: loadingReembolsos } = useQuery<any[]>({
+    queryKey: ["/api/reembolsos", { coordenadorPendente: 'true' }],
   });
 
   const [vinculosDialogOpen, setVinculosDialogOpen] = useState(false);
@@ -230,6 +243,36 @@ export default function GestaoEquipePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipe", selectedMembroVinculos?.id, "projetos"] });
       toast({ title: "Sucesso", description: "Projeto desvinculado!" });
+    },
+  });
+
+  const aprovarReembolsoMutation = useMutation({
+    mutationFn: ({ id, observacao }: { id: number; observacao?: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/aprovar-coordenador`, { observacao }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso aprovado e enviado para o financeiro!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setReembolsoObservacao("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao aprovar reembolso", variant: "destructive" });
+    },
+  });
+
+  const rejeitarReembolsoMutation = useMutation({
+    mutationFn: ({ id, observacao }: { id: number; observacao?: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/rejeitar-coordenador`, { observacao }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso rejeitado!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setReembolsoObservacao("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao rejeitar reembolso", variant: "destructive" });
     },
   });
 
@@ -532,7 +575,7 @@ export default function GestaoEquipePage() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="equipe" data-testid="tab-equipe">
             <Users className="h-4 w-4 mr-2" />
             Equipe
@@ -540,6 +583,10 @@ export default function GestaoEquipePage() {
           <TabsTrigger value="tarefas" data-testid="tab-tarefas">
             <ClipboardList className="h-4 w-4 mr-2" />
             Tarefas
+          </TabsTrigger>
+          <TabsTrigger value="reembolsos" data-testid="tab-reembolsos">
+            <Receipt className="h-4 w-4 mr-2" />
+            Reembolsos ({reembolsosPendentes.length})
           </TabsTrigger>
         </TabsList>
 
@@ -749,7 +796,214 @@ export default function GestaoEquipePage() {
             </Card>
           )}
         </TabsContent>
+
+        <TabsContent value="reembolsos" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="h-5 w-5" />
+                Pedidos de Reembolso Pendentes
+              </CardTitle>
+              <CardDescription>
+                Aprove ou rejeite os pedidos de reembolso da sua equipe
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingReembolsos ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : reembolsosPendentes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                  <h3 className="text-lg font-semibold">Nenhum pedido pendente!</h3>
+                  <p className="text-muted-foreground">Todos os pedidos de reembolso foram processados.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Data do Gasto</TableHead>
+                      <TableHead>Solicitado Em</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reembolsosPendentes.map((reembolso: any) => (
+                      <TableRow key={reembolso.id} data-testid={`row-reembolso-${reembolso.id}`}>
+                        <TableCell className="font-medium">{reembolso.titulo}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {reembolso.categoria === 'viagem' ? 'Viagem' :
+                             reembolso.categoria === 'alimentacao' ? 'Alimentação' :
+                             reembolso.categoria === 'materiais' ? 'Materiais' :
+                             reembolso.categoria === 'hospedagem' ? 'Hospedagem' :
+                             reembolso.categoria === 'combustivel' ? 'Combustível' :
+                             reembolso.categoria === 'transporte' ? 'Transporte' : 'Outros'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-semibold text-green-600">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(reembolso.valor))}
+                        </TableCell>
+                        <TableCell>{reembolso.dataGasto}</TableCell>
+                        <TableCell>{new Date(reembolso.criadoEm).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedReembolso(reembolso);
+                              setReembolsoObservacao("");
+                              setIsReembolsoDetailOpen(true);
+                            }}
+                            title="Ver detalhes"
+                            data-testid={`button-view-reembolso-${reembolso.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => aprovarReembolsoMutation.mutate({ id: reembolso.id })}
+                            disabled={aprovarReembolsoMutation.isPending}
+                            title="Aprovar"
+                            data-testid={`button-aprovar-reembolso-${reembolso.id}`}
+                          >
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedReembolso(reembolso);
+                              setReembolsoObservacao("");
+                              setIsReembolsoDetailOpen(true);
+                            }}
+                            title="Rejeitar"
+                            data-testid={`button-rejeitar-reembolso-${reembolso.id}`}
+                          >
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={isReembolsoDetailOpen} onOpenChange={setIsReembolsoDetailOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Pedido de Reembolso</DialogTitle>
+            <DialogDescription>
+              Analise o pedido e decida se aprova ou rejeita
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedReembolso && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <h3 className="text-lg font-semibold">{selectedReembolso.titulo}</h3>
+                <span className="text-xl font-bold text-green-600">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(selectedReembolso.valor))}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                  {selectedReembolso.categoria === 'viagem' ? 'Viagem' :
+                   selectedReembolso.categoria === 'alimentacao' ? 'Alimentação' :
+                   selectedReembolso.categoria === 'materiais' ? 'Materiais' :
+                   selectedReembolso.categoria === 'hospedagem' ? 'Hospedagem' :
+                   selectedReembolso.categoria === 'combustivel' ? 'Combustível' :
+                   selectedReembolso.categoria === 'transporte' ? 'Transporte' : 'Outros'}
+                </Badge>
+              </div>
+
+              {selectedReembolso.descricao && (
+                <div>
+                  <h4 className="font-medium mb-1">Descrição</h4>
+                  <p className="text-muted-foreground text-sm">{selectedReembolso.descricao}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium mb-1">Data do Gasto</h4>
+                  <p className="text-muted-foreground text-sm">{selectedReembolso.dataGasto}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-1">Data da Solicitação</h4>
+                  <p className="text-muted-foreground text-sm">
+                    {new Date(selectedReembolso.criadoEm).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+
+              {selectedReembolso.comprovante && (
+                <div>
+                  <h4 className="font-medium mb-1">Comprovante</h4>
+                  <a 
+                    href={selectedReembolso.comprovante} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline text-sm"
+                  >
+                    Ver comprovante
+                  </a>
+                </div>
+              )}
+
+              <div>
+                <label className="font-medium">Observação (opcional)</label>
+                <Textarea
+                  value={reembolsoObservacao}
+                  onChange={(e) => setReembolsoObservacao(e.target.value)}
+                  placeholder="Adicione uma observação sobre sua decisão..."
+                  className="mt-1"
+                  data-testid="input-reembolso-observacao"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="destructive"
+              onClick={() => selectedReembolso && rejeitarReembolsoMutation.mutate({ 
+                id: selectedReembolso.id, 
+                observacao: reembolsoObservacao 
+              })}
+              disabled={rejeitarReembolsoMutation.isPending}
+              data-testid="button-confirmar-rejeitar"
+            >
+              {rejeitarReembolsoMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <XCircle className="h-4 w-4 mr-2" />
+              Rejeitar
+            </Button>
+            <Button 
+              variant="default"
+              onClick={() => selectedReembolso && aprovarReembolsoMutation.mutate({ 
+                id: selectedReembolso.id, 
+                observacao: reembolsoObservacao 
+              })}
+              disabled={aprovarReembolsoMutation.isPending}
+              data-testid="button-confirmar-aprovar"
+            >
+              {aprovarReembolsoMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Check className="h-4 w-4 mr-2" />
+              Aprovar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isMembroDialogOpen} onOpenChange={setIsMembroDialogOpen}>
         <DialogContent className="max-w-md">

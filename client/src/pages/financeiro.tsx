@@ -764,6 +764,10 @@ export default function FinanceiroPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingLancamentoId, setDeletingLancamentoId] = useState<number | null>(null);
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<string>("todas");
+  const [selectedReembolso, setSelectedReembolso] = useState<any>(null);
+  const [isReembolsoDetailOpen, setIsReembolsoDetailOpen] = useState(false);
+  const [reembolsoObservacao, setReembolsoObservacao] = useState("");
+  const [pagamentoInfo, setPagamentoInfo] = useState({ formaPagamento: "", dataPagamento: "" });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -891,6 +895,110 @@ export default function FinanceiroPage() {
   // Fetch empreendimentos for lookup
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
+  });
+
+  // Fetch pending reembolsos for finance/director approval
+  const { data: reembolsosFinanceiro = [], isLoading: loadingReembolsosFinanceiro } = useQuery<any[]>({
+    queryKey: ["/api/reembolsos", "financeiroPendente"],
+    queryFn: async () => {
+      const res = await fetch("/api/reembolsos?financeiroPendente=true", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch reembolsos");
+      return res.json();
+    },
+  });
+
+  const { data: reembolsosDiretor = [], isLoading: loadingReembolsosDiretor } = useQuery<any[]>({
+    queryKey: ["/api/reembolsos", "diretorPendente"],
+    queryFn: async () => {
+      const res = await fetch("/api/reembolsos?diretorPendente=true", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch reembolsos");
+      return res.json();
+    },
+  });
+
+  const { data: reembolsosAprovados = [], isLoading: loadingReembolsosAprovados } = useQuery<any[]>({
+    queryKey: ["/api/reembolsos", "aprovado_diretor"],
+    queryFn: async () => {
+      const res = await fetch("/api/reembolsos?status=aprovado_diretor", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch reembolsos");
+      return res.json();
+    },
+  });
+
+  // Reembolso approval mutations
+  const aprovarReembolsoFinanceiroMutation = useMutation({
+    mutationFn: ({ id, observacao }: { id: number; observacao?: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/aprovar-financeiro`, { observacao }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso aprovado e enviado para o diretor!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setReembolsoObservacao("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao aprovar reembolso", variant: "destructive" });
+    },
+  });
+
+  const rejeitarReembolsoFinanceiroMutation = useMutation({
+    mutationFn: ({ id, observacao }: { id: number; observacao?: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/rejeitar-financeiro`, { observacao }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso rejeitado!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setReembolsoObservacao("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao rejeitar reembolso", variant: "destructive" });
+    },
+  });
+
+  const aprovarReembolsoDiretorMutation = useMutation({
+    mutationFn: ({ id, observacao }: { id: number; observacao?: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/aprovar-diretor`, { observacao }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso aprovado para pagamento!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setReembolsoObservacao("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao aprovar reembolso", variant: "destructive" });
+    },
+  });
+
+  const rejeitarReembolsoDiretorMutation = useMutation({
+    mutationFn: ({ id, observacao }: { id: number; observacao?: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/rejeitar-diretor`, { observacao }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso rejeitado!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setReembolsoObservacao("");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao rejeitar reembolso", variant: "destructive" });
+    },
+  });
+
+  const pagarReembolsoMutation = useMutation({
+    mutationFn: ({ id, formaPagamento, dataPagamento }: { id: number; formaPagamento: string; dataPagamento: string }) =>
+      apiRequest("POST", `/api/reembolsos/${id}/pagar`, { formaPagamento, dataPagamento }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Reembolso marcado como pago!" });
+      setIsReembolsoDetailOpen(false);
+      setSelectedReembolso(null);
+      setPagamentoInfo({ formaPagamento: "", dataPagamento: "" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao registrar pagamento", variant: "destructive" });
+    },
   });
 
   // Create empreendimento lookup map
@@ -1137,7 +1245,7 @@ export default function FinanceiroPage() {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="resumo" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="resumo" data-testid="tab-resumo">
             <BarChart3 className="h-4 w-4 mr-2" />
             Resumo
@@ -1153,6 +1261,10 @@ export default function FinanceiroPage() {
           <TabsTrigger value="lancamentos" data-testid="tab-lancamentos">
             <FileText className="h-4 w-4 mr-2" />
             Lançamentos
+          </TabsTrigger>
+          <TabsTrigger value="reembolsos" data-testid="tab-reembolsos">
+            <Receipt className="h-4 w-4 mr-2" />
+            Reembolsos ({reembolsosFinanceiro.length + reembolsosDiretor.length + reembolsosAprovados.length})
           </TabsTrigger>
         </TabsList>
 
@@ -1627,7 +1739,363 @@ export default function FinanceiroPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Reembolsos Tab - Approval and Payment Management */}
+        <TabsContent value="reembolsos" className="space-y-6">
+          {/* Pending Finance Approval */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-yellow-600" />
+                Pendente Aprovação Financeiro ({reembolsosFinanceiro.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingReembolsosFinanceiro ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : reembolsosFinanceiro.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">Nenhum reembolso pendente de aprovação financeira</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3">Solicitante</th>
+                        <th className="text-left p-3">Categoria</th>
+                        <th className="text-left p-3">Descrição</th>
+                        <th className="text-right p-3">Valor</th>
+                        <th className="text-left p-3">Data</th>
+                        <th className="text-left p-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reembolsosFinanceiro.map((r: any) => (
+                        <tr key={r.id} className="border-b hover:bg-muted/30">
+                          <td className="p-3">{r.solicitanteNome || 'N/A'}</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="capitalize">{r.categoria}</Badge>
+                          </td>
+                          <td className="p-3 max-w-[200px] truncate">{r.descricao}</td>
+                          <td className="p-3 text-right font-medium">
+                            R$ {Number(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3">{r.dataGasto ? format(new Date(r.dataGasto), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedReembolso(r);
+                                setIsReembolsoDetailOpen(true);
+                              }}
+                              data-testid={`button-view-reembolso-financeiro-${r.id}`}
+                            >
+                              Analisar
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pending Director Approval */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                Pendente Aprovação Diretor ({reembolsosDiretor.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingReembolsosDiretor ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : reembolsosDiretor.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">Nenhum reembolso pendente de aprovação do diretor</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3">Solicitante</th>
+                        <th className="text-left p-3">Categoria</th>
+                        <th className="text-left p-3">Descrição</th>
+                        <th className="text-right p-3">Valor</th>
+                        <th className="text-left p-3">Data</th>
+                        <th className="text-left p-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reembolsosDiretor.map((r: any) => (
+                        <tr key={r.id} className="border-b hover:bg-muted/30">
+                          <td className="p-3">{r.solicitanteNome || 'N/A'}</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="capitalize">{r.categoria}</Badge>
+                          </td>
+                          <td className="p-3 max-w-[200px] truncate">{r.descricao}</td>
+                          <td className="p-3 text-right font-medium">
+                            R$ {Number(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3">{r.dataGasto ? format(new Date(r.dataGasto), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedReembolso(r);
+                                setIsReembolsoDetailOpen(true);
+                              }}
+                              data-testid={`button-view-reembolso-diretor-${r.id}`}
+                            >
+                              Analisar
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Approved, Pending Payment */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                Aprovados - Aguardando Pagamento ({reembolsosAprovados.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingReembolsosAprovados ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : reembolsosAprovados.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">Nenhum reembolso aguardando pagamento</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3">Solicitante</th>
+                        <th className="text-left p-3">Categoria</th>
+                        <th className="text-left p-3">Descrição</th>
+                        <th className="text-right p-3">Valor</th>
+                        <th className="text-left p-3">Data</th>
+                        <th className="text-left p-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reembolsosAprovados.map((r: any) => (
+                        <tr key={r.id} className="border-b hover:bg-muted/30">
+                          <td className="p-3">{r.solicitanteNome || 'N/A'}</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="capitalize">{r.categoria}</Badge>
+                          </td>
+                          <td className="p-3 max-w-[200px] truncate">{r.descricao}</td>
+                          <td className="p-3 text-right font-medium">
+                            R$ {Number(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3">{r.dataGasto ? format(new Date(r.dataGasto), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => {
+                                setSelectedReembolso(r);
+                                setIsReembolsoDetailOpen(true);
+                              }}
+                              data-testid={`button-pay-reembolso-${r.id}`}
+                            >
+                              Pagar
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Reembolso Detail/Approval Dialog */}
+      <Dialog open={isReembolsoDetailOpen} onOpenChange={setIsReembolsoDetailOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedReembolso?.status === 'pendente_financeiro' && 'Análise Financeira'}
+              {selectedReembolso?.status === 'pendente_diretor' && 'Análise do Diretor'}
+              {selectedReembolso?.status === 'aprovado_diretor' && 'Registrar Pagamento'}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedReembolso && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Solicitante</Label>
+                  <p className="font-medium">{selectedReembolso.solicitanteNome || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Categoria</Label>
+                  <Badge variant="outline" className="capitalize mt-1">{selectedReembolso.categoria}</Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Valor</Label>
+                  <p className="font-bold text-lg">R$ {Number(selectedReembolso.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Data do Gasto</Label>
+                  <p>{selectedReembolso.dataGasto ? format(new Date(selectedReembolso.dataGasto), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground">Descrição</Label>
+                <p className="bg-muted p-3 rounded mt-1">{selectedReembolso.descricao}</p>
+              </div>
+
+              {selectedReembolso.observacoes && (
+                <div>
+                  <Label className="text-muted-foreground">Observações do Solicitante</Label>
+                  <p className="bg-muted p-3 rounded mt-1">{selectedReembolso.observacoes}</p>
+                </div>
+              )}
+
+              {selectedReembolso.comprovanteUrl && (
+                <div>
+                  <Label className="text-muted-foreground">Comprovante</Label>
+                  <a href={selectedReembolso.comprovanteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline block mt-1">
+                    Ver Comprovante
+                  </a>
+                </div>
+              )}
+
+              {/* Finance approval form */}
+              {selectedReembolso.status === 'pendente_financeiro' && (
+                <div className="space-y-4 border-t pt-4">
+                  <div>
+                    <Label>Observações (opcional)</Label>
+                    <Textarea
+                      value={reembolsoObservacao}
+                      onChange={(e) => setReembolsoObservacao(e.target.value)}
+                      placeholder="Adicione observações para o diretor..."
+                      data-testid="input-reembolso-observacao-financeiro"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => rejeitarReembolsoFinanceiroMutation.mutate({ id: selectedReembolso.id, observacao: reembolsoObservacao })}
+                      disabled={rejeitarReembolsoFinanceiroMutation.isPending}
+                      data-testid="button-rejeitar-financeiro"
+                    >
+                      {rejeitarReembolsoFinanceiroMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+                      Rejeitar
+                    </Button>
+                    <Button
+                      onClick={() => aprovarReembolsoFinanceiroMutation.mutate({ id: selectedReembolso.id, observacao: reembolsoObservacao })}
+                      disabled={aprovarReembolsoFinanceiroMutation.isPending}
+                      data-testid="button-aprovar-financeiro"
+                    >
+                      {aprovarReembolsoFinanceiroMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                      Aprovar e Enviar para Diretor
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Director approval form */}
+              {selectedReembolso.status === 'pendente_diretor' && (
+                <div className="space-y-4 border-t pt-4">
+                  <div>
+                    <Label>Observações (opcional)</Label>
+                    <Textarea
+                      value={reembolsoObservacao}
+                      onChange={(e) => setReembolsoObservacao(e.target.value)}
+                      placeholder="Adicione observações finais..."
+                      data-testid="input-reembolso-observacao-diretor"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => rejeitarReembolsoDiretorMutation.mutate({ id: selectedReembolso.id, observacao: reembolsoObservacao })}
+                      disabled={rejeitarReembolsoDiretorMutation.isPending}
+                      data-testid="button-rejeitar-diretor"
+                    >
+                      {rejeitarReembolsoDiretorMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+                      Rejeitar
+                    </Button>
+                    <Button
+                      onClick={() => aprovarReembolsoDiretorMutation.mutate({ id: selectedReembolso.id, observacao: reembolsoObservacao })}
+                      disabled={aprovarReembolsoDiretorMutation.isPending}
+                      data-testid="button-aprovar-diretor"
+                    >
+                      {aprovarReembolsoDiretorMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                      Aprovar para Pagamento
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment form */}
+              {selectedReembolso.status === 'aprovado_diretor' && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Forma de Pagamento</Label>
+                      <Select value={pagamentoInfo.formaPagamento} onValueChange={(v) => setPagamentoInfo(p => ({ ...p, formaPagamento: v }))}>
+                        <SelectTrigger data-testid="select-forma-pagamento">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="transferencia">Transferência Bancária</SelectItem>
+                          <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                          <SelectItem value="cheque">Cheque</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Data do Pagamento</Label>
+                      <Input
+                        type="date"
+                        value={pagamentoInfo.dataPagamento}
+                        onChange={(e) => setPagamentoInfo(p => ({ ...p, dataPagamento: e.target.value }))}
+                        data-testid="input-data-pagamento"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => pagarReembolsoMutation.mutate({ id: selectedReembolso.id, ...pagamentoInfo })}
+                      disabled={pagarReembolsoMutation.isPending || !pagamentoInfo.formaPagamento || !pagamentoInfo.dataPagamento}
+                      className="bg-green-600 hover:bg-green-700"
+                      data-testid="button-confirmar-pagamento"
+                    >
+                      {pagarReembolsoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4 mr-2" />}
+                      Confirmar Pagamento
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

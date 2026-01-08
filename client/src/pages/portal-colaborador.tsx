@@ -2,6 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { 
   Clock,
   CheckCircle2,
@@ -13,7 +16,14 @@ import {
   Loader2,
   ClipboardList,
   Timer,
-  FileText
+  FileText,
+  Receipt,
+  Plus,
+  DollarSign,
+  Eye,
+  History,
+  Trash2,
+  Edit
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -41,6 +51,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 interface Tarefa {
   id: number;
@@ -56,6 +74,45 @@ interface Tarefa {
   horasRealizadas?: number;
   observacoes?: string;
   observacoesColaborador?: string;
+}
+
+interface PedidoReembolso {
+  id: number;
+  solicitanteId: number;
+  unidade: string;
+  titulo: string;
+  descricao?: string;
+  categoria: string;
+  valor: string;
+  dataGasto: string;
+  comprovante?: string;
+  status: string;
+  empreendimentoId?: number;
+  projetoId?: number;
+  coordenadorId?: number;
+  coordenadorAprovadoEm?: string;
+  coordenadorObservacao?: string;
+  financeiroId?: number;
+  financeiroAprovadoEm?: string;
+  financeiroObservacao?: string;
+  diretorId?: number;
+  diretorAprovadoEm?: string;
+  diretorObservacao?: string;
+  formaPagamento?: string;
+  dataPagamento?: string;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+interface HistoricoReembolso {
+  id: number;
+  pedidoId: number;
+  usuarioId: number;
+  acao: string;
+  statusAnterior?: string;
+  statusNovo: string;
+  observacao?: string;
+  criadoEm: string;
 }
 
 const CATEGORIA_LABELS: Record<string, string> = {
@@ -80,6 +137,38 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
   cancelada: { label: "Cancelada", color: "bg-gray-500", icon: Pause },
 };
 
+const REEMBOLSO_CATEGORIA_LABELS: Record<string, string> = {
+  viagem: "Viagem",
+  alimentacao: "Alimentação",
+  materiais: "Materiais",
+  hospedagem: "Hospedagem",
+  combustivel: "Combustível",
+  transporte: "Transporte",
+  outros: "Outros",
+};
+
+const REEMBOLSO_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  pendente_coordenador: { label: "Aguardando Coordenador", color: "bg-yellow-500" },
+  pendente_financeiro: { label: "Aguardando Financeiro", color: "bg-blue-500" },
+  pendente_diretor: { label: "Aguardando Diretor", color: "bg-purple-500" },
+  aprovado_diretor: { label: "Aprovado", color: "bg-green-500" },
+  rejeitado_coordenador: { label: "Rejeitado (Coordenador)", color: "bg-red-500" },
+  rejeitado_financeiro: { label: "Rejeitado (Financeiro)", color: "bg-red-500" },
+  rejeitado_diretor: { label: "Rejeitado (Diretor)", color: "bg-red-500" },
+  pago: { label: "Pago", color: "bg-emerald-600" },
+};
+
+const reembolsoFormSchema = z.object({
+  titulo: z.string().min(1, "Título é obrigatório"),
+  descricao: z.string().optional(),
+  categoria: z.string().min(1, "Categoria é obrigatória"),
+  valor: z.string().min(1, "Valor é obrigatório"),
+  dataGasto: z.string().min(1, "Data do gasto é obrigatória"),
+  comprovante: z.string().optional(),
+});
+
+type ReembolsoFormData = z.infer<typeof reembolsoFormSchema>;
+
 export default function PortalColaboradorPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("hoje");
@@ -88,6 +177,23 @@ export default function PortalColaboradorPage() {
   const [observacao, setObservacao] = useState("");
   const [horasRealizadas, setHorasRealizadas] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  
+  const [isReembolsoDialogOpen, setIsReembolsoDialogOpen] = useState(false);
+  const [isViewReembolsoOpen, setIsViewReembolsoOpen] = useState(false);
+  const [selectedReembolso, setSelectedReembolso] = useState<PedidoReembolso | null>(null);
+  const [reembolsoStatusFilter, setReembolsoStatusFilter] = useState("all");
+
+  const reembolsoForm = useForm<ReembolsoFormData>({
+    resolver: zodResolver(reembolsoFormSchema),
+    defaultValues: {
+      titulo: "",
+      descricao: "",
+      categoria: "",
+      valor: "",
+      dataGasto: new Date().toISOString().split('T')[0],
+      comprovante: "",
+    },
+  });
 
   const { data: tarefasHoje = [], isLoading: loadingHoje } = useQuery<Tarefa[]>({
     queryKey: ["/api/minhas-tarefas-hoje"],
@@ -103,6 +209,15 @@ export default function PortalColaboradorPage() {
 
   const { data: stats } = useQuery({
     queryKey: ["/api/tarefas-stats"],
+  });
+
+  const { data: reembolsos = [], isLoading: loadingReembolsos } = useQuery<PedidoReembolso[]>({
+    queryKey: ["/api/reembolsos"],
+  });
+
+  const { data: historicoReembolso = [] } = useQuery<HistoricoReembolso[]>({
+    queryKey: ["/api/reembolsos", selectedReembolso?.id, "historico"],
+    enabled: !!selectedReembolso,
   });
 
   const updateTarefaMutation = useMutation({
@@ -124,10 +239,43 @@ export default function PortalColaboradorPage() {
     },
   });
 
+  const createReembolsoMutation = useMutation({
+    mutationFn: async (data: ReembolsoFormData) =>
+      apiRequest("POST", "/api/reembolsos", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Pedido de reembolso criado!" });
+      setIsReembolsoDialogOpen(false);
+      reembolsoForm.reset();
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao criar pedido de reembolso", variant: "destructive" });
+    },
+  });
+
+  const deleteReembolsoMutation = useMutation({
+    mutationFn: async (id: number) =>
+      apiRequest("DELETE", `/api/reembolsos/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reembolsos"] });
+      toast({ title: "Sucesso", description: "Pedido de reembolso excluído!" });
+      setIsViewReembolsoOpen(false);
+      setSelectedReembolso(null);
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao excluir pedido", variant: "destructive" });
+    },
+  });
+
   const filteredTarefas = useMemo(() => {
     if (statusFilter === "all") return todasTarefas;
     return todasTarefas.filter(t => t.status === statusFilter);
   }, [todasTarefas, statusFilter]);
+
+  const filteredReembolsos = useMemo(() => {
+    if (reembolsoStatusFilter === "all") return reembolsos;
+    return reembolsos.filter(r => r.status === reembolsoStatusFilter);
+  }, [reembolsos, reembolsoStatusFilter]);
 
   const handleOpenDetail = (tarefa: Tarefa) => {
     setSelectedTarefa(tarefa);
@@ -166,6 +314,15 @@ export default function PortalColaboradorPage() {
     });
   };
 
+  const onSubmitReembolso = (data: ReembolsoFormData) => {
+    createReembolsoMutation.mutate(data);
+  };
+
+  const handleViewReembolso = (reembolso: PedidoReembolso) => {
+    setSelectedReembolso(reembolso);
+    setIsViewReembolsoOpen(true);
+  };
+
   const getPrioridadeBadge = (prioridade: string) => {
     const config = PRIORIDADE_CONFIG[prioridade];
     return (
@@ -184,9 +341,28 @@ export default function PortalColaboradorPage() {
     );
   };
 
+  const getReembolsoStatusBadge = (status: string) => {
+    const config = REEMBOLSO_STATUS_CONFIG[status];
+    return (
+      <Badge className={`${config?.color || 'bg-gray-500'} text-white`}>
+        {config?.label || status}
+      </Badge>
+    );
+  };
+
   const completionRate = stats?.total > 0 
     ? Math.round((stats?.concluidas / stats?.total) * 100) 
     : 0;
+
+  const formatCurrency = (value: string) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(value));
+  };
+
+  const totalReembolsos = reembolsos.reduce((acc, r) => acc + parseFloat(r.valor || '0'), 0);
+  const reembolsosPendentes = reembolsos.filter(r => 
+    ['pendente_coordenador', 'pendente_financeiro', 'pendente_diretor'].includes(r.status)
+  ).length;
+  const reembolsosAprovados = reembolsos.filter(r => r.status === 'aprovado_diretor' || r.status === 'pago').length;
 
   const TarefaCard = ({ tarefa, showQuickActions = true }: { tarefa: Tarefa; showQuickActions?: boolean }) => {
     const isOverdue = new Date(tarefa.dataFim) < new Date() && tarefa.status !== 'concluida' && tarefa.status !== 'cancelada';
@@ -224,14 +400,16 @@ export default function PortalColaboradorPage() {
           )}
         </CardContent>
         {showQuickActions && tarefa.status !== 'concluida' && tarefa.status !== 'cancelada' && (
-          <CardFooter className="pt-0">
-            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <CardFooter className="pt-2 border-t">
+            <div className="flex gap-2 w-full" onClick={(e) => e.stopPropagation()}>
               {tarefa.status === 'pendente' && (
                 <Button 
                   size="sm" 
-                  variant="outline"
+                  variant="outline" 
+                  className="flex-1"
                   onClick={() => quickUpdateStatus(tarefa, 'em_andamento')}
-                  data-testid={`button-iniciar-tarefa-${tarefa.id}`}
+                  disabled={updateTarefaMutation.isPending}
+                  data-testid={`button-iniciar-${tarefa.id}`}
                 >
                   <Play className="h-4 w-4 mr-1" />
                   Iniciar
@@ -240,9 +418,11 @@ export default function PortalColaboradorPage() {
               {tarefa.status === 'em_andamento' && (
                 <Button 
                   size="sm" 
-                  variant="default"
+                  variant="default" 
+                  className="flex-1"
                   onClick={() => quickUpdateStatus(tarefa, 'concluida')}
-                  data-testid={`button-concluir-tarefa-${tarefa.id}`}
+                  disabled={updateTarefaMutation.isPending}
+                  data-testid={`button-concluir-${tarefa.id}`}
                 >
                   <Check className="h-4 w-4 mr-1" />
                   Concluir
@@ -255,14 +435,51 @@ export default function PortalColaboradorPage() {
     );
   };
 
+  const ReembolsoCard = ({ reembolso }: { reembolso: PedidoReembolso }) => {
+    const canEdit = reembolso.status === 'pendente_coordenador';
+    
+    return (
+      <Card 
+        className="cursor-pointer hover:shadow-md transition-shadow"
+        onClick={() => handleViewReembolso(reembolso)}
+        data-testid={`card-reembolso-${reembolso.id}`}
+      >
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <CardTitle className="text-base font-medium line-clamp-2">{reembolso.titulo}</CardTitle>
+            <span className="text-lg font-bold text-green-600">{formatCurrency(reembolso.valor)}</span>
+          </div>
+          <CardDescription className="line-clamp-2">{reembolso.descricao || "Sem descrição"}</CardDescription>
+        </CardHeader>
+        <CardContent className="pb-2">
+          <div className="flex flex-wrap gap-2 mb-2">
+            {getReembolsoStatusBadge(reembolso.status)}
+            <Badge variant="outline">{REEMBOLSO_CATEGORIA_LABELS[reembolso.categoria] || reembolso.categoria}</Badge>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>Data do gasto: {reembolso.dataGasto}</span>
+          </div>
+        </CardContent>
+        {canEdit && (
+          <CardFooter className="pt-2 border-t">
+            <div className="flex gap-2 w-full text-xs text-muted-foreground">
+              Você ainda pode editar ou excluir este pedido
+            </div>
+          </CardFooter>
+        )}
+      </Card>
+    );
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Minhas Tarefas</h1>
-          <p className="text-muted-foreground mt-1">Gerencie suas atividades diárias</p>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-titulo-portal">Meu Portal</h1>
+          <p className="text-muted-foreground">Gerencie suas tarefas e reembolsos</p>
         </div>
-        <RefreshButton queryKeys={["/api/tarefas", "/api/minhas-tarefas-hoje", "/api/tarefas-atrasadas", "/api/tarefas-stats"]} />
+        <RefreshButton />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -340,7 +557,7 @@ export default function PortalColaboradorPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="hoje" data-testid="tab-hoje">
             <Calendar className="h-4 w-4 mr-2" />
             Tarefas de Hoje ({tarefasHoje.length})
@@ -348,6 +565,10 @@ export default function PortalColaboradorPage() {
           <TabsTrigger value="todas" data-testid="tab-todas">
             <ClipboardList className="h-4 w-4 mr-2" />
             Todas as Tarefas
+          </TabsTrigger>
+          <TabsTrigger value="reembolsos" data-testid="tab-reembolsos">
+            <Receipt className="h-4 w-4 mr-2" />
+            Reembolsos ({reembolsos.length})
           </TabsTrigger>
         </TabsList>
 
@@ -404,6 +625,94 @@ export default function PortalColaboradorPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredTarefas.map((tarefa) => (
                 <TarefaCard key={tarefa.id} tarefa={tarefa} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="reembolsos" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4 mb-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Solicitado</CardTitle>
+                <DollarSign className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-green-600" data-testid="text-total-reembolsos">
+                  {formatCurrency(totalReembolsos.toString())}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-yellow-600" data-testid="text-reembolsos-pendentes">
+                  {reembolsosPendentes}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Aprovados/Pagos</CardTitle>
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-green-600" data-testid="text-reembolsos-aprovados">
+                  {reembolsosAprovados}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="flex items-center justify-center">
+              <Button 
+                onClick={() => setIsReembolsoDialogOpen(true)} 
+                className="w-full h-full"
+                data-testid="button-novo-reembolso"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Novo Pedido
+              </Button>
+            </Card>
+          </div>
+
+          <div className="flex gap-4 mb-4">
+            <Select value={reembolsoStatusFilter} onValueChange={setReembolsoStatusFilter}>
+              <SelectTrigger className="w-64" data-testid="select-filter-reembolso-status">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Status</SelectItem>
+                <SelectItem value="pendente_coordenador">Aguardando Coordenador</SelectItem>
+                <SelectItem value="pendente_financeiro">Aguardando Financeiro</SelectItem>
+                <SelectItem value="pendente_diretor">Aguardando Diretor</SelectItem>
+                <SelectItem value="aprovado_diretor">Aprovados</SelectItem>
+                <SelectItem value="pago">Pagos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {loadingReembolsos ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredReembolsos.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">Nenhum pedido de reembolso</h3>
+                <p className="text-muted-foreground mb-4">Você ainda não fez nenhum pedido de reembolso.</p>
+                <Button onClick={() => setIsReembolsoDialogOpen(true)} data-testid="button-criar-primeiro-reembolso">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeiro Pedido
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredReembolsos.map((reembolso) => (
+                <ReembolsoCard key={reembolso.id} reembolso={reembolso} />
               ))}
             </div>
           )}
@@ -516,6 +825,286 @@ export default function PortalColaboradorPage() {
             >
               {updateTarefaMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar Observações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isReembolsoDialogOpen} onOpenChange={setIsReembolsoDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Novo Pedido de Reembolso</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do gasto para solicitar reembolso
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...reembolsoForm}>
+            <form onSubmit={reembolsoForm.handleSubmit(onSubmitReembolso)} className="space-y-4">
+              <FormField
+                control={reembolsoForm.control}
+                name="titulo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Almoço com cliente" {...field} data-testid="input-reembolso-titulo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={reembolsoForm.control}
+                name="descricao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Descreva o gasto..." 
+                        {...field} 
+                        data-testid="input-reembolso-descricao"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={reembolsoForm.control}
+                  name="categoria"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-reembolso-categoria">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(REEMBOLSO_CATEGORIA_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={reembolsoForm.control}
+                  name="valor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor (R$)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="0.00" 
+                          {...field} 
+                          data-testid="input-reembolso-valor"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={reembolsoForm.control}
+                name="dataGasto"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data do Gasto</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-reembolso-data" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={reembolsoForm.control}
+                name="comprovante"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link do Comprovante (opcional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="URL do comprovante ou foto" 
+                        {...field} 
+                        data-testid="input-reembolso-comprovante"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsReembolsoDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createReembolsoMutation.isPending}
+                  data-testid="button-submit-reembolso"
+                >
+                  {createReembolsoMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Solicitar Reembolso
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isViewReembolsoOpen} onOpenChange={setIsViewReembolsoOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Reembolso</DialogTitle>
+            <DialogDescription>
+              Visualize o status e histórico do pedido
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedReembolso && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <h3 className="text-lg font-semibold">{selectedReembolso.titulo}</h3>
+                <span className="text-xl font-bold text-green-600">{formatCurrency(selectedReembolso.valor)}</span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {getReembolsoStatusBadge(selectedReembolso.status)}
+                <Badge variant="outline">{REEMBOLSO_CATEGORIA_LABELS[selectedReembolso.categoria]}</Badge>
+              </div>
+
+              {selectedReembolso.descricao && (
+                <div>
+                  <h4 className="font-medium mb-1">Descrição</h4>
+                  <p className="text-muted-foreground text-sm">{selectedReembolso.descricao}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium mb-1">Data do Gasto</h4>
+                  <p className="text-muted-foreground text-sm">{selectedReembolso.dataGasto}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-1">Data da Solicitação</h4>
+                  <p className="text-muted-foreground text-sm">
+                    {new Date(selectedReembolso.criadoEm).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+
+              {selectedReembolso.comprovante && (
+                <div>
+                  <h4 className="font-medium mb-1">Comprovante</h4>
+                  <a 
+                    href={selectedReembolso.comprovante} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline text-sm"
+                  >
+                    Ver comprovante
+                  </a>
+                </div>
+              )}
+
+              {(selectedReembolso.coordenadorObservacao || selectedReembolso.financeiroObservacao || selectedReembolso.diretorObservacao) && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Observações</h4>
+                  {selectedReembolso.coordenadorObservacao && (
+                    <div className="bg-muted p-2 rounded text-sm">
+                      <span className="font-medium">Coordenador:</span> {selectedReembolso.coordenadorObservacao}
+                    </div>
+                  )}
+                  {selectedReembolso.financeiroObservacao && (
+                    <div className="bg-muted p-2 rounded text-sm">
+                      <span className="font-medium">Financeiro:</span> {selectedReembolso.financeiroObservacao}
+                    </div>
+                  )}
+                  {selectedReembolso.diretorObservacao && (
+                    <div className="bg-muted p-2 rounded text-sm">
+                      <span className="font-medium">Diretor:</span> {selectedReembolso.diretorObservacao}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedReembolso.status === 'pago' && (
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded">
+                  <h4 className="font-medium text-green-700 dark:text-green-400 mb-2">Pagamento Realizado</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Forma:</span> {selectedReembolso.formaPagamento}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Data:</span> {selectedReembolso.dataPagamento}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Histórico
+                </h4>
+                <div className="space-y-2">
+                  {historicoReembolso.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Carregando histórico...</p>
+                  ) : (
+                    historicoReembolso.map((h) => (
+                      <div key={h.id} className="flex items-start gap-2 text-sm border-l-2 border-muted pl-3">
+                        <div>
+                          <span className="font-medium">{h.acao.replace(/_/g, ' ')}</span>
+                          <span className="text-muted-foreground ml-2">
+                            {new Date(h.criadoEm).toLocaleString('pt-BR')}
+                          </span>
+                          {h.observacao && (
+                            <p className="text-muted-foreground mt-1">{h.observacao}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {selectedReembolso?.status === 'pendente_coordenador' && (
+              <Button 
+                variant="destructive" 
+                onClick={() => selectedReembolso && deleteReembolsoMutation.mutate(selectedReembolso.id)}
+                disabled={deleteReembolsoMutation.isPending}
+                data-testid="button-excluir-reembolso"
+              >
+                {deleteReembolsoMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir Pedido
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setIsViewReembolsoOpen(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
