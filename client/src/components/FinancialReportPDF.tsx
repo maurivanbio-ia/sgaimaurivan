@@ -95,24 +95,26 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         reportTitle = `Relatório Financeiro - ${empName || 'Empreendimento'}`;
       }
 
+      const safeStats = {
+        totalReceitas: reportStats.totalReceitas || 0,
+        totalDespesas: reportStats.totalDespesas || 0,
+        totalPendente: reportStats.totalPendente || 0,
+        saldoAtual: reportStats.saldoAtual || 0,
+        porCategoria: reportStats.porCategoria || [],
+        porEmpreendimento: reportStats.porEmpreendimento || [],
+        evolucaoMensal: reportStats.evolucaoMensal || [],
+      };
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       
-      try {
-        const logoImg = await loadImage(logoPath);
-        const logoWidth = 60;
-        const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
-        doc.addImage(logoImg, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
-      } catch (error) {
-        console.error('Error loading logo:', error);
-        doc.setFontSize(24);
-        doc.setTextColor(...ECOBRASIL_COLORS.green);
-        doc.text('EcoBrasil', pageWidth / 2, 20, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setTextColor(...ECOBRASIL_COLORS.blue);
-        doc.text('consultoria ambiental', pageWidth / 2, 28, { align: 'center' });
-      }
+      doc.setFontSize(24);
+      doc.setTextColor(...ECOBRASIL_COLORS.green);
+      doc.text('EcoBrasil', pageWidth / 2, 20, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setTextColor(...ECOBRASIL_COLORS.blue);
+      doc.text('consultoria ambiental', pageWidth / 2, 28, { align: 'center' });
 
       doc.setFontSize(22);
       doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
@@ -150,7 +152,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       doc.text('Total Receitas', 25, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(34, 139, 34);
-      doc.text(formatCurrency(reportStats.totalReceitas), 25, yPos + 18);
+      doc.text(formatCurrency(safeStats.totalReceitas), 25, yPos + 18);
 
       doc.setFillColor(255, 240, 240);
       doc.roundedRect(25 + cardWidth + margin, yPos, cardWidth, cardHeight, 3, 3, 'F');
@@ -159,11 +161,11 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       doc.text('Total Despesas', 30 + cardWidth + margin, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(200, 50, 50);
-      doc.text(formatCurrency(reportStats.totalDespesas), 30 + cardWidth + margin, yPos + 18);
+      doc.text(formatCurrency(safeStats.totalDespesas), 30 + cardWidth + margin, yPos + 18);
 
       yPos += cardHeight + margin;
 
-      const balanceColor = reportStats.saldoAtual >= 0 ? [34, 139, 34] : [200, 50, 50];
+      const balanceColor = safeStats.saldoAtual >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setFillColor(240, 248, 255);
       doc.roundedRect(20, yPos, cardWidth, cardHeight, 3, 3, 'F');
       doc.setFontSize(9);
@@ -171,7 +173,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       doc.text('Saldo Atual', 25, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(...balanceColor as [number, number, number]);
-      doc.text(formatCurrency(reportStats.saldoAtual), 25, yPos + 18);
+      doc.text(formatCurrency(safeStats.saldoAtual), 25, yPos + 18);
 
       doc.setFillColor(255, 250, 240);
       doc.roundedRect(25 + cardWidth + margin, yPos, cardWidth, cardHeight, 3, 3, 'F');
@@ -180,11 +182,11 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       doc.text('Pendente', 30 + cardWidth + margin, yPos + 8);
       doc.setFontSize(14);
       doc.setTextColor(218, 165, 32);
-      doc.text(formatCurrency(reportStats.totalPendente), 30 + cardWidth + margin, yPos + 18);
+      doc.text(formatCurrency(safeStats.totalPendente), 30 + cardWidth + margin, yPos + 18);
 
       yPos += cardHeight + 20;
 
-      if (reportStats.evolucaoMensal && reportStats.evolucaoMensal.length > 0) {
+      if (safeStats.evolucaoMensal.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
         doc.text('Evolução Mensal', 20, yPos);
@@ -193,7 +195,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         doc.autoTable({
           startY: yPos,
           head: [['Mês', 'Receitas', 'Despesas', 'Lucro/Prejuízo']],
-          body: reportStats.evolucaoMensal.map(m => [
+          body: safeStats.evolucaoMensal.map(m => [
             m.mes,
             formatCurrency(m.receitas),
             formatCurrency(m.despesas),
@@ -219,7 +221,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
           },
           didParseCell: (data: any) => {
             if (data.section === 'body' && data.column.index === 3) {
-              const value = reportStats.evolucaoMensal[data.row.index]?.lucro || 0;
+              const value = safeStats.evolucaoMensal[data.row.index]?.lucro || 0;
               data.cell.styles.textColor = value >= 0 ? [34, 139, 34] : [200, 50, 50];
             }
           },
@@ -234,7 +236,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         yPos = 20;
       }
 
-      if (reportStats.porCategoria && reportStats.porCategoria.length > 0) {
+      if (safeStats.porCategoria.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
         doc.text('Distribuição por Categoria', 20, yPos);
@@ -243,7 +245,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         doc.autoTable({
           startY: yPos,
           head: [['Categoria', 'Tipo', 'Valor']],
-          body: reportStats.porCategoria.map(c => [
+          body: safeStats.porCategoria.map(c => [
             c.categoria,
             c.tipo === 'receita' ? 'Receita' : 'Despesa',
             formatCurrency(c.valor)
@@ -265,11 +267,11 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
           },
           didParseCell: (data: any) => {
             if (data.section === 'body' && data.column.index === 1) {
-              const tipo = reportStats.porCategoria[data.row.index]?.tipo;
+              const tipo = safeStats.porCategoria[data.row.index]?.tipo;
               data.cell.styles.textColor = tipo === 'receita' ? [34, 139, 34] : [200, 50, 50];
             }
             if (data.section === 'body' && data.column.index === 2) {
-              const tipo = reportStats.porCategoria[data.row.index]?.tipo;
+              const tipo = safeStats.porCategoria[data.row.index]?.tipo;
               data.cell.styles.textColor = tipo === 'receita' ? [34, 139, 34] : [200, 50, 50];
             }
           },
@@ -284,7 +286,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         yPos = 20;
       }
 
-      if (reportStats.porEmpreendimento && reportStats.porEmpreendimento.length > 0) {
+      if (safeStats.porEmpreendimento.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
         doc.text('Resultado por Projeto', 20, yPos);
@@ -293,7 +295,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         doc.autoTable({
           startY: yPos,
           head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
-          body: reportStats.porEmpreendimento.map(e => [
+          body: safeStats.porEmpreendimento.map(e => [
             e.empreendimento.length > 25 ? e.empreendimento.substring(0, 25) + '...' : e.empreendimento,
             formatCurrency(e.receitas),
             formatCurrency(e.despesas),
@@ -318,7 +320,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
           },
           didParseCell: (data: any) => {
             if (data.section === 'body' && data.column.index === 3) {
-              const value = reportStats.porEmpreendimento[data.row.index]?.lucro || 0;
+              const value = safeStats.porEmpreendimento[data.row.index]?.lucro || 0;
               data.cell.styles.textColor = value >= 0 ? [34, 139, 34] : [200, 50, 50];
             }
           },
@@ -348,11 +350,11 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         description: "O relatório financeiro foi baixado.",
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao gerar PDF:', error);
       toast({
         title: "Erro na geração",
-        description: "Ocorreu um erro ao gerar o relatório financeiro.",
+        description: error?.message || "Ocorreu um erro ao gerar o relatório financeiro.",
         variant: "destructive",
       });
     } finally {
