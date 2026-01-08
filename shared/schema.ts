@@ -841,6 +841,8 @@ export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
   categoriaId: integer("categoria_id").references(() => categoriasFinanceiras.id).notNull(),
   valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
   data: date("data").notNull(),
+  dataVencimento: date("data_vencimento"), // Data de vencimento
+  dataPagamento: date("data_pagamento"), // Data em que foi efetivamente pago
   descricao: text("descricao").notNull(),
   status: text("status").notNull().default("aguardando"), // aguardando, aprovado, pago, recusado
   // BMM e ND para rastreamento
