@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart3, 
   PieChart, 
@@ -21,7 +26,10 @@ import {
   Truck,
   CreditCard,
   Database,
-  Shield
+  Shield,
+  Lock,
+  Unlock,
+  Loader2
 } from "lucide-react";
 import { 
   Chart as ChartJS,
@@ -460,8 +468,23 @@ interface EmpreendimentoDetailed {
   criadoEm: string;
 }
 
+interface UnlockStatus {
+  unlocked: boolean;
+  isCoordenador: boolean;
+  cargo: string;
+}
+
 export default function PainelIntegradoPage() {
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>("");
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Check unlock status
+  const { data: unlockStatus, isLoading: isLoadingUnlock } = useQuery<UnlockStatus>({
+    queryKey: ["/api/painel/unlock-status"],
+  });
 
   const { data: empreendimentos } = useQuery({
     queryKey: ["/api/empreendimentos"],
@@ -473,9 +496,125 @@ export default function PainelIntegradoPage() {
     enabled: !!selectedEmpreendimento,
   });
 
+  // Unlock mutation
+  const unlockMutation = useMutation({
+    mutationFn: async (password: string) => {
+      return apiRequest("POST", "/api/painel/unlock", { password });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Painel desbloqueado",
+        description: "Você agora tem acesso ao painel completo.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/painel/unlock-status"] });
+      setUnlockDialogOpen(false);
+      setUnlockPassword("");
+    },
+    onError: () => {
+      toast({
+        title: "Senha incorreta",
+        description: "A senha informada está incorreta. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUnlock = () => {
+    if (unlockPassword.trim()) {
+      unlockMutation.mutate(unlockPassword);
+    }
+  };
+
   // Auto-select first empreendimento if available and none selected
   if (Array.isArray(empreendimentos) && empreendimentos.length > 0 && !selectedEmpreendimento) {
     setSelectedEmpreendimento(empreendimentos[0].id.toString());
+  }
+
+  // Show loading state while checking unlock status
+  if (isLoadingUnlock) {
+    return (
+      <div className="container mx-auto py-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Show locked overlay if user is not authorized
+  if (!unlockStatus?.unlocked) {
+    return (
+      <div className="container mx-auto py-8 space-y-6" data-testid="page-painel-integrado-locked">
+        <div className="flex flex-col items-center justify-center min-h-[500px] space-y-6">
+          <div className="p-8 bg-muted/50 rounded-full">
+            <Lock className="h-20 w-20 text-muted-foreground" />
+          </div>
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Painel de Controle</h2>
+            <p className="text-muted-foreground max-w-md">
+              Este painel está disponível apenas para coordenadores e diretores.
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="lg"
+            onClick={() => setUnlockDialogOpen(true)}
+            className="gap-2"
+            data-testid="button-unlock-painel"
+          >
+            <Unlock className="h-4 w-4" />
+            Clique para desbloquear
+          </Button>
+        </div>
+
+        <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Desbloquear Painel
+              </DialogTitle>
+              <DialogDescription>
+                Digite a senha de acesso para visualizar o painel de controle.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <Input
+                type="password"
+                placeholder="Senha de acesso"
+                value={unlockPassword}
+                onChange={(e) => setUnlockPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+                data-testid="input-unlock-password"
+              />
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setUnlockDialogOpen(false);
+                    setUnlockPassword("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleUnlock}
+                  disabled={unlockMutation.isPending || !unlockPassword.trim()}
+                  data-testid="button-confirm-unlock"
+                >
+                  {unlockMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    "Desbloquear"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
   }
 
   return (

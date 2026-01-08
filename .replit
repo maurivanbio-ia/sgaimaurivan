@@ -43,3 +43,8 @@ integrations = ["javascript_object_storage:1.0.0", "javascript_anthropic:1.0.0",
 
 [objectStorage]
 defaultBucketID = "replit-objstore-240b665c-1031-4db5-8ff7-de68fca620bb"
+
+[userenv]
+
+[userenv.shared]
+PAINEL_UNLOCK_PASSWORD = "bor192023"
