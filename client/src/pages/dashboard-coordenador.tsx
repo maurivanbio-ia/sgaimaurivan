@@ -2,12 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Medal, Award, TrendingUp, Wallet, DollarSign, FolderKanban, Target } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { AlertTriangle, FolderKanban, TrendingDown, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, Tooltip, PieChart, Pie, Cell } from "recharts";
 
 interface User {
   id: number;
@@ -24,12 +23,7 @@ interface Projeto {
   status: string;
   coordenadorId: number | null;
   empreendimentoId: number;
-  valorContratado: string | null;
-  valorRecebido: string | null;
   orcamentoPrevisto: string | null;
-  metaReducaoGastos: string | null;
-  bmmServicos: string | null;
-  ndReembolsaveis: string | null;
 }
 
 interface Empreendimento {
@@ -38,39 +32,23 @@ interface Empreendimento {
   cliente: string;
 }
 
-interface CoordinatorRanking {
-  userId: number;
-  email: string;
-  totalProjetos: number;
-  valorContratado: number;
-  valorRecebido: number;
-  eficiencia: number;
-}
-
 interface Lancamento {
   id: number;
   tipo: string;
   valor: string;
   data: string;
-  bmmServicos: string | null;
-  ndReembolsaveis: string | null;
   empreendimentoId: number;
+  categoriaId: number;
 }
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-
-function getBadgeInfo(efficiency: number) {
-  if (efficiency >= 95) return { name: 'Ouro', color: 'bg-yellow-500', icon: Trophy, nextThreshold: 100, progress: 100 };
-  if (efficiency >= 85) return { name: 'Prata', color: 'bg-gray-400', icon: Medal, nextThreshold: 95, progress: ((efficiency - 85) / 10) * 100 };
-  if (efficiency >= 75) return { name: 'Bronze', color: 'bg-orange-600', icon: Award, nextThreshold: 85, progress: ((efficiency - 75) / 10) * 100 };
-  return { name: 'Iniciante', color: 'bg-slate-500', icon: Target, nextThreshold: 75, progress: (efficiency / 75) * 100 };
+interface CategoriaFinanceira {
+  id: number;
+  nome: string;
+  tipo: string;
+  cor: string;
 }
 
-function getEfficiencyColor(efficiency: number): string {
-  if (efficiency >= 80) return 'text-green-600 dark:text-green-400';
-  if (efficiency >= 60) return 'text-yellow-600 dark:text-yellow-400';
-  return 'text-red-600 dark:text-red-400';
-}
+const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
 
 function formatCurrency(value: number | string): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -97,75 +75,26 @@ export default function DashboardCoordenador() {
     queryKey: ['/api/empreendimentos'],
   });
 
-  const { data: ranking = [], isLoading: rankingLoading } = useQuery<CoordinatorRanking[]>({
-    queryKey: ['/api/coordenadores/ranking'],
-  });
-
   const { data: lancamentos = [], isLoading: lancamentosLoading } = useQuery<Lancamento[]>({
     queryKey: ['/api/financeiro/lancamentos'],
   });
 
-  const myProjects = projetos.filter(p => p.coordenadorId === user?.id);
-  
-  const totalContratado = myProjects.reduce((sum, p) => sum + (parseFloat(String(p.valorContratado || 0)) || 0), 0);
-  const totalRecebido = myProjects.reduce((sum, p) => sum + (parseFloat(String(p.valorRecebido || 0)) || 0), 0);
-  const eficienciaGeral = totalContratado > 0 ? (totalRecebido / totalContratado) * 100 : 0;
-  
-  const badgeInfo = getBadgeInfo(eficienciaGeral);
-  const BadgeIcon = badgeInfo.icon;
-
-  const statusCounts = myProjects.reduce((acc, p) => {
-    acc[p.status] = (acc[p.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const pieData = Object.entries(statusCounts).map(([name, value]) => ({
-    name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-    value
-  }));
-
-  const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e]));
-  const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
-  const myLancamentos = lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId));
-
-  const last12Months = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    return {
-      month: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-      year: date.getFullYear(),
-      monthNum: date.getMonth()
-    };
-  }).reverse();
-
-  const expenseTrend = last12Months.map(({ month, year, monthNum }) => {
-    const monthLancamentos = myLancamentos.filter(l => {
-      const d = new Date(l.data);
-      return d.getMonth() === monthNum && d.getFullYear() === year && l.tipo === 'despesa';
-    });
-    
-    const bmmTotal = monthLancamentos
-      .filter(l => l.bmmServicos)
-      .reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
-    
-    const ndTotal = monthLancamentos
-      .filter(l => l.ndReembolsaveis)
-      .reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
-
-    return { month, 'BMM-Serviços': bmmTotal, 'ND-Reembolsáveis': ndTotal };
+  const { data: categorias = [] } = useQuery<CategoriaFinanceira[]>({
+    queryKey: ['/api/categorias-financeiras'],
   });
 
-  const myRankPosition = ranking.findIndex(r => r.userId === user?.id) + 1;
-  const top5 = ranking.slice(0, 5);
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+  });
 
-  const isLoading = userLoading || projectsLoading || rankingLoading || lancamentosLoading;
+  const isLoading = userLoading || projectsLoading || lancamentosLoading;
 
   if (isLoading) {
     return (
       <div className="p-6 space-y-6" data-testid="loading-state">
         <Skeleton className="h-12 w-96" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32" />)}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Skeleton className="h-64" />
@@ -175,43 +104,112 @@ export default function DashboardCoordenador() {
     );
   }
 
+  if (user?.cargo !== 'coordenador') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <AlertTriangle className="h-16 w-16 mx-auto text-yellow-500 mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Acesso Restrito</h2>
+            <p className="text-muted-foreground mb-4">
+              Este painel é exclusivo para coordenadores de projetos.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Seu cargo atual: <Badge variant="outline">{user?.cargo || 'Não definido'}</Badge>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const myProjects = projetos.filter(p => p.coordenadorId === user?.id);
+  const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e]));
+  const categoriaMap = new Map(categorias.map(c => [c.id, c]));
+  const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
+  
+  const myDespesas = lancamentos.filter(l => 
+    myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa'
+  );
+  
+  const totalGastos = myDespesas.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
+
+  const gastosPorProjeto = myProjects.map(projeto => {
+    const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
+    const despesasProjeto = lancamentos.filter(l => 
+      l.empreendimentoId === projeto.empreendimentoId && l.tipo === 'despesa'
+    );
+    const totalDespesas = despesasProjeto.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
+    const orcamento = parseFloat(String(projeto.orcamentoPrevisto || 0)) || 0;
+    
+    return {
+      id: projeto.id,
+      nome: projeto.nome,
+      empreendimento: empreendimento?.nome || '-',
+      empreendimentoId: projeto.empreendimentoId,
+      totalGastos: totalDespesas,
+      orcamento,
+      percentualGasto: orcamento > 0 ? (totalDespesas / orcamento) * 100 : 0,
+      status: projeto.status
+    };
+  });
+
+  const gastosPorCategoria = myDespesas.reduce((acc, l) => {
+    const categoria = categoriaMap.get(l.categoriaId);
+    const nome = categoria?.nome || 'Outros';
+    const cor = categoria?.cor || '#94a3b8';
+    if (!acc[nome]) {
+      acc[nome] = { nome, valor: 0, cor };
+    }
+    acc[nome].valor += parseFloat(l.valor) || 0;
+    return acc;
+  }, {} as Record<string, { nome: string; valor: number; cor: string }>);
+
+  const categoriaChartData = Object.values(gastosPorCategoria)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 8);
+
+  const coordenadoresIds = Array.from(new Set(projetos.filter(p => p.coordenadorId).map(p => p.coordenadorId!)));
+  
+  const comparativoCoordenadores = coordenadoresIds.map(coordId => {
+    const coordUser = allUsers.find(u => u.id === coordId);
+    const coordProjects = projetos.filter(p => p.coordenadorId === coordId);
+    const coordEmprIds = new Set(coordProjects.map(p => p.empreendimentoId));
+    const coordDespesas = lancamentos.filter(l => 
+      coordEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa'
+    );
+    const totalDespesas = coordDespesas.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
+    
+    return {
+      userId: coordId,
+      nome: coordUser?.email?.split('@')[0] || `Coord #${coordId}`,
+      email: coordUser?.email || '',
+      totalProjetos: coordProjects.length,
+      totalGastos: totalDespesas,
+      isCurrentUser: coordId === user?.id
+    };
+  }).sort((a, b) => b.totalGastos - a.totalGastos);
+
+  const barChartData = gastosPorProjeto.map(p => ({
+    nome: p.nome.length > 15 ? p.nome.substring(0, 15) + '...' : p.nome,
+    gastos: p.totalGastos,
+    orcamento: p.orcamento
+  }));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6" data-testid="dashboard-coordenador">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-8 text-white shadow-xl">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">
           <h1 className="text-3xl font-bold mb-2" data-testid="welcome-message">
             Bem-vindo, {user?.email.split('@')[0]}!
           </h1>
-          <p className="text-white/80">Painel de Gamificação do Coordenador</p>
-          
-          <div className="flex items-center gap-4 mt-4">
-            <div className={`p-3 rounded-full ${badgeInfo.color}`}>
-              <BadgeIcon className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <Badge className={`${badgeInfo.color} text-white text-lg px-3 py-1`} data-testid="badge-level">
-                Nível {badgeInfo.name}
-              </Badge>
-              {badgeInfo.name !== 'Ouro' && (
-                <div className="mt-2">
-                  <p className="text-sm text-white/70">Próximo nível: {badgeInfo.nextThreshold}% de eficiência</p>
-                  <Progress value={badgeInfo.progress} className="h-2 mt-1 bg-white/20" data-testid="progress-next-badge" />
-                </div>
-              )}
-            </div>
-            {myRankPosition > 0 && (
-              <div className="ml-auto text-right">
-                <p className="text-white/70 text-sm">Sua posição no ranking</p>
-                <p className="text-4xl font-bold" data-testid="rank-position">#{myRankPosition}</p>
-              </div>
-            )}
-          </div>
+          <p className="text-white/80">Painel do Coordenador - Acompanhamento de Gastos</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card data-testid="card-total-projetos">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Projetos</CardTitle>
+              <CardTitle className="text-sm font-medium">Meus Projetos</CardTitle>
               <FolderKanban className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -220,111 +218,49 @@ export default function DashboardCoordenador() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-valor-contratado">
+          <Card data-testid="card-total-gastos">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Contratado</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total de Gastos</CardTitle>
+              <TrendingDown className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalContratado)}</div>
-              <p className="text-xs text-muted-foreground">valor total dos contratos</p>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(totalGastos)}</div>
+              <p className="text-xs text-muted-foreground">despesas nos seus projetos</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="card-valor-recebido">
+          <Card data-testid="card-lancamentos">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Recebido</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Lançamentos</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalRecebido)}</div>
-              <p className="text-xs text-muted-foreground">valor efetivamente recebido</p>
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-eficiencia">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Eficiência Geral</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getEfficiencyColor(eficienciaGeral)}`}>
-                {eficienciaGeral.toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground">recebido vs contratado</p>
+              <div className="text-2xl font-bold">{myDespesas.length}</div>
+              <p className="text-xs text-muted-foreground">despesas registradas</p>
             </CardContent>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card data-testid="ranking-card">
+          <Card data-testid="gastos-por-projeto-chart">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-yellow-500" />
-                Ranking de Coordenadores (Top 5)
+                <BarChart3 className="h-5 w-5" />
+                Gastos por Projeto
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {top5.map((coord, idx) => (
-                  <div 
-                    key={coord.userId} 
-                    className={`flex items-center gap-4 p-3 rounded-lg ${coord.userId === user?.id ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-800'}`}
-                    data-testid={`ranking-item-${idx}`}
-                  >
-                    <span className={`text-2xl font-bold ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-orange-600' : 'text-gray-500'}`}>
-                      #{idx + 1}
-                    </span>
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-green-600 text-white">
-                        {getInitials(coord.email)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{coord.email.split('@')[0]}</p>
-                      <p className="text-sm text-muted-foreground">{coord.totalProjetos} projetos</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-lg font-bold ${getEfficiencyColor(coord.eficiencia)}`}>
-                        {coord.eficiencia.toFixed(1)}%
-                      </span>
-                      <Badge className={getBadgeInfo(coord.eficiencia).color + ' text-white ml-2'}>
-                        {getBadgeInfo(coord.eficiencia).name}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-                {top5.length === 0 && (
-                  <p className="text-muted-foreground text-center py-4">Nenhum coordenador com projetos atribuídos</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card data-testid="status-chart-card">
-            <CardHeader>
-              <CardTitle>Projetos por Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {pieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`}
-                    >
-                      {pieData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
+              {barChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={barChartData} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" tickFormatter={(v: number) => `R$ ${(v/1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="nome" width={100} />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="gastos" name="Gastos" fill="#ef4444" />
+                    <Bar dataKey="orcamento" name="Orçamento" fill="#22c55e" />
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -333,73 +269,129 @@ export default function DashboardCoordenador() {
               )}
             </CardContent>
           </Card>
+
+          <Card data-testid="gastos-por-categoria-chart">
+            <CardHeader>
+              <CardTitle>Gastos por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {categoriaChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={categoriaChartData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="valor"
+                      nameKey="nome"
+                      label={({ nome, valor }: { nome: string; valor: number }) => 
+                        `${nome.length > 10 ? nome.substring(0, 10) + '...' : nome}`
+                      }
+                    >
+                      {categoriaChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.cor || COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  Nenhuma despesa registrada
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        <Card data-testid="expense-trend-card">
+        <Card data-testid="comparativo-coordenadores">
           <CardHeader>
-            <CardTitle>Tendência de Despesas (Últimos 12 Meses)</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Comparativo de Gastos por Coordenador
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={expenseTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(v: number) => `R$ ${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                <Legend />
-                <Line type="monotone" dataKey="BMM-Serviços" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="ND-Reembolsáveis" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              {comparativoCoordenadores.map((coord, idx) => (
+                <div 
+                  key={coord.userId} 
+                  className={`flex items-center gap-4 p-3 rounded-lg ${coord.isCurrentUser ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-800'}`}
+                  data-testid={`comparativo-item-${idx}`}
+                >
+                  <span className="text-lg font-bold text-gray-500 w-8">
+                    #{idx + 1}
+                  </span>
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className={coord.isCurrentUser ? 'bg-blue-600 text-white' : 'bg-gray-600 text-white'}>
+                      {getInitials(coord.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {coord.nome}
+                      {coord.isCurrentUser && <Badge className="ml-2 bg-blue-500">Você</Badge>}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{coord.totalProjetos} projeto(s)</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-bold text-red-600">
+                      {formatCurrency(coord.totalGastos)}
+                    </span>
+                    <p className="text-xs text-muted-foreground">gastos totais</p>
+                  </div>
+                </div>
+              ))}
+              {comparativoCoordenadores.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">Nenhum coordenador com projetos atribuídos</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         <Card data-testid="projects-table-card">
           <CardHeader>
-            <CardTitle>Meus Projetos</CardTitle>
+            <CardTitle>Detalhamento dos Meus Projetos</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
+                  <TableHead>Projeto</TableHead>
                   <TableHead>Empreendimento</TableHead>
-                  <TableHead className="text-right">Valor Contratado</TableHead>
-                  <TableHead className="text-right">Valor Recebido</TableHead>
-                  <TableHead className="text-right">Eficiência</TableHead>
+                  <TableHead className="text-right">Orçamento</TableHead>
+                  <TableHead className="text-right">Gastos</TableHead>
+                  <TableHead className="text-right">% Utilizado</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {myProjects.map((projeto) => {
-                  const contratado = parseFloat(String(projeto.valorContratado || 0)) || 0;
-                  const recebido = parseFloat(String(projeto.valorRecebido || 0)) || 0;
-                  const efficiency = contratado > 0 ? (recebido / contratado) * 100 : 0;
-                  const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
-                  
-                  return (
-                    <TableRow 
-                      key={projeto.id} 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/empreendimentos/${projeto.empreendimentoId}`)}
-                      data-testid={`project-row-${projeto.id}`}
-                    >
-                      <TableCell className="font-medium">{projeto.nome}</TableCell>
-                      <TableCell>{empreendimento?.nome || '-'}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(contratado)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(recebido)}</TableCell>
-                      <TableCell className={`text-right font-semibold ${getEfficiencyColor(efficiency)}`}>
-                        {efficiency.toFixed(1)}%
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {(projeto.status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {myProjects.length === 0 && (
+                {gastosPorProjeto.map((projeto) => (
+                  <TableRow 
+                    key={projeto.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/empreendimentos/${projeto.empreendimentoId}`)}
+                    data-testid={`project-row-${projeto.id}`}
+                  >
+                    <TableCell className="font-medium">{projeto.nome}</TableCell>
+                    <TableCell>{projeto.empreendimento}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(projeto.orcamento)}</TableCell>
+                    <TableCell className="text-right text-red-600 font-medium">
+                      {formatCurrency(projeto.totalGastos)}
+                    </TableCell>
+                    <TableCell className={`text-right font-semibold ${projeto.percentualGasto > 100 ? 'text-red-600' : projeto.percentualGasto > 80 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {projeto.orcamento > 0 ? `${projeto.percentualGasto.toFixed(1)}%` : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {(projeto.status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {gastosPorProjeto.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       Nenhum projeto atribuído a você
