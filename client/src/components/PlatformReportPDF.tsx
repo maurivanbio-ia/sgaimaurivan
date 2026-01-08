@@ -236,15 +236,20 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
     setIsExporting(true);
 
     try {
+      console.log('Iniciando geração do relatório 360°...');
+      
       const response = await fetch('/api/relatorio-plataforma', {
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao buscar dados do relatório');
+        const errorText = await response.text();
+        console.error('Erro na resposta do servidor:', response.status, errorText);
+        throw new Error(`Falha ao buscar dados do relatório: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Dados do relatório recebidos:', Object.keys(data));
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;

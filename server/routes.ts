@@ -4886,7 +4886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getContratos(unidadeFilter),
         storage.getCampanhas(unidadeFilter),
         storage.getProjetos(unidadeFilter),
-        storage.getFinanceiroStats(undefined, unidadeFilter),
+        storage.getFinancialStats(),
         storage.getTarefas({ unidade: unidadeFilter }),
         storage.getMembrosEquipe(unidadeFilter),
       ]);
