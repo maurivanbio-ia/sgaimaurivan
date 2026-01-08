@@ -1493,6 +1493,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         criadoPor: req.session?.userId || 1, // Default to user ID 1 for now
       };
+      // Se dataPagamento foi informada, define status automaticamente como "pago"
+      if (lancamentoData.dataPagamento) {
+        lancamentoData.status = "pago";
+      }
       const lancamento = await storage.createLancamento(lancamentoData);
       res.status(201).json(lancamento);
     } catch (error) {
@@ -1507,7 +1511,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid lancamento ID' });
       }
-      const lancamento = await storage.updateLancamento(id, req.body);
+      const updateData = { ...req.body };
+      // Se dataPagamento foi informada, define status automaticamente como "pago"
+      if (updateData.dataPagamento) {
+        updateData.status = "pago";
+      }
+      const lancamento = await storage.updateLancamento(id, updateData);
       res.json(lancamento);
     } catch (error) {
       console.error('Error updating lancamento:', error);
