@@ -45,7 +45,15 @@ import {
   scheduledReports,
   realTimeNotifications,
   insertDocumentoSchema,
-  insertScheduledReportSchema
+  insertScheduledReportSchema,
+  membrosEquipe,
+  tarefas,
+  tarefaAtualizacoes,
+  registroHoras,
+  insertMembroEquipeSchema,
+  insertTarefaSchema,
+  insertTarefaAtualizacaoSchema,
+  insertRegistroHorasSchema
 } from "@shared/schema";
 
 // Import new controllers
@@ -3714,6 +3722,462 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error executing scheduled report:', error);
       res.status(500).json({ error: 'Erro ao executar relatório' });
+    }
+  });
+
+  // ======== GESTÃO DE EQUIPE ROUTES ========
+  
+  // Middleware para verificar se é coordenador
+  const requireCoordenador = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (req.user.cargo !== 'coordenador' && req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Acesso restrito a coordenadores" });
+    }
+    next();
+  };
+
+  // Listar membros da equipe
+  app.get('/api/equipe', requireAuth, async (req, res) => {
+    try {
+      const { unidade, coordenadorId, ativo } = req.query;
+      
+      const filters: any = {};
+      if (unidade) filters.unidade = unidade as string;
+      if (coordenadorId) filters.coordenadorId = parseInt(coordenadorId as string);
+      if (ativo !== undefined) filters.ativo = ativo === 'true';
+      
+      // Se não for admin/diretor, filtrar por unidade do usuário
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.unidade = req.user.unidade;
+      }
+      
+      // Se for coordenador, mostrar apenas sua equipe
+      if (req.user.cargo === 'coordenador') {
+        filters.coordenadorId = req.user.id;
+      }
+      
+      const membros = await storage.getMembrosEquipe(filters);
+      res.json(membros);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+      res.status(500).json({ error: 'Erro ao buscar membros da equipe' });
+    }
+  });
+
+  // Buscar membro por ID
+  app.get('/api/equipe/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const membro = await storage.getMembroEquipeById(id);
+      
+      if (!membro) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      
+      res.json(membro);
+    } catch (error) {
+      console.error('Error fetching team member:', error);
+      res.status(500).json({ error: 'Erro ao buscar membro' });
+    }
+  });
+
+  // Criar membro da equipe
+  app.post('/api/equipe', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const data = insertMembroEquipeSchema.parse(req.body);
+      
+      // Se for coordenador, definir automaticamente como coordenador do membro
+      if (req.user.cargo === 'coordenador') {
+        data.coordenadorId = req.user.id;
+        data.unidade = req.user.unidade;
+      }
+      
+      const membro = await storage.createMembroEquipe(data);
+      
+      await auditLogService.logCreate('membros_equipe', membro.id, membro, req.session.userId, req.user?.email, req);
+      
+      res.status(201).json(membro);
+    } catch (error) {
+      console.error('Error creating team member:', error);
+      res.status(500).json({ error: 'Erro ao criar membro da equipe' });
+    }
+  });
+
+  // Atualizar membro da equipe
+  app.put('/api/equipe/:id', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const existing = await storage.getMembroEquipeById(id);
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      
+      // Verificar se o coordenador tem permissão para editar este membro
+      if (req.user.cargo === 'coordenador' && existing.coordenadorId !== req.user.id) {
+        return res.status(403).json({ error: 'Sem permissão para editar este membro' });
+      }
+      
+      const membro = await storage.updateMembroEquipe(id, req.body);
+      
+      await auditLogService.logUpdate('membros_equipe', id, existing, membro, req.session.userId, req.user?.email, req);
+      
+      res.json(membro);
+    } catch (error) {
+      console.error('Error updating team member:', error);
+      res.status(500).json({ error: 'Erro ao atualizar membro' });
+    }
+  });
+
+  // Excluir membro da equipe
+  app.delete('/api/equipe/:id', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const existing = await storage.getMembroEquipeById(id);
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Membro não encontrado' });
+      }
+      
+      await storage.deleteMembroEquipe(id);
+      
+      await auditLogService.logDelete('membros_equipe', id, existing, req.session.userId, req.user?.email, req);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting team member:', error);
+      res.status(500).json({ error: 'Erro ao excluir membro' });
+    }
+  });
+
+  // Buscar equipe do coordenador atual
+  app.get('/api/minha-equipe', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const membros = await storage.getEquipeDoCoordenador(req.user.id);
+      res.json(membros);
+    } catch (error) {
+      console.error('Error fetching my team:', error);
+      res.status(500).json({ error: 'Erro ao buscar minha equipe' });
+    }
+  });
+
+  // ======== TAREFAS ROUTES ========
+  
+  // Listar tarefas
+  app.get('/api/tarefas', requireAuth, async (req, res) => {
+    try {
+      const { unidade, responsavelId, criadoPor, status, prioridade, categoria, empreendimentoId, dataInicio, dataFim } = req.query;
+      
+      const filters: any = {};
+      if (unidade) filters.unidade = unidade as string;
+      if (responsavelId) filters.responsavelId = parseInt(responsavelId as string);
+      if (criadoPor) filters.criadoPor = parseInt(criadoPor as string);
+      if (status) filters.status = status as string;
+      if (prioridade) filters.prioridade = prioridade as string;
+      if (categoria) filters.categoria = categoria as string;
+      if (empreendimentoId) filters.empreendimentoId = parseInt(empreendimentoId as string);
+      if (dataInicio) filters.dataInicio = dataInicio as string;
+      if (dataFim) filters.dataFim = dataFim as string;
+      
+      // Colaboradores só veem suas próprias tarefas
+      if (req.user.cargo === 'colaborador') {
+        filters.responsavelId = req.user.id;
+      }
+      // Coordenadores veem tarefas que criaram ou da sua equipe
+      else if (req.user.cargo === 'coordenador') {
+        if (!filters.responsavelId && !filters.criadoPor) {
+          filters.criadoPor = req.user.id;
+        }
+      }
+      // Se não for admin/diretor, filtrar por unidade
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.unidade = req.user.unidade;
+      }
+      
+      const tarefasList = await storage.getTarefas(filters);
+      res.json(tarefasList);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      res.status(500).json({ error: 'Erro ao buscar tarefas' });
+    }
+  });
+
+  // Buscar tarefa por ID
+  app.get('/api/tarefas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const tarefa = await storage.getTarefaById(id);
+      
+      if (!tarefa) {
+        return res.status(404).json({ error: 'Tarefa não encontrada' });
+      }
+      
+      // Verificar permissão
+      if (req.user.cargo === 'colaborador' && tarefa.responsavelId !== req.user.id) {
+        return res.status(403).json({ error: 'Sem permissão para ver esta tarefa' });
+      }
+      
+      res.json(tarefa);
+    } catch (error) {
+      console.error('Error fetching task:', error);
+      res.status(500).json({ error: 'Erro ao buscar tarefa' });
+    }
+  });
+
+  // Criar tarefa (só coordenadores)
+  app.post('/api/tarefas', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const data = insertTarefaSchema.parse({
+        ...req.body,
+        criadoPor: req.user.id,
+        unidade: req.body.unidade || req.user.unidade
+      });
+      
+      const tarefa = await storage.createTarefa(data);
+      
+      await auditLogService.logCreate('tarefas', tarefa.id, tarefa, req.session.userId, req.user?.email, req);
+      
+      // Enviar notificação para o responsável
+      await storage.createNotification({
+        tipo: 'tarefa',
+        titulo: 'Nova tarefa atribuída',
+        mensagem: `Você recebeu uma nova tarefa: ${tarefa.titulo}`,
+        canal: 'sistema',
+        status: 'pendente',
+        itemId: tarefa.id,
+        metadados: { tarefaId: tarefa.id, responsavelId: tarefa.responsavelId }
+      });
+      
+      res.status(201).json(tarefa);
+    } catch (error) {
+      console.error('Error creating task:', error);
+      res.status(500).json({ error: 'Erro ao criar tarefa' });
+    }
+  });
+
+  // Atualizar tarefa
+  app.put('/api/tarefas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const existing = await storage.getTarefaById(id);
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Tarefa não encontrada' });
+      }
+      
+      // Colaboradores só podem atualizar status e observações das próprias tarefas
+      if (req.user.cargo === 'colaborador') {
+        if (existing.responsavelId !== req.user.id) {
+          return res.status(403).json({ error: 'Sem permissão para editar esta tarefa' });
+        }
+        // Limitar campos que colaborador pode editar
+        const allowedFields = ['status', 'observacoesColaborador', 'horasRealizadas'];
+        const updates: any = {};
+        for (const field of allowedFields) {
+          if (req.body[field] !== undefined) {
+            updates[field] = req.body[field];
+          }
+        }
+        
+        const tarefa = await storage.updateTarefa(id, updates);
+        
+        // Registrar atualização
+        if (req.body.status && req.body.status !== existing.status) {
+          await storage.createAtualizacaoTarefa({
+            tarefaId: id,
+            usuarioId: req.user.id,
+            tipo: 'status_change',
+            conteudo: `Status alterado de "${existing.status}" para "${req.body.status}"`,
+            statusAnterior: existing.status,
+            statusNovo: req.body.status
+          });
+        }
+        
+        await auditLogService.logUpdate('tarefas', id, existing, tarefa, req.session.userId, req.user?.email, req);
+        
+        return res.json(tarefa);
+      }
+      
+      // Coordenadores podem editar tudo
+      const tarefa = await storage.updateTarefa(id, req.body);
+      
+      await auditLogService.logUpdate('tarefas', id, existing, tarefa, req.session.userId, req.user?.email, req);
+      
+      res.json(tarefa);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      res.status(500).json({ error: 'Erro ao atualizar tarefa' });
+    }
+  });
+
+  // Excluir tarefa (só coordenadores)
+  app.delete('/api/tarefas/:id', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const existing = await storage.getTarefaById(id);
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Tarefa não encontrada' });
+      }
+      
+      await storage.deleteTarefa(id);
+      
+      await auditLogService.logDelete('tarefas', id, existing, req.session.userId, req.user?.email, req);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      res.status(500).json({ error: 'Erro ao excluir tarefa' });
+    }
+  });
+
+  // Tarefas do dia para o colaborador
+  app.get('/api/minhas-tarefas-hoje', requireAuth, async (req, res) => {
+    try {
+      const data = req.query.data as string;
+      const tarefasList = await storage.getTarefasDoDia(req.user.id, data);
+      res.json(tarefasList);
+    } catch (error) {
+      console.error('Error fetching today tasks:', error);
+      res.status(500).json({ error: 'Erro ao buscar tarefas do dia' });
+    }
+  });
+
+  // Tarefas atrasadas
+  app.get('/api/tarefas-atrasadas', requireAuth, async (req, res) => {
+    try {
+      let responsavelId: number | undefined;
+      let unidade: string | undefined;
+      
+      if (req.user.cargo === 'colaborador') {
+        responsavelId = req.user.id;
+      } else if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        unidade = req.user.unidade;
+      }
+      
+      const tarefasList = await storage.getTarefasAtrasadas(responsavelId, unidade);
+      res.json(tarefasList);
+    } catch (error) {
+      console.error('Error fetching overdue tasks:', error);
+      res.status(500).json({ error: 'Erro ao buscar tarefas atrasadas' });
+    }
+  });
+
+  // Estatísticas de tarefas
+  app.get('/api/tarefas-stats', requireAuth, async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.user.cargo === 'colaborador') {
+        filters.responsavelId = req.user.id;
+      } else if (req.user.cargo === 'coordenador') {
+        filters.criadoPor = req.user.id;
+      } else if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.unidade = req.user.unidade;
+      }
+      
+      const stats = await storage.getEstatisticasTarefas(filters);
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching task stats:', error);
+      res.status(500).json({ error: 'Erro ao buscar estatísticas' });
+    }
+  });
+
+  // ======== ATUALIZAÇÕES DE TAREFAS ========
+  
+  app.get('/api/tarefas/:id/atualizacoes', requireAuth, async (req, res) => {
+    try {
+      const tarefaId = parseInt(req.params.id);
+      const atualizacoes = await storage.getAtualizacoesTarefa(tarefaId);
+      res.json(atualizacoes);
+    } catch (error) {
+      console.error('Error fetching task updates:', error);
+      res.status(500).json({ error: 'Erro ao buscar atualizações' });
+    }
+  });
+
+  app.post('/api/tarefas/:id/atualizacoes', requireAuth, async (req, res) => {
+    try {
+      const tarefaId = parseInt(req.params.id);
+      
+      const data = insertTarefaAtualizacaoSchema.parse({
+        ...req.body,
+        tarefaId,
+        usuarioId: req.user.id
+      });
+      
+      const atualizacao = await storage.createAtualizacaoTarefa(data);
+      res.status(201).json(atualizacao);
+    } catch (error) {
+      console.error('Error creating task update:', error);
+      res.status(500).json({ error: 'Erro ao criar atualização' });
+    }
+  });
+
+  // ======== REGISTRO DE HORAS ========
+  
+  app.get('/api/registro-horas', requireAuth, async (req, res) => {
+    try {
+      const { tarefaId, colaboradorId, dataInicio, dataFim } = req.query;
+      
+      const filters: any = {};
+      if (tarefaId) filters.tarefaId = parseInt(tarefaId as string);
+      if (colaboradorId) filters.colaboradorId = parseInt(colaboradorId as string);
+      if (dataInicio) filters.dataInicio = dataInicio as string;
+      if (dataFim) filters.dataFim = dataFim as string;
+      
+      // Colaboradores só veem seus próprios registros
+      if (req.user.cargo === 'colaborador') {
+        filters.colaboradorId = req.user.id;
+      }
+      
+      const registros = await storage.getRegistrosHoras(filters);
+      res.json(registros);
+    } catch (error) {
+      console.error('Error fetching time records:', error);
+      res.status(500).json({ error: 'Erro ao buscar registros de horas' });
+    }
+  });
+
+  app.post('/api/registro-horas', requireAuth, async (req, res) => {
+    try {
+      const data = insertRegistroHorasSchema.parse({
+        ...req.body,
+        colaboradorId: req.user.id
+      });
+      
+      const registro = await storage.createRegistroHoras(data);
+      res.status(201).json(registro);
+    } catch (error) {
+      console.error('Error creating time record:', error);
+      res.status(500).json({ error: 'Erro ao criar registro de horas' });
+    }
+  });
+
+  app.post('/api/registro-horas/:id/aprovar', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const registro = await storage.aprovarRegistroHoras(id, req.user.id);
+      res.json(registro);
+    } catch (error) {
+      console.error('Error approving time record:', error);
+      res.status(500).json({ error: 'Erro ao aprovar registro de horas' });
+    }
+  });
+
+  // ======== PERFIL DO USUÁRIO ========
+  
+  // Obter perfil do membro da equipe atual
+  app.get('/api/meu-perfil-equipe', requireAuth, async (req, res) => {
+    try {
+      const membro = await storage.getMembroEquipeByUserId(req.user.id);
+      res.json(membro || null);
+    } catch (error) {
+      console.error('Error fetching my team profile:', error);
+      res.status(500).json({ error: 'Erro ao buscar perfil' });
     }
   });
 
