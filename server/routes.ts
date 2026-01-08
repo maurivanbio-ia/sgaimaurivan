@@ -1914,58 +1914,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Download Excel template
-  app.get('/api/financeiro/template-excel', requireAuth, async (req, res) => {
+  // Export financial data to Excel
+  app.get('/api/financeiro/export-excel', requireAuth, async (req, res) => {
     try {
       const XLSX = await import('xlsx');
       
-      // Create template with sample data
-      const templateData = [
-        {
-          'Tipo': 'despesa',
-          'Categoria': 'Combustível',
-          'Empreendimento': 'Nome do Projeto',
-          'Valor': '150,00',
-          'Data': '01/01/2025',
-          'Descrição': 'Descrição do lançamento',
-          'Status': 'aguardando'
-        },
-        {
-          'Tipo': 'receita',
-          'Categoria': 'Serviços',
-          'Empreendimento': 'Nome do Projeto',
-          'Valor': '5000,00',
-          'Data': '15/01/2025',
-          'Descrição': 'Recebimento de contrato',
-          'Status': 'pago'
-        }
-      ];
+      // Get all financial data
+      const lancamentos = await storage.getLancamentos();
+      const categorias = await storage.getCategorias();
+      const empreendimentos = await storage.getEmpreendimentos();
+      
+      // Create lookup maps
+      const categoriaMap = new Map(categorias.map(c => [c.id, c.nome]));
+      const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e.nome]));
+      
+      // Transform data for Excel
+      const exportData = lancamentos.map(l => ({
+        'ID': l.id,
+        'Tipo': l.tipo.charAt(0).toUpperCase() + l.tipo.slice(1),
+        'Categoria': categoriaMap.get(l.categoriaId) || 'N/A',
+        'Empreendimento': empreendimentoMap.get(l.empreendimentoId) || 'N/A',
+        'Valor': `R$ ${parseFloat(l.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        'Valor Numérico': parseFloat(l.valor),
+        'Data': l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '',
+        'Data Pagamento': l.dataPagamento ? new Date(l.dataPagamento).toLocaleDateString('pt-BR') : '',
+        'Descrição': l.descricao || '',
+        'Status': l.status ? l.status.charAt(0).toUpperCase() + l.status.slice(1) : 'Aguardando'
+      }));
 
-      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
       
       // Add column widths
       worksheet['!cols'] = [
-        { wch: 20 }, // Tipo
+        { wch: 8 },  // ID
+        { wch: 18 }, // Tipo
         { wch: 25 }, // Categoria
         { wch: 30 }, // Empreendimento
-        { wch: 15 }, // Valor
+        { wch: 18 }, // Valor
+        { wch: 15 }, // Valor Numérico
         { wch: 12 }, // Data
-        { wch: 40 }, // Descrição
+        { wch: 15 }, // Data Pagamento
+        { wch: 50 }, // Descrição
         { wch: 15 }  // Status
       ];
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos Financeiros');
+      
+      // Add summary sheet
+      const totalReceitas = lancamentos.filter(l => l.tipo === 'receita').reduce((sum, l) => sum + parseFloat(l.valor), 0);
+      const totalDespesas = lancamentos.filter(l => l.tipo === 'despesa').reduce((sum, l) => sum + parseFloat(l.valor), 0);
+      const saldo = totalReceitas - totalDespesas;
+      
+      const summaryData = [
+        { 'Resumo': 'Total de Lançamentos', 'Valor': lancamentos.length },
+        { 'Resumo': 'Total Receitas', 'Valor': `R$ ${totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
+        { 'Resumo': 'Total Despesas', 'Valor': `R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
+        { 'Resumo': 'Saldo', 'Valor': `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
+      ];
+      
+      const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+      summarySheet['!cols'] = [{ wch: 25 }, { wch: 25 }];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumo');
 
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
+      
+      const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename=template_lancamentos_financeiros.xlsx');
+      res.setHeader('Content-Disposition', `attachment; filename=lancamentos_financeiros_${dateStr}.xlsx`);
       res.send(buffer);
 
     } catch (error: any) {
-      console.error('Error generating template:', error);
-      res.status(500).json({ error: 'Erro ao gerar template' });
+      console.error('Error exporting to Excel:', error);
+      res.status(500).json({ error: 'Erro ao exportar para Excel' });
     }
   });
 

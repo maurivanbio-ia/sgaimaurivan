@@ -39,9 +39,7 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  Upload,
-  Download,
-  FileSpreadsheet
+  Download
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -766,17 +764,6 @@ export default function FinanceiroPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingLancamentoId, setDeletingLancamentoId] = useState<number | null>(null);
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<string>("todas");
-  const [excelDialogOpen, setExcelDialogOpen] = useState(false);
-  const [excelFile, setExcelFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{
-    success: boolean;
-    message: string;
-    imported: number;
-    errors: string[];
-    totalErrors: number;
-  } | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const excelFileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -1053,11 +1040,11 @@ export default function FinanceiroPage() {
           />
           <Button 
             variant="outline" 
-            onClick={() => setExcelDialogOpen(true)}
-            data-testid="button-importar-excel"
+            onClick={() => window.open('/api/financeiro/export-excel', '_blank')}
+            data-testid="button-exportar-excel"
           >
-            <Upload className="h-4 w-4 mr-2" />
-            Importar Excel
+            <Download className="h-4 w-4 mr-2" />
+            Exportar Excel
           </Button>
           <RefreshButton />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1694,203 +1681,6 @@ export default function FinanceiroPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Excel Import Dialog */}
-      <Dialog open={excelDialogOpen} onOpenChange={(open) => {
-        setExcelDialogOpen(open);
-        if (!open) {
-          setExcelFile(null);
-          setImportResult(null);
-        }
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5" />
-              Importar Lançamentos do Excel
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Faça upload de uma planilha Excel (.xlsx, .xls) ou CSV com os lançamentos financeiros.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                A planilha deve conter as colunas: <strong>Tipo</strong>, <strong>Categoria</strong>, <strong>Empreendimento</strong>, <strong>Valor</strong>, <strong>Data</strong>, <strong>Descrição</strong>, <strong>Status</strong>
-              </p>
-              <Button
-                variant="link"
-                className="p-0 h-auto"
-                onClick={() => window.open('/api/financeiro/template-excel', '_blank')}
-                data-testid="button-download-template"
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Baixar Modelo de Planilha
-              </Button>
-            </div>
-
-            <div className="border-2 border-dashed rounded-lg p-6 text-center">
-              <input
-                type="file"
-                ref={excelFileInputRef}
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setExcelFile(file);
-                    setImportResult(null);
-                  }
-                }}
-                data-testid="input-excel-file"
-              />
-              
-              {excelFile ? (
-                <div className="space-y-2">
-                  <FileSpreadsheet className="h-12 w-12 mx-auto text-green-600" />
-                  <p className="font-medium">{excelFile.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {(excelFile.size / 1024).toFixed(1)} KB
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setExcelFile(null);
-                      if (excelFileInputRef.current) {
-                        excelFileInputRef.current.value = '';
-                      }
-                    }}
-                  >
-                    Remover
-                  </Button>
-                </div>
-              ) : (
-                <div 
-                  className="cursor-pointer"
-                  onClick={() => excelFileInputRef.current?.click()}
-                >
-                  <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <p className="mt-2 font-medium">Clique para selecionar arquivo</p>
-                  <p className="text-sm text-muted-foreground">
-                    ou arraste e solte aqui
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {importResult && (
-              <div className={cn(
-                "p-4 rounded-lg",
-                importResult.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"
-              )}>
-                <p className={cn(
-                  "font-medium",
-                  importResult.success ? "text-green-700" : "text-red-700"
-                )}>
-                  {importResult.message}
-                </p>
-                {importResult.errors.length > 0 && (
-                  <div className="mt-2 text-sm text-red-600 max-h-40 overflow-y-auto">
-                    <p className="font-medium">Erros encontrados ({importResult.totalErrors}):</p>
-                    <ul className="list-disc list-inside mt-1">
-                      {importResult.errors.map((error, idx) => (
-                        <li key={idx}>{error}</li>
-                      ))}
-                      {importResult.totalErrors > importResult.errors.length && (
-                        <li>... e mais {importResult.totalErrors - importResult.errors.length} erros</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setExcelDialogOpen(false);
-                  setExcelFile(null);
-                  setImportResult(null);
-                }}
-                data-testid="button-cancel-import"
-              >
-                {importResult?.success ? 'Fechar' : 'Cancelar'}
-              </Button>
-              {!importResult?.success && (
-                <Button
-                  disabled={!excelFile || isImporting}
-                  onClick={async () => {
-                    if (!excelFile) return;
-                    
-                    setIsImporting(true);
-                    try {
-                      const formData = new FormData();
-                      formData.append('file', excelFile);
-                      
-                      const response = await fetch('/api/financeiro/import-excel', {
-                        method: 'POST',
-                        body: formData,
-                        credentials: 'include'
-                      });
-                      
-                      const result = await response.json();
-                      
-                      if (response.ok) {
-                        setImportResult({
-                          success: true,
-                          message: result.message,
-                          imported: result.imported,
-                          errors: result.errors || [],
-                          totalErrors: result.totalErrors || 0
-                        });
-                        queryClient.invalidateQueries({ queryKey: ['/api/financeiro/lancamentos'] });
-                        queryClient.invalidateQueries({ queryKey: ['/api/financeiro/stats'] });
-                        toast({
-                          title: "Importação concluída",
-                          description: result.message
-                        });
-                      } else {
-                        setImportResult({
-                          success: false,
-                          message: result.error || 'Erro ao importar arquivo',
-                          imported: 0,
-                          errors: result.errors || [],
-                          totalErrors: result.totalErrors || 0
-                        });
-                      }
-                    } catch (error: any) {
-                      setImportResult({
-                        success: false,
-                        message: error.message || 'Erro ao processar arquivo',
-                        imported: 0,
-                        errors: [],
-                        totalErrors: 0
-                      });
-                    } finally {
-                      setIsImporting(false);
-                    }
-                  }}
-                  data-testid="button-submit-import"
-                >
-                  {isImporting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Importando...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Importar Lançamentos
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
