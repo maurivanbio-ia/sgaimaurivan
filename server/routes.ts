@@ -53,7 +53,8 @@ import {
   insertMembroEquipeSchema,
   insertTarefaSchema,
   insertTarefaAtualizacaoSchema,
-  insertRegistroHorasSchema
+  insertRegistroHorasSchema,
+  insertPedidoReembolsoSchema,
 } from "@shared/schema";
 
 // Import new controllers
@@ -4061,6 +4062,467 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error unlinking member from projeto:', error);
       res.status(500).json({ error: 'Erro ao desvincular membro do projeto' });
+    }
+  });
+
+  // ======== REEMBOLSOS ROUTES ========
+
+  // Listar pedidos de reembolso
+  app.get('/api/reembolsos', requireAuth, async (req, res) => {
+    try {
+      const { status, solicitanteId, coordenadorPendente, financeiroPendente, diretorPendente } = req.query;
+      
+      const filters: any = {};
+      
+      // Scoping by unidade (unless diretor/admin)
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.unidade = req.user.unidade;
+      }
+      
+      // Colaboradores só veem seus próprios pedidos
+      if (req.user.cargo === 'colaborador') {
+        filters.solicitanteId = req.user.id;
+      } else if (solicitanteId) {
+        filters.solicitanteId = parseInt(solicitanteId as string);
+      }
+      
+      if (status) filters.status = status as string;
+      if (coordenadorPendente === 'true') filters.coordenadorPendente = true;
+      if (financeiroPendente === 'true') filters.financeiroPendente = true;
+      if (diretorPendente === 'true') filters.diretorPendente = true;
+      
+      const pedidos = await storage.getPedidosReembolso(filters);
+      res.json(pedidos);
+    } catch (error) {
+      console.error('Error fetching reimbursements:', error);
+      res.status(500).json({ error: 'Erro ao buscar pedidos de reembolso' });
+    }
+  });
+
+  // Buscar pedido de reembolso por ID
+  app.get('/api/reembolsos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const pedido = await storage.getPedidoReembolsoById(id);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      // Verificar permissão
+      if (req.user.cargo === 'colaborador' && pedido.solicitanteId !== req.user.id) {
+        return res.status(403).json({ error: 'Sem permissão para ver este pedido' });
+      }
+      
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && pedido.unidade !== req.user.unidade) {
+        return res.status(403).json({ error: 'Sem permissão para ver este pedido' });
+      }
+      
+      res.json(pedido);
+    } catch (error) {
+      console.error('Error fetching reimbursement:', error);
+      res.status(500).json({ error: 'Erro ao buscar pedido de reembolso' });
+    }
+  });
+
+  // Criar pedido de reembolso (qualquer usuário autenticado)
+  app.post('/api/reembolsos', requireAuth, async (req, res) => {
+    try {
+      const data = insertPedidoReembolsoSchema.parse({
+        ...req.body,
+        solicitanteId: req.user.id,
+        unidade: req.user.unidade,
+        status: 'pendente_coordenador',
+      });
+      
+      const pedido = await storage.createPedidoReembolso(data);
+      
+      // Criar histórico
+      await storage.createHistoricoReembolso({
+        pedidoId: pedido.id,
+        usuarioId: req.user.id,
+        acao: 'criado',
+        statusAnterior: null,
+        statusNovo: 'pendente_coordenador',
+      });
+      
+      res.status(201).json(pedido);
+    } catch (error) {
+      console.error('Error creating reimbursement:', error);
+      res.status(500).json({ error: 'Erro ao criar pedido de reembolso' });
+    }
+  });
+
+  // Atualizar pedido de reembolso (apenas solicitante e enquanto pendente_coordenador)
+  app.patch('/api/reembolsos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const pedido = await storage.getPedidoReembolsoById(id);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      // Só o solicitante pode editar e apenas enquanto pendente_coordenador
+      if (pedido.solicitanteId !== req.user.id) {
+        return res.status(403).json({ error: 'Apenas o solicitante pode editar o pedido' });
+      }
+      
+      if (pedido.status !== 'pendente_coordenador') {
+        return res.status(400).json({ error: 'Pedido já está em análise e não pode ser editado' });
+      }
+      
+      const updated = await storage.updatePedidoReembolso(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating reimbursement:', error);
+      res.status(500).json({ error: 'Erro ao atualizar pedido de reembolso' });
+    }
+  });
+
+  // Deletar pedido de reembolso (apenas solicitante e enquanto pendente_coordenador)
+  app.delete('/api/reembolsos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const pedido = await storage.getPedidoReembolsoById(id);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      // Só o solicitante pode deletar e apenas enquanto pendente_coordenador
+      if (pedido.solicitanteId !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas o solicitante pode deletar o pedido' });
+      }
+      
+      if (pedido.status !== 'pendente_coordenador') {
+        return res.status(400).json({ error: 'Pedido já está em análise e não pode ser deletado' });
+      }
+      
+      await storage.deletePedidoReembolso(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting reimbursement:', error);
+      res.status(500).json({ error: 'Erro ao deletar pedido de reembolso' });
+    }
+  });
+
+  // Aprovar reembolso pelo coordenador
+  app.post('/api/reembolsos/:id/aprovar-coordenador', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { observacao } = req.body;
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'pendente_coordenador') {
+        return res.status(400).json({ error: 'Pedido não está pendente de aprovação do coordenador' });
+      }
+      
+      // Verificar unidade
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && pedido.unidade !== req.user.unidade) {
+        return res.status(403).json({ error: 'Sem permissão para aprovar este pedido' });
+      }
+      
+      const updated = await storage.aprovarReembolsoCoordenador(id, req.user.id, observacao);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'aprovado_coordenador',
+        statusAnterior: 'pendente_coordenador',
+        statusNovo: 'pendente_financeiro',
+        observacao,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error approving reimbursement:', error);
+      res.status(500).json({ error: 'Erro ao aprovar pedido de reembolso' });
+    }
+  });
+
+  // Rejeitar reembolso pelo coordenador
+  app.post('/api/reembolsos/:id/rejeitar-coordenador', requireAuth, requireCoordenador, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { observacao } = req.body;
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'pendente_coordenador') {
+        return res.status(400).json({ error: 'Pedido não está pendente de aprovação do coordenador' });
+      }
+      
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && pedido.unidade !== req.user.unidade) {
+        return res.status(403).json({ error: 'Sem permissão para rejeitar este pedido' });
+      }
+      
+      const updated = await storage.rejeitarReembolsoCoordenador(id, req.user.id, observacao);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'rejeitado_coordenador',
+        statusAnterior: 'pendente_coordenador',
+        statusNovo: 'rejeitado_coordenador',
+        observacao,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error rejecting reimbursement:', error);
+      res.status(500).json({ error: 'Erro ao rejeitar pedido de reembolso' });
+    }
+  });
+
+  // Aprovar reembolso pelo financeiro
+  app.post('/api/reembolsos/:id/aprovar-financeiro', requireAuth, async (req, res) => {
+    try {
+      // Verificar se é financeiro ou diretor
+      if (req.user.cargo !== 'financeiro' && req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas o financeiro pode aprovar nesta etapa' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { observacao } = req.body;
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'pendente_financeiro') {
+        return res.status(400).json({ error: 'Pedido não está pendente de aprovação do financeiro' });
+      }
+      
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && pedido.unidade !== req.user.unidade) {
+        return res.status(403).json({ error: 'Sem permissão para aprovar este pedido' });
+      }
+      
+      const updated = await storage.aprovarReembolsoFinanceiro(id, req.user.id, observacao);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'aprovado_financeiro',
+        statusAnterior: 'pendente_financeiro',
+        statusNovo: 'pendente_diretor',
+        observacao,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error approving reimbursement by finance:', error);
+      res.status(500).json({ error: 'Erro ao aprovar pedido de reembolso' });
+    }
+  });
+
+  // Rejeitar reembolso pelo financeiro
+  app.post('/api/reembolsos/:id/rejeitar-financeiro', requireAuth, async (req, res) => {
+    try {
+      if (req.user.cargo !== 'financeiro' && req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas o financeiro pode rejeitar nesta etapa' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { observacao } = req.body;
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'pendente_financeiro') {
+        return res.status(400).json({ error: 'Pedido não está pendente de aprovação do financeiro' });
+      }
+      
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin' && pedido.unidade !== req.user.unidade) {
+        return res.status(403).json({ error: 'Sem permissão para rejeitar este pedido' });
+      }
+      
+      const updated = await storage.rejeitarReembolsoFinanceiro(id, req.user.id, observacao);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'rejeitado_financeiro',
+        statusAnterior: 'pendente_financeiro',
+        statusNovo: 'rejeitado_financeiro',
+        observacao,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error rejecting reimbursement by finance:', error);
+      res.status(500).json({ error: 'Erro ao rejeitar pedido de reembolso' });
+    }
+  });
+
+  // Aprovar reembolso pelo diretor
+  app.post('/api/reembolsos/:id/aprovar-diretor', requireAuth, async (req, res) => {
+    try {
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas o diretor pode dar aprovação final' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { observacao } = req.body;
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'pendente_diretor') {
+        return res.status(400).json({ error: 'Pedido não está pendente de aprovação do diretor' });
+      }
+      
+      const updated = await storage.aprovarReembolsoDiretor(id, req.user.id, observacao);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'aprovado_diretor',
+        statusAnterior: 'pendente_diretor',
+        statusNovo: 'aprovado_diretor',
+        observacao,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error approving reimbursement by director:', error);
+      res.status(500).json({ error: 'Erro ao aprovar pedido de reembolso' });
+    }
+  });
+
+  // Rejeitar reembolso pelo diretor
+  app.post('/api/reembolsos/:id/rejeitar-diretor', requireAuth, async (req, res) => {
+    try {
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas o diretor pode rejeitar nesta etapa' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { observacao } = req.body;
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'pendente_diretor') {
+        return res.status(400).json({ error: 'Pedido não está pendente de aprovação do diretor' });
+      }
+      
+      const updated = await storage.rejeitarReembolsoDiretor(id, req.user.id, observacao);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'rejeitado_diretor',
+        statusAnterior: 'pendente_diretor',
+        statusNovo: 'rejeitado_diretor',
+        observacao,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error rejecting reimbursement by director:', error);
+      res.status(500).json({ error: 'Erro ao rejeitar pedido de reembolso' });
+    }
+  });
+
+  // Marcar reembolso como pago
+  app.post('/api/reembolsos/:id/pagar', requireAuth, async (req, res) => {
+    try {
+      if (req.user.cargo !== 'financeiro' && req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas o financeiro ou diretor pode marcar como pago' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { formaPagamento, dataPagamento } = req.body;
+      
+      if (!formaPagamento || !dataPagamento) {
+        return res.status(400).json({ error: 'Forma de pagamento e data são obrigatórios' });
+      }
+      
+      const pedido = await storage.getPedidoReembolsoById(id);
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      if (pedido.status !== 'aprovado_diretor') {
+        return res.status(400).json({ error: 'Pedido precisa estar aprovado pelo diretor para ser pago' });
+      }
+      
+      const updated = await storage.marcarReembolsoPago(id, formaPagamento, dataPagamento);
+      
+      await storage.createHistoricoReembolso({
+        pedidoId: id,
+        usuarioId: req.user.id,
+        acao: 'pago',
+        statusAnterior: 'aprovado_diretor',
+        statusNovo: 'pago',
+        observacao: `Pago via ${formaPagamento} em ${dataPagamento}`,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error marking reimbursement as paid:', error);
+      res.status(500).json({ error: 'Erro ao marcar pedido como pago' });
+    }
+  });
+
+  // Buscar histórico do pedido
+  app.get('/api/reembolsos/:id/historico', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const pedido = await storage.getPedidoReembolsoById(id);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+      
+      // Verificar permissão
+      if (req.user.cargo === 'colaborador' && pedido.solicitanteId !== req.user.id) {
+        return res.status(403).json({ error: 'Sem permissão para ver o histórico' });
+      }
+      
+      const historico = await storage.getHistoricoReembolso(id);
+      res.json(historico);
+    } catch (error) {
+      console.error('Error fetching reimbursement history:', error);
+      res.status(500).json({ error: 'Erro ao buscar histórico' });
+    }
+  });
+
+  // Estatísticas de reembolsos
+  app.get('/api/reembolsos/estatisticas', requireAuth, async (req, res) => {
+    try {
+      const filters: any = {};
+      
+      // Scoping by unidade
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.unidade = req.user.unidade;
+      }
+      
+      // Colaboradores só veem suas próprias estatísticas
+      if (req.user.cargo === 'colaborador') {
+        filters.solicitanteId = req.user.id;
+      }
+      
+      const stats = await storage.getEstatisticasReembolso(filters);
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching reimbursement stats:', error);
+      res.status(500).json({ error: 'Erro ao buscar estatísticas de reembolso' });
     }
   });
 
