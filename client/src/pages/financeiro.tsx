@@ -163,6 +163,9 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   });
 
   const tipoSelecionado = form.watch("tipo");
+  
+  // Debug - verificar se categorias estão sendo carregadas
+  console.log("Debug categorias:", { categorias: categorias.length, tipoSelecionado });
 
   const createLancamentoMutation = useMutation({
     mutationFn: async (data: NovoLancamentoFormData) => {
