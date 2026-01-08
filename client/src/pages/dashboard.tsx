@@ -637,6 +637,7 @@ export default function Dashboard() {
                           >
                             {emp.tipo === 'hidreletrica' ? 'Hidrelétrica' :
                              emp.tipo === 'parque_eolico' ? 'Parque Eólico' :
+                             emp.tipo === 'usina_solar' ? 'Usina Solar' :
                              emp.tipo === 'termoeletrica' ? 'Termelétrica' :
                              emp.tipo === 'linha_transmissao' ? 'Linha de Transmissão' :
                              emp.tipo === 'mina' ? 'Mineração' :

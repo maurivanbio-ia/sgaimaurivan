@@ -29,6 +29,7 @@ const statusLabels: Record<string, string> = {
 const tipoConfig: Record<string, { color: string; icon: string; label: string }> = {
   hidreletrica: { color: '#3b82f6', icon: '💧', label: 'Hidrelétrica' },
   parque_eolico: { color: '#10b981', icon: '🌪️', label: 'Parque Eólico' },
+  usina_solar: { color: '#fbbf24', icon: '☀️', label: 'Usina Solar' },
   termoeletrica: { color: '#ef4444', icon: '🔥', label: 'Termelétrica' },
   linha_transmissao: { color: '#f59e0b', icon: '⚡', label: 'Linha de Transmissão' },
   mina: { color: '#8b5cf6', icon: '⛏️', label: 'Mineração' },

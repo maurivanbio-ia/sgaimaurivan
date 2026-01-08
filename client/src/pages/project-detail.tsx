@@ -39,6 +39,7 @@ const getTipoLabel = (tipo: string) => {
   const tipos: Record<string, string> = {
     hidreletrica: "Hidrelétrica",
     parque_eolico: "Parque Eólico",
+    usina_solar: "Usina Solar",
     termoeletrica: "Termelétrica",
     linha_transmissao: "Linha de Transmissão",
     mina: "Mineração",

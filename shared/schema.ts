@@ -26,7 +26,7 @@ export const empreendimentos = pgTable("empreendimentos", {
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
   responsavelInterno: text("responsavel_interno").notNull(),
   // Campos expandidos
-  tipo: text("tipo").notNull().default("outro"), // hidreletrica, parque_eolico, termoeletrica, linha_transmissao, mina, pchs, outro
+  tipo: text("tipo").notNull().default("outro"), // hidreletrica, parque_eolico, usina_solar, termoeletrica, linha_transmissao, mina, pchs, outro
   status: text("status").notNull().default("ativo"), // ativo, em_planejamento, em_execucao, concluido, inativo
   municipio: text("municipio"),
   uf: text("uf"),
