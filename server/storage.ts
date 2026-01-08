@@ -93,6 +93,12 @@ import {
   type InsertTarefaAtualizacao,
   type RegistroHoras,
   type InsertRegistroHoras,
+  pedidosReembolso,
+  historicoReembolso,
+  type PedidoReembolso,
+  type InsertPedidoReembolso,
+  type HistoricoReembolso,
+  type InsertHistoricoReembolso,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
@@ -415,6 +421,41 @@ export interface IStorage {
   }): Promise<RegistroHoras[]>;
   createRegistroHoras(registro: InsertRegistroHoras): Promise<RegistroHoras>;
   aprovarRegistroHoras(id: number, aprovadoPor: number): Promise<RegistroHoras>;
+
+  // ========== REEMBOLSOS ==========
+  getPedidosReembolso(filters?: {
+    unidade?: string;
+    solicitanteId?: number;
+    status?: string;
+    coordenadorPendente?: boolean;
+    financeiroPendente?: boolean;
+    diretorPendente?: boolean;
+  }): Promise<PedidoReembolso[]>;
+  getPedidoReembolsoById(id: number): Promise<PedidoReembolso | undefined>;
+  createPedidoReembolso(pedido: InsertPedidoReembolso): Promise<PedidoReembolso>;
+  updatePedidoReembolso(id: number, updates: Partial<PedidoReembolso>): Promise<PedidoReembolso>;
+  deletePedidoReembolso(id: number): Promise<boolean>;
+  aprovarReembolsoCoordenador(id: number, coordenadorId: number, observacao?: string): Promise<PedidoReembolso>;
+  rejeitarReembolsoCoordenador(id: number, coordenadorId: number, observacao?: string): Promise<PedidoReembolso>;
+  aprovarReembolsoFinanceiro(id: number, financeiroId: number, observacao?: string): Promise<PedidoReembolso>;
+  rejeitarReembolsoFinanceiro(id: number, financeiroId: number, observacao?: string): Promise<PedidoReembolso>;
+  aprovarReembolsoDiretor(id: number, diretorId: number, observacao?: string): Promise<PedidoReembolso>;
+  rejeitarReembolsoDiretor(id: number, diretorId: number, observacao?: string): Promise<PedidoReembolso>;
+  marcarReembolsoPago(id: number, formaPagamento: string, dataPagamento: string): Promise<PedidoReembolso>;
+  getHistoricoReembolso(pedidoId: number): Promise<HistoricoReembolso[]>;
+  createHistoricoReembolso(historico: InsertHistoricoReembolso): Promise<HistoricoReembolso>;
+  getEstatisticasReembolso(filters?: { unidade?: string; solicitanteId?: number }): Promise<{
+    total: number;
+    pendenteCoordenador: number;
+    pendenteFinanceiro: number;
+    pendenteDiretor: number;
+    aprovados: number;
+    rejeitados: number;
+    pagos: number;
+    valorTotal: number;
+    valorPago: number;
+    valorPendente: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2942,6 +2983,260 @@ export class DatabaseStorage implements IStorage {
       .where(eq(registroHoras.id, id))
       .returning();
     return updated;
+  }
+
+  // ========== REEMBOLSOS ==========
+  async getPedidosReembolso(filters?: {
+    unidade?: string;
+    solicitanteId?: number;
+    status?: string;
+    coordenadorPendente?: boolean;
+    financeiroPendente?: boolean;
+    diretorPendente?: boolean;
+  }): Promise<PedidoReembolso[]> {
+    let query = db.select().from(pedidosReembolso).$dynamic();
+    const conditions: any[] = [];
+
+    if (filters?.unidade) {
+      conditions.push(eq(pedidosReembolso.unidade, filters.unidade));
+    }
+    if (filters?.solicitanteId) {
+      conditions.push(eq(pedidosReembolso.solicitanteId, filters.solicitanteId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(pedidosReembolso.status, filters.status));
+    }
+    if (filters?.coordenadorPendente) {
+      conditions.push(eq(pedidosReembolso.status, 'pendente_coordenador'));
+    }
+    if (filters?.financeiroPendente) {
+      conditions.push(eq(pedidosReembolso.status, 'pendente_financeiro'));
+    }
+    if (filters?.diretorPendente) {
+      conditions.push(eq(pedidosReembolso.status, 'pendente_diretor'));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.orderBy(desc(pedidosReembolso.criadoEm));
+  }
+
+  async getPedidoReembolsoById(id: number): Promise<PedidoReembolso | undefined> {
+    const [pedido] = await db
+      .select()
+      .from(pedidosReembolso)
+      .where(eq(pedidosReembolso.id, id));
+    return pedido || undefined;
+  }
+
+  async createPedidoReembolso(pedido: InsertPedidoReembolso): Promise<PedidoReembolso> {
+    const [newPedido] = await db
+      .insert(pedidosReembolso)
+      .values({
+        ...pedido,
+        status: 'pendente_coordenador',
+      })
+      .returning();
+    return newPedido;
+  }
+
+  async updatePedidoReembolso(id: number, updates: Partial<PedidoReembolso>): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePedidoReembolso(id: number): Promise<boolean> {
+    const result = await db
+      .delete(pedidosReembolso)
+      .where(eq(pedidosReembolso.id, id));
+    return true;
+  }
+
+  async aprovarReembolsoCoordenador(id: number, coordenadorId: number, observacao?: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'pendente_financeiro',
+        coordenadorId,
+        coordenadorAprovadoEm: new Date(),
+        coordenadorObservacao: observacao,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejeitarReembolsoCoordenador(id: number, coordenadorId: number, observacao?: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'rejeitado_coordenador',
+        coordenadorId,
+        coordenadorAprovadoEm: new Date(),
+        coordenadorObservacao: observacao,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async aprovarReembolsoFinanceiro(id: number, financeiroId: number, observacao?: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'pendente_diretor',
+        financeiroId,
+        financeiroAprovadoEm: new Date(),
+        financeiroObservacao: observacao,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejeitarReembolsoFinanceiro(id: number, financeiroId: number, observacao?: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'rejeitado_financeiro',
+        financeiroId,
+        financeiroAprovadoEm: new Date(),
+        financeiroObservacao: observacao,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async aprovarReembolsoDiretor(id: number, diretorId: number, observacao?: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'aprovado_diretor',
+        diretorId,
+        diretorAprovadoEm: new Date(),
+        diretorObservacao: observacao,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejeitarReembolsoDiretor(id: number, diretorId: number, observacao?: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'rejeitado_diretor',
+        diretorId,
+        diretorAprovadoEm: new Date(),
+        diretorObservacao: observacao,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async marcarReembolsoPago(id: number, formaPagamento: string, dataPagamento: string): Promise<PedidoReembolso> {
+    const [updated] = await db
+      .update(pedidosReembolso)
+      .set({
+        status: 'pago',
+        formaPagamento,
+        dataPagamento,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(pedidosReembolso.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getHistoricoReembolso(pedidoId: number): Promise<HistoricoReembolso[]> {
+    return db
+      .select()
+      .from(historicoReembolso)
+      .where(eq(historicoReembolso.pedidoId, pedidoId))
+      .orderBy(desc(historicoReembolso.criadoEm));
+  }
+
+  async createHistoricoReembolso(historico: InsertHistoricoReembolso): Promise<HistoricoReembolso> {
+    const [newHistorico] = await db
+      .insert(historicoReembolso)
+      .values(historico)
+      .returning();
+    return newHistorico;
+  }
+
+  async getEstatisticasReembolso(filters?: { unidade?: string; solicitanteId?: number }): Promise<{
+    total: number;
+    pendenteCoordenador: number;
+    pendenteFinanceiro: number;
+    pendenteDiretor: number;
+    aprovados: number;
+    rejeitados: number;
+    pagos: number;
+    valorTotal: number;
+    valorPago: number;
+    valorPendente: number;
+  }> {
+    const conditions: any[] = [];
+    if (filters?.unidade) {
+      conditions.push(eq(pedidosReembolso.unidade, filters.unidade));
+    }
+    if (filters?.solicitanteId) {
+      conditions.push(eq(pedidosReembolso.solicitanteId, filters.solicitanteId));
+    }
+
+    let query = db.select().from(pedidosReembolso).$dynamic();
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const pedidos = await query;
+
+    const total = pedidos.length;
+    const pendenteCoordenador = pedidos.filter(p => p.status === 'pendente_coordenador').length;
+    const pendenteFinanceiro = pedidos.filter(p => p.status === 'pendente_financeiro').length;
+    const pendenteDiretor = pedidos.filter(p => p.status === 'pendente_diretor').length;
+    const aprovados = pedidos.filter(p => p.status === 'aprovado_diretor').length;
+    const rejeitados = pedidos.filter(p => 
+      p.status === 'rejeitado_coordenador' || 
+      p.status === 'rejeitado_financeiro' || 
+      p.status === 'rejeitado_diretor'
+    ).length;
+    const pagos = pedidos.filter(p => p.status === 'pago').length;
+
+    const valorTotal = pedidos.reduce((acc, p) => acc + parseFloat(p.valor || '0'), 0);
+    const valorPago = pedidos
+      .filter(p => p.status === 'pago')
+      .reduce((acc, p) => acc + parseFloat(p.valor || '0'), 0);
+    const valorPendente = pedidos
+      .filter(p => !['pago', 'rejeitado_coordenador', 'rejeitado_financeiro', 'rejeitado_diretor'].includes(p.status))
+      .reduce((acc, p) => acc + parseFloat(p.valor || '0'), 0);
+
+    return {
+      total,
+      pendenteCoordenador,
+      pendenteFinanceiro,
+      pendenteDiretor,
+      aprovados,
+      rejeitados,
+      pagos,
+      valorTotal,
+      valorPago,
+      valorPendente,
+    };
   }
 }
 
