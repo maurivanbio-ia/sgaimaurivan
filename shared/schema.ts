@@ -1608,3 +1608,115 @@ export const membrosProjetosRelations = relations(membrosProjetos, ({ one }) => 
   }),
 }));
 
+// ======== SISTEMA DE REEMBOLSOS ========
+
+export const pedidosReembolso = pgTable("pedidos_reembolso", {
+  id: serial("id").primaryKey(),
+  solicitanteId: integer("solicitante_id").references(() => users.id).notNull(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  categoria: text("categoria").notNull().default("outros"), // viagem, alimentacao, materiais, hospedagem, combustivel, transporte, outros
+  valor: decimal("valor", { precision: 15, scale: 2 }).notNull(),
+  dataGasto: date("data_gasto").notNull(),
+  comprovante: text("comprovante"), // URL do arquivo anexado
+  comprovanteNome: text("comprovante_nome"), // Nome original do arquivo
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id), // Projeto relacionado (opcional)
+  projetoId: integer("projeto_id").references(() => projetos.id), // Projeto relacionado (opcional)
+  unidade: text("unidade").notNull().default("goiania"),
+  status: text("status").notNull().default("pendente_coordenador"), 
+  // pendente_coordenador, aprovado_coordenador, rejeitado_coordenador, 
+  // pendente_financeiro, aprovado_financeiro, rejeitado_financeiro,
+  // pendente_diretor, aprovado_diretor, rejeitado_diretor, pago
+  coordenadorId: integer("coordenador_id").references(() => users.id), // Coordenador que aprovou
+  coordenadorAprovadoEm: timestamp("coordenador_aprovado_em"),
+  coordenadorObservacao: text("coordenador_observacao"),
+  financeiroId: integer("financeiro_id").references(() => users.id), // Financeiro que revisou
+  financeiroAprovadoEm: timestamp("financeiro_aprovado_em"),
+  financeiroObservacao: text("financeiro_observacao"),
+  diretorId: integer("diretor_id").references(() => users.id), // Diretor que aprovou
+  diretorAprovadoEm: timestamp("diretor_aprovado_em"),
+  diretorObservacao: text("diretor_observacao"),
+  dataPagamento: date("data_pagamento"),
+  formaPagamento: text("forma_pagamento"), // pix, transferencia, dinheiro
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertPedidoReembolsoSchema = createInsertSchema(pedidosReembolso).omit({
+  id: true,
+  coordenadorId: true,
+  coordenadorAprovadoEm: true,
+  coordenadorObservacao: true,
+  financeiroId: true,
+  financeiroAprovadoEm: true,
+  financeiroObservacao: true,
+  diretorId: true,
+  diretorAprovadoEm: true,
+  diretorObservacao: true,
+  dataPagamento: true,
+  formaPagamento: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertPedidoReembolso = z.infer<typeof insertPedidoReembolsoSchema>;
+export type PedidoReembolso = typeof pedidosReembolso.$inferSelect;
+
+export const historicoReembolso = pgTable("historico_reembolso", {
+  id: serial("id").primaryKey(),
+  pedidoId: integer("pedido_id").references(() => pedidosReembolso.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  acao: text("acao").notNull(), // criado, aprovado_coordenador, rejeitado_coordenador, enviado_financeiro, aprovado_financeiro, rejeitado_financeiro, aprovado_diretor, rejeitado_diretor, pago
+  statusAnterior: text("status_anterior"),
+  statusNovo: text("status_novo").notNull(),
+  observacao: text("observacao"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertHistoricoReembolsoSchema = createInsertSchema(historicoReembolso).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertHistoricoReembolso = z.infer<typeof insertHistoricoReembolsoSchema>;
+export type HistoricoReembolso = typeof historicoReembolso.$inferSelect;
+
+export const pedidosReembolsoRelations = relations(pedidosReembolso, ({ one, many }) => ({
+  solicitante: one(users, {
+    fields: [pedidosReembolso.solicitanteId],
+    references: [users.id],
+  }),
+  coordenador: one(users, {
+    fields: [pedidosReembolso.coordenadorId],
+    references: [users.id],
+  }),
+  financeiro: one(users, {
+    fields: [pedidosReembolso.financeiroId],
+    references: [users.id],
+  }),
+  diretor: one(users, {
+    fields: [pedidosReembolso.diretorId],
+    references: [users.id],
+  }),
+  empreendimento: one(empreendimentos, {
+    fields: [pedidosReembolso.empreendimentoId],
+    references: [empreendimentos.id],
+  }),
+  projeto: one(projetos, {
+    fields: [pedidosReembolso.projetoId],
+    references: [projetos.id],
+  }),
+  historico: many(historicoReembolso),
+}));
+
+export const historicoReembolsoRelations = relations(historicoReembolso, ({ one }) => ({
+  pedido: one(pedidosReembolso, {
+    fields: [historicoReembolso.pedidoId],
+    references: [pedidosReembolso.id],
+  }),
+  usuario: one(users, {
+    fields: [historicoReembolso.usuarioId],
+    references: [users.id],
+  }),
+}));
+
