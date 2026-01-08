@@ -17,7 +17,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   Calendar,
-  Filter
+  Filter,
+  Link2,
+  Building2,
+  FolderKanban,
+  X,
+  UserCircle
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -83,6 +88,7 @@ const membroEquipeSchema = z.object({
   especialidade: z.string().optional(),
   unidade: z.string().optional(),
   coordenadorId: z.number().optional(),
+  rhRegistroId: z.number().optional().nullable(),
   ativo: z.boolean().default(true),
 });
 
@@ -172,6 +178,59 @@ export default function GestaoEquipePage() {
 
   const { data: projetos = [] } = useQuery({
     queryKey: ["/api/projetos"],
+  });
+
+  const { data: rhRegistros = [] } = useQuery<any[]>({
+    queryKey: ["/api/rh"],
+  });
+
+  const [vinculosDialogOpen, setVinculosDialogOpen] = useState(false);
+  const [selectedMembroVinculos, setSelectedMembroVinculos] = useState<MembroEquipe | null>(null);
+  
+  const { data: membroEmpreendimentosVinculados = [] } = useQuery<any[]>({
+    queryKey: ["/api/equipe", selectedMembroVinculos?.id, "empreendimentos"],
+    enabled: !!selectedMembroVinculos?.id,
+  });
+
+  const { data: membroProjetosVinculados = [] } = useQuery<any[]>({
+    queryKey: ["/api/equipe", selectedMembroVinculos?.id, "projetos"],
+    enabled: !!selectedMembroVinculos?.id,
+  });
+
+  const vincularEmpreendimentoMutation = useMutation({
+    mutationFn: ({ membroId, empreendimentoId }: { membroId: number; empreendimentoId: number }) =>
+      apiRequest(`/api/equipe/${membroId}/empreendimentos/${empreendimentoId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipe", selectedMembroVinculos?.id, "empreendimentos"] });
+      toast({ title: "Sucesso", description: "Empreendimento vinculado!" });
+    },
+  });
+
+  const desvincularEmpreendimentoMutation = useMutation({
+    mutationFn: ({ membroId, empreendimentoId }: { membroId: number; empreendimentoId: number }) =>
+      apiRequest(`/api/equipe/${membroId}/empreendimentos/${empreendimentoId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipe", selectedMembroVinculos?.id, "empreendimentos"] });
+      toast({ title: "Sucesso", description: "Empreendimento desvinculado!" });
+    },
+  });
+
+  const vincularProjetoMutation = useMutation({
+    mutationFn: ({ membroId, projetoId }: { membroId: number; projetoId: number }) =>
+      apiRequest(`/api/equipe/${membroId}/projetos/${projetoId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipe", selectedMembroVinculos?.id, "projetos"] });
+      toast({ title: "Sucesso", description: "Projeto vinculado!" });
+    },
+  });
+
+  const desvincularProjetoMutation = useMutation({
+    mutationFn: ({ membroId, projetoId }: { membroId: number; projetoId: number }) =>
+      apiRequest(`/api/equipe/${membroId}/projetos/${projetoId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipe", selectedMembroVinculos?.id, "projetos"] });
+      toast({ title: "Sucesso", description: "Projeto desvinculado!" });
+    },
   });
 
   const membroForm = useForm<MembroEquipe>({
@@ -546,6 +605,18 @@ export default function GestaoEquipePage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => {
+                              setSelectedMembroVinculos(membro);
+                              setVinculosDialogOpen(true);
+                            }}
+                            title="Gerenciar vínculos"
+                            data-testid={`button-vinculos-membro-${membro.id}`}
+                          >
+                            <Link2 className="h-4 w-4 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleEditMembro(membro)}
                             data-testid={`button-edit-membro-${membro.id}`}
                           >
@@ -760,6 +831,34 @@ export default function GestaoEquipePage() {
                     <FormControl>
                       <Input {...field} data-testid="input-membro-especialidade" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={membroForm.control}
+                name="rhRegistroId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Registro de RH (opcional)</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "none" ? null : Number(val))} 
+                      value={field.value?.toString() || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-membro-rh">
+                          <SelectValue placeholder="Vincular a registro de RH" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {rhRegistros.map((rh: any) => (
+                          <SelectItem key={rh.id} value={rh.id.toString()}>
+                            {rh.nome} - {rh.cargo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -1011,6 +1110,148 @@ export default function GestaoEquipePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={vinculosDialogOpen} onOpenChange={setVinculosDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5" />
+              Vínculos de {selectedMembroVinculos?.nome}
+            </DialogTitle>
+            <DialogDescription>
+              Gerencie os empreendimentos e projetos vinculados a este membro
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Empreendimentos</h3>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {membroEmpreendimentosVinculados.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">Nenhum empreendimento vinculado</span>
+                ) : (
+                  membroEmpreendimentosVinculados.map((vinculo: any) => {
+                    const emp = empreendimentos.find((e: any) => e.id === vinculo.empreendimentoId);
+                    return (
+                      <Badge key={vinculo.id} variant="secondary" className="flex items-center gap-1">
+                        {emp?.nome || `ID: ${vinculo.empreendimentoId}`}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 hover:bg-destructive/20"
+                          onClick={() => selectedMembroVinculos?.id && desvincularEmpreendimentoMutation.mutate({
+                            membroId: selectedMembroVinculos.id,
+                            empreendimentoId: vinculo.empreendimentoId
+                          })}
+                          data-testid={`button-remove-emp-${vinculo.empreendimentoId}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    );
+                  })
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Select
+                  onValueChange={(val) => {
+                    if (selectedMembroVinculos?.id && val) {
+                      vincularEmpreendimentoMutation.mutate({
+                        membroId: selectedMembroVinculos.id,
+                        empreendimentoId: Number(val)
+                      });
+                    }
+                  }}
+                  value=""
+                >
+                  <SelectTrigger className="flex-1" data-testid="select-add-empreendimento">
+                    <SelectValue placeholder="Adicionar empreendimento..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {empreendimentos
+                      .filter((e: any) => !membroEmpreendimentosVinculados.some((v: any) => v.empreendimentoId === e.id))
+                      .map((e: any) => (
+                        <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <FolderKanban className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Projetos</h3>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {membroProjetosVinculados.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">Nenhum projeto vinculado</span>
+                ) : (
+                  membroProjetosVinculados.map((vinculo: any) => {
+                    const proj = projetos.find((p: any) => p.id === vinculo.projetoId);
+                    return (
+                      <Badge key={vinculo.id} variant="secondary" className="flex items-center gap-1">
+                        {proj?.nome || `ID: ${vinculo.projetoId}`}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 hover:bg-destructive/20"
+                          onClick={() => selectedMembroVinculos?.id && desvincularProjetoMutation.mutate({
+                            membroId: selectedMembroVinculos.id,
+                            projetoId: vinculo.projetoId
+                          })}
+                          data-testid={`button-remove-proj-${vinculo.projetoId}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    );
+                  })
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Select
+                  onValueChange={(val) => {
+                    if (selectedMembroVinculos?.id && val) {
+                      vincularProjetoMutation.mutate({
+                        membroId: selectedMembroVinculos.id,
+                        projetoId: Number(val)
+                      });
+                    }
+                  }}
+                  value=""
+                >
+                  <SelectTrigger className="flex-1" data-testid="select-add-projeto">
+                    <SelectValue placeholder="Adicionar projeto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projetos
+                      .filter((p: any) => !membroProjetosVinculados.some((v: any) => v.projetoId === p.id))
+                      .map((p: any) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.nome}</SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVinculosDialogOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
