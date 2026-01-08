@@ -120,9 +120,17 @@ interface NovoLancamentoFormProps {
   onSuccess: () => void;
 }
 
+interface RateioEntry {
+  empresaNome: string;
+  valor: number;
+  observacao: string;
+}
+
 function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [rateios, setRateios] = useState<RateioEntry[]>([]);
+  const [novoRateio, setNovoRateio] = useState<RateioEntry>({ empresaNome: '', valor: 0, observacao: '' });
 
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
@@ -153,8 +161,27 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
     },
   });
 
+  const addRateio = () => {
+    if (novoRateio.empresaNome && novoRateio.valor > 0) {
+      setRateios([...rateios, novoRateio]);
+      setNovoRateio({ empresaNome: '', valor: 0, observacao: '' });
+    } else {
+      toast({
+        title: "Dados incompletos",
+        description: "Informe o nome da empresa e o valor do rateio.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeRateio = (index: number) => {
+    setRateios(rateios.filter((_, i) => i !== index));
+  };
+
+  const totalRateio = rateios.reduce((sum, r) => sum + r.valor, 0);
+
   const createLancamentoMutation = useMutation({
-    mutationFn: async (data: NovoLancamentoFormData) => {
+    mutationFn: async (data: NovoLancamentoFormData & { rateios: RateioEntry[] }) => {
       return apiRequest("POST", "/api/financeiro/lancamentos", data);
     },
     onSuccess: () => {
@@ -169,11 +196,13 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
         description: "Novo lançamento financeiro foi criado com sucesso!",
       });
       form.reset();
+      setRateios([]);
+      onSuccess();
     },
   });
 
   const onSubmit = (data: NovoLancamentoFormData) => {
-    createLancamentoMutation.mutate(data);
+    createLancamentoMutation.mutate({ ...data, rateios });
   };
 
   return (
@@ -368,6 +397,91 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
             </FormItem>
           )}
         />
+
+        {/* Rateio Section */}
+        <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              Rateio entre Empresas
+            </h4>
+            {rateios.length > 0 && (
+              <Badge variant="outline" className="text-xs">
+                Total: R$ {totalRateio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </Badge>
+            )}
+          </div>
+          
+          <p className="text-xs text-muted-foreground">
+            Divida o valor entre diferentes empresas que participaram do pagamento
+          </p>
+
+          {/* Lista de rateios adicionados */}
+          {rateios.length > 0 && (
+            <div className="space-y-2">
+              {rateios.map((rateio, index) => (
+                <div key={index} className="flex items-center gap-2 p-2 bg-background rounded border" data-testid={`rateio-item-${index}`}>
+                  <div className="flex-1">
+                    <span className="font-medium text-sm">{rateio.empresaNome}</span>
+                    <span className="text-muted-foreground text-sm ml-2">
+                      R$ {rateio.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    {rateio.observacao && (
+                      <span className="text-muted-foreground text-xs ml-2">({rateio.observacao})</span>
+                    )}
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => removeRateio(index)}
+                    data-testid={`button-remover-rateio-${index}`}
+                  >
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Formulário para adicionar novo rateio */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <Input
+              placeholder="Nome da empresa"
+              value={novoRateio.empresaNome}
+              onChange={(e) => setNovoRateio({ ...novoRateio, empresaNome: e.target.value })}
+              className="md:col-span-2"
+              data-testid="input-rateio-empresa"
+            />
+            <Input
+              type="number"
+              placeholder="Valor (R$)"
+              value={novoRateio.valor || ''}
+              onChange={(e) => setNovoRateio({ ...novoRateio, valor: parseFloat(e.target.value) || 0 })}
+              min="0"
+              step="0.01"
+              data-testid="input-rateio-valor"
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={addRateio}
+              className="w-full"
+              data-testid="button-adicionar-rateio"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar
+            </Button>
+          </div>
+          
+          <Input
+            placeholder="Observação do rateio (opcional)"
+            value={novoRateio.observacao}
+            onChange={(e) => setNovoRateio({ ...novoRateio, observacao: e.target.value })}
+            className="text-sm"
+            data-testid="input-rateio-observacao"
+          />
+        </div>
 
         <div className="flex justify-end space-x-2">
           <Button

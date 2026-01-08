@@ -874,6 +874,16 @@ export const solicitacoesRecursos = pgTable("solicitacoes_recursos", {
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
+// Rateio Financeiro - divisão de custos entre empresas
+export const financeiroRateios = pgTable("financeiro_rateios", {
+  id: serial("id").primaryKey(),
+  lancamentoId: integer("lancamento_id").references(() => financeiroLancamentos.id).notNull(),
+  empresaNome: text("empresa_nome").notNull(), // Nome da empresa que pagou
+  valor: decimal("valor", { precision: 12, scale: 2 }).notNull(), // Valor pago por esta empresa
+  observacao: text("observacao"), // Observação opcional
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
 // Orçamentos por Empreendimento
 export const orcamentos = pgTable("orcamentos", {
   id: serial("id").primaryKey(),
@@ -891,7 +901,7 @@ export const categoriasFinanceirasRelations = relations(categoriasFinanceiras, (
   lancamentos: many(financeiroLancamentos),
 }));
 
-export const financeiroLancamentosRelations = relations(financeiroLancamentos, ({ one }) => ({
+export const financeiroLancamentosRelations = relations(financeiroLancamentos, ({ one, many }) => ({
   empreendimento: one(empreendimentos, {
     fields: [financeiroLancamentos.empreendimentoId],
     references: [empreendimentos.id],
@@ -907,6 +917,14 @@ export const financeiroLancamentosRelations = relations(financeiroLancamentos, (
   criadoPorUser: one(users, {
     fields: [financeiroLancamentos.criadoPor],
     references: [users.id],
+  }),
+  rateios: many(financeiroRateios),
+}));
+
+export const financeiroRateiosRelations = relations(financeiroRateios, ({ one }) => ({
+  lancamento: one(financeiroLancamentos, {
+    fields: [financeiroRateios.lancamentoId],
+    references: [financeiroLancamentos.id],
   }),
 }));
 
@@ -955,6 +973,11 @@ export const insertFinanceiroLancamentoSchema = createInsertSchema(financeiroLan
   atualizadoEm: true,
 });
 
+export const insertFinanceiroRateioSchema = createInsertSchema(financeiroRateios).omit({
+  id: true,
+  criadoEm: true,
+});
+
 export const insertSolicitacaoRecursoSchema = createInsertSchema(solicitacoesRecursos).omit({
   id: true,
   criadoEm: true,
@@ -986,6 +1009,8 @@ export type InsertCategoriaFinanceira = z.infer<typeof insertCategoriaFinanceira
 export type CategoriaFinanceira = typeof categoriasFinanceiras.$inferSelect;
 export type InsertFinanceiroLancamento = z.infer<typeof insertFinanceiroLancamentoSchema>;
 export type FinanceiroLancamento = typeof financeiroLancamentos.$inferSelect;
+export type InsertFinanceiroRateio = z.infer<typeof insertFinanceiroRateioSchema>;
+export type FinanceiroRateio = typeof financeiroRateios.$inferSelect;
 export type InsertSolicitacaoRecurso = z.infer<typeof insertSolicitacaoRecursoSchema>;
 export type SolicitacaoRecurso = typeof solicitacoesRecursos.$inferSelect;
 export type InsertOrcamento = z.infer<typeof insertOrcamentoSchema>;
