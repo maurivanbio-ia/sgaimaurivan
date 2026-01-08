@@ -600,7 +600,7 @@ export default function FinanceiroPage() {
         </div>
         
         <div className="flex gap-3">
-          <FinancialReportPDF stats={stats} />
+          <FinancialReportPDF stats={stats} empreendimentos={empreendimentos} />
           <RefreshButton />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
