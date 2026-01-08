@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import logoPath from "@assets/image_1767874122366.png";
+import logoPath from "@assets/image_1767899664691.png";
 
 interface FinancialStats {
   totalReceitas: number;
@@ -27,9 +27,9 @@ interface Empreendimento {
 interface FinancialReportPDFProps {
   stats: FinancialStats | undefined;
   empreendimentos: Empreendimento[];
-  lineChartRef?: React.RefObject<HTMLCanvasElement>;
-  pieChartRef?: React.RefObject<HTMLCanvasElement>;
-  barChartRef?: React.RefObject<HTMLCanvasElement>;
+  lineChartRef?: React.RefObject<any>;
+  pieChartRef?: React.RefObject<any>;
+  barChartRef?: React.RefObject<any>;
 }
 
 const ECOBRASIL_COLORS = {
@@ -103,16 +103,25 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       
-      doc.setFontSize(24);
-      doc.setTextColor(...ECOBRASIL_COLORS.green);
-      doc.text('EcoBrasil', pageWidth / 2, 20, { align: 'center' });
-      doc.setFontSize(10);
-      doc.setTextColor(...ECOBRASIL_COLORS.blue);
-      doc.text('consultoria ambiental', pageWidth / 2, 28, { align: 'center' });
+      // Add logo
+      try {
+        const logoImg = await loadImage(logoPath);
+        const logoWidth = 50;
+        const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
+        doc.addImage(logoImg, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
+      } catch (e) {
+        // Fallback to text if logo fails
+        doc.setFontSize(24);
+        doc.setTextColor(...ECOBRASIL_COLORS.green);
+        doc.text('EcoBrasil', pageWidth / 2, 20, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setTextColor(...ECOBRASIL_COLORS.blue);
+        doc.text('consultoria ambiental', pageWidth / 2, 28, { align: 'center' });
+      }
 
       doc.setFontSize(22);
       doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
-      doc.text(reportTitle, pageWidth / 2, 45, { align: 'center' });
+      doc.text(reportTitle, pageWidth / 2, 40, { align: 'center' });
       
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
@@ -122,13 +131,13 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      })}`, pageWidth / 2, 53, { align: 'center' });
+      })}`, pageWidth / 2, 48, { align: 'center' });
 
       doc.setDrawColor(...ECOBRASIL_COLORS.green);
       doc.setLineWidth(1);
-      doc.line(20, 58, pageWidth - 20, 58);
+      doc.line(20, 53, pageWidth - 20, 53);
 
-      let yPos = 70;
+      let yPos = 62;
 
       doc.setFontSize(14);
       doc.setTextColor(...ECOBRASIL_COLORS.blue);
@@ -320,6 +329,86 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
           },
           margin: { left: 20, right: 20 },
         });
+
+        yPos = (doc as any).lastAutoTable.finalY + 15;
+      }
+
+      // Add charts page
+      const lineChart = lineChartRef?.current;
+      const pieChart = pieChartRef?.current;
+      const barChart = barChartRef?.current;
+      const hasCharts = lineChart || pieChart || barChart;
+      
+      if (hasCharts) {
+        doc.addPage();
+        yPos = 20;
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...ECOBRASIL_COLORS.blue);
+        doc.text('Gráficos Financeiros', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 15;
+
+        const chartWidth = 85;
+        const chartHeight = 60;
+
+        // Line chart - Evolution
+        if (lineChart) {
+          try {
+            const lineCanvas = lineChart.canvas || lineChart;
+            const lineDataUrl = lineCanvas.toDataURL('image/png', 1.0);
+            
+            doc.setFontSize(11);
+            doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+            doc.text('Evolução Mensal', 20, yPos);
+            yPos += 3;
+            
+            doc.addImage(lineDataUrl, 'PNG', 20, yPos, pageWidth - 40, 70);
+            yPos += 80;
+          } catch (e) {
+            console.error('Erro ao adicionar gráfico de linha:', e);
+          }
+        }
+
+        // Pie and Bar charts side by side
+        if (pieChart || barChart) {
+          if (yPos > pageHeight - 100) {
+            doc.addPage();
+            yPos = 20;
+          }
+
+          const leftX = 20;
+          const rightX = pageWidth / 2 + 5;
+
+          if (pieChart) {
+            try {
+              const pieCanvas = pieChart.canvas || pieChart;
+              const pieDataUrl = pieCanvas.toDataURL('image/png', 1.0);
+              
+              doc.setFontSize(11);
+              doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+              doc.text('Distribuição por Categoria', leftX, yPos);
+              
+              doc.addImage(pieDataUrl, 'PNG', leftX, yPos + 3, chartWidth, chartHeight);
+            } catch (e) {
+              console.error('Erro ao adicionar gráfico de pizza:', e);
+            }
+          }
+
+          if (barChart) {
+            try {
+              const barCanvas = barChart.canvas || barChart;
+              const barDataUrl = barCanvas.toDataURL('image/png', 1.0);
+              
+              doc.setFontSize(11);
+              doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+              doc.text('Resultado por Projeto', rightX, yPos);
+              
+              doc.addImage(barDataUrl, 'PNG', rightX, yPos + 3, chartWidth, chartHeight);
+            } catch (e) {
+              console.error('Erro ao adicionar gráfico de barras:', e);
+            }
+          }
+        }
       }
 
       const totalPages = doc.getNumberOfPages();

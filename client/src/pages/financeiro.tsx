@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -596,6 +596,11 @@ export default function FinanceiroPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Chart refs for PDF export
+  const lineChartRef = useRef<HTMLCanvasElement>(null);
+  const pieChartRef = useRef<HTMLCanvasElement>(null);
+  const barChartRef = useRef<HTMLCanvasElement>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -775,7 +780,13 @@ export default function FinanceiroPage() {
         </div>
         
         <div className="flex gap-3">
-          <FinancialReportPDF stats={stats} empreendimentos={empreendimentos} />
+          <FinancialReportPDF 
+            stats={stats} 
+            empreendimentos={empreendimentos}
+            lineChartRef={lineChartRef}
+            pieChartRef={pieChartRef}
+            barChartRef={barChartRef}
+          />
           <RefreshButton />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -900,7 +911,7 @@ export default function FinanceiroPage() {
               <CardContent>
                 <div className="h-[300px]">
                   {stats?.evolucaoMensal && stats.evolucaoMensal.length > 0 ? (
-                    <Line data={lineChartData} options={chartOptions} />
+                    <Line ref={lineChartRef as any} data={lineChartData} options={chartOptions} />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       <div className="text-center">
@@ -924,7 +935,7 @@ export default function FinanceiroPage() {
               <CardContent>
                 <div className="h-[300px]">
                   {stats?.porCategoria && stats.porCategoria.length > 0 ? (
-                    <Pie data={pieChartData} options={chartOptions} />
+                    <Pie ref={pieChartRef as any} data={pieChartData} options={chartOptions} />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       <div className="text-center">
@@ -1016,7 +1027,7 @@ export default function FinanceiroPage() {
             <CardContent>
               <div className="h-[400px]">
                 {stats?.porEmpreendimento && stats.porEmpreendimento.length > 0 ? (
-                  <Bar data={barChartData} options={chartOptions} />
+                  <Bar ref={barChartRef as any} data={barChartData} options={chartOptions} />
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <div className="text-center">
