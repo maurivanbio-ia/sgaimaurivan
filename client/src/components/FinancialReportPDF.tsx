@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { FileDown, Loader2, ChevronDown } from "lucide-react";
+import { FileDown, Loader2, ChevronDown, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoPath from "@assets/image_1767899664691.png";
+import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface FinancialStats {
   totalReceitas: number;
@@ -41,11 +45,84 @@ const ECOBRASIL_COLORS = {
   lightGreen: [144, 238, 144] as [number, number, number],
 };
 
+type PeriodType = "all" | "this_week" | "this_month" | "last_month" | "last_3_months" | "last_6_months" | "last_12_months" | "custom";
+
+const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
+  { value: "all", label: "Todo o período" },
+  { value: "this_week", label: "Esta semana" },
+  { value: "this_month", label: "Este mês" },
+  { value: "last_month", label: "Mês anterior" },
+  { value: "last_3_months", label: "Últimos 3 meses" },
+  { value: "last_6_months", label: "Últimos 6 meses" },
+  { value: "last_12_months", label: "Últimos 12 meses" },
+  { value: "custom", label: "Período personalizado" },
+];
+
 export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieChartRef, barChartRef, expenseEvolutionChartRef }: FinancialReportPDFProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState<string>("all");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const { toast } = useToast();
+
+  const getDateRange = (): { startDate: Date | null; endDate: Date | null; periodLabel: string } => {
+    const now = new Date();
+    
+    switch (selectedPeriod) {
+      case "this_week":
+        return { 
+          startDate: startOfWeek(now, { locale: ptBR }), 
+          endDate: endOfWeek(now, { locale: ptBR }),
+          periodLabel: "Esta semana"
+        };
+      case "this_month":
+        return { 
+          startDate: startOfMonth(now), 
+          endDate: endOfMonth(now),
+          periodLabel: format(now, "MMMM 'de' yyyy", { locale: ptBR })
+        };
+      case "last_month":
+        const lastMonth = subMonths(now, 1);
+        return { 
+          startDate: startOfMonth(lastMonth), 
+          endDate: endOfMonth(lastMonth),
+          periodLabel: format(lastMonth, "MMMM 'de' yyyy", { locale: ptBR })
+        };
+      case "last_3_months":
+        return { 
+          startDate: subMonths(now, 3), 
+          endDate: now,
+          periodLabel: "Últimos 3 meses"
+        };
+      case "last_6_months":
+        return { 
+          startDate: subMonths(now, 6), 
+          endDate: now,
+          periodLabel: "Últimos 6 meses"
+        };
+      case "last_12_months":
+        return { 
+          startDate: subMonths(now, 12), 
+          endDate: now,
+          periodLabel: "Últimos 12 meses"
+        };
+      case "custom":
+        if (customStartDate && customEndDate) {
+          const start = new Date(customStartDate);
+          const end = new Date(customEndDate);
+          return { 
+            startDate: start, 
+            endDate: end,
+            periodLabel: `${format(start, "dd/MM/yyyy")} a ${format(end, "dd/MM/yyyy")}`
+          };
+        }
+        return { startDate: null, endDate: null, periodLabel: "Período inválido" };
+      default:
+        return { startDate: null, endDate: null, periodLabel: "Todo o período" };
+    }
+  };
 
   const loadImage = (src: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -66,26 +143,44 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
     setIsPopoverOpen(false);
     
     try {
+      const { startDate, endDate, periodLabel } = getDateRange();
+      
+      // Validate custom period
+      if (selectedPeriod === "custom" && (!customStartDate || !customEndDate)) {
+        toast({
+          title: "Período inválido",
+          description: "Por favor, informe as datas de início e fim do período.",
+          variant: "destructive",
+        });
+        setIsExporting(false);
+        return;
+      }
+
       let reportStats: FinancialStats;
       let reportTitle = 'Relatório Financeiro Consolidado';
       
-      if (selectedEmpreendimentoId === "all") {
-        if (!stats) {
-          toast({
-            title: "Dados não disponíveis",
-            description: "Aguarde os dados financeiros carregarem.",
-            variant: "destructive",
-          });
-          setIsExporting(false);
-          return;
-        }
-        reportStats = stats;
-      } else {
-        const response = await fetch(`/api/financeiro/stats?empreendimentoId=${selectedEmpreendimentoId}`);
-        if (!response.ok) {
-          throw new Error("Falha ao buscar dados do empreendimento");
-        }
-        reportStats = await response.json();
+      // Build query params
+      const params = new URLSearchParams();
+      if (selectedEmpreendimentoId !== "all") {
+        params.append("empreendimentoId", selectedEmpreendimentoId);
+      }
+      if (startDate) {
+        params.append("startDate", startDate.toISOString());
+      }
+      if (endDate) {
+        params.append("endDate", endDate.toISOString());
+      }
+      
+      const queryString = params.toString() ? `?${params.toString()}` : "";
+      const response = await fetch(`/api/financeiro/stats${queryString}`);
+      
+      if (!response.ok) {
+        throw new Error("Falha ao buscar dados financeiros");
+      }
+      
+      reportStats = await response.json();
+      
+      if (selectedEmpreendimentoId !== "all") {
         const empName = reportStats.empreendimentoNome || empreendimentos.find(e => e.id === parseInt(selectedEmpreendimentoId))?.nome;
         reportTitle = `Relatório Financeiro - ${empName || 'Empreendimento'}`;
       }
@@ -124,7 +219,12 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
       doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
       doc.text(reportTitle, pageWidth / 2, 40, { align: 'center' });
       
-      doc.setFontSize(10);
+      // Add period info
+      doc.setFontSize(11);
+      doc.setTextColor(...ECOBRASIL_COLORS.blue);
+      doc.text(`Período: ${periodLabel}`, pageWidth / 2, 48, { align: 'center' });
+      
+      doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR', { 
         day: '2-digit', 
@@ -132,13 +232,13 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      })}`, pageWidth / 2, 48, { align: 'center' });
+      })}`, pageWidth / 2, 55, { align: 'center' });
 
       doc.setDrawColor(...ECOBRASIL_COLORS.green);
       doc.setLineWidth(1);
-      doc.line(20, 53, pageWidth - 20, 53);
+      doc.line(20, 60, pageWidth - 20, 60);
 
-      let yPos = 62;
+      let yPos = 68;
 
       doc.setFontSize(14);
       doc.setTextColor(...ECOBRASIL_COLORS.blue);
@@ -496,34 +596,84 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
+      <PopoverContent className="w-96" align="end">
         <div className="space-y-4">
           <div>
-            <h4 className="font-medium mb-2">Selecione o Projeto</h4>
+            <h4 className="font-medium mb-2">Configurar Relatório</h4>
             <p className="text-sm text-muted-foreground mb-3">
-              Escolha um projeto específico ou gere o relatório consolidado
+              Selecione o projeto e o período do relatório
             </p>
           </div>
-          <Select 
-            value={selectedEmpreendimentoId} 
-            onValueChange={setSelectedEmpreendimentoId}
-          >
-            <SelectTrigger data-testid="select-empreendimento-pdf">
-              <SelectValue placeholder="Selecione um projeto" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Projetos (Consolidado)</SelectItem>
-              {empreendimentos.map((emp) => (
-                <SelectItem key={emp.id} value={emp.id.toString()}>
-                  {emp.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Projeto</Label>
+            <Select 
+              value={selectedEmpreendimentoId} 
+              onValueChange={setSelectedEmpreendimentoId}
+            >
+              <SelectTrigger data-testid="select-empreendimento-pdf">
+                <SelectValue placeholder="Selecione um projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Projetos (Consolidado)</SelectItem>
+                {empreendimentos.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id.toString()}>
+                    {emp.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Período
+            </Label>
+            <Select 
+              value={selectedPeriod} 
+              onValueChange={(value) => setSelectedPeriod(value as PeriodType)}
+            >
+              <SelectTrigger data-testid="select-periodo-pdf">
+                <SelectValue placeholder="Selecione o período" />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedPeriod === "custom" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Data Início</Label>
+                <Input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  data-testid="input-data-inicio-pdf"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Data Fim</Label>
+                <Input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  data-testid="input-data-fim-pdf"
+                />
+              </div>
+            </div>
+          )}
+
           <Button 
             className="w-full" 
             onClick={generatePDF}
-            disabled={isExporting || (!stats && selectedEmpreendimentoId === "all")}
+            disabled={isExporting || (selectedPeriod === "custom" && (!customStartDate || !customEndDate))}
             data-testid="button-confirmar-gerar-pdf"
           >
             {isExporting ? (
