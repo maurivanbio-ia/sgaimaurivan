@@ -38,6 +38,12 @@ A separate portal for external clients (empresas) to access their projects and l
 ### Team Management (Gestão de Equipe)
 A complete team management and task scheduling system with role-based access control:
 - **Team Members Management**: Coordinators can manage team members (`membrosEquipe`) with roles including tecnico_campo, tecnico_laboratorio, analista, estagiario, auxiliar
+- **Member Linking**: Team members can be linked to:
+  - **RH Records**: Single-source HR data via `rhRegistroId` foreign key
+  - **Empreendimentos**: Many-to-many via `membrosEmpreendimentos` join table
+  - **Projetos**: Many-to-many via `membrosProjetos` join table
+- **Vinculos Dialog**: UI for managing member-empreendimento and member-projeto relationships with multi-select and badge display
+- **Multi-Tenant Isolation**: All linking endpoints enforce unidade scoping, verifying both member and target belong to same unidade (admin/diretor bypass available)
 - **Task Management**: Full CRUD for tasks (`tarefas`) with categories (campo, escritorio, relatorio, reuniao, vistoria), priorities (baixa, media, alta, urgente), and status tracking
 - **Collaborator Portal** (`/minhas-tarefas`): Simplified view for collaborators showing only their assigned tasks with quick status updates and progress tracking
 - **Coordinator Dashboard** (`/gestao-equipe`): Full team and task management with statistics, completion rates, and filtering
