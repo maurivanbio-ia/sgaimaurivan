@@ -38,8 +38,11 @@ import {
   LineChart,
   Wallet,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  Trash2
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { RefreshButton } from "@/components/RefreshButton";
 import { FinancialReportPDF } from "@/components/FinancialReportPDF";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -586,6 +589,244 @@ const CHART_COLORS = [
   'rgba(249, 115, 22, 0.8)',  // orange
 ];
 
+// Edit Lancamento Form Component
+interface EditLancamentoFormProps {
+  lancamento: FinanceiroLancamento;
+  onSuccess: () => void;
+  onCancel: () => void;
+  updateMutation: ReturnType<typeof useMutation<unknown, Error, { id: number; data: Partial<FinanceiroLancamento> }>>;
+}
+
+function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }: EditLancamentoFormProps) {
+  const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
+    queryKey: ["/api/empreendimentos"],
+  });
+  
+  const { data: categorias = [] } = useQuery<CategoriaFinanceira[]>({
+    queryKey: ["/api/financeiro/categorias"],
+  });
+
+  const form = useForm<NovoLancamentoFormData>({
+    resolver: zodResolver(novoLancamentoSchema),
+    defaultValues: {
+      tipo: lancamento.tipo as "receita" | "despesa" | "reembolso" | "solicitacao_recurso",
+      empreendimentoId: lancamento.empreendimentoId,
+      categoriaId: lancamento.categoriaId || 0,
+      categoriaOutros: "",
+      valor: Number(lancamento.valor),
+      data: new Date(lancamento.data),
+      dataVencimento: lancamento.dataVencimento ? new Date(lancamento.dataVencimento) : null,
+      dataPagamento: lancamento.dataPagamento ? new Date(lancamento.dataPagamento) : null,
+      descricao: lancamento.descricao,
+      observacoes: lancamento.observacoes || "",
+    },
+  });
+
+  const tipoAtual = form.watch("tipo");
+  
+  const categoriasFiltradas = categorias.filter(cat => 
+    (tipoAtual === "receita" && cat.tipo === "receita") ||
+    (tipoAtual !== "receita" && cat.tipo === "despesa")
+  );
+
+  const onSubmit = (data: NovoLancamentoFormData) => {
+    updateMutation.mutate({
+      id: lancamento.id,
+      data: {
+        tipo: data.tipo,
+        empreendimentoId: data.empreendimentoId,
+        categoriaId: data.categoriaId,
+        valor: data.valor.toString(),
+        data: data.data.toISOString(),
+        dataVencimento: data.dataVencimento?.toISOString() || null,
+        dataPagamento: data.dataPagamento?.toISOString() || null,
+        descricao: data.descricao,
+        observacoes: data.observacoes || null,
+      },
+    });
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="tipo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo de Lançamento</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="edit-select-tipo">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="receita">Receita</SelectItem>
+                    <SelectItem value="despesa">Despesa</SelectItem>
+                    <SelectItem value="reembolso">Reembolso</SelectItem>
+                    <SelectItem value="solicitacao_recurso">Solicitação de Recurso</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="empreendimentoId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Projeto/Empreendimento</FormLabel>
+                <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
+                  <FormControl>
+                    <SelectTrigger data-testid="edit-select-empreendimento">
+                      <SelectValue placeholder="Selecione o projeto" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {empreendimentos.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id.toString()}>
+                        {emp.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="categoriaId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Categoria</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={(value) => field.onChange(parseInt(value))}
+                  value={field.value?.toString()}
+                  className="grid grid-cols-2 md:grid-cols-3 gap-2"
+                  data-testid="edit-radio-categoria"
+                >
+                  {categoriasFiltradas.map((cat) => (
+                    <div key={cat.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={cat.id.toString()} id={`edit-cat-${cat.id}`} />
+                      <Label htmlFor={`edit-cat-${cat.id}`} className="text-sm cursor-pointer">
+                        {cat.nome}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="valor"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor (R$)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    min="0.01"
+                    placeholder="0,00" 
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    data-testid="edit-input-valor"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="data"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Data do Lançamento</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        data-testid="edit-button-data"
+                      >
+                        {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : "Selecione"}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="descricao"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Descrição</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Descreva o lançamento financeiro..."
+                  className="resize-none"
+                  {...field}
+                  data-testid="edit-textarea-descricao"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="edit-button-cancel">
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={updateMutation.isPending} data-testid="edit-button-submit">
+            {updateMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar Alterações"
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 export default function FinanceiroPage() {
   const [filters, setFilters] = useState({
     tipo: "todos",
@@ -594,6 +835,10 @@ export default function FinanceiroPage() {
     search: ""
   });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingLancamento, setEditingLancamento] = useState<FinanceiroLancamento | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingLancamentoId, setDeletingLancamentoId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -625,6 +870,62 @@ export default function FinanceiroPage() {
         variant: "destructive",
       });
       console.error("Erro ao atualizar status:", error);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/financeiro/lancamentos/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.startsWith?.("/api/financeiro") ?? false;
+        }
+      });
+      toast({
+        title: "Lançamento excluído",
+        description: "O lançamento foi removido com sucesso!",
+      });
+      setDeleteDialogOpen(false);
+      setDeletingLancamentoId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o lançamento. Tente novamente.",
+        variant: "destructive",
+      });
+      console.error("Erro ao excluir lançamento:", error);
+    },
+  });
+
+  const updateLancamentoMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<FinanceiroLancamento> }) => {
+      return apiRequest("PUT", `/api/financeiro/lancamentos/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.startsWith?.("/api/financeiro") ?? false;
+        }
+      });
+      toast({
+        title: "Lançamento atualizado",
+        description: "O lançamento foi atualizado com sucesso!",
+      });
+      setEditDialogOpen(false);
+      setEditingLancamento(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o lançamento. Tente novamente.",
+        variant: "destructive",
+      });
+      console.error("Erro ao atualizar lançamento:", error);
     },
   });
 
@@ -1275,6 +1576,27 @@ export default function FinanceiroPage() {
                                     <XCircle className="h-4 w-4 mr-2 text-red-500" />
                                     Cancelar
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingLancamento(lancamento);
+                                      setEditDialogOpen(true);
+                                    }}
+                                    data-testid={`action-edit-${lancamento.id}`}
+                                  >
+                                    <Pencil className="h-4 w-4 mr-2 text-gray-500" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setDeletingLancamentoId(lancamento.id);
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    className="text-red-600"
+                                    data-testid={`action-delete-${lancamento.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </td>
@@ -1289,6 +1611,58 @@ export default function FinanceiroPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este lançamento financeiro? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingLancamentoId && deleteMutation.mutate(deletingLancamentoId)}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Lançamento</DialogTitle>
+          </DialogHeader>
+          {editingLancamento && (
+            <EditLancamentoForm
+              lancamento={editingLancamento}
+              onSuccess={() => {
+                setEditDialogOpen(false);
+                setEditingLancamento(null);
+              }}
+              onCancel={() => {
+                setEditDialogOpen(false);
+                setEditingLancamento(null);
+              }}
+              updateMutation={updateLancamentoMutation}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
