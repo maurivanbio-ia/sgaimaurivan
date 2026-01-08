@@ -5,14 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import logoPath from "@assets/image_1767874122366.png";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 interface FinancialStats {
   totalReceitas: number;
@@ -192,7 +186,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         doc.text('Evolução Mensal', 20, yPos);
         yPos += 5;
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: yPos,
           head: [['Mês', 'Receitas', 'Despesas', 'Lucro/Prejuízo']],
           body: safeStats.evolucaoMensal.map(m => [
@@ -242,7 +236,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         doc.text('Distribuição por Categoria', 20, yPos);
         yPos += 5;
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: yPos,
           head: [['Categoria', 'Tipo', 'Valor']],
           body: safeStats.porCategoria.map(c => [
@@ -292,7 +286,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         doc.text('Resultado por Projeto', 20, yPos);
         yPos += 5;
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: yPos,
           head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
           body: safeStats.porEmpreendimento.map(e => [
