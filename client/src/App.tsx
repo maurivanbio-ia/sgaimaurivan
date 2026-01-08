@@ -36,6 +36,8 @@ import PainelIntegrado from "./pages/painel-integrado";
 import MapaEmpreendimentos from "./pages/mapa";
 import Calendario from "./pages/calendario";
 import Cronograma from "./pages/cronograma";
+import GestaoEquipe from "./pages/gestao-equipe";
+import PortalColaborador from "./pages/portal-colaborador";
 import Sidebar from "./components/layout/sidebar";
 import ClienteSidebar from "./components/layout/cliente-sidebar";
 import ClienteLogin from "./pages/cliente/login";
@@ -129,6 +131,8 @@ function Router() {
                   <Route path="/rh" component={Rh} />
                   <Route path="/gestao-dados" component={GestaoDados} />
                   <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
+                  <Route path="/gestao-equipe" component={GestaoEquipe} />
+                  <Route path="/minhas-tarefas" component={PortalColaborador} />
                   <Route component={NotFound} />
                 </Switch>
               </main>

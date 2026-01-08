@@ -26,7 +26,9 @@ import {
   ChevronRight,
   MapPin,
   Calendar,
-  CalendarDays
+  CalendarDays,
+  UserCog,
+  CheckSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -68,6 +70,8 @@ export default function Sidebar() {
   const NAV = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
     { href: "/dashboard-coordenador", label: "Meu Painel", icon: User, testid: "nav-dashboard-coordenador" },
+    { href: "/minhas-tarefas", label: "Minhas Tarefas", icon: CheckSquare, testid: "nav-minhas-tarefas" },
+    { href: "/gestao-equipe", label: "Gestão de Equipe", icon: UserCog, testid: "nav-gestao-equipe" },
     { href: "/mapa", label: "Mapa", icon: MapPin, testid: "nav-mapa" },
     { href: "/calendario", label: "Calendário", icon: Calendar, testid: "nav-calendario" },
     { href: "/cronograma", label: "Cronograma", icon: CalendarDays, testid: "nav-cronograma" },
