@@ -35,6 +35,16 @@ A separate portal for external clients (empresas) to access their projects and l
 - **Tables**: `clientes` (company info), `cliente_usuarios` (user accounts), `cliente_documentos` (uploaded files)
 - **Test Credentials**: `cliente@empresateste.com.br` / `cliente123`
 
+### Team Management (Gestão de Equipe)
+A complete team management and task scheduling system with role-based access control:
+- **Team Members Management**: Coordinators can manage team members (`membrosEquipe`) with roles including tecnico_campo, tecnico_laboratorio, analista, estagiario, auxiliar
+- **Task Management**: Full CRUD for tasks (`tarefas`) with categories (campo, escritorio, relatorio, reuniao, vistoria), priorities (baixa, media, alta, urgente), and status tracking
+- **Collaborator Portal** (`/minhas-tarefas`): Simplified view for collaborators showing only their assigned tasks with quick status updates and progress tracking
+- **Coordinator Dashboard** (`/gestao-equipe`): Full team and task management with statistics, completion rates, and filtering
+- **Time Tracking**: Hours estimation and tracking with coordinator approval workflow
+- **Real-time Notifications**: Automatic notifications when tasks are assigned
+- **Routes**: `/gestao-equipe` (coordinator management), `/minhas-tarefas` (personal tasks)
+
 ### Resource Management
 - **Vehicle Ownership**: Vehicles can be classified as owned or rented, with conditional validation for rental-specific fields.
 - **Empreendimento Resource Assignment**: Vehicles, RH records, and equipment can be optionally assigned to specific `empreendimentos`, with proper filtering in UI tabs and backend APIs.
