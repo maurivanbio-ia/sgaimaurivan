@@ -28,7 +28,8 @@ import {
   Calendar,
   CalendarDays,
   UserCog,
-  CheckSquare
+  CheckSquare,
+  MessageCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -83,6 +84,7 @@ export default function Sidebar() {
     { href: "/rh", label: "RH", icon: Users, testid: "nav-rh" },
     { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
     { href: "/seguranca-trabalho", label: "SST", icon: ShieldCheck, testid: "nav-seguranca-trabalho" },
+    { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, testid: "nav-whatsapp" },
   ];
 
   const SidebarContent = () => (
