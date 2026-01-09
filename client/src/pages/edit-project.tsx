@@ -10,10 +10,20 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Empreendimento } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
+
+interface RhRegistro {
+  id: number;
+  nomeColaborador: string;
+  contatoEmail: string | null;
+  contatoTelefone: string | null;
+}
 
 const tipologiaOptions = [
   { value: "hidreletrica", label: "💧 Hidrelétrica" },
@@ -62,6 +72,11 @@ export default function EditProject() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { unidadeSelecionada } = useUnidade();
+  const [openResponsavel, setOpenResponsavel] = useState(false);
+
+  const { data: rhRegistros = [] } = useQuery<RhRegistro[]>({
+    queryKey: ['/api/rh', unidadeSelecionada],
+  });
 
   const { data: project, isLoading } = useQuery<Empreendimento>({
     queryKey: ["/api/empreendimentos", id, unidadeSelecionada],
@@ -308,15 +323,61 @@ export default function EditProject() {
                 control={form.control}
                 name="responsavelInterno"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsável Interno</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        placeholder="Nome do responsável interno"
-                        data-testid="input-responsavel"
-                      />
-                    </FormControl>
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Responsável Interno *</FormLabel>
+                    <Popover open={openResponsavel} onOpenChange={setOpenResponsavel}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openResponsavel}
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="input-responsavel"
+                          >
+                            {field.value || "Selecione um colaborador do RH"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar colaborador..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {rhRegistros.map((rh) => (
+                                <CommandItem
+                                  key={rh.id}
+                                  value={rh.nomeColaborador}
+                                  onSelect={() => {
+                                    field.onChange(rh.nomeColaborador);
+                                    setOpenResponsavel(false);
+                                  }}
+                                >
+                                  <User className="mr-2 h-4 w-4" />
+                                  <div className="flex flex-col">
+                                    <span>{rh.nomeColaborador}</span>
+                                    {rh.contatoEmail && (
+                                      <span className="text-xs text-muted-foreground">{rh.contatoEmail}</span>
+                                    )}
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      "ml-auto h-4 w-4",
+                                      field.value === rh.nomeColaborador ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
