@@ -65,6 +65,39 @@ A complete team management and task scheduling system with role-based access con
 - **Vehicle Ownership**: Vehicles can be classified as owned or rented, with conditional validation for rental-specific fields.
 - **Empreendimento Resource Assignment**: Vehicles, RH records, and equipment can be optionally assigned to specific `empreendimentos`, with proper filtering in UI tabs and backend APIs.
 
+### Role-Based Access Control (RBAC)
+A comprehensive permission system aligned with administrative principles:
+
+#### Roles & Access Levels
+| Role | Access Scope |
+|------|-------------|
+| **admin** | Full access to all modules with audit capabilities |
+| **diretor** | Strategic access across units, approval authority |
+| **coordenador** | Operational management within their unit |
+| **financeiro** | Financial modules, contracts, and cost analysis |
+| **rh** | HR and SST (Safety) modules, team management |
+| **colaborador** | Personal tasks, assigned demands, basic views |
+
+#### Module Access Matrix
+- **Dashboard/Meu Painel**: All roles can view
+- **Dashboard Executivo**: Admin and Diretor only
+- **Dashboard Coordenador**: Admin, Diretor, and Coordenador
+- **Financeiro/Contratos**: Admin, Diretor, Financeiro (full); others restricted
+- **RH/SST**: Admin, Diretor, RH (full); Coordenador (unit-level)
+- **Gestão de Equipe**: Admin, Diretor, Coordenador, RH (manage); others view-only
+
+#### Unlock Mechanism
+- Users without module access see an unlock dialog requesting admin password
+- Password stored securely in `ADMIN_UNLOCK_PASSWORD` environment secret
+- Temporary unlock stored in sessionStorage (cleared on logout/tab close)
+- Unlock endpoint: `POST /api/auth/unlock-module`
+
+#### Configuration Files
+- `client/src/lib/permissions.ts`: Permission matrix and role definitions
+- `client/src/components/PermissionGate.tsx`: Route-level permission enforcement
+- `client/src/components/UnlockDialog.tsx`: Password unlock UI component
+- `client/src/contexts/PermissionContext.tsx`: React context for permission state
+
 ### Database and Data Handling
 The PostgreSQL database uses Drizzle ORM with a schema-first approach. Key tables (`empreendimentos`, `demandas`, `veiculos`, `equipamentos`, `rh_registros`, `ai_documents`, `ai_conversations`, `ai_logs`, `projetos`) have been enhanced with fields supporting multi-tenancy, project management, and AI features. Foreign key constraints have been fixed, and soft deletion is implemented. File uploads include metadata tracking and checksums.
 
