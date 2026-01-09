@@ -889,7 +889,10 @@ export default function FinanceiroPage() {
     const params = new URLSearchParams();
     if (filters.tipo && filters.tipo !== "todos") params.append("tipo", filters.tipo);
     if (filters.status && filters.status !== "todos") params.append("status", filters.status);
-    if (filters.empreendimento) params.append("empreendimentoId", filters.empreendimento);
+    // Usar o filtro principal de empreendimento
+    if (selectedEmpreendimentoId && selectedEmpreendimentoId !== "todos") {
+      params.append("empreendimentoId", selectedEmpreendimentoId);
+    }
     if (filters.search) params.append("search", filters.search);
     const queryStr = params.toString();
     return queryStr ? `?${queryStr}` : "";
@@ -897,7 +900,7 @@ export default function FinanceiroPage() {
 
   // Fetch financial data with proper query string
   const { data: lancamentos = [], isLoading } = useQuery<FinanceiroLancamento[]>({
-    queryKey: ["/api/financeiro/lancamentos", filters.tipo, filters.status, filters.empreendimento, filters.search],
+    queryKey: ["/api/financeiro/lancamentos", filters.tipo, filters.status, selectedEmpreendimentoId, filters.search],
     queryFn: async () => {
       const res = await fetch(`/api/financeiro/lancamentos${buildQueryString()}`, {
         credentials: "include",
