@@ -26,6 +26,7 @@ import {
   demandas,
   arquivos,
   contratos,
+  datasets,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull } from "drizzle-orm";
@@ -2503,6 +2504,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating dataset:', error);
       res.status(500).json({ error: 'Failed to create dataset' });
+    }
+  });
+
+  // Update dataset
+  app.patch('/api/datasets/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid dataset ID' });
+      }
+
+      const { nome, descricao } = req.body;
+      const updateData: { nome?: string; descricao?: string } = {};
+      if (nome !== undefined) updateData.nome = nome;
+      if (descricao !== undefined) updateData.descricao = descricao;
+
+      const updated = await db.update(datasets).set(updateData).where(eq(datasets.id, id)).returning();
+      if (updated.length === 0) {
+        return res.status(404).json({ error: 'Dataset not found' });
+      }
+
+      res.json(updated[0]);
+    } catch (error) {
+      console.error('Error updating dataset:', error);
+      res.status(500).json({ error: 'Failed to update dataset' });
     }
   });
 
