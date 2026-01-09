@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth, User } from '@/lib/auth';
 
-export type Unidade = 'goiania' | 'salvador' | 'luiz-eduardo-magalhaes';
+export type Unidade = 'salvador';
 
 interface UnidadeContextType {
   unidadeSelecionada: Unidade | null;
@@ -35,16 +35,7 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
   };
 
   const getNomeUnidade = (): string => {
-    switch (unidadeSelecionada) {
-      case 'goiania':
-        return 'ECOBRASIL Goiânia';
-      case 'salvador':
-        return 'ECOBRASIL Salvador';
-      case 'luiz-eduardo-magalhaes':
-        return 'ECOBRASIL Luiz Eduardo Magalhães';
-      default:
-        return 'Todas as Unidades';
-    }
+    return 'ECOBRASIL Salvador';
   };
 
   return (

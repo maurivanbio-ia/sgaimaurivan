@@ -16,7 +16,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [unidade, setUnidade] = useState<string>("");
+  const [unidade, setUnidade] = useState<string>("salvador");
   const [cargo, setCargo] = useState<string>("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,10 +39,6 @@ export default function Register() {
       return;
     }
 
-    if (!unidade) {
-      setError("Selecione sua unidade");
-      return;
-    }
 
     if (!cargo) {
       setError("Selecione seu cargo");
@@ -197,28 +193,8 @@ export default function Register() {
                 </div>
               </div>
 
-              <div>
-                <Label
-                  htmlFor="unidade"
-                  className="block text-sm font-medium text-white mb-2 drop-shadow"
-                >
-                  <Building2 className="h-4 w-4 inline mr-2" />
-                  Unidade
-                </Label>
-                <Select value={unidade} onValueChange={setUnidade}>
-                  <SelectTrigger 
-                    className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white focus:bg-white/30 focus:border-white/50"
-                    data-testid="select-unidade"
-                  >
-                    <SelectValue placeholder="Selecione sua unidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="goiania">ECOBRASIL Goiânia</SelectItem>
-                    <SelectItem value="salvador">ECOBRASIL Salvador</SelectItem>
-                    <SelectItem value="luiz-eduardo-magalhaes">ECOBRASIL Luiz Eduardo Magalhães</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Unidade definida automaticamente como Salvador */}
+              <input type="hidden" name="unidade" value="salvador" />
 
               <div>
                 <Label
