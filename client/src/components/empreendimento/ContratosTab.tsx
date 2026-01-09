@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, DollarSign, Calendar, Plus, Edit, Trash2, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp, FileSignature, X } from "lucide-react";
+import { FileText, DollarSign, Calendar, Plus, Edit, Trash2, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp, FileSignature, X, Upload, FileDown } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -104,6 +104,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const [aditivoDialogOpen, setAditivoDialogOpen] = useState(false);
   const [aditivoForm, setAditivoForm] = useState<AditivoForm>(emptyAditivoForm);
   const [activeContratoForAditivo, setActiveContratoForAditivo] = useState<number | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState<number | null>(null);
 
   const { data: contratos = [], isLoading } = useQuery<Contrato[]>({
     queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"],
@@ -264,6 +265,33 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const contratosVencidos = contratos.filter(c => c.situacao === 'vencido');
   const valorTotalContratos = contratos.reduce((sum, c) => sum + Number(c.valorTotal || 0), 0);
 
+  const handleUploadPdf = async (contratoId: number, file: File) => {
+    setUploadingPdf(contratoId);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`/api/empreendimentos/${empreendimentoId}/contratos/${contratoId}/pdf`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Erro ao fazer upload');
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
+      toast({ title: "PDF anexado", description: "O arquivo PDF do contrato foi salvo com sucesso." });
+    } catch (error: any) {
+      toast({ title: "Erro no upload", description: error.message, variant: "destructive" });
+    } finally {
+      setUploadingPdf(null);
+    }
+  };
+
+  const handleDownloadPdf = async (contrato: Contrato) => {
+    if (!contrato.arquivoPdfId) return;
+    window.open(`/api/contratos/${contrato.id}/pdf`, '_blank');
+  };
+
   const calcularDiasRestantes = (dataFim: string) => {
     const hoje = new Date();
     const fim = new Date(dataFim);
@@ -385,6 +413,41 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {config.label}
                       </Badge>
+                      {contrato.arquivoPdfId ? (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDownloadPdf(contrato)}
+                          title="Baixar PDF do contrato"
+                          data-testid={`button-download-pdf-${contrato.id}`}
+                        >
+                          <FileDown className="h-4 w-4 text-blue-500" />
+                        </Button>
+                      ) : (
+                        <label title="Anexar PDF do contrato">
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            className="hidden"
+                            disabled={uploadingPdf === contrato.id}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUploadPdf(contrato.id, file);
+                            }}
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            asChild
+                            className={uploadingPdf === contrato.id ? 'opacity-50' : ''}
+                            data-testid={`button-upload-pdf-${contrato.id}`}
+                          >
+                            <span>
+                              <Upload className="h-4 w-4 text-emerald-500" />
+                            </span>
+                          </Button>
+                        </label>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(contrato)} data-testid={`button-edit-${contrato.id}`}>
                         <Edit className="h-4 w-4" />
                       </Button>
