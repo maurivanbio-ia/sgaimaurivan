@@ -27,6 +27,9 @@ import {
   arquivos,
   contratos,
   datasets,
+  datasetPastas,
+  datasetVersoes,
+  datasetAuditTrail,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull } from "drizzle-orm";
@@ -2549,6 +2552,518 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting dataset:', error);
       res.status(500).json({ error: 'Failed to delete dataset' });
+    }
+  });
+
+  // ==== ESTRUTURA DE PASTAS E GESTÃO DOCUMENTAL ====
+
+  // Definição da estrutura macro institucional
+  const ESTRUTURA_MACRO = [
+    { nome: "01_ADMINISTRATIVO", caminho: "/ECOBRASIL_GESTAO_DADOS/01_ADMINISTRATIVO" },
+    { nome: "02_PROJETOS", caminho: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS" },
+    { nome: "03_CLIENTES", caminho: "/ECOBRASIL_GESTAO_DADOS/03_CLIENTES" },
+    { nome: "04_BASE_TECNICA", caminho: "/ECOBRASIL_GESTAO_DADOS/04_BASE_TECNICA" },
+    { nome: "05_MODELOS_E_PADROES", caminho: "/ECOBRASIL_GESTAO_DADOS/05_MODELOS_E_PADROES" },
+    { nome: "06_SISTEMA_E_BACKUP", caminho: "/ECOBRASIL_GESTAO_DADOS/06_SISTEMA_E_BACKUP" },
+    { nome: "07_ARQUIVO_MORTO", caminho: "/ECOBRASIL_GESTAO_DADOS/07_ARQUIVO_MORTO" },
+  ];
+
+  // Estrutura de subpastas por projeto
+  const ESTRUTURA_PROJETO = [
+    "01_GESTAO_E_CONTRATOS",
+    "02_PLANEJAMENTO_E_CRONOGRAMA",
+    "03_BANCOS_DE_DADOS",
+    "04_RELATORIOS_E_PARECERES",
+    "05_SIG_E_CARTOGRAFIA",
+    "06_IMAGENS_E_MIDIAS",
+    "07_SCRIPTS_E_ANALISES",
+    "08_COMUNICACAO_OFICIAL",
+    "09_AUDITORIA_E_COMPLIANCE",
+    "10_ENTREGAS_FINAIS",
+  ];
+
+  // Subpastas detalhadas
+  const SUBPASTAS_DETALHADAS: Record<string, string[]> = {
+    "03_BANCOS_DE_DADOS": [
+      "01_DADOS_BRUTOS/FAUNA",
+      "01_DADOS_BRUTOS/FLORA",
+      "01_DADOS_BRUTOS/FISICO_QUIMICA",
+      "01_DADOS_BRUTOS/SOCIOECONOMIA",
+      "01_DADOS_BRUTOS/OUTROS",
+      "02_DADOS_PROCESSADOS/FAUNA",
+      "02_DADOS_PROCESSADOS/FLORA",
+      "02_DADOS_PROCESSADOS/SIG",
+      "02_DADOS_PROCESSADOS/ESTATISTICA",
+      "03_DADOS_CONSOLIDADOS/BASE_OFICIAL_PROJETO",
+      "04_METADADOS_E_DICIONARIOS/DICIONARIO_DE_VARIAVEIS",
+      "04_METADADOS_E_DICIONARIOS/METODOLOGIAS",
+    ],
+    "04_RELATORIOS_E_PARECERES": [
+      "01_RASCUNHOS",
+      "02_PRELIMINARES",
+      "03_REVISOES",
+      "04_FINAIS",
+      "05_ASSINADOS_E_PROTOCOLADOS",
+    ],
+    "05_SIG_E_CARTOGRAFIA": [
+      "01_DADOS_VETORIAIS",
+      "02_DADOS_RASTER",
+      "03_PROJETOS_QGIS",
+      "04_LAYOUTS_E_MAPAS",
+      "05_METADADOS_SIG",
+    ],
+    "06_IMAGENS_E_MIDIAS": [
+      "01_FOTOS_CAMPO",
+      "02_DRONES_E_VIDEOS",
+      "03_MAPAS_E_FIGURAS",
+      "04_GRAFICOS_E_DIAGRAMAS",
+      "05_MEMORIAL_FOTOGRAFICO",
+    ],
+    "07_SCRIPTS_E_ANALISES": [
+      "01_R",
+      "02_PYTHON",
+      "03_SQL",
+      "04_NOTEBOOKS",
+      "05_LOGS_E_RESULTADOS",
+    ],
+    "08_COMUNICACAO_OFICIAL": [
+      "01_OFICIOS",
+      "02_EMAILS_PDF",
+      "03_RESPOSTAS_A_ORGAOS",
+      "04_PROTOCOLADOS",
+    ],
+    "09_AUDITORIA_E_COMPLIANCE": [
+      "01_CHECKLISTS_ISO",
+      "02_RASTREABILIDADE",
+      "03_LGPD_E_CONFIDENCIALIDADE",
+      "04_REGISTROS_DE_MUDANCA",
+    ],
+  };
+
+  // Função para normalizar texto (remover acentos, caracteres especiais)
+  function normalizarTexto(texto: string): string {
+    return texto
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9\s_-]/g, "")
+      .replace(/\s+/g, "_")
+      .toUpperCase()
+      .trim();
+  }
+
+  // Função para gerar código do arquivo
+  function gerarCodigoArquivo(dados: {
+    cliente?: string;
+    uf?: string;
+    projeto?: string;
+    subprojeto?: string;
+    disciplina?: string;
+    entrega?: string;
+    tipoDocumento?: string;
+    area?: string;
+    periodo?: string;
+    dataReferencia?: string;
+    responsavel?: string;
+    versao?: string;
+    status?: string;
+    extensao?: string;
+  }): string {
+    const partes = ["ECOBRASIL"];
+    
+    if (dados.cliente) partes.push(normalizarTexto(dados.cliente));
+    if (dados.uf) partes.push(normalizarTexto(dados.uf));
+    if (dados.projeto) partes.push(normalizarTexto(dados.projeto));
+    if (dados.subprojeto) partes.push(normalizarTexto(dados.subprojeto));
+    if (dados.disciplina) partes.push(normalizarTexto(dados.disciplina));
+    if (dados.entrega) partes.push(normalizarTexto(dados.entrega));
+    if (dados.tipoDocumento) partes.push(normalizarTexto(dados.tipoDocumento));
+    if (dados.area) partes.push(normalizarTexto(dados.area));
+    if (dados.periodo) partes.push(normalizarTexto(dados.periodo));
+    if (dados.dataReferencia) partes.push(dados.dataReferencia);
+    if (dados.responsavel) partes.push(normalizarTexto(dados.responsavel));
+    if (dados.versao) partes.push(dados.versao);
+    if (dados.status) partes.push(normalizarTexto(dados.status));
+    
+    let codigo = partes.join("-");
+    if (dados.extensao) {
+      codigo += "." + dados.extensao.toLowerCase();
+    }
+    
+    return codigo;
+  }
+
+  // Função para calcular pasta destino baseado em DOC, STATUS e extensão
+  function calcularPastaDestino(dados: {
+    cliente?: string;
+    uf?: string;
+    projeto?: string;
+    tipoDocumento?: string;
+    status?: string;
+    extensao?: string;
+  }): string {
+    const { cliente, uf, projeto, tipoDocumento, status, extensao } = dados;
+    
+    let basePath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS`;
+    
+    if (cliente && uf && projeto) {
+      basePath += `/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`;
+    }
+    
+    const ext = extensao?.toLowerCase() || "";
+    
+    // Roteamento por tipo de documento
+    if (tipoDocumento === "DAT") {
+      return `${basePath}/03_BANCOS_DE_DADOS`;
+    }
+    
+    if (tipoDocumento === "REL" || tipoDocumento === "NT") {
+      let subpasta = "01_RASCUNHOS";
+      if (status === "PRELIM") subpasta = "02_PRELIMINARES";
+      else if (status === "FINAL") subpasta = "04_FINAIS";
+      else if (status === "ASSIN" || status === "PROTOC") subpasta = "05_ASSINADOS_E_PROTOCOLADOS";
+      return `${basePath}/04_RELATORIOS_E_PARECERES/${subpasta}`;
+    }
+    
+    if (tipoDocumento === "OF") {
+      return `${basePath}/08_COMUNICACAO_OFICIAL/01_OFICIOS`;
+    }
+    
+    if (status === "PROTOC") {
+      return `${basePath}/08_COMUNICACAO_OFICIAL/04_PROTOCOLADOS`;
+    }
+    
+    // Roteamento por extensão
+    if (["jpg", "jpeg", "png", "tif", "tiff", "webp", "gif"].includes(ext)) {
+      return `${basePath}/06_IMAGENS_E_MIDIAS/01_FOTOS_CAMPO`;
+    }
+    
+    if (["mp4", "avi", "mov", "mkv"].includes(ext)) {
+      return `${basePath}/06_IMAGENS_E_MIDIAS/02_DRONES_E_VIDEOS`;
+    }
+    
+    if (["gpkg", "shp", "geojson"].includes(ext)) {
+      return `${basePath}/05_SIG_E_CARTOGRAFIA/01_DADOS_VETORIAIS`;
+    }
+    
+    if (ext === "qgz" || ext === "qgs") {
+      return `${basePath}/05_SIG_E_CARTOGRAFIA/03_PROJETOS_QGIS`;
+    }
+    
+    if (["r", "R"].includes(ext)) {
+      return `${basePath}/07_SCRIPTS_E_ANALISES/01_R`;
+    }
+    
+    if (ext === "py") {
+      return `${basePath}/07_SCRIPTS_E_ANALISES/02_PYTHON`;
+    }
+    
+    if (ext === "sql") {
+      return `${basePath}/07_SCRIPTS_E_ANALISES/03_SQL`;
+    }
+    
+    if (ext === "ipynb") {
+      return `${basePath}/07_SCRIPTS_E_ANALISES/04_NOTEBOOKS`;
+    }
+    
+    // Default
+    return `${basePath}/01_GESTAO_E_CONTRATOS`;
+  }
+
+  // Endpoint para garantir estrutura macro
+  app.post('/api/datasets/estrutura/macro', requireAuth, async (req, res) => {
+    try {
+      const pastasExistentes = await db.select().from(datasetPastas).where(eq(datasetPastas.tipo, "macro"));
+      const caminhosExistentes = new Set(pastasExistentes.map(p => p.caminho));
+      
+      // Criar pasta raiz
+      if (!caminhosExistentes.has("/ECOBRASIL_GESTAO_DADOS")) {
+        await db.insert(datasetPastas).values({
+          nome: "ECOBRASIL_GESTAO_DADOS",
+          caminho: "/ECOBRASIL_GESTAO_DADOS",
+          tipo: "macro",
+        });
+      }
+      
+      // Criar subpastas macro
+      for (const pasta of ESTRUTURA_MACRO) {
+        if (!caminhosExistentes.has(pasta.caminho)) {
+          await db.insert(datasetPastas).values({
+            nome: pasta.nome,
+            caminho: pasta.caminho,
+            pai: "/ECOBRASIL_GESTAO_DADOS",
+            tipo: "macro",
+          });
+        }
+      }
+      
+      res.json({ success: true, message: "Estrutura macro criada/verificada com sucesso" });
+    } catch (error) {
+      console.error('Error creating macro structure:', error);
+      res.status(500).json({ error: 'Failed to create macro structure' });
+    }
+  });
+
+  // Endpoint para garantir estrutura do projeto
+  app.post('/api/datasets/estrutura/projeto', requireAuth, async (req, res) => {
+    try {
+      const { cliente, uf, projeto, projetoId } = req.body;
+      
+      if (!cliente || !uf || !projeto) {
+        return res.status(400).json({ error: 'Cliente, UF e Projeto são obrigatórios' });
+      }
+      
+      const projetoPath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`;
+      
+      // Verificar se já existe
+      const existente = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, projetoPath));
+      
+      if (existente.length === 0) {
+        // Criar pasta do projeto
+        await db.insert(datasetPastas).values({
+          nome: `ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
+          caminho: projetoPath,
+          pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+          tipo: "projeto",
+          projetoId: projetoId || null,
+        });
+        
+        // Criar subpastas principais
+        for (const subpasta of ESTRUTURA_PROJETO) {
+          const subpastaPath = `${projetoPath}/${subpasta}`;
+          await db.insert(datasetPastas).values({
+            nome: subpasta,
+            caminho: subpastaPath,
+            pai: projetoPath,
+            tipo: "subpasta",
+            projetoId: projetoId || null,
+          });
+          
+          // Criar subpastas detalhadas se existirem
+          if (SUBPASTAS_DETALHADAS[subpasta]) {
+            for (const detalhe of SUBPASTAS_DETALHADAS[subpasta]) {
+              const detalhePath = `${subpastaPath}/${detalhe}`;
+              const partes = detalhe.split("/");
+              const nomeDetalhe = partes[partes.length - 1];
+              
+              await db.insert(datasetPastas).values({
+                nome: nomeDetalhe,
+                caminho: detalhePath,
+                pai: subpastaPath,
+                tipo: "subpasta",
+                projetoId: projetoId || null,
+              });
+            }
+          }
+        }
+      }
+      
+      res.json({ success: true, message: "Estrutura do projeto criada/verificada com sucesso", path: projetoPath });
+    } catch (error) {
+      console.error('Error creating project structure:', error);
+      res.status(500).json({ error: 'Failed to create project structure' });
+    }
+  });
+
+  // Endpoint para listar pastas
+  app.get('/api/datasets/pastas', requireAuth, async (req, res) => {
+    try {
+      const { tipo, pai } = req.query;
+      
+      let query = db.select().from(datasetPastas);
+      
+      if (tipo) {
+        query = query.where(eq(datasetPastas.tipo, tipo as string)) as any;
+      }
+      if (pai) {
+        query = query.where(eq(datasetPastas.pai, pai as string)) as any;
+      }
+      
+      const pastas = await query;
+      res.json(pastas);
+    } catch (error) {
+      console.error('Error fetching pastas:', error);
+      res.status(500).json({ error: 'Failed to fetch pastas' });
+    }
+  });
+
+  // Endpoint para gerar código de arquivo (preview)
+  app.post('/api/datasets/gerar-codigo', requireAuth, async (req, res) => {
+    try {
+      const dados = req.body;
+      
+      const codigo = gerarCodigoArquivo(dados);
+      const pastaDestino = calcularPastaDestino(dados);
+      
+      res.json({ codigo, pastaDestino });
+    } catch (error) {
+      console.error('Error generating code:', error);
+      res.status(500).json({ error: 'Failed to generate code' });
+    }
+  });
+
+  // Endpoint para upload com metadados avançados
+  app.post('/api/datasets/upload-avancado', requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const {
+        empreendimentoId,
+        nome,
+        descricao,
+        tipo,
+        tamanho,
+        url,
+        cliente,
+        uf,
+        projeto,
+        subprojeto,
+        disciplina,
+        tipoDocumento,
+        entrega,
+        area,
+        periodo,
+        responsavel,
+        status,
+        classificacao,
+        titulo,
+        hashSha256,
+      } = req.body;
+      
+      // Gerar data de referência (AAAAMMDD)
+      const hoje = new Date();
+      const dataReferencia = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, '0')}${String(hoje.getDate()).padStart(2, '0')}`;
+      
+      // Obter extensão do arquivo
+      const extensao = nome.split('.').pop() || '';
+      
+      // Verificar se já existe documento com mesmo código base para versionar
+      const codigoBase = gerarCodigoArquivo({
+        cliente, uf, projeto, subprojeto, disciplina, entrega, tipoDocumento, area, periodo, dataReferencia, responsavel,
+      });
+      
+      // Buscar versões existentes
+      const existentes = await db.select().from(datasets).where(
+        sql`${datasets.codigoArquivo} LIKE ${codigoBase + '%'}`
+      );
+      
+      let versao = "V0.1";
+      if (existentes.length > 0) {
+        // Encontrar a maior versão
+        const versoes = existentes.map(e => e.versao || "V0.0");
+        const maxVersao = versoes.reduce((max, v) => {
+          const numMax = parseFloat(max.replace("V", ""));
+          const numV = parseFloat(v.replace("V", ""));
+          return numV > numMax ? v : max;
+        }, "V0.0");
+        
+        // Incrementar versão
+        const numVersao = parseFloat(maxVersao.replace("V", ""));
+        versao = `V${(numVersao + 0.1).toFixed(1)}`;
+      }
+      
+      // Gerar código final com versão
+      const codigoArquivo = gerarCodigoArquivo({
+        cliente, uf, projeto, subprojeto, disciplina, entrega, tipoDocumento, area, periodo, dataReferencia, responsavel, versao, status, extensao,
+      });
+      
+      // Calcular pasta destino
+      const pastaDestino = calcularPastaDestino({ cliente, uf, projeto, tipoDocumento, status, extensao });
+      
+      // Garantir estrutura do projeto
+      if (cliente && uf && projeto) {
+        await db.insert(datasetPastas).values({
+          nome: `ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
+          caminho: `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
+          pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+          tipo: "projeto",
+        }).onConflictDoNothing();
+      }
+      
+      // Criar dataset
+      const [dataset] = await db.insert(datasets).values({
+        empreendimentoId,
+        nome: codigoArquivo,
+        descricao,
+        tipo,
+        tamanho,
+        url,
+        usuario: user?.nome || user?.email || "Sistema",
+        codigoArquivo,
+        cliente,
+        uf,
+        projeto,
+        subprojeto,
+        disciplina,
+        tipoDocumento,
+        entrega,
+        area,
+        periodo,
+        dataReferencia,
+        responsavel: responsavel || user?.nome,
+        versao,
+        status: status || "RASC",
+        classificacao: classificacao || "INT",
+        titulo,
+        pastaDestino,
+        hashSha256,
+      }).returning();
+      
+      // Criar registro de versão
+      await db.insert(datasetVersoes).values({
+        datasetId: dataset.id,
+        versao,
+        nomeArquivo: codigoArquivo,
+        storagePath: pastaDestino,
+        hashSha256,
+        tamanho,
+        status: status || "RASC",
+        criadoPor: user?.nome || user?.email || "Sistema",
+      });
+      
+      // Criar audit trail
+      await db.insert(datasetAuditTrail).values({
+        datasetId: dataset.id,
+        acao: "upload",
+        userId: user?.id,
+        usuario: user?.nome || user?.email || "Sistema",
+        detalhes: { versao, pastaDestino, codigoArquivo },
+      });
+      
+      res.status(201).json(dataset);
+    } catch (error) {
+      console.error('Error creating dataset:', error);
+      res.status(500).json({ error: 'Failed to create dataset' });
+    }
+  });
+
+  // Endpoint para obter histórico de versões
+  app.get('/api/datasets/:id/versoes', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid dataset ID' });
+      }
+      
+      const versoes = await db.select().from(datasetVersoes).where(eq(datasetVersoes.datasetId, id));
+      res.json(versoes);
+    } catch (error) {
+      console.error('Error fetching versions:', error);
+      res.status(500).json({ error: 'Failed to fetch versions' });
+    }
+  });
+
+  // Endpoint para obter audit trail
+  app.get('/api/datasets/:id/audit', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid dataset ID' });
+      }
+      
+      const audit = await db.select().from(datasetAuditTrail).where(eq(datasetAuditTrail.datasetId, id));
+      res.json(audit);
+    } catch (error) {
+      console.error('Error fetching audit trail:', error);
+      res.status(500).json({ error: 'Failed to fetch audit trail' });
     }
   });
 
