@@ -2819,8 +2819,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint para garantir estrutura macro
   app.post('/api/datasets/estrutura/macro', requireAuth, async (req, res) => {
     try {
-      const pastasExistentes = await db.select().from(datasetPastas).where(eq(datasetPastas.tipo, "macro"));
-      const caminhosExistentes = new Set(pastasExistentes.map(p => p.caminho));
+      const todasPastas = await db.select().from(datasetPastas);
+      const caminhosExistentes = new Set(todasPastas.map(p => p.caminho));
       
       // Criar pasta raiz
       if (!caminhosExistentes.has("/ECOBRASIL_GESTAO_DADOS")) {
@@ -2843,7 +2843,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json({ success: true, message: "Estrutura macro criada/verificada com sucesso" });
+      // Buscar todos os empreendimentos ativos e criar pastas para cada um
+      const empreendimentosList = await db.select().from(empreendimentos);
+      
+      for (const emp of empreendimentosList) {
+        const nomeNormalizado = normalizarTexto(emp.nome);
+        const empPath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/${nomeNormalizado}`;
+        
+        // Criar pasta do empreendimento
+        if (!caminhosExistentes.has(empPath)) {
+          await db.insert(datasetPastas).values({
+            nome: nomeNormalizado,
+            caminho: empPath,
+            pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+            tipo: "empreendimento",
+            empreendimentoId: emp.id,
+          });
+          caminhosExistentes.add(empPath);
+        }
+        
+        // Criar subpastas do empreendimento
+        const subpastasEmp = [
+          "01_LICENCAS",
+          "02_CONTRATOS", 
+          "03_DOCUMENTOS_TECNICOS",
+          "04_RELATORIOS",
+          "05_MAPAS",
+          "06_CORRESPONDENCIAS",
+          "07_FOTOS",
+          "08_PLANILHAS"
+        ];
+        
+        for (const subpasta of subpastasEmp) {
+          const subpastaPath = `${empPath}/${subpasta}`;
+          if (!caminhosExistentes.has(subpastaPath)) {
+            await db.insert(datasetPastas).values({
+              nome: subpasta,
+              caminho: subpastaPath,
+              pai: empPath,
+              tipo: "subpasta",
+              empreendimentoId: emp.id,
+            });
+            caminhosExistentes.add(subpastaPath);
+          }
+        }
+      }
+      
+      res.json({ success: true, message: "Estrutura macro e empreendimentos criada com sucesso" });
     } catch (error) {
       console.error('Error creating macro structure:', error);
       res.status(500).json({ error: 'Failed to create macro structure' });
