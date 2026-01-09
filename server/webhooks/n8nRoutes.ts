@@ -23,8 +23,8 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
   const N8N_API_KEY = process.env.N8N_API_KEY;
   const apiKey = req.headers['x-api-key'] || req.query.api_key;
   
-  if (!N8N_API_KEY || N8N_API_KEY.length < 16) {
-    console.error("[n8n Webhooks] N8N_API_KEY não configurada ou muito curta (mínimo 16 caracteres)");
+  if (!N8N_API_KEY) {
+    console.error("[n8n Webhooks] N8N_API_KEY não configurada");
     return res.status(503).json({ 
       error: "Serviço não disponível", 
       message: "API Key do n8n não está configurada no servidor. Configure a variável N8N_API_KEY." 
@@ -1036,6 +1036,20 @@ export function registerN8nWebhooks(app: Express) {
         "POST /api/webhooks/n8n/notificar"
       ]
     });
+  });
+
+  // Rota de teste para verificar schema de condicionantes
+  app.get("/api/webhooks/n8n/test/condicionantes", requireApiKey, async (req, res) => {
+    try {
+      const sample = await db.select().from(condicionantes).limit(1);
+      res.json({ 
+        success: true, 
+        schema: sample.length > 0 ? Object.keys(sample[0]) : [],
+        sample: sample[0] || null
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   console.log("[n8n Webhooks] Rotas registradas com sucesso");
