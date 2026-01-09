@@ -1164,8 +1164,9 @@ export const datasetPastas = pgTable("dataset_pastas", {
   nome: text("nome").notNull(),
   caminho: text("caminho").notNull().unique(),
   pai: text("pai"),
-  tipo: text("tipo").notNull().default("macro"), // macro, projeto, subpasta
+  tipo: text("tipo").notNull().default("macro"), // macro, empreendimento, projeto, subpasta
   projetoId: integer("projeto_id"),
+  empreendimentoId: integer("empreendimento_id"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
