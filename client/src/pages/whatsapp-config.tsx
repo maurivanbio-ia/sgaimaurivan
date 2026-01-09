@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,13 @@ export default function WhatsAppConfigPage() {
   const { toast } = useToast();
   const [testPhone, setTestPhone] = useState("");
   const [testMessage, setTestMessage] = useState("Teste de mensagem do EcoGestor - Sistema de Gestão Ambiental");
+  const [webhookUrl, setWebhookUrl] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWebhookUrl(`${window.location.origin}/api/webhooks/evolution/messages`);
+    }
+  }, []);
 
   const { data: whatsappStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<{ connected: boolean; state?: string; error?: string }>({
     queryKey: ["/api/whatsapp/status"],
@@ -352,7 +359,7 @@ export default function WhatsAppConfigPage() {
             Para receber mensagens no sistema, configure o webhook da Evolution API com a seguinte URL:
           </p>
           <code className="block bg-white p-2 rounded border text-xs overflow-x-auto">
-            {window.location.origin}/api/webhooks/evolution/messages
+            {webhookUrl || "Carregando..."}
           </code>
           <p className="mt-2 text-xs">
             Eventos suportados: messages.upsert, messages.update, connection.update
