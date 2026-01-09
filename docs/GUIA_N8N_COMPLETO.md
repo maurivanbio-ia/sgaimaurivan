@@ -10,7 +10,7 @@
 4. Configure:
    - **Name**: `EcoGestor API Key`
    - **Name**: `N8N_API_KEY`
-   - **Value**: `EcoBrasil2024SecureKey!`
+   - **Value**: `<sua-chave-api-n8n>` (solicite ao administrador)
 5. Salve a credencial
 
 ### 2. Criar Variável de Ambiente
@@ -335,15 +335,15 @@ Use o Postman ou curl para testar:
 
 ```bash
 # Health Check
-curl -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+curl -H "N8N_API_KEY: <sua-chave-api>" \
   https://sua-url.replit.app/api/webhooks/n8n/health
 
 # Licenças
-curl -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+curl -H "N8N_API_KEY: <sua-chave-api>" \
   https://sua-url.replit.app/api/webhooks/n8n/licenses
 
 # POST também funciona
-curl -X POST -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+curl -X POST -H "N8N_API_KEY: <sua-chave-api>" \
   -H "Content-Type: application/json" \
   -d '{"unidade": "salvador"}' \
   https://sua-url.replit.app/api/webhooks/n8n/demands
@@ -488,18 +488,18 @@ Crie um fluxo separado para cada unidade:
 
 ```bash
 # Baixar Relatório 360° como PDF
-curl -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+curl -H "N8N_API_KEY: <sua-chave-api>" \
   "https://sua-url.replit.app/api/webhooks/n8n/relatorios/360" \
   --output relatorio360.pdf
 
 # Enviar Relatório 360° por email
-curl -X POST -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+curl -X POST -H "N8N_API_KEY: <sua-chave-api>" \
   -H "Content-Type: application/json" \
   -d '{"enviarEmail": "true", "email": "seu@email.com"}' \
   "https://sua-url.replit.app/api/webhooks/n8n/relatorios/360"
 
 # Relatório Financeiro de Janeiro/2026
-curl -X POST -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+curl -X POST -H "N8N_API_KEY: <sua-chave-api>" \
   -H "Content-Type: application/json" \
   -d '{"mes": 1, "ano": 2026, "enviarEmail": "true", "email": "financeiro@ecobrasil.bio.br"}' \
   "https://sua-url.replit.app/api/webhooks/n8n/relatorios/financeiro"
