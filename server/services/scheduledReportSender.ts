@@ -22,14 +22,14 @@ interface ReportScheduleConfig {
 const defaultConfig: ReportScheduleConfig = {
   relatorio360: {
     enabled: true,
-    cronExpression: '0 8 * * 1',
-    emails: [],
+    cronExpression: '0 9 * * 1',
+    emails: ['ecobrasil@ecobrasil.bio.br', 'flavia@ecobrasil.bio.br'],
     unidades: ['goiania', 'salvador', 'luiz_eduardo_magalhaes']
   },
   relatorioFinanceiro: {
     enabled: true,
-    cronExpression: '0 17 * * 5',
-    emails: [],
+    cronExpression: '0 9 * * 1',
+    emails: ['ecobrasil@ecobrasil.bio.br', 'flavia@ecobrasil.bio.br'],
     unidades: ['goiania', 'salvador', 'luiz_eduardo_magalhaes']
   }
 };
@@ -157,14 +157,14 @@ export function initScheduledReportSender() {
     relatorio360Job = cron.schedule(config.relatorio360.cronExpression, sendRelatorio360, {
       timezone: 'America/Sao_Paulo'
     });
-    console.log(`[Scheduled Reports] Relatório 360° agendado: ${config.relatorio360.cronExpression} (toda segunda às 8h)`);
+    console.log(`[Scheduled Reports] Relatório 360° agendado: ${config.relatorio360.cronExpression} (toda segunda às 9h)`);
   }
   
   if (config.relatorioFinanceiro.enabled) {
     relatorioFinanceiroJob = cron.schedule(config.relatorioFinanceiro.cronExpression, sendRelatorioFinanceiro, {
       timezone: 'America/Sao_Paulo'
     });
-    console.log(`[Scheduled Reports] Relatório Financeiro agendado: ${config.relatorioFinanceiro.cronExpression} (toda sexta às 17h)`);
+    console.log(`[Scheduled Reports] Relatório Financeiro agendado: ${config.relatorioFinanceiro.cronExpression} (toda segunda às 9h)`);
   }
   
   console.log('[Scheduled Reports] Serviço iniciado com sucesso');
