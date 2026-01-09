@@ -50,6 +50,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -214,6 +224,9 @@ export default function PortalColaboradorPage() {
   const [selectedReembolso, setSelectedReembolso] = useState<PedidoReembolso | null>(null);
   const [reembolsoStatusFilter, setReembolsoStatusFilter] = useState("all");
   const [isTarefaDialogOpen, setIsTarefaDialogOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingTarefaId, setEditingTarefaId] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const reembolsoForm = useForm<ReembolsoFormData>({
     resolver: zodResolver(reembolsoFormSchema),
@@ -338,6 +351,24 @@ export default function PortalColaboradorPage() {
     },
   });
 
+  const deleteTarefaMutation = useMutation({
+    mutationFn: async (id: number) =>
+      apiRequest("DELETE", `/api/tarefas/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tarefas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/minhas-tarefas-hoje"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tarefas-atrasadas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tarefas-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas/calendar"] });
+      toast({ title: "Sucesso", description: "Tarefa excluída!" });
+      setIsDetailDialogOpen(false);
+      setSelectedTarefa(null);
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao excluir tarefa", variant: "destructive" });
+    },
+  });
+
   const filteredTarefas = useMemo(() => {
     if (statusFilter === "all") return todasTarefas;
     return todasTarefas.filter(t => t.status === statusFilter);
@@ -378,6 +409,50 @@ export default function PortalColaboradorPage() {
     });
   };
 
+  const handleEditTarefa = (tarefa: Tarefa) => {
+    setEditingTarefaId(tarefa.id);
+    tarefaForm.reset({
+      titulo: tarefa.titulo,
+      descricao: tarefa.descricao || "",
+      categoria: tarefa.categoria,
+      prioridade: tarefa.prioridade,
+      dataInicio: tarefa.dataInicio,
+      dataFim: tarefa.dataFim,
+      horasEstimadas: tarefa.horasEstimadas?.toString() || "",
+      visivelCalendarioGeral: tarefa.visivelCalendarioGeral || false,
+    });
+    setIsDetailDialogOpen(false);
+    setIsTarefaDialogOpen(true);
+    setIsEditMode(true);
+  };
+
+  const handleDeleteTarefa = () => {
+    if (!selectedTarefa) return;
+    deleteTarefaMutation.mutate(selectedTarefa.id);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleSaveEditedTarefa = (data: TarefaFormData) => {
+    if (!editingTarefaId) return;
+    updateTarefaMutation.mutate({
+      id: editingTarefaId,
+      data: {
+        titulo: data.titulo,
+        descricao: data.descricao || "",
+        categoria: data.categoria,
+        prioridade: data.prioridade,
+        dataInicio: data.dataInicio,
+        dataFim: data.dataFim,
+        horasEstimadas: data.horasEstimadas ? parseFloat(data.horasEstimadas) : null,
+        visivelCalendarioGeral: data.visivelCalendarioGeral || false,
+      },
+    });
+    setIsEditMode(false);
+    setEditingTarefaId(null);
+    setIsTarefaDialogOpen(false);
+    tarefaForm.reset();
+  };
+
   const quickUpdateStatus = (tarefa: Tarefa, newStatus: string) => {
     updateTarefaMutation.mutate({
       id: tarefa.id,
@@ -390,7 +465,18 @@ export default function PortalColaboradorPage() {
   };
 
   const onSubmitTarefa = (data: TarefaFormData) => {
-    createTarefaMutation.mutate(data);
+    if (isEditMode && editingTarefaId) {
+      handleSaveEditedTarefa(data);
+    } else {
+      createTarefaMutation.mutate(data);
+    }
+  };
+
+  const handleCloseTarefaDialog = () => {
+    setIsTarefaDialogOpen(false);
+    setIsEditMode(false);
+    setEditingTarefaId(null);
+    tarefaForm.reset();
   };
 
   const handleViewReembolso = (reembolso: PedidoReembolso) => {
@@ -949,6 +1035,28 @@ export default function PortalColaboradorPage() {
           )}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => selectedTarefa && handleEditTarefa(selectedTarefa)}
+                disabled={updateTarefaMutation.isPending}
+                data-testid="button-editar-tarefa"
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                Editar
+              </Button>
+              <Button 
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleteTarefaMutation.isPending}
+                data-testid="button-excluir-tarefa"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir
+              </Button>
+            </div>
             {selectedTarefa?.status !== 'concluida' && selectedTarefa?.status !== 'cancelada' && (
               <>
                 {selectedTarefa?.status === 'pendente' && (
@@ -1268,12 +1376,15 @@ export default function PortalColaboradorPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isTarefaDialogOpen} onOpenChange={setIsTarefaDialogOpen}>
+      <Dialog open={isTarefaDialogOpen} onOpenChange={handleCloseTarefaDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Nova Tarefa Pessoal</DialogTitle>
+            <DialogTitle>{isEditMode ? 'Editar Tarefa' : 'Nova Tarefa Pessoal'}</DialogTitle>
             <DialogDescription>
-              Crie uma tarefa pessoal para organizar suas atividades. Esta tarefa será visível apenas para você.
+              {isEditMode 
+                ? 'Atualize os dados da tarefa conforme necessário.'
+                : 'Crie uma tarefa pessoal para organizar suas atividades. Esta tarefa será visível apenas para você.'
+              }
             </DialogDescription>
           </DialogHeader>
           <Form {...tarefaForm}>
@@ -1437,26 +1548,44 @@ export default function PortalColaboradorPage() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={() => {
-                    setIsTarefaDialogOpen(false);
-                    tarefaForm.reset();
-                  }}
+                  onClick={handleCloseTarefaDialog}
                 >
                   Cancelar
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={createTarefaMutation.isPending}
+                  disabled={createTarefaMutation.isPending || updateTarefaMutation.isPending}
                   data-testid="button-salvar-tarefa"
                 >
-                  {createTarefaMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Criar Tarefa
+                  {(createTarefaMutation.isPending || updateTarefaMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {isEditMode ? 'Salvar Alterações' : 'Criar Tarefa'}
                 </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTarefa}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTarefaMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

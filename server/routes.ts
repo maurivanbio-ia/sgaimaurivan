@@ -4665,23 +4665,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Tarefa não encontrada' });
       }
       
-      // Colaboradores só podem atualizar status e observações das próprias tarefas
+      const isAdminOrCoord = ['admin', 'diretor', 'coordenador'].includes(req.user.cargo);
+      const isCreator = existing.criadoPor === req.user.id;
+      const isResponsavel = existing.responsavelId === req.user.id;
+      
+      // Colaboradores podem editar:
+      // - Status/observações/horas das tarefas atribuídas a eles
+      // - Todos os campos das tarefas que eles criaram
       if (req.user.cargo === 'colaborador') {
-        if (existing.responsavelId !== req.user.id) {
+        if (!isResponsavel && !isCreator) {
           return res.status(403).json({ error: 'Sem permissão para editar esta tarefa' });
         }
-        // Limitar campos que colaborador pode editar
-        const allowedFields = ['status', 'observacoesColaborador', 'horasRealizadas'];
-        const updates: any = {};
-        for (const field of allowedFields) {
-          if (req.body[field] !== undefined) {
-            updates[field] = req.body[field];
+        
+        let updates: any = {};
+        
+        if (isCreator) {
+          // Criadores podem editar todos os campos
+          updates = req.body;
+        } else {
+          // Responsáveis só podem editar campos limitados
+          const allowedFields = ['status', 'observacoesColaborador', 'horasRealizadas'];
+          for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+              updates[field] = req.body[field];
+            }
           }
         }
         
         const tarefa = await storage.updateTarefa(id, updates);
         
-        // Registrar atualização
+        // Registrar atualização de status
         if (req.body.status && req.body.status !== existing.status) {
           await storage.createAtualizacaoTarefa({
             tarefaId: id,
@@ -4698,8 +4711,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(tarefa);
       }
       
-      // Coordenadores podem editar tudo
+      // Coordenadores/admins/diretores podem editar tudo
       const tarefa = await storage.updateTarefa(id, req.body);
+      
+      // Registrar atualização de status
+      if (req.body.status && req.body.status !== existing.status) {
+        await storage.createAtualizacaoTarefa({
+          tarefaId: id,
+          usuarioId: req.user.id,
+          tipo: 'status_change',
+          conteudo: `Status alterado de "${existing.status}" para "${req.body.status}"`,
+          statusAnterior: existing.status,
+          statusNovo: req.body.status
+        });
+      }
       
       await auditLogService.logUpdate('tarefas', id, existing, tarefa, req.session.userId, req.user?.email, req);
       
@@ -4710,14 +4735,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Excluir tarefa (só coordenadores)
-  app.delete('/api/tarefas/:id', requireAuth, requireCoordenador, async (req, res) => {
+  // Excluir tarefa (coordenadores ou criadores)
+  app.delete('/api/tarefas/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const existing = await storage.getTarefaById(id);
       
       if (!existing) {
         return res.status(404).json({ error: 'Tarefa não encontrada' });
+      }
+      
+      // Permitir exclusão se for coordenador/admin/diretor ou criador da tarefa
+      const isAdminOrCoord = ['admin', 'diretor', 'coordenador'].includes(req.user.cargo);
+      const isCreator = existing.criadoPor === req.user.id;
+      
+      if (!isAdminOrCoord && !isCreator) {
+        return res.status(403).json({ error: 'Sem permissão para excluir esta tarefa' });
       }
       
       await storage.deleteTarefa(id);
