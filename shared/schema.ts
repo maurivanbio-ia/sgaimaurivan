@@ -700,6 +700,7 @@ export const equipamentos = pgTable("equipamentos", {
   valorAquisicao: decimal("valor_aquisicao", { precision: 12, scale: 2 }),
   dataAquisicao: date("data_aquisicao"),
   observacoes: text("observacoes"),
+  imagensDanoJson: text("imagens_dano_json"), // JSON array de URLs de imagens de danos/avarias
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
