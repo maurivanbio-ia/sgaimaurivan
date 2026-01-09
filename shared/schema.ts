@@ -278,6 +278,19 @@ export const rhRegistros = pgTable("rh_registros", {
   contatoEmail: text("contato_email"),
   contatoTelefone: text("contato_telefone"),
   arquivosIdsJson: json("arquivos_ids_json").default([]),
+  // Regime de Contratação
+  regimeContratacao: text("regime_contratacao"), // 'CLT' ou 'PJ'
+  // Documentos PJ
+  contratoPjUrl: text("contrato_pj_url"), // URL do contrato de prestação de serviços
+  cnpj: text("cnpj"), // CNPJ da empresa PJ
+  razaoSocial: text("razao_social"), // Razão social da empresa PJ
+  // Documentos CLT
+  ctpsNumero: text("ctps_numero"), // Número da carteira de trabalho
+  ctpsSerie: text("ctps_serie"), // Série da CTPS
+  pis: text("pis"), // Número do PIS
+  contratoTrabalhoUrl: text("contrato_trabalho_url"), // URL do contrato de trabalho CLT
+  fichaRegistroUrl: text("ficha_registro_url"), // URL da ficha de registro
+  documentosCltJson: json("documentos_clt_json").default([]), // Outros documentos CLT
   unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
