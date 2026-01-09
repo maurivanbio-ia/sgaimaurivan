@@ -1621,11 +1621,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/financeiro/lancamentos', async (req, res) => {
     try {
-      // Add created by user info to the request
+      // Helper para extrair data no formato YYYY-MM-DD
+      const extractDateString = (value: any): string | null => {
+        if (!value) return null;
+        if (typeof value === 'string') {
+          // Se já é string, extrair apenas a parte da data (YYYY-MM-DD)
+          return value.split('T')[0];
+        }
+        return null;
+      };
+      
       const lancamentoData = {
         ...req.body,
-        criadoPor: req.session?.userId || 1, // Default to user ID 1 for now
+        criadoPor: req.session?.userId || 1,
+        data: extractDateString(req.body.data),
+        dataVencimento: extractDateString(req.body.dataVencimento),
+        dataPagamento: extractDateString(req.body.dataPagamento),
       };
+      
       // Se dataPagamento foi informada, define status automaticamente como "pago"
       if (lancamentoData.dataPagamento) {
         lancamentoData.status = "pago";
@@ -1644,7 +1657,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid lancamento ID' });
       }
+      
+      // Helper para extrair data no formato YYYY-MM-DD
+      const extractDateString = (value: any): string | null => {
+        if (!value) return null;
+        if (typeof value === 'string') {
+          return value.split('T')[0];
+        }
+        return null;
+      };
+      
       const updateData = { ...req.body };
+      
+      // Processar campos de data se presentes
+      if ('data' in req.body) {
+        updateData.data = extractDateString(req.body.data);
+      }
+      if ('dataVencimento' in req.body) {
+        updateData.dataVencimento = extractDateString(req.body.dataVencimento);
+      }
+      if ('dataPagamento' in req.body) {
+        updateData.dataPagamento = extractDateString(req.body.dataPagamento);
+      }
+      
       // Se dataPagamento foi informada, define status automaticamente como "pago"
       if (updateData.dataPagamento) {
         updateData.status = "pago";
