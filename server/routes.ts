@@ -3660,6 +3660,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/rh/upload-contrato', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+
+      const crypto = await import('crypto');
+      const checksum = crypto.createHash('md5').update(req.file.buffer).digest('hex');
+      const userId = req.session.userId!;
+
+      const [arquivo] = await db.insert(arquivos).values({
+        nome: req.file.originalname,
+        tipo: req.file.mimetype,
+        tamanho: req.file.size,
+        dados: req.file.buffer,
+        checksum,
+        origem: "contrato_rh",
+        uploaderId: userId,
+      }).returning();
+
+      const url = `/api/arquivos/${arquivo.id}/download`;
+      res.json({ url, arquivoId: arquivo.id, nome: arquivo.nome });
+    } catch (error: any) {
+      console.error("Upload contrato RH error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post('/api/rh/:id/documentos', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
     try {
       const rhId = parseInt(req.params.id);

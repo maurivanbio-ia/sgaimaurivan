@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, Users, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Users, Loader2, RefreshCw, Upload, FileText, Eye } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +105,7 @@ export default function RhPage() {
   const [editingRegistro, setEditingRegistro] = useState<RhRegistro | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [registroToDelete, setRegistroToDelete] = useState<number | null>(null);
+  const [uploadingFile, setUploadingFile] = useState<string | null>(null);
 
   const filters = useMemo(() => {
     const params: Record<string, string> = {};
@@ -124,7 +125,7 @@ export default function RhPage() {
     },
   });
 
-  const { data: empreendimentos = [] } = useQuery({
+  const { data: empreendimentos = [] } = useQuery<{ id: number; nome: string }[]>({
     queryKey: ["/api/empreendimentos"],
   });
 
@@ -253,6 +254,34 @@ export default function RhPage() {
     setSearchTerm("");
     setFornecedorFilter("all");
     setEmpreendimentoFilter("all");
+  };
+
+  const handleFileUpload = async (file: File, fieldName: string) => {
+    setUploadingFile(fieldName);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("tipo", "contrato_rh");
+      
+      const res = await fetch("/api/rh/upload-contrato", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) throw new Error("Falha no upload");
+      
+      const result = await res.json();
+      form.setValue(fieldName as any, result.url);
+      toast({ title: "Sucesso", description: "Arquivo enviado com sucesso!" });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao enviar arquivo",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFile(null);
+    }
   };
 
   const fornecedores = useMemo(() => {
@@ -494,6 +523,7 @@ export default function RhPage() {
                       <SelectContent>
                         <SelectItem value="CLT">CLT</SelectItem>
                         <SelectItem value="PJ">Pessoa Jurídica (PJ)</SelectItem>
+                        <SelectItem value="Diarista">Diarista</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormItem>
@@ -512,8 +542,45 @@ export default function RhPage() {
                     )}/>
                     <FormField name="contratoPjUrl" control={form.control} render={({ field }) => (
                       <FormItem className="md:col-span-2">
-                        <FormLabel>URL do Contrato de Prestação de Serviços</FormLabel>
-                        <FormControl><Input {...field} placeholder="https://..." /></FormControl>
+                        <FormLabel>Contrato de Prestação de Serviços</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            id="contrato-pj-upload"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, "contratoPjUrl");
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            disabled={uploadingFile === "contratoPjUrl"}
+                            onClick={() => document.getElementById("contrato-pj-upload")?.click()}
+                          >
+                            {uploadingFile === "contratoPjUrl" ? (
+                              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                            ) : (
+                              <><Upload className="h-4 w-4 mr-2" />Fazer Upload do Contrato</>
+                            )}
+                          </Button>
+                          {field.value && (
+                            <a href={field.value} target="_blank" rel="noopener noreferrer">
+                              <Button type="button" variant="ghost" size="icon">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          )}
+                        </div>
+                        {field.value && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <FileText className="h-3 w-3" />
+                            Arquivo enviado
+                          </p>
+                        )}
                       </FormItem>
                     )}/>
                   </div>
@@ -534,10 +601,78 @@ export default function RhPage() {
                       <FormItem><FormLabel>PIS/PASEP</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                     )}/>
                     <FormField name="contratoTrabalhoUrl" control={form.control} render={({ field }) => (
-                      <FormItem><FormLabel>URL do Contrato de Trabalho</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Contrato de Trabalho</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            id="contrato-trabalho-upload"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, "contratoTrabalhoUrl");
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            disabled={uploadingFile === "contratoTrabalhoUrl"}
+                            onClick={() => document.getElementById("contrato-trabalho-upload")?.click()}
+                          >
+                            {uploadingFile === "contratoTrabalhoUrl" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <><Upload className="h-4 w-4 mr-1" />Upload</>
+                            )}
+                          </Button>
+                          {field.value && (
+                            <a href={field.value} target="_blank" rel="noopener noreferrer">
+                              <Button type="button" variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                            </a>
+                          )}
+                        </div>
+                        {field.value && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><FileText className="h-3 w-3" />Enviado</p>}
+                      </FormItem>
                     )}/>
                     <FormField name="fichaRegistroUrl" control={form.control} render={({ field }) => (
-                      <FormItem className="md:col-span-2"><FormLabel>URL da Ficha de Registro</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Ficha de Registro</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            id="ficha-registro-upload"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, "fichaRegistroUrl");
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            disabled={uploadingFile === "fichaRegistroUrl"}
+                            onClick={() => document.getElementById("ficha-registro-upload")?.click()}
+                          >
+                            {uploadingFile === "fichaRegistroUrl" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <><Upload className="h-4 w-4 mr-1" />Upload</>
+                            )}
+                          </Button>
+                          {field.value && (
+                            <a href={field.value} target="_blank" rel="noopener noreferrer">
+                              <Button type="button" variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                            </a>
+                          )}
+                        </div>
+                        {field.value && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><FileText className="h-3 w-3" />Enviado</p>}
+                      </FormItem>
                     )}/>
                   </div>
                 </div>
