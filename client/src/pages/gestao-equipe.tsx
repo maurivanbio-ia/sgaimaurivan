@@ -34,6 +34,7 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -111,6 +112,7 @@ const tarefaSchema = z.object({
   dataFim: z.string().min(1, "Data de fim obrigatória"),
   horasEstimadas: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()),
   observacoes: z.string().optional(),
+  visivelCalendarioGeral: z.boolean().default(false),
 });
 
 type MembroEquipe = z.infer<typeof membroEquipeSchema>;
@@ -457,6 +459,7 @@ export default function GestaoEquipePage() {
       status: "pendente",
       dataInicio: new Date().toISOString().split("T")[0],
       dataFim: new Date().toISOString().split("T")[0],
+      visivelCalendarioGeral: false,
     });
     setIsTarefaDialogOpen(true);
   };
@@ -1300,6 +1303,27 @@ export default function GestaoEquipePage() {
                       <Textarea {...field} data-testid="input-tarefa-observacoes" />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={tarefaForm.control}
+                name="visivelCalendarioGeral"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-blue-50 dark:bg-blue-900/20">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base font-medium">Visível no Calendário Geral</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Quando ativado, esta tarefa aparece no calendário de todos os usuários
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-visivel-calendario"
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />
