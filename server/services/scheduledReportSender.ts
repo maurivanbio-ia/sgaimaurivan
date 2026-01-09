@@ -266,12 +266,44 @@ let resumoDemandasJob: ReturnType<typeof cron.schedule> | null = null;
 
 const resumoDemandasConfig = {
   enabled: true,
-  cronExpression: '0 9 * * 1',
-  coordenadoras: [
-    { email: 'luciana@ecobrasil.bio.br', nome: 'Luciana' },
-    { email: 'arsinoe@ecobrasil.bio.br', nome: 'Arsinoé' }
-  ]
+  cronExpression: '0 9 * * 1'
 };
+
+async function getUsuariosComPendencias(): Promise<Array<{ id: number; email: string; nome: string }>> {
+  const usuariosComDemandas = await db
+    .select({ 
+      id: users.id, 
+      email: users.email
+    })
+    .from(users)
+    .innerJoin(demandas, eq(demandas.responsavelId, users.id))
+    .where(
+      or(eq(demandas.status, 'pendente'), eq(demandas.status, 'em_andamento'), eq(demandas.status, 'a_fazer'))
+    );
+
+  const usuariosComTarefas = await db
+    .select({ 
+      id: users.id, 
+      email: users.email
+    })
+    .from(users)
+    .innerJoin(tarefas, eq(tarefas.responsavelId, users.id))
+    .where(
+      or(eq(tarefas.status, 'pendente'), eq(tarefas.status, 'em_andamento'), eq(tarefas.status, 'a_fazer'))
+    );
+
+  const todosUsuarios = [...usuariosComDemandas, ...usuariosComTarefas];
+  const uniqueMap = new Map<number, { id: number; email: string; nome: string }>();
+  
+  for (const u of todosUsuarios) {
+    if (u.email && !uniqueMap.has(u.id)) {
+      const nome = u.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      uniqueMap.set(u.id, { id: u.id, email: u.email, nome });
+    }
+  }
+  
+  return Array.from(uniqueMap.values());
+}
 
 const PLATFORM_URL = 'https://ecobrasilgestor.bio';
 
@@ -463,13 +495,20 @@ async function sendResumoDemandasEmail(to: string, subject: string, htmlBody: st
 }
 
 async function sendResumoSemanalDemandas() {
-  console.log('[Resumo Demandas] Iniciando envio do resumo semanal...');
+  console.log('[Resumo Demandas] Iniciando envio do resumo semanal individual...');
 
-  for (const coord of resumoDemandasConfig.coordenadoras) {
+  const usuariosComPendencias = await getUsuariosComPendencias();
+  console.log(`[Resumo Demandas] Encontrados ${usuariosComPendencias.length} usuários com pendências`);
+
+  for (const usuario of usuariosComPendencias) {
     try {
-      const stats = await getDemandasTarefasStats(coord.email);
+      const stats = await getDemandasTarefasStats(usuario.email);
       
-      // Gerar tabelas detalhadas
+      if (stats.totalDemandasAtivas === 0 && stats.totalTarefasAtivas === 0) {
+        console.log(`[Resumo Demandas] ${usuario.email} sem pendências, pulando...`);
+        continue;
+      }
+      
       const demandasAtrasadasHtml = generateDemandasTable(stats.demandasAtrasadas, '⚠️ Demandas Atrasadas', '#dc3545');
       const demandasAtivasHtml = generateDemandasTable(
         stats.demandasAtivas.filter((d: any) => !stats.demandasAtrasadas.some((a: any) => a.id === d.id)),
@@ -486,32 +525,32 @@ async function sendResumoSemanalDemandas() {
       const htmlBody = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #228B22 0%, #006400 100%); padding: 20px; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Resumo Semanal</h1>
-            <p style="color: #90EE90; margin: 5px 0 0 0;">Suas demandas e tarefas no EcoGestor</p>
+            <h1 style="color: white; margin: 0; font-size: 24px;">📌 Seu Resumo Semanal</h1>
+            <p style="color: #90EE90; margin: 5px 0 0 0;">Demandas e tarefas atribuídas exclusivamente a você</p>
           </div>
           
           <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
-            <p style="margin: 0 0 20px 0;">Olá <strong>${coord.nome}</strong>,</p>
-            <p style="margin: 0 0 20px 0;">Este é o resumo semanal das demandas e tarefas atribuídas a você no EcoGestor.</p>
+            <p style="margin: 0 0 20px 0;">Olá <strong>${usuario.nome}</strong>,</p>
+            <p style="margin: 0 0 20px 0;">Este é o resumo semanal das <strong>suas</strong> demandas e tarefas no EcoGestor. Apenas itens atribuídos diretamente a você estão listados abaixo.</p>
             
             <!-- Cards resumo -->
             <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 25px;">
               <tr>
                 <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #228B22; width: 25%;">
                   <div style="font-size: 28px; font-weight: bold; color: #228B22;">${stats.totalDemandasAtivas}</div>
-                  <div style="color: #666; font-size: 12px;">Demandas ativas</div>
+                  <div style="color: #666; font-size: 12px;">Suas demandas</div>
                 </td>
                 <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545; width: 25%;">
                   <div style="font-size: 28px; font-weight: bold; color: #dc3545;">${stats.totalDemandasAtrasadas}</div>
-                  <div style="color: #666; font-size: 12px;">Demandas atrasadas</div>
+                  <div style="color: #666; font-size: 12px;">Atrasadas</div>
                 </td>
                 <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; width: 25%;">
                   <div style="font-size: 28px; font-weight: bold; color: #007bff;">${stats.totalTarefasAtivas}</div>
-                  <div style="color: #666; font-size: 12px;">Tarefas ativas</div>
+                  <div style="color: #666; font-size: 12px;">Suas tarefas</div>
                 </td>
                 <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; width: 25%;">
                   <div style="font-size: 28px; font-weight: bold; color: #ffc107;">${stats.totalTarefasAtrasadas}</div>
-                  <div style="color: #666; font-size: 12px;">Tarefas atrasadas</div>
+                  <div style="color: #666; font-size: 12px;">Atrasadas</div>
                 </td>
               </tr>
             </table>
@@ -532,8 +571,8 @@ async function sendResumoSemanalDemandas() {
               <a href="${PLATFORM_URL}/demandas" style="display: inline-block; background: #228B22; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
                 📋 Ver Demandas
               </a>
-              <a href="${PLATFORM_URL}/minhas-tarefas" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
-                ✅ Ver Tarefas
+              <a href="${PLATFORM_URL}/portal-colaborador" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                ✅ Minhas Tarefas
               </a>
               <a href="${PLATFORM_URL}/calendario" style="display: inline-block; background: #6c757d; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
                 📅 Calendário
@@ -543,7 +582,8 @@ async function sendResumoSemanalDemandas() {
           
           <div style="background: #e9ecef; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
             <p style="margin: 0; color: #666; font-size: 12px;">
-              Este é um email automático do sistema EcoGestor.<br>
+              Este é um email automático e individual do sistema EcoGestor.<br>
+              Você recebe apenas lembretes das suas próprias tarefas e demandas.<br>
               EcoBrasil - Consultoria Ambiental | ${new Date().toLocaleDateString('pt-BR')}
             </p>
           </div>
@@ -551,16 +591,16 @@ async function sendResumoSemanalDemandas() {
       `;
 
       await sendResumoDemandasEmail(
-        coord.email,
-        `Resumo semanal - Suas demandas e tarefas | EcoGestor`,
+        usuario.email,
+        `📌 Seu Resumo Semanal - ${stats.totalDemandasAtivas + stats.totalTarefasAtivas} pendência(s) | EcoGestor`,
         htmlBody
       );
     } catch (error) {
-      console.error(`[Resumo Demandas] Erro ao processar ${coord.email}:`, error);
+      console.error(`[Resumo Demandas] Erro ao processar ${usuario.email}:`, error);
     }
   }
 
-  console.log('[Resumo Demandas] Envio concluído');
+  console.log('[Resumo Demandas] Envio individual concluído');
 }
 
 export async function sendResumoSemanalTest(emails: string[]) {
