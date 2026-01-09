@@ -470,7 +470,7 @@ export default function GestaoDados() {
       <div className="text-center py-8">
         <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
         <p className="text-lg font-medium mb-2">{dataset.nome}</p>
-        <p className="text-muted-foreground mb-4">Tipo: {dataset.tipo}</p>
+        <p className="text-muted-foreground mb-4">Tipo: {dataset.tipoDocumento || dataset.tipo || "N/A"}</p>
         <Button onClick={() => handleDownload(dataset)}>
           <Download className="mr-2 h-4 w-4" />
           Baixar Arquivo
@@ -1155,9 +1155,9 @@ export default function GestaoDados() {
             </div>
             {editingDataset && (
               <div className="bg-muted p-3 rounded-lg text-sm space-y-1">
-                <p><strong>Tipo:</strong> {editingDataset.tipo}</p>
+                <p><strong>Tipo de Documento:</strong> {editingDataset.tipoDocumento || editingDataset.tipo || "N/A"}</p>
                 <p><strong>Tamanho:</strong> {formatFileSize(editingDataset.tamanho)}</p>
-                <p><strong>Enviado por:</strong> {editingDataset.usuario}</p>
+                <p><strong>Enviado por:</strong> {editingDataset.usuario || "N/A"}</p>
                 <p><strong>Data:</strong> {new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeStyle: "short" }).format(new Date(editingDataset.dataUpload))}</p>
               </div>
             )}
@@ -1183,9 +1183,9 @@ export default function GestaoDados() {
             <DialogDescription>
               {previewDataset && (
                 <span className="flex gap-4 text-sm flex-wrap">
-                  <span>Tipo: {previewDataset.tipo}</span>
+                  <span>Tipo: {previewDataset.tipoDocumento || previewDataset.tipo || "N/A"}</span>
                   <span>Tamanho: {formatFileSize(previewDataset.tamanho)}</span>
-                  <span>Por: {previewDataset.usuario}</span>
+                  <span>Por: {previewDataset.usuario || "N/A"}</span>
                   {previewDataset.versao && <span>Versao: {previewDataset.versao}</span>}
                 </span>
               )}

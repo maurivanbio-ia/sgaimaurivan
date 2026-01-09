@@ -15,11 +15,13 @@ type Dataset = {
   descricao: string;
   empreendimentoId: number;
   tipo: string;
+  tipoDocumento?: string;
   tamanho: number;
-  formato: string;
+  formato?: string;
   dataUpload: string;
-  uploadedBy: string;
+  usuario: string;
   url: string;
+  codigoArquivo?: string;
 };
 
 export function GestaoDadosTab({ empreendimentoId }: GestaoDadosTabProps) {
@@ -166,7 +168,7 @@ export function GestaoDadosTab({ empreendimentoId }: GestaoDadosTabProps) {
                 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
-                    <span className="font-medium">Tipo:</span> {dataset.tipo}
+                    <span className="font-medium">Tipo:</span> {dataset.tipoDocumento || dataset.tipo || "N/A"}
                   </span>
                   <Badge variant="secondary" className="text-xs">
                     {formatFileSize(dataset.tamanho)}
@@ -182,7 +184,7 @@ export function GestaoDadosTab({ empreendimentoId }: GestaoDadosTabProps) {
 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
-                    <span className="font-medium">Por:</span> {dataset.uploadedBy}
+                    <span className="font-medium">Por:</span> {dataset.usuario || "N/A"}
                   </span>
                 </div>
               </CardContent>
