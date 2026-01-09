@@ -37,6 +37,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@replit/vite-plugin-cartographer": "^0.3.2",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
+    "@sendgrid/mail": "^8.1.6",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.70.0",
     "@types/leaflet": "^1.9.21",
