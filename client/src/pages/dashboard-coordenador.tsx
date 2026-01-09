@@ -30,6 +30,7 @@ interface Empreendimento {
   id: number;
   nome: string;
   cliente: string;
+  unidade: string;
 }
 
 interface Lancamento {
@@ -128,14 +129,18 @@ export default function DashboardCoordenador() {
   const categoriaMap = new Map(categorias.map(c => [c.id, c]));
   const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
   
-  // Se não tiver projetos como coordenador, mostra todos os lançamentos da unidade
+  // IDs de empreendimentos da unidade do usuário
+  const empreendimentosDaUnidade = empreendimentos.filter(e => e.unidade === user?.unidade);
+  const empreendimentosDaUnidadeIds = new Set(empreendimentosDaUnidade.map(e => e.id));
+  
+  // Filtra despesas: se tiver projetos, mostra dos seus projetos; senão, mostra da sua unidade
   const myDespesas = myProjects.length > 0 
     ? lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa')
-    : lancamentos.filter(l => l.tipo === 'despesa');
+    : lancamentos.filter(l => empreendimentosDaUnidadeIds.has(l.empreendimentoId) && l.tipo === 'despesa');
   
   const totalGastos = myDespesas.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
 
-  // Se não tiver projetos como coordenador, agrupa por empreendimento
+  // Gastos por projeto: se tiver projetos, agrupa por projeto; senão, agrupa por empreendimento da unidade
   const gastosPorProjeto = myProjects.length > 0 
     ? myProjects.map(projeto => {
         const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
@@ -156,23 +161,21 @@ export default function DashboardCoordenador() {
           status: projeto.status
         };
       })
-    : Array.from(new Set(lancamentos.filter(l => l.tipo === 'despesa').map(l => l.empreendimentoId)))
-        .map(emprId => {
-          const empreendimento = empreendimentoMap.get(emprId);
-          const despesasEmpr = lancamentos.filter(l => l.empreendimentoId === emprId && l.tipo === 'despesa');
+    : empreendimentosDaUnidade.map(empreendimento => {
+          const despesasEmpr = lancamentos.filter(l => l.empreendimentoId === empreendimento.id && l.tipo === 'despesa');
           const totalDespesas = despesasEmpr.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
           
           return {
-            id: emprId,
-            nome: empreendimento?.nome || `Empreendimento #${emprId}`,
-            empreendimento: empreendimento?.nome || '-',
-            empreendimentoId: emprId,
+            id: empreendimento.id,
+            nome: empreendimento.nome,
+            empreendimento: empreendimento.nome,
+            empreendimentoId: empreendimento.id,
             totalGastos: totalDespesas,
             orcamento: 0,
             percentualGasto: 0,
             status: 'ativo'
           };
-        });
+        }).filter(g => g.totalGastos > 0);
 
   const gastosPorCategoria = myDespesas.reduce((acc, l) => {
     const categoria = categoriaMap.get(l.categoriaId);
