@@ -4950,7 +4950,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { console.error('Error loading financeiro:', e); }
       
       try {
-        tarefasList = await storage.getTarefas({ unidade: unidadeFilter }) || [];
+        const tarefasFilters: any = { unidade: unidadeFilter };
+        if (userRole !== 'admin' && userCargo !== 'diretor') {
+          tarefasFilters.userId = req.user.id;
+        }
+        tarefasList = await storage.getTarefas(tarefasFilters) || [];
         console.log('Loaded tarefas:', tarefasList.length);
       } catch (e) { console.error('Error loading tarefas:', e); }
       
