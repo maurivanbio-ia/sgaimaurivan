@@ -69,10 +69,12 @@ interface Tarefa {
   titulo: string;
   descricao: string | null;
   dataLimite: string | null;
+  prazo: string | null;
+  dataFim: string | null;
   status: string;
   prioridade: string;
   responsavelId: number | null;
-  visivelCalendarioGeral: boolean;
+  visivelCalendarioGeral?: boolean;
 }
 
 interface CalendarEvent {
@@ -201,11 +203,13 @@ export default function Calendario() {
     });
 
     tarefas.forEach(tarefa => {
-      if (tarefa.dataLimite && tarefa.visivelCalendarioGeral) {
+      // Usa dataLimite, prazo ou dataFim (o que estiver disponível)
+      const tarefaDate = tarefa.dataLimite || tarefa.prazo || tarefa.dataFim;
+      if (tarefaDate) {
         allEvents.push({
           id: `tar-${tarefa.id}`,
           title: `Tarefa: ${tarefa.titulo}`,
-          date: parseISO(tarefa.dataLimite),
+          date: parseISO(tarefaDate),
           type: "tarefa",
           status: tarefa.status,
           link: `/gestao-equipe`,
