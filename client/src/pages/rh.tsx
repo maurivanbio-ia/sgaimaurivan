@@ -66,7 +66,7 @@ const rhRegistroSchema = z.object({
   fornecedor: z.string().optional(),
   seguroNumero: z.string().optional(),
   valorTipo: z.string().optional(),
-  valor: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
+  valor: z.string().optional(),
   dataInicio: z.string().optional(),
   dataFim: z.string().optional(),
   contatoEmail: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -425,7 +425,7 @@ export default function RhPage() {
                 )}/>
                 <FormField name="valor" control={form.control} render={({ field }) => (
                   <FormItem><FormLabel>Valor (R$)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} value={field.value as any || ""} placeholder="0.00" /></FormControl>
+                    <FormControl><Input type="text" {...field} value={field.value || ""} placeholder="0.00" /></FormControl>
                   </FormItem>
                 )}/>
                 <FormField name="dataInicio" control={form.control} render={({ field }) => (
