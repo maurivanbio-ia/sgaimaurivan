@@ -238,45 +238,18 @@ export async function sendReportByEmail(
   body: string
 ): Promise<boolean> {
   try {
-    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-    
-    if (SENDGRID_API_KEY) {
-      const sgMail = await import('@sendgrid/mail');
-      sgMail.default.setApiKey(SENDGRID_API_KEY);
-      
-      await sgMail.default.send({
-        to: recipientEmail,
-        from: process.env.SMTP_FROM || 'relatorios@ecobrasil.bio.br',
-        subject,
-        text: body,
-        attachments: [
-          {
-            filename,
-            content: pdfBuffer.toString('base64'),
-            type: 'application/pdf',
-            disposition: 'attachment',
-          },
-        ],
-      });
-      
-      console.log(`[Email] Relatório enviado via SendGrid para ${recipientEmail}`);
-      return true;
-    }
-    
     const nodemailer = await import('nodemailer');
     
     const transporter = nodemailer.default.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
+      service: 'gmail',
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: 'maurivan.bio@gmail.com',
+        pass: process.env.GMAIL_APP_PASSWORD,
       },
     });
 
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'relatorios@ecobrasil.bio.br',
+      from: '"EcoGestor - Relatórios" <maurivan.bio@gmail.com>',
       to: recipientEmail,
       subject,
       text: body,
@@ -289,7 +262,7 @@ export async function sendReportByEmail(
       ],
     });
 
-    console.log(`[Email] Relatório enviado via SMTP para ${recipientEmail}`);
+    console.log(`[Email] Relatório enviado via Gmail SMTP para ${recipientEmail}`);
     return true;
   } catch (error) {
     console.error('Erro ao enviar email com relatório:', error);
