@@ -25,6 +25,7 @@ export type ModuleName =
   | 'equipamentos'
   | 'rh'
   | 'sst'
+  | 'projetos'
   | 'contratos'
   | 'financeiro'
   | 'campanhas'
@@ -61,6 +62,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     equipamentos: fullAccess,
     rh: fullAccess,
     sst: fullAccess,
+    projetos: fullAccess,
     contratos: fullAccess,
     financeiro: fullAccess,
     campanhas: fullAccess,
@@ -90,6 +92,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     equipamentos: createEdit,
     rh: createEdit,
     sst: createEdit,
+    projetos: createEditApprove,
     contratos: createEditApprove,
     financeiro: createEditApprove,
     campanhas: createEdit,
@@ -119,6 +122,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     equipamentos: createEdit,
     rh: createEdit,
     sst: createEdit,
+    projetos: createEdit,
     contratos: createEdit,
     financeiro: readOnly,
     campanhas: createEdit,
@@ -148,6 +152,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     equipamentos: readOnly,
     rh: noAccess,
     sst: noAccess,
+    projetos: readOnly,
     contratos: createEditApprove,
     financeiro: fullAccess,
     campanhas: readOnly,
@@ -177,6 +182,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     equipamentos: readOnly,
     rh: fullAccess,
     sst: fullAccess,
+    projetos: readOnly,
     contratos: noAccess,
     financeiro: readOnly,
     campanhas: readOnly,
@@ -206,6 +212,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     equipamentos: readOnly,
     rh: noAccess,
     sst: noAccess,
+    projetos: noAccess,
     contratos: noAccess,
     financeiro: noAccess,
     campanhas: readOnly,
@@ -249,6 +256,7 @@ export const MODULE_LABELS: Record<ModuleName, string> = {
   equipamentos: 'Equipamentos',
   rh: 'Recursos Humanos',
   sst: 'SST',
+  projetos: 'Projetos',
   contratos: 'Contratos',
   financeiro: 'Financeiro',
   campanhas: 'Campanhas',
@@ -281,6 +289,8 @@ export const ROUTE_TO_MODULE: Record<string, ModuleName> = {
   '/frota': 'frota',
   '/equipamentos': 'equipamentos',
   '/rh': 'rh',
+  '/projetos': 'projetos',
+  '/contratos': 'contratos',
   '/seguranca-trabalho': 'sst',
   '/gestao-dados': 'documentos',
   '/financeiro': 'financeiro',

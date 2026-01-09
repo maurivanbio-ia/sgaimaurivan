@@ -3419,6 +3419,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/arquivos/:id', requireAuth, arquivoController.deleteArquivo);
 
   // ==== CONTRATO ROUTES ====
+  // GET all contratos (with optional filters)
+  app.get('/api/contratos', requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser((req.session as any).userId);
+      if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
+
+      const { search, situacao, empreendimentoId } = req.query;
+      
+      let query = db.select({
+        id: contratos.id,
+        numero: contratos.numero,
+        objeto: contratos.objeto,
+        vigenciaInicio: contratos.vigenciaInicio,
+        vigenciaFim: contratos.vigenciaFim,
+        situacao: contratos.situacao,
+        valorTotal: contratos.valorTotal,
+        observacoes: contratos.observacoes,
+        arquivoPdfId: contratos.arquivoPdfId,
+        empreendimentoId: contratos.empreendimentoId,
+        empreendimentoNome: empreendimentos.nome,
+      }).from(contratos)
+        .leftJoin(empreendimentos, eq(contratos.empreendimentoId, empreendimentos.id));
+
+      const conditions = [];
+      
+      // Multi-tenant filter
+      if (user.cargo !== 'admin' && user.cargo !== 'diretor') {
+        conditions.push(eq(empreendimentos.unidade, user.unidade));
+      }
+      
+      if (situacao && situacao !== 'all') {
+        conditions.push(eq(contratos.situacao, situacao as string));
+      }
+      
+      if (empreendimentoId && empreendimentoId !== 'all') {
+        conditions.push(eq(contratos.empreendimentoId, parseInt(empreendimentoId as string)));
+      }
+      
+      if (search) {
+        const searchLower = `%${(search as string).toLowerCase()}%`;
+        conditions.push(
+          or(
+            sql`LOWER(${contratos.numero}) LIKE ${searchLower}`,
+            sql`LOWER(${contratos.objeto}) LIKE ${searchLower}`
+          )
+        );
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+
+      const result = await query.orderBy(desc(contratos.vigenciaFim));
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching contratos:', error);
+      res.status(500).json({ error: 'Erro ao buscar contratos' });
+    }
+  });
+
   app.get('/api/empreendimentos/:empreendimentoId/contratos', requireAuth, contratoController.getContratosByEmpreendimento);
   app.post('/api/contratos', requireAuth, contratoController.createContrato);
   app.patch('/api/contratos/:id', requireAuth, contratoController.updateContrato);
