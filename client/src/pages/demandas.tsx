@@ -47,6 +47,8 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
@@ -55,8 +57,18 @@ import {
   GripVertical,
   Trash2,
   RefreshCw,
+  ChevronsUpDown,
+  Check,
+  User,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
+
+interface RhRegistro {
+  id: number;
+  nomeColaborador: string;
+  contatoEmail: string | null;
+}
 
 // ===================================================
 // Tipos e Constantes
@@ -166,6 +178,7 @@ function DemandaForm({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = Boolean(initial?.id);
+  const [openResponsavel, setOpenResponsavel] = useState(false);
 
   const { data: empreendimentos = [] } = useQuery({
     queryKey: ["/api/empreendimentos"],
@@ -174,6 +187,10 @@ function DemandaForm({
       if (!res.ok) throw new Error("Failed to fetch empreendimentos");
       return res.json();
     },
+  });
+
+  const { data: rhRegistros = [] } = useQuery<RhRegistro[]>({
+    queryKey: ["/api/rh"],
   });
 
   const [form, setForm] = useState({
@@ -312,14 +329,59 @@ function DemandaForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Responsável *</Label>
-          <Input
-            value={form.responsavel}
-            onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
-            required
-            data-testid="input-responsavel"
-          />
+        <div className="flex flex-col">
+          <Label className="mb-2">Responsável *</Label>
+          <Popover open={openResponsavel} onOpenChange={setOpenResponsavel}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openResponsavel}
+                className={cn(
+                  "w-full justify-between",
+                  !form.responsavel && "text-muted-foreground"
+                )}
+                data-testid="input-responsavel"
+              >
+                {form.responsavel || "Selecione um colaborador"}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0">
+              <Command>
+                <CommandInput placeholder="Buscar colaborador..." />
+                <CommandList>
+                  <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    {rhRegistros.map((rh) => (
+                      <CommandItem
+                        key={rh.id}
+                        value={rh.nomeColaborador}
+                        onSelect={() => {
+                          setForm({ ...form, responsavel: rh.nomeColaborador });
+                          setOpenResponsavel(false);
+                        }}
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        <div className="flex flex-col">
+                          <span>{rh.nomeColaborador}</span>
+                          {rh.contatoEmail && (
+                            <span className="text-xs text-muted-foreground">{rh.contatoEmail}</span>
+                          )}
+                        </div>
+                        <Check
+                          className={cn(
+                            "ml-auto h-4 w-4",
+                            form.responsavel === rh.nomeColaborador ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
         <div>
           <Label>Data de Entrega *</Label>
