@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { FileText, DollarSign, Calendar, Plus, Edit, Trash2, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { FileText, DollarSign, Calendar, Plus, Edit, Trash2, CheckCircle, AlertCircle, Clock, ChevronDown, ChevronUp, FileSignature, X } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +31,17 @@ type Contrato = {
   arquivoPdfId?: number | null;
   observacoes?: string | null;
   empreendimentoId: number;
+};
+
+type Aditivo = {
+  id: number;
+  contratoId: number;
+  descricao: string;
+  valorAdicional: string | null;
+  vigenciaNovaFim: string | null;
+  dataAssinatura: string;
+  arquivoPdfId?: number | null;
+  criadoEm: string;
 };
 
 const SITUACAO_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
@@ -56,6 +69,13 @@ type ContratoForm = {
   observacoes: string;
 };
 
+type AditivoForm = {
+  descricao: string;
+  valorAdicional: string;
+  vigenciaNovaFim: string;
+  dataAssinatura: string;
+};
+
 const emptyForm: ContratoForm = {
   numero: "",
   objeto: "",
@@ -66,6 +86,13 @@ const emptyForm: ContratoForm = {
   observacoes: "",
 };
 
+const emptyAditivoForm: AditivoForm = {
+  descricao: "",
+  valorAdicional: "",
+  vigenciaNovaFim: "",
+  dataAssinatura: "",
+};
+
 export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,9 +100,18 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const [editingContrato, setEditingContrato] = useState<Contrato | null>(null);
   const [contratoToDelete, setContratoToDelete] = useState<Contrato | null>(null);
   const [form, setForm] = useState<ContratoForm>(emptyForm);
+  const [expandedContratoId, setExpandedContratoId] = useState<number | null>(null);
+  const [aditivoDialogOpen, setAditivoDialogOpen] = useState(false);
+  const [aditivoForm, setAditivoForm] = useState<AditivoForm>(emptyAditivoForm);
+  const [activeContratoForAditivo, setActiveContratoForAditivo] = useState<number | null>(null);
 
   const { data: contratos = [], isLoading } = useQuery<Contrato[]>({
     queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"],
+  });
+
+  const { data: aditivos = [] } = useQuery<Aditivo[]>({
+    queryKey: ["/api/contratos", expandedContratoId, "aditivos"],
+    enabled: !!expandedContratoId,
   });
 
   const createMutation = useMutation({
@@ -115,9 +151,28 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       toast({ title: "Contrato excluído", description: "O contrato foi removido com sucesso." });
       setDeleteDialogOpen(false);
       setContratoToDelete(null);
+      if (expandedContratoId === contratoToDelete?.id) {
+        setExpandedContratoId(null);
+      }
     },
     onError: (error: any) => {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createAditivoMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", `/api/contratos/${activeContratoForAditivo}/aditivos`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contratos", activeContratoForAditivo, "aditivos"] });
+      toast({ title: "Aditivo criado", description: "O aditivo foi cadastrado com sucesso." });
+      setAditivoDialogOpen(false);
+      setAditivoForm(emptyAditivoForm);
+      setActiveContratoForAditivo(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao criar aditivo", description: error.message, variant: "destructive" });
     },
   });
 
@@ -181,9 +236,40 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
     }
   };
 
+  const toggleExpand = (contratoId: number) => {
+    setExpandedContratoId(expandedContratoId === contratoId ? null : contratoId);
+  };
+
+  const handleOpenAditivoDialog = (contratoId: number) => {
+    setActiveContratoForAditivo(contratoId);
+    setAditivoForm(emptyAditivoForm);
+    setAditivoDialogOpen(true);
+  };
+
+  const handleSubmitAditivo = () => {
+    if (!aditivoForm.descricao.trim() || !aditivoForm.dataAssinatura) {
+      toast({ title: "Erro", description: "Descrição e data de assinatura são obrigatórios.", variant: "destructive" });
+      return;
+    }
+
+    createAditivoMutation.mutate({
+      descricao: aditivoForm.descricao,
+      valorAdicional: aditivoForm.valorAdicional || null,
+      vigenciaNovaFim: aditivoForm.vigenciaNovaFim || null,
+      dataAssinatura: aditivoForm.dataAssinatura,
+    });
+  };
+
   const contratosVigentes = contratos.filter(c => c.situacao === 'vigente');
   const contratosVencidos = contratos.filter(c => c.situacao === 'vencido');
   const valorTotalContratos = contratos.reduce((sum, c) => sum + Number(c.valorTotal || 0), 0);
+
+  const calcularDiasRestantes = (dataFim: string) => {
+    const hoje = new Date();
+    const fim = new Date(dataFim);
+    const diff = Math.ceil((fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
 
   if (isLoading) {
     return (
@@ -262,19 +348,34 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       </div>
 
       {contratos.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           {contratos.map((contrato) => {
             const config = SITUACAO_CONFIG[contrato.situacao] || SITUACAO_CONFIG.vigente;
             const StatusIcon = config.icon;
+            const isExpanded = expandedContratoId === contrato.id;
+            const diasRestantes = calcularDiasRestantes(contrato.vigenciaFim);
+            const aditivosContrato = isExpanded ? aditivos : [];
+            const valorTotalComAditivos = Number(contrato.valorTotal || 0) + aditivosContrato.reduce((sum, a) => sum + Number(a.valorAdicional || 0), 0);
             
             return (
-              <Card key={contrato.id} className="hover:shadow-md transition-shadow" data-testid={`card-contrato-${contrato.id}`}>
+              <Card 
+                key={contrato.id} 
+                className={`transition-all duration-200 ${isExpanded ? 'ring-2 ring-primary/20 shadow-lg' : 'hover:shadow-md'}`} 
+                data-testid={`card-contrato-${contrato.id}`}
+              >
                 <CardContent className="pt-4">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold truncate" data-testid={`text-contrato-numero-${contrato.id}`}>
-                        Contrato {contrato.numero}
-                      </h4>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleExpand(contrato.id)}>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-lg" data-testid={`text-contrato-numero-${contrato.id}`}>
+                          Contrato {contrato.numero}
+                        </h4>
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {contrato.objeto}
                       </p>
@@ -312,10 +413,95 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                     </div>
                   </div>
 
-                  {contrato.observacoes && (
-                    <p className="text-sm text-muted-foreground mt-3 pt-3 border-t line-clamp-2">
-                      {contrato.observacoes}
-                    </p>
+                  {isExpanded && (
+                    <div className="mt-4 pt-4 border-t space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/30 p-4 rounded-lg">
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Dias Restantes</p>
+                          <p className={`text-xl font-bold ${diasRestantes < 0 ? 'text-red-600' : diasRestantes < 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                            {diasRestantes < 0 ? `Vencido há ${Math.abs(diasRestantes)} dias` : `${diasRestantes} dias`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor + Aditivos</p>
+                          <p className="text-xl font-bold text-emerald-700">{formatCurrency(valorTotalComAditivos)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total de Aditivos</p>
+                          <p className="text-xl font-bold text-blue-700">{aditivosContrato.length}</p>
+                        </div>
+                      </div>
+
+                      {contrato.observacoes && (
+                        <div className="bg-muted/30 p-4 rounded-lg">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Observações</p>
+                          <p className="text-sm">{contrato.observacoes}</p>
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="font-semibold flex items-center gap-2">
+                            <FileSignature className="h-4 w-4" />
+                            Aditivos Contratuais
+                          </h5>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-1"
+                            onClick={() => handleOpenAditivoDialog(contrato.id)}
+                          >
+                            <Plus className="h-3 w-3" />
+                            Novo Aditivo
+                          </Button>
+                        </div>
+
+                        {aditivosContrato.length > 0 ? (
+                          <div className="space-y-2">
+                            {aditivosContrato.map((aditivo, index) => (
+                              <div 
+                                key={aditivo.id} 
+                                className="flex items-start justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {index + 1}º Aditivo
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      Assinado em {formatDate(aditivo.dataAssinatura)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm mt-1">{aditivo.descricao}</p>
+                                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                                    {aditivo.valorAdicional && (
+                                      <span className="flex items-center gap-1">
+                                        <DollarSign className="h-3 w-3" />
+                                        Valor Adicional: <span className="font-medium text-emerald-600">{formatCurrency(aditivo.valorAdicional)}</span>
+                                      </span>
+                                    )}
+                                    {aditivo.vigenciaNovaFim && (
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        Nova Vigência: <span className="font-medium">{formatDate(aditivo.vigenciaNovaFim)}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 text-muted-foreground bg-muted/20 rounded-lg border-2 border-dashed">
+                            <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">Nenhum aditivo cadastrado</p>
+                            <p className="text-xs">Clique em "Novo Aditivo" para adicionar</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -427,6 +613,69 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
             </Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingContrato ? "Salvar Alterações" : "Criar Contrato"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={aditivoDialogOpen} onOpenChange={setAditivoDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="h-5 w-5" />
+              Novo Aditivo Contratual
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="aditivo-descricao">Descrição do Aditivo *</Label>
+              <Textarea
+                id="aditivo-descricao"
+                value={aditivoForm.descricao}
+                onChange={(e) => setAditivoForm({ ...aditivoForm, descricao: e.target.value })}
+                placeholder="Ex: Prorrogação de prazo por 12 meses"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="aditivo-valor">Valor Adicional</Label>
+                <Input
+                  id="aditivo-valor"
+                  type="number"
+                  step="0.01"
+                  value={aditivoForm.valorAdicional}
+                  onChange={(e) => setAditivoForm({ ...aditivoForm, valorAdicional: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label htmlFor="aditivo-data">Data de Assinatura *</Label>
+                <Input
+                  id="aditivo-data"
+                  type="date"
+                  value={aditivoForm.dataAssinatura}
+                  onChange={(e) => setAditivoForm({ ...aditivoForm, dataAssinatura: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="aditivo-vigencia">Nova Data de Vigência (opcional)</Label>
+              <Input
+                id="aditivo-vigencia"
+                type="date"
+                value={aditivoForm.vigenciaNovaFim}
+                onChange={(e) => setAditivoForm({ ...aditivoForm, vigenciaNovaFim: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Preencha se o aditivo alterar a data de término do contrato</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAditivoDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmitAditivo} disabled={createAditivoMutation.isPending}>
+              {createAditivoMutation.isPending ? "Salvando..." : "Criar Aditivo"}
             </Button>
           </DialogFooter>
         </DialogContent>
