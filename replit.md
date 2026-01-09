@@ -98,6 +98,20 @@ A comprehensive permission system aligned with administrative principles:
 - `client/src/components/UnlockDialog.tsx`: Password unlock UI component
 - `client/src/contexts/PermissionContext.tsx`: React context for permission state
 
+### Advanced Document Management (Gestão de Dados)
+A comprehensive document management system with standardized coding and folder structure:
+- **Standardized File Coding**: Automatic code generation following pattern: `ECOBRASIL-[CLIENTE]-[UF]-[PROJ]-[DISC]-[ENTREGA]-[DOC]-[DATA]-[VERSAO]-[STATUS].[ext]`
+- **Institutional Folder Structure**: Macro structure with 7 main folders (Administrativo, Projetos, Clientes, Base Técnica, Modelos, Sistema, Arquivo Morto)
+- **Project Folder Structure**: Per-project hierarchy with 10 categories and detailed subfolders for data, reports, GIS, media, scripts, communications, and auditing
+- **Automatic File Routing**: Files automatically routed to correct folder based on document type (DOC), status, and file extension
+- **Document Versioning**: Automatic version increment (V0.1 → V0.2) when uploading files with same base code
+- **Audit Trail**: Complete tracking of all document actions (upload, update_status, new_version, move, delete)
+- **Metadata Fields**: Cliente, UF, Projeto, Subprojeto, Disciplina (FAU, FLO, HID, etc.), Tipo Documento (REL, NT, OF, etc.), Entrega (D0, D1, D2), Status (RASC, PRELIM, FINAL, ASSIN, PROTOC), Classificação (PUB, INT, CONF, LGPD)
+- **Abbreviation Dictionary**: Collapsible card with searchable glossary of all system abbreviations
+- **Normative Footer**: Fixed footer with compliance references (ISO 15489, ISO 30301, ISO 9001, ISO 14001, ISO/IEC 27001, ISO 21502, ISO 31000, FAIR Principles, LGPD)
+- **Tables**: `datasets` (documents with metadata), `dataset_versoes` (version history), `dataset_audit_trail` (audit log), `dataset_pastas` (folder structure)
+- **Endpoints**: `/api/datasets/estrutura/macro`, `/api/datasets/estrutura/projeto`, `/api/datasets/gerar-codigo`, `/api/datasets/upload-avancado`, `/api/datasets/:id/versoes`, `/api/datasets/:id/audit`
+
 ### Database and Data Handling
 The PostgreSQL database uses Drizzle ORM with a schema-first approach. Key tables (`empreendimentos`, `demandas`, `veiculos`, `equipamentos`, `rh_registros`, `ai_documents`, `ai_conversations`, `ai_logs`, `projetos`) have been enhanced with fields supporting multi-tenancy, project management, and AI features. Foreign key constraints have been fixed, and soft deletion is implemented. File uploads include metadata tracking and checksums.
 

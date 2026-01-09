@@ -2803,6 +2803,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Função auxiliar para criar pasta se não existir
+  async function criarPastaSeNaoExistir(nome: string, caminho: string, pai: string | null, tipo: string, projetoId: number | null) {
+    const existente = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, caminho));
+    if (existente.length === 0) {
+      await db.insert(datasetPastas).values({
+        nome,
+        caminho,
+        pai,
+        tipo,
+        projetoId,
+      });
+    }
+  }
+
   // Endpoint para garantir estrutura do projeto
   app.post('/api/datasets/estrutura/projeto', requireAuth, async (req, res) => {
     try {
@@ -2814,44 +2828,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const projetoPath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`;
       
-      // Verificar se já existe
-      const existente = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, projetoPath));
+      // Criar pasta do projeto
+      await criarPastaSeNaoExistir(
+        `ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
+        projetoPath,
+        "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+        "projeto",
+        projetoId || null
+      );
       
-      if (existente.length === 0) {
-        // Criar pasta do projeto
-        await db.insert(datasetPastas).values({
-          nome: `ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
-          caminho: projetoPath,
-          pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
-          tipo: "projeto",
-          projetoId: projetoId || null,
-        });
+      // Criar subpastas principais
+      for (const subpasta of ESTRUTURA_PROJETO) {
+        const subpastaPath = `${projetoPath}/${subpasta}`;
+        await criarPastaSeNaoExistir(subpasta, subpastaPath, projetoPath, "subpasta", projetoId || null);
         
-        // Criar subpastas principais
-        for (const subpasta of ESTRUTURA_PROJETO) {
-          const subpastaPath = `${projetoPath}/${subpasta}`;
-          await db.insert(datasetPastas).values({
-            nome: subpasta,
-            caminho: subpastaPath,
-            pai: projetoPath,
-            tipo: "subpasta",
-            projetoId: projetoId || null,
-          });
+        // Criar subpastas detalhadas se existirem
+        if (SUBPASTAS_DETALHADAS[subpasta]) {
+          // Agrupar por pasta intermediária
+          const intermediarios = new Set<string>();
+          for (const detalhe of SUBPASTAS_DETALHADAS[subpasta]) {
+            const partes = detalhe.split("/");
+            if (partes.length > 1) {
+              intermediarios.add(partes[0]);
+            }
+          }
           
-          // Criar subpastas detalhadas se existirem
-          if (SUBPASTAS_DETALHADAS[subpasta]) {
-            for (const detalhe of SUBPASTAS_DETALHADAS[subpasta]) {
+          // Criar pastas intermediárias
+          for (const intermediario of intermediarios) {
+            const intermediarioPath = `${subpastaPath}/${intermediario}`;
+            await criarPastaSeNaoExistir(intermediario, intermediarioPath, subpastaPath, "subpasta", projetoId || null);
+          }
+          
+          // Criar pastas folha
+          for (const detalhe of SUBPASTAS_DETALHADAS[subpasta]) {
+            const partes = detalhe.split("/");
+            if (partes.length === 1) {
+              // Pasta direta (sem intermediário)
               const detalhePath = `${subpastaPath}/${detalhe}`;
-              const partes = detalhe.split("/");
-              const nomeDetalhe = partes[partes.length - 1];
-              
-              await db.insert(datasetPastas).values({
-                nome: nomeDetalhe,
-                caminho: detalhePath,
-                pai: subpastaPath,
-                tipo: "subpasta",
-                projetoId: projetoId || null,
-              });
+              await criarPastaSeNaoExistir(detalhe, detalhePath, subpastaPath, "subpasta", projetoId || null);
+            } else {
+              // Pasta com intermediário
+              const [intermediario, folha] = partes;
+              const paiPath = `${subpastaPath}/${intermediario}`;
+              const detalhePath = `${subpastaPath}/${detalhe}`;
+              await criarPastaSeNaoExistir(folha, detalhePath, paiPath, "subpasta", projetoId || null);
             }
           }
         }
