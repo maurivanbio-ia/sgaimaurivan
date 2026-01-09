@@ -1458,6 +1458,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(demandas.dataEntrega);
   }
 
+  async getTarefasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Tarefa[]> {
+    return await db
+      .select()
+      .from(tarefas)
+      .where(
+        and(
+          eq(tarefas.unidade, unidade),
+          gte(tarefas.dataFim, startDate.toISOString().split('T')[0]),
+          lte(tarefas.dataFim, endDate.toISOString().split('T')[0])
+        )
+      )
+      .orderBy(tarefas.dataFim);
+  }
+
   async getAllHistorico(): Promise<Array<HistoricoMovimentacao & { demandaTitulo?: string; usuarioEmail?: string }>> {
     const historico = await db
       .select({

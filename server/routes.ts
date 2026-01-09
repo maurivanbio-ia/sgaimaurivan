@@ -477,6 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const licencas = await storage.getLicencasByDateRange(userUnidade, start, end);
       const demandas = await storage.getDemandasByDateRange(userUnidade, start, end);
+      const tarefasData = await storage.getTarefasByDateRange(userUnidade, start, end);
       
       const events = [
         ...licencas.map((l: any) => ({ ...l, tipo: 'licenca', eventType: 'licenca' })),
@@ -487,6 +488,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           empreendimentoNome: d.titulo, 
           orgaoEmissor: d.responsavel,
           eventType: 'demanda'
+        })),
+        ...tarefasData.map((t: any) => ({
+          id: t.id,
+          tipo: t.categoria || 'tarefa',
+          validade: t.dataFim,
+          empreendimentoNome: t.titulo,
+          orgaoEmissor: t.status,
+          eventType: 'tarefa'
         }))
       ];
       
@@ -4617,6 +4626,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating task:', error);
       res.status(500).json({ error: 'Erro ao criar tarefa' });
+    }
+  });
+
+  // Criar tarefa pessoal (colaboradores podem criar para si mesmos)
+  app.post('/api/minhas-tarefas', requireAuth, async (req, res) => {
+    try {
+      const data = insertTarefaSchema.parse({
+        ...req.body,
+        responsavelId: req.user.id, // Sempre atribuída ao próprio usuário
+        criadoPor: req.user.id,
+        unidade: req.user.unidade
+      });
+      
+      const tarefa = await storage.createTarefa(data);
+      
+      await auditLogService.logCreate('tarefas', tarefa.id, tarefa, req.session.userId, req.user?.email, req);
+      
+      res.status(201).json(tarefa);
+    } catch (error) {
+      console.error('Error creating personal task:', error);
+      res.status(500).json({ error: 'Erro ao criar tarefa pessoal' });
     }
   });
 
