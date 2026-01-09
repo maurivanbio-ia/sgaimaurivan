@@ -187,6 +187,7 @@ export interface IStorage {
     search?: string;
   }): Promise<Demanda[]>;
   getDemandaById(id: number): Promise<Demanda | undefined>;
+  getDemandasByResponsavel(userId: number, unidade: string): Promise<Demanda[]>;
   createDemanda(demanda: InsertDemanda): Promise<Demanda>;
   updateDemanda(id: number, updates: Partial<Demanda>): Promise<Demanda | undefined>;
   deleteDemanda(id: number): Promise<boolean>;
@@ -1413,6 +1414,19 @@ export class DatabaseStorage implements IStorage {
     return demanda || undefined;
   }
 
+  async getDemandasByResponsavel(userId: number, unidade: string): Promise<Demanda[]> {
+    return await db
+      .select()
+      .from(demandas)
+      .where(
+        and(
+          eq(demandas.responsavelId, userId),
+          eq(demandas.unidade, unidade)
+        )
+      )
+      .orderBy(desc(demandas.criadoEm));
+  }
+
   async createDemanda(demanda: InsertDemanda): Promise<Demanda> {
     const [created] = await db.insert(demandas).values(demanda).returning();
     return created;
@@ -1460,25 +1474,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTarefasByDateRange(unidade: string, startDate: Date, endDate: Date, userId?: number): Promise<Tarefa[]> {
-    const conditions: any[] = [
+    const baseConditions = [
       eq(tarefas.unidade, unidade),
       gte(tarefas.dataFim, startDate.toISOString().split('T')[0]),
       lte(tarefas.dataFim, endDate.toISOString().split('T')[0])
     ];
     
     if (userId) {
-      conditions.push(
-        or(
-          eq(tarefas.responsavelId, userId),
-          eq(tarefas.criadoPor, userId)
+      return await db
+        .select()
+        .from(tarefas)
+        .where(
+          and(
+            ...baseConditions,
+            or(
+              eq(tarefas.responsavelId, userId),
+              eq(tarefas.criadoPor, userId),
+              eq(tarefas.visivelCalendarioGeral, true)
+            )
+          )
         )
-      );
+        .orderBy(tarefas.dataFim);
     }
     
     return await db
       .select()
       .from(tarefas)
-      .where(and(...conditions))
+      .where(and(...baseConditions))
       .orderBy(tarefas.dataFim);
   }
 
