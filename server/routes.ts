@@ -3536,6 +3536,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/empreendimentos/:empreendimentoId/contratos', requireAuth, contratoController.getContratosByEmpreendimento);
+  
+  // Upload de PDF para contrato específico
+  app.post('/api/empreendimentos/:empreendimentoId/contratos/:contratoId/pdf', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
+      }
+      
+      const contratoId = parseInt(req.params.contratoId);
+      if (isNaN(contratoId)) {
+        return res.status(400).json({ message: "ID do contrato inválido" });
+      }
+      
+      const userId = (req.session as any).userId;
+      const crypto = await import("crypto");
+      const fs = await import("fs");
+      
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const checksum = crypto.createHash("md5").update(fileBuffer).digest("hex");
+      
+      const [arquivo] = await db.insert(arquivos).values({
+        nome: req.file.originalname,
+        mime: req.file.mimetype,
+        tamanho: req.file.size,
+        caminho: req.file.path,
+        checksum,
+        origem: "contrato",
+        uploaderId: userId,
+      }).returning();
+      
+      await db.update(contratos).set({ arquivoPdfId: arquivo.id }).where(eq(contratos.id, contratoId));
+      
+      res.json({ success: true, arquivo });
+    } catch (error: any) {
+      console.error("Erro ao fazer upload de PDF do contrato:", error);
+      res.status(500).json({ message: error.message || "Erro ao fazer upload" });
+    }
+  });
+
+  // Download de PDF do contrato
+  app.get('/api/contratos/:id/pdf', requireAuth, async (req, res) => {
+    try {
+      const contratoId = parseInt(req.params.id);
+      const [contrato] = await db.select().from(contratos).where(eq(contratos.id, contratoId)).limit(1);
+      
+      if (!contrato || !contrato.arquivoPdfId) {
+        return res.status(404).json({ message: "PDF não encontrado" });
+      }
+      
+      const [arquivo] = await db.select().from(arquivos).where(eq(arquivos.id, contrato.arquivoPdfId)).limit(1);
+      if (!arquivo) {
+        return res.status(404).json({ message: "Arquivo não encontrado" });
+      }
+      
+      const fs = await import("fs");
+      if (!fs.existsSync(arquivo.caminho)) {
+        return res.status(404).json({ message: "Arquivo não existe no servidor" });
+      }
+      
+      res.setHeader('Content-Type', arquivo.mime);
+      res.setHeader('Content-Disposition', `inline; filename="${arquivo.nome}"`);
+      fs.createReadStream(arquivo.caminho).pipe(res);
+    } catch (error: any) {
+      console.error("Erro ao baixar PDF do contrato:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post('/api/contratos', requireAuth, contratoController.createContrato);
   app.patch('/api/contratos/:id', requireAuth, contratoController.updateContrato);
   app.delete('/api/contratos/:id', requireAuth, contratoController.deleteContrato);
