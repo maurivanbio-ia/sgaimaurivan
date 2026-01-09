@@ -891,66 +891,55 @@ export async function generateFinanceReportPDF(options: ReportOptions = {}): Pro
   doc.addPage();
   yPos = MARGINS.top;
 
-  // Distribuição por Categoria
-  if (data.financeiro.porCategoria && data.financeiro.porCategoria.length > 0) {
-    doc.setFontSize(14);
-    doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
-    doc.text('Distribuição por Categoria', MARGINS.left, yPos);
-    yPos += 8;
+  // Distribuição por Categoria - sempre mostra
+  doc.setFontSize(14);
+  doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+  doc.text('Distribuição por Categoria', MARGINS.left, yPos);
+  yPos += 8;
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Categoria', 'Tipo', 'Valor']],
-      body: data.financeiro.porCategoria.map((c: any) => [
-        c.categoria || 'Outros',
-        'Despesa',
-        formatCurrency(c.total || 0)
-      ]),
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: ECOBRASIL_COLORS.yellow, textColor: [50, 50, 50], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [255, 252, 240] },
-      columnStyles: { 2: { halign: 'right', textColor: ECOBRASIL_COLORS.red } },
-      margin: { left: MARGINS.left, right: MARGINS.right },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 15;
-  }
+  const categoriaData = data.financeiro.porCategoria && data.financeiro.porCategoria.length > 0 
+    ? data.financeiro.porCategoria.map((c: any) => [c.categoria || 'Outros', 'Despesa', formatCurrency(c.total || 0)])
+    : [['Sem dados cadastrados', '-', 'R$ 0,00']];
 
-  // Resultado por Empreendimento/Projeto
-  if (data.empreendimentos && data.empreendimentos.length > 0) {
-    doc.setFontSize(14);
-    doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
-    doc.text('Resultado por Projeto', MARGINS.left, yPos);
-    yPos += 8;
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Categoria', 'Tipo', 'Valor']],
+    body: categoriaData,
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: ECOBRASIL_COLORS.yellow, textColor: [50, 50, 50], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [255, 252, 240] },
+    columnStyles: { 2: { halign: 'right' } },
+    margin: { left: MARGINS.left, right: MARGINS.right },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 15;
 
-    const projetosFinanceiro = data.empreendimentos.slice(0, 15).map((e: any) => {
-      return [
-        (e.nome || 'N/A').substring(0, 30),
-        formatCurrency(0),
-        formatCurrency(0),
-        formatCurrency(0)
-      ];
-    });
+  // Resultado por Empreendimento/Projeto - sempre mostra
+  doc.setFontSize(14);
+  doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+  doc.text('Resultado por Projeto', MARGINS.left, yPos);
+  yPos += 8;
 
-    if (projetosFinanceiro.length > 0) {
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
-        body: projetosFinanceiro,
-        styles: { fontSize: 9, cellPadding: 4 },
-        headStyles: { fillColor: ECOBRASIL_COLORS.blue, textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [240, 248, 255] },
-        columnStyles: { 
-          1: { halign: 'right', textColor: ECOBRASIL_COLORS.green },
-          2: { halign: 'right', textColor: ECOBRASIL_COLORS.red },
-          3: { halign: 'right' }
-        },
-        margin: { left: MARGINS.left, right: MARGINS.right },
-      });
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-    }
-  }
+  const projetosData = data.empreendimentos && data.empreendimentos.length > 0 
+    ? data.empreendimentos.slice(0, 15).map((e: any) => [(e.nome || 'N/A').substring(0, 30), formatCurrency(0), formatCurrency(0), formatCurrency(0)])
+    : [['Sem projetos cadastrados', 'R$ 0,00', 'R$ 0,00', 'R$ 0,00']];
 
-  // Page 3: Chart
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
+    body: projetosData,
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: ECOBRASIL_COLORS.blue, textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [240, 248, 255] },
+    columnStyles: { 
+      1: { halign: 'right' },
+      2: { halign: 'right' },
+      3: { halign: 'right' }
+    },
+    margin: { left: MARGINS.left, right: MARGINS.right },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 15;
+
+  // Page 3: Chart - sempre mostra
   doc.addPage();
   yPos = MARGINS.top;
 
@@ -964,8 +953,13 @@ export async function generateFinanceReportPDF(options: ReportOptions = {}): Pro
   doc.text('Evolução Financeira Mensal', pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
 
-  if (data.financeiro.evolucaoMensal && data.financeiro.evolucaoMensal.length > 0) {
-    const barChartData = data.financeiro.evolucaoMensal.map(m => ({
+  // Sempre desenha o gráfico (mesmo que zerado)
+  const evolucaoData = data.financeiro.evolucaoMensal && data.financeiro.evolucaoMensal.length > 0 
+    ? data.financeiro.evolucaoMensal 
+    : [{ mes: 'jan.', receitas: 0, despesas: 0 }];
+  
+  if (evolucaoData.length > 0) {
+    const barChartData = evolucaoData.map(m => ({
       label: m.mes,
       value1: m.receitas,
       value2: m.despesas,
