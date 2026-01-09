@@ -51,6 +51,54 @@ async function getDirectorEmails(): Promise<string[]> {
   }
 }
 
+function generateRelatorio360EmailHtml(unidadeFormatada: string, dataFormatada: string): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #228B22 0%, #006400 100%); padding: 25px; border-radius: 10px 10px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">📊 Relatório 360° EcoBrasil</h1>
+        <p style="color: #90EE90; margin: 10px 0 0 0; font-size: 16px;">${unidadeFormatada}</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 25px; border: 1px solid #e9ecef;">
+        <p style="margin: 0 0 20px 0; font-size: 16px;">Bom dia!</p>
+        
+        <p style="margin: 0 0 20px 0;">Segue em anexo o <strong>Relatório 360° EcoBrasil</strong> da unidade <strong>${unidadeFormatada}</strong>.</p>
+        
+        <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #228B22;">
+          <h3 style="margin: 0 0 15px 0; color: #228B22;">📋 Conteúdo do Relatório</h3>
+          <ul style="margin: 0; padding-left: 20px; color: #555;">
+            <li style="margin-bottom: 8px;">Visão geral de licenças e condicionantes</li>
+            <li style="margin-bottom: 8px;">Status de demandas e projetos</li>
+            <li style="margin-bottom: 8px;">Resumo financeiro por categoria</li>
+            <li style="margin-bottom: 8px;">Indicadores de recursos humanos</li>
+            <li style="margin-bottom: 8px;">Gestão de frota e equipamentos</li>
+            <li style="margin-bottom: 8px;">Contratos e campanhas</li>
+          </ul>
+        </div>
+        
+        <div style="background: #e8f5e9; border-radius: 8px; padding: 15px; text-align: center;">
+          <p style="margin: 0; color: #2e7d32;">
+            <strong>📅 Data do relatório:</strong> ${dataFormatada}
+          </p>
+        </div>
+        
+        <div style="margin-top: 25px; text-align: center;">
+          <a href="${PLATFORM_URL}/dashboard" style="display: inline-block; background: #228B22; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+            🔗 Acessar EcoGestor
+          </a>
+        </div>
+      </div>
+      
+      <div style="background: #228B22; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
+        <p style="margin: 0; color: white; font-size: 12px;">
+          Este é um email automático do sistema EcoGestor.<br>
+          <strong>EcoBrasil - Consultoria Ambiental</strong>
+        </p>
+      </div>
+    </div>
+  `;
+}
+
 async function sendRelatorio360() {
   console.log('[Scheduled Reports] Iniciando envio do Relatório 360°...');
   
@@ -65,19 +113,25 @@ async function sendRelatorio360() {
       return;
     }
 
+    const dataFormatada = new Date().toLocaleDateString('pt-BR');
+
     for (const unidade of config.relatorio360.unidades) {
       try {
         const pdfBuffer = await generatePlatformReportPDF({ unidade });
         const filename = `Relatorio_360_${unidade}_${new Date().toISOString().split('T')[0]}.pdf`;
         const unidadeFormatada = unidade.charAt(0).toUpperCase() + unidade.slice(1).replace(/_/g, ' ');
         
+        const htmlBody = generateRelatorio360EmailHtml(unidadeFormatada, dataFormatada);
+        const textBody = `Bom dia!\n\nSegue em anexo o Relatório 360° EcoBrasil da unidade ${unidadeFormatada}.\n\nData: ${dataFormatada}\n\nEste é um email automático do sistema EcoGestor.`;
+        
         for (const email of emails) {
           const success = await sendReportByEmail(
             pdfBuffer,
             filename,
             email,
-            `Relatório 360° EcoBrasil - ${unidadeFormatada} - Semanal`,
-            `Bom dia!\n\nSegue em anexo o Relatório 360° EcoBrasil da unidade ${unidadeFormatada}.\n\nData: ${new Date().toLocaleDateString('pt-BR')}\n\nEste é um email automático do sistema EcoGestor.`
+            `📊 Relatório 360° EcoBrasil - ${unidadeFormatada} - Semanal`,
+            textBody,
+            htmlBody
           );
           
           if (success) {
@@ -95,6 +149,60 @@ async function sendRelatorio360() {
   } catch (error) {
     console.error('[Scheduled Reports] Erro no envio do Relatório 360°:', error);
   }
+}
+
+function generateRelatorioFinanceiroEmailHtml(unidadeFormatada: string, mesNome: string, ano: number): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%); padding: 25px; border-radius: 10px 10px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">💰 Relatório Financeiro</h1>
+        <p style="color: #90CAF9; margin: 10px 0 0 0; font-size: 16px;">${unidadeFormatada} - ${mesNome} ${ano}</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 25px; border: 1px solid #e9ecef;">
+        <p style="margin: 0 0 20px 0; font-size: 16px;">Bom dia!</p>
+        
+        <p style="margin: 0 0 20px 0;">Segue em anexo o <strong>Relatório Financeiro</strong> da unidade <strong>${unidadeFormatada}</strong> referente ao mês de <strong>${mesNome} de ${ano}</strong>.</p>
+        
+        <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #1976D2;">
+          <h3 style="margin: 0 0 15px 0; color: #1976D2;">📋 Conteúdo do Relatório</h3>
+          <ul style="margin: 0; padding-left: 20px; color: #555;">
+            <li style="margin-bottom: 8px;">Resumo de receitas e despesas</li>
+            <li style="margin-bottom: 8px;">Distribuição por categoria</li>
+            <li style="margin-bottom: 8px;">Resultado financeiro por projeto</li>
+            <li style="margin-bottom: 8px;">Gráfico de evolução mensal</li>
+            <li style="margin-bottom: 8px;">Análise comparativa</li>
+          </ul>
+        </div>
+        
+        <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin: 20px 0;">
+          <tr>
+            <td style="background: #e8f5e9; padding: 15px; border-radius: 8px; text-align: center; width: 50%;">
+              <div style="font-size: 14px; color: #2e7d32; font-weight: bold;">📈 Receitas</div>
+              <div style="font-size: 12px; color: #666; margin-top: 5px;">Valores consolidados</div>
+            </td>
+            <td style="background: #ffebee; padding: 15px; border-radius: 8px; text-align: center; width: 50%;">
+              <div style="font-size: 14px; color: #c62828; font-weight: bold;">📉 Despesas</div>
+              <div style="font-size: 12px; color: #666; margin-top: 5px;">Custos operacionais</div>
+            </td>
+          </tr>
+        </table>
+        
+        <div style="margin-top: 25px; text-align: center;">
+          <a href="${PLATFORM_URL}/financeiro" style="display: inline-block; background: #1976D2; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+            🔗 Ver Financeiro no EcoGestor
+          </a>
+        </div>
+      </div>
+      
+      <div style="background: #1976D2; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
+        <p style="margin: 0; color: white; font-size: 12px;">
+          Este é um email automático do sistema EcoGestor.<br>
+          <strong>EcoBrasil - Consultoria Ambiental</strong>
+        </p>
+      </div>
+    </div>
+  `;
 }
 
 async function sendRelatorioFinanceiro() {
@@ -122,13 +230,17 @@ async function sendRelatorioFinanceiro() {
         const filename = `Relatorio_Financeiro_${unidade}_${ano}_${String(mes).padStart(2, '0')}.pdf`;
         const unidadeFormatada = unidade.charAt(0).toUpperCase() + unidade.slice(1).replace(/_/g, ' ');
         
+        const htmlBody = generateRelatorioFinanceiroEmailHtml(unidadeFormatada, monthNames[mes - 1], ano);
+        const textBody = `Bom dia!\n\nSegue em anexo o Relatório Financeiro da unidade ${unidadeFormatada}.\n\nPeríodo: ${monthNames[mes - 1]} de ${ano}\n\nEste é um email automático do sistema EcoGestor.`;
+        
         for (const email of emails) {
           const success = await sendReportByEmail(
             pdfBuffer,
             filename,
             email,
-            `Relatório Financeiro - ${unidadeFormatada} - ${monthNames[mes - 1]} ${ano}`,
-            `Boa tarde!\n\nSegue em anexo o Relatório Financeiro da unidade ${unidadeFormatada}.\n\nPeríodo: ${monthNames[mes - 1]} de ${ano}\n\nEste é um email automático do sistema EcoGestor.`
+            `💰 Relatório Financeiro - ${unidadeFormatada} - ${monthNames[mes - 1]} ${ano}`,
+            textBody,
+            htmlBody
           );
           
           if (success) {
