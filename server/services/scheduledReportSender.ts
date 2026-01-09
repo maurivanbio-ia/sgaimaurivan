@@ -161,45 +161,168 @@ const resumoDemandasConfig = {
   ]
 };
 
+const PLATFORM_URL = 'https://ecobrasilgestor.bio';
+
 async function getDemandasTarefasStats(responsavelEmail: string) {
   const now = new Date();
   
   const user = await db.select().from(users).where(eq(users.email, responsavelEmail)).limit(1);
   if (!user.length) {
-    return { demandasAtivas: 0, demandasAtrasadas: 0, tarefasAtivas: 0, tarefasAtrasadas: 0 };
+    return { 
+      demandasAtivas: [], 
+      demandasAtrasadas: [], 
+      tarefasAtivas: [], 
+      tarefasAtrasadas: [],
+      totalDemandasAtivas: 0,
+      totalDemandasAtrasadas: 0,
+      totalTarefasAtivas: 0,
+      totalTarefasAtrasadas: 0
+    };
   }
   const userId = user[0].id;
   
-  const demandasAtivas = await db.select().from(demandas).where(
+  const demandasAtivasList = await db.select().from(demandas).where(
     and(
       eq(demandas.responsavelId, userId),
       or(eq(demandas.status, 'pendente'), eq(demandas.status, 'em_andamento'), eq(demandas.status, 'a_fazer'))
     )
   );
 
-  const demandasAtrasadas = demandasAtivas.filter(d => {
+  const demandasAtrasadasList = demandasAtivasList.filter(d => {
     if (!d.dataEntrega) return false;
     return new Date(d.dataEntrega) < now;
   });
 
-  const tarefasAtivas = await db.select().from(tarefas).where(
+  const tarefasAtivasList = await db.select().from(tarefas).where(
     and(
       eq(tarefas.responsavelId, userId),
       or(eq(tarefas.status, 'pendente'), eq(tarefas.status, 'em_andamento'), eq(tarefas.status, 'a_fazer'))
     )
   );
 
-  const tarefasAtrasadas = tarefasAtivas.filter(t => {
-    if (!t.dataFim) return false;
-    return new Date(t.dataFim) < now;
+  const tarefasAtrasadasList = tarefasAtivasList.filter(t => {
+    const prazo = t.dataFim || t.prazo;
+    if (!prazo) return false;
+    return new Date(prazo) < now;
   });
 
   return {
-    demandasAtivas: demandasAtivas.length,
-    demandasAtrasadas: demandasAtrasadas.length,
-    tarefasAtivas: tarefasAtivas.length,
-    tarefasAtrasadas: tarefasAtrasadas.length
+    demandasAtivas: demandasAtivasList,
+    demandasAtrasadas: demandasAtrasadasList,
+    tarefasAtivas: tarefasAtivasList,
+    tarefasAtrasadas: tarefasAtrasadasList,
+    totalDemandasAtivas: demandasAtivasList.length,
+    totalDemandasAtrasadas: demandasAtrasadasList.length,
+    totalTarefasAtivas: tarefasAtivasList.length,
+    totalTarefasAtrasadas: tarefasAtrasadasList.length
   };
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Sem prazo';
+  try {
+    return new Date(dateStr).toLocaleDateString('pt-BR');
+  } catch {
+    return 'Sem prazo';
+  }
+}
+
+function getPrioridadeColor(prioridade: string): string {
+  switch (prioridade?.toLowerCase()) {
+    case 'urgente': return '#dc3545';
+    case 'alta': return '#fd7e14';
+    case 'media': case 'média': return '#ffc107';
+    case 'baixa': return '#28a745';
+    default: return '#6c757d';
+  }
+}
+
+function generateDemandasTable(demandasList: any[], titulo: string, color: string): string {
+  if (demandasList.length === 0) return '';
+  
+  const rows = demandasList.slice(0, 10).map(d => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">
+        <a href="${PLATFORM_URL}/demandas" style="color: #228B22; text-decoration: none; font-weight: 500;">
+          ${d.titulo || 'Sem título'}
+        </a>
+        ${d.descricao ? `<br><span style="color: #666; font-size: 12px;">${d.descricao.substring(0, 80)}${d.descricao.length > 80 ? '...' : ''}</span>` : ''}
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #e9ecef; text-align: center; white-space: nowrap;">
+        ${formatDate(d.dataEntrega || d.dataLimite)}
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #e9ecef; text-align: center;">
+        <span style="background: ${getPrioridadeColor(d.prioridade)}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+          ${d.prioridade || 'Normal'}
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  return `
+    <div style="margin-bottom: 25px;">
+      <h3 style="color: ${color}; margin: 0 0 10px 0; font-size: 16px; border-bottom: 2px solid ${color}; padding-bottom: 5px;">
+        ${titulo} (${demandasList.length})
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
+        <thead>
+          <tr style="background: #f8f9fa;">
+            <th style="padding: 10px; text-align: left; font-size: 12px; color: #666;">Demanda</th>
+            <th style="padding: 10px; text-align: center; font-size: 12px; color: #666;">Prazo</th>
+            <th style="padding: 10px; text-align: center; font-size: 12px; color: #666;">Prioridade</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+      ${demandasList.length > 10 ? `<p style="color: #666; font-size: 12px; margin: 5px 0;">... e mais ${demandasList.length - 10} demandas. <a href="${PLATFORM_URL}/demandas" style="color: #228B22;">Ver todas</a></p>` : ''}
+    </div>
+  `;
+}
+
+function generateTarefasTable(tarefasList: any[], titulo: string, color: string): string {
+  if (tarefasList.length === 0) return '';
+  
+  const rows = tarefasList.slice(0, 10).map(t => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">
+        <a href="${PLATFORM_URL}/minhas-tarefas" style="color: #228B22; text-decoration: none; font-weight: 500;">
+          ${t.titulo || 'Sem título'}
+        </a>
+        ${t.descricao ? `<br><span style="color: #666; font-size: 12px;">${t.descricao.substring(0, 80)}${t.descricao.length > 80 ? '...' : ''}</span>` : ''}
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #e9ecef; text-align: center; white-space: nowrap;">
+        ${formatDate(t.dataFim || t.prazo)}
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #e9ecef; text-align: center;">
+        <span style="background: ${getPrioridadeColor(t.prioridade)}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+          ${t.prioridade || 'Normal'}
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  return `
+    <div style="margin-bottom: 25px;">
+      <h3 style="color: ${color}; margin: 0 0 10px 0; font-size: 16px; border-bottom: 2px solid ${color}; padding-bottom: 5px;">
+        ${titulo} (${tarefasList.length})
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
+        <thead>
+          <tr style="background: #f8f9fa;">
+            <th style="padding: 10px; text-align: left; font-size: 12px; color: #666;">Tarefa</th>
+            <th style="padding: 10px; text-align: center; font-size: 12px; color: #666;">Prazo</th>
+            <th style="padding: 10px; text-align: center; font-size: 12px; color: #666;">Prioridade</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+      ${tarefasList.length > 10 ? `<p style="color: #666; font-size: 12px; margin: 5px 0;">... e mais ${tarefasList.length - 10} tarefas. <a href="${PLATFORM_URL}/minhas-tarefas" style="color: #228B22;">Ver todas</a></p>` : ''}
+    </div>
+  `;
 }
 
 async function sendResumoDemandasEmail(to: string, subject: string, htmlBody: string) {
@@ -234,8 +357,22 @@ async function sendResumoSemanalDemandas() {
     try {
       const stats = await getDemandasTarefasStats(coord.email);
       
+      // Gerar tabelas detalhadas
+      const demandasAtrasadasHtml = generateDemandasTable(stats.demandasAtrasadas, '⚠️ Demandas Atrasadas', '#dc3545');
+      const demandasAtivasHtml = generateDemandasTable(
+        stats.demandasAtivas.filter((d: any) => !stats.demandasAtrasadas.some((a: any) => a.id === d.id)),
+        '📋 Demandas em Andamento',
+        '#228B22'
+      );
+      const tarefasAtrasadasHtml = generateTarefasTable(stats.tarefasAtrasadas, '⚠️ Tarefas Atrasadas', '#dc3545');
+      const tarefasAtivasHtml = generateTarefasTable(
+        stats.tarefasAtivas.filter((t: any) => !stats.tarefasAtrasadas.some((a: any) => a.id === t.id)),
+        '✅ Tarefas em Andamento',
+        '#007bff'
+      );
+      
       const htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #228B22 0%, #006400 100%); padding: 20px; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 24px;">Resumo Semanal</h1>
             <p style="color: #90EE90; margin: 5px 0 0 0;">Suas demandas e tarefas no EcoGestor</p>
@@ -243,39 +380,59 @@ async function sendResumoSemanalDemandas() {
           
           <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
             <p style="margin: 0 0 20px 0;">Olá <strong>${coord.nome}</strong>,</p>
-            <p style="margin: 0 0 20px 0;">Este é o resumo semanal contendo <strong>apenas</strong> as demandas e tarefas atribuídas a você no EcoGestor.</p>
+            <p style="margin: 0 0 20px 0;">Este é o resumo semanal das demandas e tarefas atribuídas a você no EcoGestor.</p>
             
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #228B22;">
-                <div style="font-size: 28px; font-weight: bold; color: #228B22;">${stats.demandasAtivas}</div>
-                <div style="color: #666; font-size: 14px;">Demandas ativas</div>
-              </div>
-              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
-                <div style="font-size: 28px; font-weight: bold; color: #dc3545;">${stats.demandasAtrasadas}</div>
-                <div style="color: #666; font-size: 14px;">Demandas atrasadas</div>
-              </div>
+            <!-- Cards resumo -->
+            <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 25px;">
+              <tr>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #228B22; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #228B22;">${stats.totalDemandasAtivas}</div>
+                  <div style="color: #666; font-size: 12px;">Demandas ativas</div>
+                </td>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #dc3545;">${stats.totalDemandasAtrasadas}</div>
+                  <div style="color: #666; font-size: 12px;">Demandas atrasadas</div>
+                </td>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #007bff;">${stats.totalTarefasAtivas}</div>
+                  <div style="color: #666; font-size: 12px;">Tarefas ativas</div>
+                </td>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #ffc107;">${stats.totalTarefasAtrasadas}</div>
+                  <div style="color: #666; font-size: 12px;">Tarefas atrasadas</div>
+                </td>
+              </tr>
+            </table>
+            
+            <!-- Tabelas detalhadas -->
+            ${demandasAtrasadasHtml}
+            ${tarefasAtrasadasHtml}
+            ${demandasAtivasHtml}
+            ${tarefasAtivasHtml}
+            
+            ${(stats.totalDemandasAtivas === 0 && stats.totalTarefasAtivas === 0) ? 
+              '<p style="text-align: center; color: #28a745; font-size: 16px; padding: 20px;">🎉 Parabéns! Você não tem demandas ou tarefas pendentes.</p>' : 
+              '<p style="margin: 20px 0 0 0; color: #666; font-size: 14px;"><strong>💡 Dica:</strong> Revise os prazos e prioridades para organizar melhor sua semana.</p>'
+            }
+            
+            <!-- Botões de acesso -->
+            <div style="margin-top: 25px; text-align: center;">
+              <a href="${PLATFORM_URL}/demandas" style="display: inline-block; background: #228B22; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                📋 Ver Demandas
+              </a>
+              <a href="${PLATFORM_URL}/minhas-tarefas" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                ✅ Ver Tarefas
+              </a>
+              <a href="${PLATFORM_URL}/calendario" style="display: inline-block; background: #6c757d; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                📅 Calendário
+              </a>
             </div>
-            
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff;">
-                <div style="font-size: 28px; font-weight: bold; color: #007bff;">${stats.tarefasAtivas}</div>
-                <div style="color: #666; font-size: 14px;">Tarefas ativas</div>
-              </div>
-              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                <div style="font-size: 28px; font-weight: bold; color: #ffc107;">${stats.tarefasAtrasadas}</div>
-                <div style="color: #666; font-size: 14px;">Tarefas atrasadas</div>
-              </div>
-            </div>
-            
-            <p style="margin: 0; color: #666; font-size: 14px;">
-              <strong>Recomenda-se revisar prazos e prioridades para a semana.</strong>
-            </p>
           </div>
           
           <div style="background: #e9ecef; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
             <p style="margin: 0; color: #666; font-size: 12px;">
               Este é um email automático do sistema EcoGestor.<br>
-              EcoBrasil - Consultoria Ambiental
+              EcoBrasil - Consultoria Ambiental | ${new Date().toLocaleDateString('pt-BR')}
             </p>
           </div>
         </div>
