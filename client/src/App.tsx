@@ -39,7 +39,9 @@ import Calendario from "./pages/calendario";
 import Cronograma from "./pages/cronograma";
 import GestaoEquipe from "./pages/gestao-equipe";
 import PortalColaborador from "./pages/portal-colaborador";
+import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
 import Sidebar from "./components/layout/sidebar";
+import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
 import ClienteSidebar from "./components/layout/cliente-sidebar";
 import ClienteLogin from "./pages/cliente/login";
@@ -49,8 +51,8 @@ import ClienteDocumentos from "./pages/cliente/documentos";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [location] = useLocation();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const [location, setLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -93,6 +95,17 @@ function Router() {
 
   if (!isAuthenticated) {
     return <Login />;
+  }
+
+  // Portal exclusivo para colaboradores - layout simplificado
+  const isColaborador = user?.cargo === "colaborador";
+  
+  if (isColaborador) {
+    return (
+      <ColaboradorLayout>
+        <MinhasTarefasSimples />
+      </ColaboradorLayout>
+    );
   }
 
   return (
