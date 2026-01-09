@@ -24,12 +24,27 @@ const storage = multer.diskStorage({
   },
 });
 
-// Filtro para aceitar apenas PDFs
+// Filtro para aceitar documentos comuns
+const ALLOWED_MIMETYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "text/plain",
+  "application/zip",
+  "application/x-rar-compressed",
+];
+
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  if (file.mimetype === "application/pdf") {
+  if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Apenas arquivos PDF são permitidos"));
+    cb(new Error("Tipo de arquivo não permitido. Formatos aceitos: PDF, Word, Excel, imagens (JPG, PNG), TXT, ZIP, RAR"));
   }
 };
 
