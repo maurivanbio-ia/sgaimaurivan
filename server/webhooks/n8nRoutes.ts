@@ -1,0 +1,639 @@
+import type { Express, Request, Response, NextFunction } from "express";
+import { storage } from "../storage";
+import { db } from "../db";
+import { 
+  licencasAmbientais, 
+  empreendimentos, 
+  contratos,
+  rhRegistros,
+  veiculos,
+  equipamentos,
+  demandas,
+  projetos,
+  tarefas
+} from "@shared/schema";
+import { sql, eq, and, lt, gte, lte } from "drizzle-orm";
+
+const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
+  const N8N_API_KEY = process.env.N8N_API_KEY;
+  const apiKey = req.headers['x-api-key'] || req.query.api_key;
+  
+  if (!N8N_API_KEY || N8N_API_KEY.length < 16) {
+    console.error("[n8n Webhooks] N8N_API_KEY não configurada ou muito curta (mínimo 16 caracteres)");
+    return res.status(503).json({ 
+      error: "Serviço não disponível", 
+      message: "API Key do n8n não está configurada no servidor. Configure a variável N8N_API_KEY." 
+    });
+  }
+  
+  if (!apiKey) {
+    return res.status(401).json({ error: "API Key não fornecida", message: "Inclua o header X-API-Key ou query param api_key" });
+  }
+  
+  if (apiKey !== N8N_API_KEY) {
+    return res.status(401).json({ error: "API Key inválida" });
+  }
+  
+  next();
+};
+
+export function registerN8nWebhooks(app: Express) {
+  
+  // ==========================================
+  // LICENÇAS AMBIENTAIS
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/licencas/vencendo", requireApiKey, async (req, res) => {
+    try {
+      const { dias = 30, unidade } = req.query;
+      const diasNum = parseInt(dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const licencas = await db
+        .select({
+          id: licencasAmbientais.id,
+          numero: licencasAmbientais.numero,
+          tipo: licencasAmbientais.tipo,
+          validade: licencasAmbientais.validade,
+          status: licencasAmbientais.status,
+          empreendimentoId: licencasAmbientais.empreendimentoId,
+          empreendimentoNome: empreendimentos.nome,
+          responsavelInterno: empreendimentos.responsavelInterno,
+          unidade: empreendimentos.unidade,
+        })
+        .from(licencasAmbientais)
+        .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
+        .where(
+          and(
+            lte(licencasAmbientais.validade, dataLimite.toISOString().split('T')[0]),
+            gte(licencasAmbientais.validade, hoje.toISOString().split('T')[0]),
+            eq(licencasAmbientais.status, 'ativa')
+          )
+        );
+      
+      const resultado = unidade 
+        ? licencas.filter(l => l.unidade === unidade)
+        : licencas;
+      
+      res.json({
+        total: resultado.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        licencas: resultado.map(l => ({
+          ...l,
+          diasParaVencer: Math.ceil((new Date(l.validade!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
+          urgencia: calcularUrgencia(l.validade!)
+        }))
+      });
+    } catch (error) {
+      console.error("Webhook licenças vencendo error:", error);
+      res.status(500).json({ error: "Erro ao buscar licenças" });
+    }
+  });
+
+  app.get("/api/webhooks/n8n/licencas/vencidas", requireApiKey, async (req, res) => {
+    try {
+      const { unidade } = req.query;
+      const hoje = new Date();
+      
+      const licencas = await db
+        .select({
+          id: licencasAmbientais.id,
+          numero: licencasAmbientais.numero,
+          tipo: licencasAmbientais.tipo,
+          validade: licencasAmbientais.validade,
+          status: licencasAmbientais.status,
+          empreendimentoId: licencasAmbientais.empreendimentoId,
+          empreendimentoNome: empreendimentos.nome,
+          responsavelInterno: empreendimentos.responsavelInterno,
+          unidade: empreendimentos.unidade,
+        })
+        .from(licencasAmbientais)
+        .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
+        .where(
+          and(
+            lt(licencasAmbientais.validade, hoje.toISOString().split('T')[0]),
+            eq(licencasAmbientais.status, 'ativa')
+          )
+        );
+      
+      const resultado = unidade 
+        ? licencas.filter(l => l.unidade === unidade)
+        : licencas;
+      
+      res.json({
+        total: resultado.length,
+        dataConsulta: new Date().toISOString(),
+        licencas: resultado.map(l => ({
+          ...l,
+          diasVencida: Math.ceil((hoje.getTime() - new Date(l.validade!).getTime()) / (1000 * 60 * 60 * 24))
+        }))
+      });
+    } catch (error) {
+      console.error("Webhook licenças vencidas error:", error);
+      res.status(500).json({ error: "Erro ao buscar licenças vencidas" });
+    }
+  });
+
+  // ==========================================
+  // CONDICIONANTES
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/condicionantes/pendentes", requireApiKey, async (req, res) => {
+    try {
+      const { dias = 30 } = req.query;
+      const diasNum = parseInt(dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const condicionantes = await storage.getCondicionantesByStatus('pendente');
+      
+      const resultado = condicionantes
+        .filter(c => {
+          if (!c.prazo) return false;
+          const prazoDate = new Date(c.prazo);
+          return prazoDate >= hoje && prazoDate <= dataLimite;
+        })
+        .map(c => ({
+          ...c,
+          diasParaVencer: Math.ceil((new Date(c.prazo!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
+          urgencia: calcularUrgencia(c.prazo!)
+        }));
+      
+      res.json({
+        total: resultado.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        condicionantes: resultado
+      });
+    } catch (error) {
+      console.error("Webhook condicionantes pendentes error:", error);
+      res.status(500).json({ error: "Erro ao buscar condicionantes" });
+    }
+  });
+
+  // ==========================================
+  // CONTRATOS
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/contratos/vencendo", requireApiKey, async (req, res) => {
+    try {
+      const { dias = 60 } = req.query;
+      const diasNum = parseInt(dias as string) || 60;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const contratosData = await db
+        .select({
+          id: contratos.id,
+          numero: contratos.numero,
+          objeto: contratos.objeto,
+          vigenciaInicio: contratos.vigenciaInicio,
+          vigenciaFim: contratos.vigenciaFim,
+          situacao: contratos.situacao,
+          valorTotal: contratos.valorTotal,
+          empreendimentoId: contratos.empreendimentoId,
+          empreendimentoNome: empreendimentos.nome,
+          unidade: empreendimentos.unidade,
+        })
+        .from(contratos)
+        .leftJoin(empreendimentos, eq(contratos.empreendimentoId, empreendimentos.id))
+        .where(
+          and(
+            lte(contratos.vigenciaFim, dataLimite.toISOString().split('T')[0]),
+            gte(contratos.vigenciaFim, hoje.toISOString().split('T')[0]),
+            eq(contratos.situacao, 'vigente')
+          )
+        );
+      
+      res.json({
+        total: contratosData.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        contratos: contratosData.map(c => ({
+          ...c,
+          diasParaVencer: Math.ceil((new Date(c.vigenciaFim!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+        }))
+      });
+    } catch (error) {
+      console.error("Webhook contratos vencendo error:", error);
+      res.status(500).json({ error: "Erro ao buscar contratos" });
+    }
+  });
+
+  app.get("/api/webhooks/n8n/contratos/pagamentos-pendentes", requireApiKey, async (req, res) => {
+    try {
+      const { dias = 7 } = req.query;
+      const diasNum = parseInt(dias as string) || 7;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const pagamentos = await db.execute(sql`
+        SELECT 
+          cp.*,
+          c.numero as contrato_numero,
+          c.objeto as contrato_objeto,
+          e.nome as empreendimento_nome,
+          e.unidade
+        FROM contrato_pagamentos cp
+        LEFT JOIN contratos c ON cp.contrato_id = c.id
+        LEFT JOIN empreendimentos e ON c.empreendimento_id = e.id
+        WHERE cp.status = 'pendente'
+        AND cp.data_vencimento <= ${dataLimite.toISOString().split('T')[0]}
+        AND cp.data_vencimento >= ${hoje.toISOString().split('T')[0]}
+        ORDER BY cp.data_vencimento ASC
+      `);
+      
+      res.json({
+        total: pagamentos.rows.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        pagamentos: pagamentos.rows
+      });
+    } catch (error) {
+      console.error("Webhook pagamentos pendentes error:", error);
+      res.status(500).json({ error: "Erro ao buscar pagamentos" });
+    }
+  });
+
+  // ==========================================
+  // RH - RECURSOS HUMANOS
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/rh/colaboradores", requireApiKey, async (req, res) => {
+    try {
+      const { unidade } = req.query;
+      
+      const rh = await db.select().from(rhRegistros);
+      
+      const resultado = unidade 
+        ? rh.filter(r => r.unidade === unidade)
+        : rh;
+      
+      res.json({
+        total: resultado.length,
+        dataConsulta: new Date().toISOString(),
+        colaboradores: resultado.map(r => ({
+          id: r.id,
+          nome: r.nomeColaborador,
+          regimeContratacao: r.regimeContratacao,
+          dataInicio: r.dataInicio,
+          dataFim: r.dataFim,
+          unidade: r.unidade
+        }))
+      });
+    } catch (error) {
+      console.error("Webhook RH colaboradores error:", error);
+      res.status(500).json({ error: "Erro ao buscar colaboradores" });
+    }
+  });
+
+  // ==========================================
+  // FROTA - VEÍCULOS
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/frota/revisao-pendente", requireApiKey, async (req, res) => {
+    try {
+      const { dias = 30, unidade } = req.query;
+      const diasNum = parseInt(dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const veiculosList = await db.select().from(veiculos);
+      
+      const alertas = veiculosList
+        .filter(v => {
+          if (unidade && v.unidade !== unidade) return false;
+          if (!v.proximaRevisao) return false;
+          const venc = new Date(v.proximaRevisao);
+          return venc >= hoje && venc <= dataLimite;
+        })
+        .map(v => ({
+          id: v.id,
+          veiculo: `${v.marca} ${v.modelo}`,
+          placa: v.placa,
+          proximaRevisao: v.proximaRevisao,
+          kmAtual: v.kmAtual,
+          diasParaRevisao: Math.ceil((new Date(v.proximaRevisao!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
+          unidade: v.unidade
+        }));
+      
+      res.json({
+        total: alertas.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        alertas: alertas.sort((a, b) => a.diasParaRevisao - b.diasParaRevisao)
+      });
+    } catch (error) {
+      console.error("Webhook frota revisão error:", error);
+      res.status(500).json({ error: "Erro ao buscar veículos" });
+    }
+  });
+
+  // ==========================================
+  // EQUIPAMENTOS
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/equipamentos/manutencao-pendente", requireApiKey, async (req, res) => {
+    try {
+      const { dias = 30, unidade } = req.query;
+      const diasNum = parseInt(dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const equipamentosList = await db.select().from(equipamentos);
+      
+      const alertas = equipamentosList
+        .filter(e => {
+          if (unidade && e.unidade !== unidade) return false;
+          if (!e.proximaManutencao) return false;
+          const venc = new Date(e.proximaManutencao);
+          return venc >= hoje && venc <= dataLimite;
+        })
+        .map(e => ({
+          id: e.id,
+          nome: e.nome,
+          tipo: e.tipo,
+          numeroPatrimonio: e.numeroPatrimonio,
+          proximaManutencao: e.proximaManutencao,
+          diasParaManutencao: Math.ceil((new Date(e.proximaManutencao!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
+          unidade: e.unidade
+        }));
+      
+      res.json({
+        total: alertas.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        alertas: alertas.sort((a, b) => a.diasParaManutencao - b.diasParaManutencao)
+      });
+    } catch (error) {
+      console.error("Webhook equipamentos manutenção error:", error);
+      res.status(500).json({ error: "Erro ao buscar equipamentos" });
+    }
+  });
+
+  // ==========================================
+  // DEMANDAS
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/demandas/pendentes", requireApiKey, async (req, res) => {
+    try {
+      const { unidade, dias = 7 } = req.query;
+      const diasNum = parseInt(dias as string) || 7;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + diasNum);
+      
+      const demandasList = await db
+        .select()
+        .from(demandas)
+        .where(eq(demandas.status, 'a_fazer'));
+      
+      const resultado = demandasList
+        .filter(d => {
+          if (unidade && d.unidade !== unidade) return false;
+          if (!d.dataEntrega) return true;
+          const entrega = new Date(d.dataEntrega);
+          return entrega <= dataLimite;
+        })
+        .map(d => ({
+          ...d,
+          diasParaEntrega: d.dataEntrega 
+            ? Math.ceil((new Date(d.dataEntrega).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+            : null
+        }));
+      
+      res.json({
+        total: resultado.length,
+        periodo: `Próximos ${diasNum} dias`,
+        dataConsulta: new Date().toISOString(),
+        demandas: resultado
+      });
+    } catch (error) {
+      console.error("Webhook demandas pendentes error:", error);
+      res.status(500).json({ error: "Erro ao buscar demandas" });
+    }
+  });
+
+  // ==========================================
+  // RESUMO CONSOLIDADO POR UNIDADE
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/resumo/:unidade", requireApiKey, async (req, res) => {
+    try {
+      const { unidade } = req.params;
+      const hoje = new Date();
+      const em30dias = new Date();
+      em30dias.setDate(hoje.getDate() + 30);
+      
+      const [
+        licencasVencendo,
+        licencasVencidas,
+        condicionantesPendentes,
+        demandasPendentes,
+        projetosAtivos,
+        tarefasPendentes
+      ] = await Promise.all([
+        db.select().from(licencasAmbientais)
+          .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
+          .where(and(
+            eq(empreendimentos.unidade, unidade),
+            lte(licencasAmbientais.validade, em30dias.toISOString().split('T')[0]),
+            gte(licencasAmbientais.validade, hoje.toISOString().split('T')[0]),
+            eq(licencasAmbientais.status, 'ativa')
+          )),
+        db.select().from(licencasAmbientais)
+          .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
+          .where(and(
+            eq(empreendimentos.unidade, unidade),
+            lt(licencasAmbientais.validade, hoje.toISOString().split('T')[0]),
+            eq(licencasAmbientais.status, 'ativa')
+          )),
+        storage.getCondicionantesByStatus('pendente'),
+        db.select().from(demandas).where(and(
+          eq(demandas.unidade, unidade),
+          eq(demandas.status, 'a_fazer')
+        )),
+        db.select().from(projetos).where(eq(projetos.status, 'em_andamento')),
+        db.select().from(tarefas).where(and(
+          eq(tarefas.unidade, unidade),
+          eq(tarefas.status, 'pendente')
+        ))
+      ]);
+      
+      res.json({
+        unidade,
+        dataConsulta: new Date().toISOString(),
+        resumo: {
+          licencas: {
+            vencendo30dias: licencasVencendo.length,
+            vencidas: licencasVencidas.length,
+            critico: licencasVencidas.length > 0
+          },
+          condicionantes: {
+            pendentes: condicionantesPendentes.length
+          },
+          demandas: {
+            pendentes: demandasPendentes.length
+          },
+          projetos: {
+            emAndamento: projetosAtivos.filter(p => (p as any).unidade === unidade).length
+          },
+          tarefas: {
+            pendentes: tarefasPendentes.length
+          }
+        },
+        alertasCriticos: [
+          ...(licencasVencidas.length > 0 ? [`${licencasVencidas.length} licença(s) vencida(s)!`] : []),
+          ...(licencasVencendo.filter(l => {
+            const dias = Math.ceil((new Date(l.licencas_ambientais.validade!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+            return dias <= 7;
+          }).length > 0 ? [`Licenças vencendo em menos de 7 dias!`] : [])
+        ]
+      });
+    } catch (error) {
+      console.error("Webhook resumo unidade error:", error);
+      res.status(500).json({ error: "Erro ao gerar resumo" });
+    }
+  });
+
+  // ==========================================
+  // WEBHOOK RECEIVERS (para n8n enviar dados)
+  // ==========================================
+  
+  app.post("/api/webhooks/n8n/criar-demanda", requireApiKey, async (req, res) => {
+    try {
+      const { titulo, descricao, setor, prioridade, dataEntrega, empreendimentoId, unidade, responsavelId } = req.body;
+      
+      if (!titulo || !setor || !dataEntrega || !responsavelId || !unidade) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: titulo, setor, dataEntrega, responsavelId, unidade" 
+        });
+      }
+      
+      const novaDemanda = await db.insert(demandas).values({
+        titulo,
+        descricao: descricao || null,
+        setor,
+        prioridade: prioridade || 'media',
+        status: 'a_fazer',
+        dataEntrega,
+        empreendimentoId: empreendimentoId || null,
+        unidade,
+        responsavelId,
+        criadoEm: new Date(),
+        atualizadoEm: new Date(),
+      }).returning();
+      
+      res.json({
+        success: true,
+        message: "Demanda criada com sucesso",
+        demanda: novaDemanda[0]
+      });
+    } catch (error) {
+      console.error("Webhook criar demanda error:", error);
+      res.status(500).json({ error: "Erro ao criar demanda" });
+    }
+  });
+
+  app.post("/api/webhooks/n8n/criar-tarefa", requireApiKey, async (req, res) => {
+    try {
+      const { titulo, descricao, categoria, prioridade, responsavelId, criadoPor, dataInicio, dataFim, empreendimentoId, unidade } = req.body;
+      
+      if (!titulo || !responsavelId || !criadoPor || !dataInicio || !dataFim || !unidade) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: titulo, responsavelId, criadoPor, dataInicio, dataFim, unidade" 
+        });
+      }
+      
+      const novaTarefa = await db.insert(tarefas).values({
+        titulo,
+        descricao: descricao || null,
+        categoria: categoria || 'geral',
+        prioridade: prioridade || 'media',
+        status: 'pendente',
+        responsavelId,
+        criadoPor,
+        dataInicio,
+        dataFim,
+        empreendimentoId: empreendimentoId || null,
+        unidade,
+        criadoEm: new Date(),
+        atualizadoEm: new Date(),
+      }).returning();
+      
+      res.json({
+        success: true,
+        message: "Tarefa criada com sucesso",
+        tarefa: novaTarefa[0]
+      });
+    } catch (error) {
+      console.error("Webhook criar tarefa error:", error);
+      res.status(500).json({ error: "Erro ao criar tarefa" });
+    }
+  });
+
+  app.post("/api/webhooks/n8n/notificar", requireApiKey, async (req, res) => {
+    try {
+      const { tipo, mensagem, destinatarios, dados } = req.body;
+      
+      console.log(`[n8n Webhook] Notificação recebida: ${tipo}`, { mensagem, destinatarios, dados });
+      
+      res.json({
+        success: true,
+        message: "Notificação registrada",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Webhook notificar error:", error);
+      res.status(500).json({ error: "Erro ao processar notificação" });
+    }
+  });
+
+  // ==========================================
+  // HEALTH CHECK
+  // ==========================================
+  
+  app.get("/api/webhooks/n8n/health", requireApiKey, async (req, res) => {
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      endpoints: [
+        "GET /api/webhooks/n8n/licencas/vencendo?dias=30&unidade=goiania",
+        "GET /api/webhooks/n8n/licencas/vencidas?unidade=goiania",
+        "GET /api/webhooks/n8n/condicionantes/pendentes?dias=30",
+        "GET /api/webhooks/n8n/contratos/vencendo?dias=60",
+        "GET /api/webhooks/n8n/contratos/pagamentos-pendentes?dias=7",
+        "GET /api/webhooks/n8n/rh/colaboradores?unidade=goiania",
+        "GET /api/webhooks/n8n/frota/revisao-pendente?dias=30&unidade=goiania",
+        "GET /api/webhooks/n8n/equipamentos/manutencao-pendente?dias=30&unidade=goiania",
+        "GET /api/webhooks/n8n/demandas/pendentes?dias=7&unidade=goiania",
+        "GET /api/webhooks/n8n/resumo/:unidade",
+        "POST /api/webhooks/n8n/criar-demanda",
+        "POST /api/webhooks/n8n/criar-tarefa",
+        "POST /api/webhooks/n8n/notificar"
+      ]
+    });
+  });
+
+  console.log("[n8n Webhooks] Rotas registradas com sucesso");
+}
+
+function calcularUrgencia(dataVencimento: string): string {
+  const hoje = new Date();
+  const vencimento = new Date(dataVencimento);
+  const dias = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (dias <= 7) return 'CRITICA';
+  if (dias <= 15) return 'ALTA';
+  if (dias <= 30) return 'MEDIA';
+  return 'BAIXA';
+}

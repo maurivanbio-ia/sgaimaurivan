@@ -65,6 +65,9 @@ import {
 import * as contratoController from "./controllers/contratoController";
 import * as arquivoController from "./controllers/arquivoController";
 
+// Import n8n webhooks
+import { registerN8nWebhooks } from "./webhooks/n8nRoutes";
+
 // Login schema
 const loginSchema = z.object({
   email: z.string().email(),
@@ -6195,6 +6198,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Erro ao gerar relatório da plataforma' });
     }
   });
+
+  // Register n8n webhooks (before creating HTTP server)
+  registerN8nWebhooks(app);
 
   const httpServer = createServer(app);
   
