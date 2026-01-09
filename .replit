@@ -48,3 +48,5 @@ defaultBucketID = "replit-objstore-240b665c-1031-4db5-8ff7-de68fca620bb"
 
 [userenv.shared]
 PAINEL_UNLOCK_PASSWORD = "bor192023"
+EVOLUTION_INSTANCE_URL = "https://api.evolution.com/instances/ecobrasil-prod"
+EVOLUTION_API_KEY = "EcoBrasilEvolution2025SecureKey"

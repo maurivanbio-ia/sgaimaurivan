@@ -1834,3 +1834,83 @@ export const historicoReembolsoRelations = relations(historicoReembolso, ({ one 
   }),
 }));
 
+// =============================================
+// WHATSAPP INTEGRATION - EVOLUTION API
+// =============================================
+
+export const whatsappMessageLogs = pgTable("whatsapp_message_logs", {
+  id: serial("id").primaryKey(),
+  phone: text("phone").notNull(),
+  direction: text("direction").notNull(), // incoming, outgoing
+  messageType: text("message_type").notNull().default("text"), // text, image, document, audio, video
+  content: text("content"),
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, read, failed, received
+  evolutionMessageId: text("evolution_message_id"),
+  errorMessage: text("error_message"),
+  userId: integer("user_id").references(() => users.id),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  unidade: text("unidade"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertWhatsappMessageLogSchema = createInsertSchema(whatsappMessageLogs).omit({
+  id: true,
+});
+
+export type InsertWhatsappMessageLog = z.infer<typeof insertWhatsappMessageLogSchema>;
+export type WhatsappMessageLog = typeof whatsappMessageLogs.$inferSelect;
+
+export const whatsappAlertConfigs = pgTable("whatsapp_alert_configs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  phone: text("phone").notNull(),
+  alertType: text("alert_type").notNull(), // license_expiration, condicionante_due, task_assignment, demand_assignment
+  enabled: boolean("enabled").notNull().default(true),
+  daysBeforeAlert: integer("days_before_alert").default(30),
+  unidade: text("unidade"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertWhatsappAlertConfigSchema = createInsertSchema(whatsappAlertConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhatsappAlertConfig = z.infer<typeof insertWhatsappAlertConfigSchema>;
+export type WhatsappAlertConfig = typeof whatsappAlertConfigs.$inferSelect;
+
+export const whatsappContactGroups = pgTable("whatsapp_contact_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  unidade: text("unidade"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const whatsappContactGroupMembers = pgTable("whatsapp_contact_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").references(() => whatsappContactGroups.id).notNull(),
+  phone: text("phone").notNull(),
+  name: text("name"),
+  userId: integer("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertWhatsappContactGroupSchema = createInsertSchema(whatsappContactGroups).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertWhatsappContactGroupMemberSchema = createInsertSchema(whatsappContactGroupMembers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWhatsappContactGroup = z.infer<typeof insertWhatsappContactGroupSchema>;
+export type WhatsappContactGroup = typeof whatsappContactGroups.$inferSelect;
+export type InsertWhatsappContactGroupMember = z.infer<typeof insertWhatsappContactGroupMemberSchema>;
+export type WhatsappContactGroupMember = typeof whatsappContactGroupMembers.$inferSelect;
+

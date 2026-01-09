@@ -67,6 +67,8 @@ import * as arquivoController from "./controllers/arquivoController";
 
 // Import n8n webhooks
 import { registerN8nWebhooks } from "./webhooks/n8nRoutes";
+// Import Evolution API webhooks
+import { registerEvolutionWebhooks } from "./webhooks/evolutionRoutes";
 
 // Login schema
 const loginSchema = z.object({
@@ -6307,6 +6309,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register n8n webhooks (before creating HTTP server)
   registerN8nWebhooks(app);
+  
+  // Register Evolution API webhooks (WhatsApp)
+  registerEvolutionWebhooks(app);
 
   const httpServer = createServer(app);
   
