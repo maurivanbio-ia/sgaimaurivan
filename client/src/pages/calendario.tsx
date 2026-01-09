@@ -64,11 +64,22 @@ interface CronogramaItem {
   prioridade: string | null;
 }
 
+interface Tarefa {
+  id: number;
+  titulo: string;
+  descricao: string | null;
+  dataLimite: string | null;
+  status: string;
+  prioridade: string;
+  responsavelId: number | null;
+  visivelCalendarioGeral: boolean;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
   date: Date;
-  type: "licenca" | "demanda" | "condicionante" | "cronograma";
+  type: "licenca" | "demanda" | "condicionante" | "cronograma" | "tarefa";
   status: string;
   link: string;
   color: string;
@@ -81,6 +92,7 @@ const eventColors = {
   demanda: "#3b82f6", 
   condicionante: "#f59e0b",
   cronograma: "#8b5cf6",
+  tarefa: "#10b981",
 };
 
 const priorityColors: Record<string, string> = {
@@ -117,7 +129,11 @@ export default function Calendario() {
     },
   });
 
-  const isLoading = licencasLoading || demandasLoading || condicionantesLoading || cronogramaLoading;
+  const { data: tarefas = [], isLoading: tarefasLoading } = useQuery<Tarefa[]>({
+    queryKey: ['/api/tarefas'],
+  });
+
+  const isLoading = licencasLoading || demandasLoading || condicionantesLoading || cronogramaLoading || tarefasLoading;
 
   const events = useMemo(() => {
     const allEvents: CalendarEvent[] = [];
@@ -184,8 +200,23 @@ export default function Calendario() {
       }
     });
 
+    tarefas.forEach(tarefa => {
+      if (tarefa.dataLimite && tarefa.visivelCalendarioGeral) {
+        allEvents.push({
+          id: `tar-${tarefa.id}`,
+          title: `Tarefa: ${tarefa.titulo}`,
+          date: parseISO(tarefa.dataLimite),
+          type: "tarefa",
+          status: tarefa.status,
+          link: `/gestao-equipe`,
+          color: eventColors.tarefa,
+          prioridade: tarefa.prioridade,
+        });
+      }
+    });
+
     return allEvents;
-  }, [licencas, demandas, condicionantes, cronogramaItens]);
+  }, [licencas, demandas, condicionantes, cronogramaItens, tarefas]);
 
   const filteredEvents = useMemo(() => {
     if (filterType === "todos") return events;
@@ -212,6 +243,7 @@ export default function Calendario() {
       demandas: thisMonth.filter(e => e.type === "demanda").length,
       condicionantes: thisMonth.filter(e => e.type === "condicionante").length,
       cronograma: thisMonth.filter(e => e.type === "cronograma").length,
+      tarefas: thisMonth.filter(e => e.type === "tarefa").length,
       total: thisMonth.length,
     };
   }, [filteredEvents, currentDate]);
@@ -241,7 +273,7 @@ export default function Calendario() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card 
           className={`cursor-pointer transition-all ${filterType === "licenca" ? 'ring-2 ring-red-500' : ''}`}
           onClick={() => setFilterType(filterType === "licenca" ? "todos" : "licenca")}
@@ -306,10 +338,26 @@ export default function Calendario() {
           </CardContent>
         </Card>
 
+        <Card 
+          className={`cursor-pointer transition-all ${filterType === "tarefa" ? 'ring-2 ring-emerald-500' : ''}`}
+          onClick={() => setFilterType(filterType === "tarefa" ? "todos" : "tarefa")}
+          data-testid="filter-tarefas"
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-full bg-emerald-100">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{eventCounts.tarefas}</p>
+              <p className="text-xs text-muted-foreground">Tarefas</p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card data-testid="card-total">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-full bg-green-100">
-              <Clock className="h-5 w-5 text-green-600" />
+            <div className="p-2 rounded-full bg-gray-100">
+              <Clock className="h-5 w-5 text-gray-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{eventCounts.total}</p>
@@ -406,7 +454,7 @@ export default function Calendario() {
               })}
             </div>
 
-            <div className="flex gap-4 mt-4 pt-4 border-t">
+            <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: eventColors.licenca }} />
                 <span className="text-sm text-muted-foreground">Licenças</span>
@@ -418,6 +466,10 @@ export default function Calendario() {
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: eventColors.condicionante }} />
                 <span className="text-sm text-muted-foreground">Condicionantes</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: eventColors.tarefa }} />
+                <span className="text-sm text-muted-foreground">Tarefas</span>
               </div>
             </div>
           </CardContent>
@@ -461,7 +513,9 @@ export default function Calendario() {
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">
                             {event.type === "licenca" ? "Licença" : 
-                             event.type === "demanda" ? "Demanda" : "Condicionante"}
+                             event.type === "demanda" ? "Demanda" : 
+                             event.type === "condicionante" ? "Condicionante" :
+                             event.type === "tarefa" ? "Tarefa" : "Cronograma"}
                           </Badge>
                           {event.prioridade && (
                             <Badge variant="outline" className={`text-xs ${priorityColors[event.prioridade] || ''}`}>
