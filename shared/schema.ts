@@ -1083,22 +1083,114 @@ export const datasets = pgTable("datasets", {
   dataUpload: timestamp("data_upload").defaultNow().notNull(),
   url: text("url").notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  // Novos campos para código padronizado
+  codigoArquivo: text("codigo_arquivo"), // Código gerado automaticamente ECOBRASIL-...
+  cliente: text("cliente"),
+  uf: text("uf"),
+  projeto: text("projeto"),
+  subprojeto: text("subprojeto"),
+  disciplina: text("disciplina"), // FAU, FLO, HID, QUI, GEO, SOC, SIG, ENG, JUR, ESG, GPR
+  tipoDocumento: text("tipo_documento"), // REL, NT, OF, MEM, ATA, APR, MAP, DAT, MET, LAU
+  entrega: text("entrega"), // D0, D1, D2, REV, RES, PROT
+  area: text("area"),
+  periodo: text("periodo"),
+  dataReferencia: text("data_referencia"), // AAAAMMDD
+  responsavel: text("responsavel"),
+  versao: text("versao").default("V0.1"),
+  status: text("status").default("RASC"), // RASC, PRELIM, FINAL, ASSIN, PROTOC, ENVIADO, ARQ
+  classificacao: text("classificacao").default("INT"), // PUB, INT, CONF, LGPD
+  titulo: text("titulo"),
+  pastaDestino: text("pasta_destino"),
+  hashSha256: text("hash_sha256"),
 });
 
-export const datasetsRelations = relations(datasets, ({ one }) => ({
+export const datasetsRelations = relations(datasets, ({ one, many }) => ({
   empreendimento: one(empreendimentos, {
     fields: [datasets.empreendimentoId],
     references: [empreendimentos.id],
   }),
+  versoes: many(datasetVersoes),
+  auditTrail: many(datasetAuditTrail),
 }));
+
+// Tabela de versões de documentos
+export const datasetVersoes = pgTable("dataset_versoes", {
+  id: serial("id").primaryKey(),
+  datasetId: integer("dataset_id").references(() => datasets.id).notNull(),
+  versao: text("versao").notNull(),
+  nomeArquivo: text("nome_arquivo").notNull(),
+  storagePath: text("storage_path"),
+  hashSha256: text("hash_sha256"),
+  tamanho: integer("tamanho"),
+  status: text("status"),
+  criadoPor: text("criado_por").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const datasetVersoesRelations = relations(datasetVersoes, ({ one }) => ({
+  dataset: one(datasets, {
+    fields: [datasetVersoes.datasetId],
+    references: [datasets.id],
+  }),
+}));
+
+// Tabela de audit trail
+export const datasetAuditTrail = pgTable("dataset_audit_trail", {
+  id: serial("id").primaryKey(),
+  datasetId: integer("dataset_id").references(() => datasets.id).notNull(),
+  acao: text("acao").notNull(), // upload, update_status, new_version, move, delete
+  userId: integer("user_id"),
+  usuario: text("usuario"),
+  detalhes: json("detalhes").default({}),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const datasetAuditTrailRelations = relations(datasetAuditTrail, ({ one }) => ({
+  dataset: one(datasets, {
+    fields: [datasetAuditTrail.datasetId],
+    references: [datasets.id],
+  }),
+}));
+
+// Tabela de estrutura de pastas
+export const datasetPastas = pgTable("dataset_pastas", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  caminho: text("caminho").notNull().unique(),
+  pai: text("pai"),
+  tipo: text("tipo").notNull().default("macro"), // macro, projeto, subpasta
+  projetoId: integer("projeto_id"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
 
 export const insertDatasetSchema = createInsertSchema(datasets).omit({
   id: true,
   criadoEm: true,
 });
 
+export const insertDatasetVersaoSchema = createInsertSchema(datasetVersoes).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertDatasetAuditTrailSchema = createInsertSchema(datasetAuditTrail).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertDatasetPastaSchema = createInsertSchema(datasetPastas).omit({
+  id: true,
+  criadoEm: true,
+});
+
 export type InsertDataset = z.infer<typeof insertDatasetSchema>;
 export type Dataset = typeof datasets.$inferSelect;
+export type InsertDatasetVersao = z.infer<typeof insertDatasetVersaoSchema>;
+export type DatasetVersao = typeof datasetVersoes.$inferSelect;
+export type InsertDatasetAuditTrail = z.infer<typeof insertDatasetAuditTrailSchema>;
+export type DatasetAuditTrail = typeof datasetAuditTrail.$inferSelect;
+export type InsertDatasetPasta = z.infer<typeof insertDatasetPastaSchema>;
+export type DatasetPasta = typeof datasetPastas.$inferSelect;
 
 // =============================================
 // SEGURANÇA DO TRABALHO MODULE
