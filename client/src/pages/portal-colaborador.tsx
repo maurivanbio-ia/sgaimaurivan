@@ -606,21 +606,34 @@ export default function PortalColaboradorPage() {
         </Card>
       )}
 
+      <div className="flex justify-between items-center">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="hoje" data-testid="tab-hoje">
+              <Calendar className="h-4 w-4 mr-2" />
+              Tarefas de Hoje ({tarefasHoje.length})
+            </TabsTrigger>
+            <TabsTrigger value="todas" data-testid="tab-todas">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Todas as Tarefas
+            </TabsTrigger>
+            <TabsTrigger value="reembolsos" data-testid="tab-reembolsos">
+              <Receipt className="h-4 w-4 mr-2" />
+              Reembolsos ({reembolsos.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Button 
+          onClick={() => setIsTarefaDialogOpen(true)}
+          className="ml-4"
+          data-testid="button-nova-tarefa"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Tarefa
+        </Button>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="hoje" data-testid="tab-hoje">
-            <Calendar className="h-4 w-4 mr-2" />
-            Tarefas de Hoje ({tarefasHoje.length})
-          </TabsTrigger>
-          <TabsTrigger value="todas" data-testid="tab-todas">
-            <ClipboardList className="h-4 w-4 mr-2" />
-            Todas as Tarefas
-          </TabsTrigger>
-          <TabsTrigger value="reembolsos" data-testid="tab-reembolsos">
-            <Receipt className="h-4 w-4 mr-2" />
-            Reembolsos ({reembolsos.length})
-          </TabsTrigger>
-        </TabsList>
 
         <TabsContent value="hoje" className="space-y-4">
           {loadingHoje ? (
@@ -1157,6 +1170,174 @@ export default function PortalColaboradorPage() {
               Fechar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isTarefaDialogOpen} onOpenChange={setIsTarefaDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Nova Tarefa Pessoal</DialogTitle>
+            <DialogDescription>
+              Crie uma tarefa pessoal para organizar suas atividades. Esta tarefa será visível apenas para você.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...tarefaForm}>
+            <form onSubmit={tarefaForm.handleSubmit(onSubmitTarefa)} className="space-y-4">
+              <FormField
+                control={tarefaForm.control}
+                name="titulo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Revisar documentação" {...field} data-testid="input-tarefa-titulo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={tarefaForm.control}
+                name="descricao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição (opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Descreva os detalhes da tarefa..." 
+                        {...field} 
+                        data-testid="input-tarefa-descricao"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={tarefaForm.control}
+                  name="categoria"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-tarefa-categoria">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="campo">Campo</SelectItem>
+                          <SelectItem value="escritorio">Escritório</SelectItem>
+                          <SelectItem value="relatorio">Relatório</SelectItem>
+                          <SelectItem value="reuniao">Reunião</SelectItem>
+                          <SelectItem value="vistoria">Vistoria</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={tarefaForm.control}
+                  name="prioridade"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prioridade</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-tarefa-prioridade">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="baixa">Baixa</SelectItem>
+                          <SelectItem value="media">Média</SelectItem>
+                          <SelectItem value="alta">Alta</SelectItem>
+                          <SelectItem value="urgente">Urgente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={tarefaForm.control}
+                  name="dataInicio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data Início</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-tarefa-data-inicio" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={tarefaForm.control}
+                  name="dataFim"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data Fim</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-tarefa-data-fim" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={tarefaForm.control}
+                name="horasEstimadas"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Horas Estimadas (opcional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.5" 
+                        placeholder="Ex: 2.5" 
+                        {...field} 
+                        data-testid="input-tarefa-horas"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsTarefaDialogOpen(false);
+                    tarefaForm.reset();
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createTarefaMutation.isPending}
+                  data-testid="button-salvar-tarefa"
+                >
+                  {createTarefaMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Criar Tarefa
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
