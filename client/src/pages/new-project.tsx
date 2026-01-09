@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,8 +10,18 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface RhRegistro {
+  id: number;
+  nomeColaborador: string;
+  contatoEmail: string | null;
+  contatoTelefone: string | null;
+}
 
 const tipologiaOptions = [
   { value: "hidreletrica", label: "💧 Hidrelétrica" },
@@ -62,6 +72,11 @@ export default function NewProject() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { unidadeSelecionada } = useUnidade();
+  const [openResponsavel, setOpenResponsavel] = useState(false);
+
+  const { data: rhRegistros = [] } = useQuery<RhRegistro[]>({
+    queryKey: ['/api/rh', unidadeSelecionada],
+  });
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -306,15 +321,61 @@ export default function NewProject() {
                 control={form.control}
                 name="responsavelInterno"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Responsável interno *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        placeholder="Nome do responsável na equipe"
-                        data-testid="input-responsible"
-                      />
-                    </FormControl>
+                    <Popover open={openResponsavel} onOpenChange={setOpenResponsavel}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openResponsavel}
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="input-responsible"
+                          >
+                            {field.value || "Selecione um colaborador do RH"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar colaborador..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {rhRegistros.map((rh) => (
+                                <CommandItem
+                                  key={rh.id}
+                                  value={rh.nomeColaborador}
+                                  onSelect={() => {
+                                    field.onChange(rh.nomeColaborador);
+                                    setOpenResponsavel(false);
+                                  }}
+                                >
+                                  <User className="mr-2 h-4 w-4" />
+                                  <div className="flex flex-col">
+                                    <span>{rh.nomeColaborador}</span>
+                                    {rh.contatoEmail && (
+                                      <span className="text-xs text-muted-foreground">{rh.contatoEmail}</span>
+                                    )}
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      "ml-auto h-4 w-4",
+                                      field.value === rh.nomeColaborador ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
