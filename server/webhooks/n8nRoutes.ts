@@ -21,7 +21,14 @@ import { sql, eq, and, lt, gte, lte } from "drizzle-orm";
 
 const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
   const N8N_API_KEY = process.env.N8N_API_KEY;
-  const apiKey = req.headers['x-api-key'] || req.query.api_key;
+  
+  // Accept API key from multiple sources: header, query param, body, or Authorization header
+  const apiKey = 
+    req.headers['x-api-key'] || 
+    req.query.api_key || 
+    req.body?.api_key ||
+    req.body?.apiKey ||
+    (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
   
   if (!N8N_API_KEY) {
     console.error("[n8n Webhooks] N8N_API_KEY não configurada");
@@ -32,7 +39,10 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
   }
   
   if (!apiKey) {
-    return res.status(401).json({ error: "API Key não fornecida", message: "Inclua o header X-API-Key ou query param api_key" });
+    return res.status(401).json({ 
+      error: "API Key não fornecida", 
+      message: "Inclua: header X-API-Key, Authorization: Bearer <key>, query param api_key, ou body.api_key" 
+    });
   }
   
   if (apiKey !== N8N_API_KEY) {
@@ -42,15 +52,21 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+// Helper to extract params from query or body (for GET/POST compatibility)
+const getParams = (req: Request) => {
+  return { ...req.query, ...req.body };
+};
+
 export function registerN8nWebhooks(app: Express) {
   
   // ==========================================
-  // LICENÇAS AMBIENTAIS
+  // LICENÇAS AMBIENTAIS (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/licencas/vencendo", requireApiKey, async (req, res) => {
+  const handleLicencasVencendo = async (req: Request, res: Response) => {
     try {
-      const { dias = 30, unidade } = req.query;
+      const params = getParams(req);
+      const { dias = 30, unidade } = params;
       const diasNum = parseInt(dias as string) || 30;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -93,11 +109,16 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook licenças vencendo error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  // Register both GET and POST for n8n compatibility
+  app.get("/api/webhooks/n8n/licencas/vencendo", requireApiKey, handleLicencasVencendo);
+  app.post("/api/webhooks/n8n/licencas/vencendo", requireApiKey, handleLicencasVencendo);
 
-  app.get("/api/webhooks/n8n/licencas/vencidas", requireApiKey, async (req, res) => {
+  const handleLicencasVencidas = async (req: Request, res: Response) => {
     try {
-      const { unidade } = req.query;
+      const params = getParams(req);
+      const { unidade } = params;
       const hoje = new Date();
       
       const licencas = await db
@@ -135,15 +156,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook licenças vencidas error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/licencas/vencidas", requireApiKey, handleLicencasVencidas);
+  app.post("/api/webhooks/n8n/licencas/vencidas", requireApiKey, handleLicencasVencidas);
 
   // ==========================================
-  // CONDICIONANTES
+  // CONDICIONANTES (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/condicionantes/pendentes", requireApiKey, async (req, res) => {
+  const handleCondicionantesPendentes = async (req: Request, res: Response) => {
     try {
-      const { dias = 30 } = req.query;
+      const params = getParams(req);
+      const { dias = 30 } = params;
       const diasNum = parseInt(dias as string) || 30;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -168,15 +193,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook condicionantes pendentes error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/condicionantes/pendentes", requireApiKey, handleCondicionantesPendentes);
+  app.post("/api/webhooks/n8n/condicionantes/pendentes", requireApiKey, handleCondicionantesPendentes);
 
   // ==========================================
-  // CONTRATOS
+  // CONTRATOS (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/contratos/vencendo", requireApiKey, async (req, res) => {
+  const handleContratosVencendo = async (req: Request, res: Response) => {
     try {
-      const { dias = 60 } = req.query;
+      const params = getParams(req);
+      const { dias = 60 } = params;
       const diasNum = parseInt(dias as string) || 60;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -215,11 +244,15 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook contratos vencendo error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/contratos/vencendo", requireApiKey, handleContratosVencendo);
+  app.post("/api/webhooks/n8n/contratos/vencendo", requireApiKey, handleContratosVencendo);
 
-  app.get("/api/webhooks/n8n/contratos/pagamentos-pendentes", requireApiKey, async (req, res) => {
+  const handlePagamentosPendentes = async (req: Request, res: Response) => {
     try {
-      const { dias = 7 } = req.query;
+      const params = getParams(req);
+      const { dias = 7 } = params;
       const diasNum = parseInt(dias as string) || 7;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -246,15 +279,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook pagamentos pendentes error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/contratos/pagamentos-pendentes", requireApiKey, handlePagamentosPendentes);
+  app.post("/api/webhooks/n8n/contratos/pagamentos-pendentes", requireApiKey, handlePagamentosPendentes);
 
   // ==========================================
-  // RH - RECURSOS HUMANOS
+  // RH - RECURSOS HUMANOS (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/rh/colaboradores", requireApiKey, async (req, res) => {
+  const handleRhColaboradores = async (req: Request, res: Response) => {
     try {
-      const { unidade } = req.query;
+      const params = getParams(req);
+      const { unidade } = params;
       
       const rh = await db.select().from(rhRegistros);
       
@@ -276,15 +313,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook RH colaboradores error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/rh/colaboradores", requireApiKey, handleRhColaboradores);
+  app.post("/api/webhooks/n8n/rh/colaboradores", requireApiKey, handleRhColaboradores);
 
   // ==========================================
-  // FROTA - VEÍCULOS
+  // FROTA - VEÍCULOS (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/frota/revisao-pendente", requireApiKey, async (req, res) => {
+  const handleFrotaRevisaoPendente = async (req: Request, res: Response) => {
     try {
-      const { dias = 30, unidade } = req.query;
+      const params = getParams(req);
+      const { dias = 30, unidade } = params;
       const diasNum = parseInt(dias as string) || 30;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -314,15 +355,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook frota revisão error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/frota/revisao-pendente", requireApiKey, handleFrotaRevisaoPendente);
+  app.post("/api/webhooks/n8n/frota/revisao-pendente", requireApiKey, handleFrotaRevisaoPendente);
 
   // ==========================================
-  // EQUIPAMENTOS
+  // EQUIPAMENTOS (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/equipamentos/manutencao-pendente", requireApiKey, async (req, res) => {
+  const handleEquipamentosManutencao = async (req: Request, res: Response) => {
     try {
-      const { dias = 30, unidade } = req.query;
+      const params = getParams(req);
+      const { dias = 30, unidade } = params;
       const diasNum = parseInt(dias as string) || 30;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -352,15 +397,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook equipamentos manutenção error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/equipamentos/manutencao-pendente", requireApiKey, handleEquipamentosManutencao);
+  app.post("/api/webhooks/n8n/equipamentos/manutencao-pendente", requireApiKey, handleEquipamentosManutencao);
 
   // ==========================================
-  // DEMANDAS
+  // DEMANDAS (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/demandas/pendentes", requireApiKey, async (req, res) => {
+  const handleDemandasPendentes = async (req: Request, res: Response) => {
     try {
-      const { unidade, dias = 7 } = req.query;
+      const params = getParams(req);
+      const { unidade, dias = 7 } = params;
       const diasNum = parseInt(dias as string) || 7;
       const hoje = new Date();
       const dataLimite = new Date();
@@ -390,15 +439,19 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook demandas pendentes error:", error);
       res.json({ data: [] });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/demandas/pendentes", requireApiKey, handleDemandasPendentes);
+  app.post("/api/webhooks/n8n/demandas/pendentes", requireApiKey, handleDemandasPendentes);
 
   // ==========================================
-  // RESUMO CONSOLIDADO POR UNIDADE
+  // RESUMO CONSOLIDADO POR UNIDADE (GET + POST)
   // ==========================================
   
-  app.get("/api/webhooks/n8n/resumo/:unidade", requireApiKey, async (req, res) => {
+  const handleResumoUnidade = async (req: Request, res: Response) => {
     try {
-      const { unidade } = req.params;
+      const params = getParams(req);
+      const unidade = req.params.unidade || params.unidade as string;
       const hoje = new Date();
       const em30dias = new Date();
       em30dias.setDate(hoje.getDate() + 30);
@@ -472,13 +525,17 @@ export function registerN8nWebhooks(app: Express) {
       console.error("Webhook resumo unidade error:", error);
       res.status(500).json({ error: "Erro ao gerar resumo" });
     }
-  });
+  };
+  
+  app.get("/api/webhooks/n8n/resumo/:unidade", requireApiKey, handleResumoUnidade);
+  app.post("/api/webhooks/n8n/resumo/:unidade", requireApiKey, handleResumoUnidade);
+  app.post("/api/webhooks/n8n/resumo", requireApiKey, handleResumoUnidade);
 
   // ==========================================
   // WEBHOOK RECEIVERS (para n8n enviar dados)
   // ==========================================
   
-  app.post("/api/webhooks/n8n/criar-demanda", requireApiKey, async (req, res) => {
+  app.post("/api/webhooks/n8n/criar-demanda", requireApiKey, async (req: Request, res: Response) => {
     try {
       const { titulo, descricao, setor, prioridade, dataEntrega, empreendimentoId, unidade, responsavelId } = req.body;
       
