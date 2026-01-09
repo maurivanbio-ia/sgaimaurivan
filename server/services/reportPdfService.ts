@@ -15,7 +15,7 @@ import {
   condicionantes,
   categoriasFinanceiras
 } from '@shared/schema';
-import { eq, and, sql, gte, lte, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -90,8 +90,6 @@ async function loadLogoBase64(): Promise<string | null> {
 }
 
 async function fetchReportData(unidade?: string) {
-  const whereUnidade = unidade ? eq : () => sql`1=1`;
-  
   const [
     empreendimentosData,
     licencasData,
@@ -106,17 +104,29 @@ async function fetchReportData(unidade?: string) {
     campanhasData,
     categoriasData
   ] = await Promise.all([
-    db.select().from(empreendimentos).where(unidade ? eq(empreendimentos.unidade, unidade) : sql`1=1`),
+    unidade 
+      ? db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+      : db.select().from(empreendimentos),
     db.select().from(licencasAmbientais),
-    db.select().from(demandas).where(unidade ? eq(demandas.unidade, unidade) : sql`1=1`),
-    db.select().from(veiculos).where(unidade ? eq(veiculos.unidade, unidade) : sql`1=1`),
-    db.select().from(equipamentos).where(unidade ? eq(equipamentos.unidade, unidade) : sql`1=1`),
-    db.select().from(rhRegistros).where(unidade ? eq(rhRegistros.unidade, unidade) : sql`1=1`),
+    unidade
+      ? db.select().from(demandas).where(eq(demandas.unidade, unidade))
+      : db.select().from(demandas),
+    unidade
+      ? db.select().from(veiculos).where(eq(veiculos.unidade, unidade))
+      : db.select().from(veiculos),
+    unidade
+      ? db.select().from(equipamentos).where(eq(equipamentos.unidade, unidade))
+      : db.select().from(equipamentos),
+    unidade
+      ? db.select().from(rhRegistros).where(eq(rhRegistros.unidade, unidade))
+      : db.select().from(rhRegistros),
     db.select().from(contratos),
-    db.select().from(financeiroLancamentos).where(unidade ? eq(financeiroLancamentos.unidade, unidade) : sql`1=1`),
+    unidade
+      ? db.select().from(financeiroLancamentos).where(eq(financeiroLancamentos.unidade, unidade))
+      : db.select().from(financeiroLancamentos),
     db.select().from(projetos),
     db.select().from(condicionantes),
-    db.select().from(campanhas).where(unidade ? eq(campanhas.unidade, unidade) : sql`1=1`),
+    db.select().from(campanhas),
     db.select().from(categoriasFinanceiras)
   ]);
 
@@ -1062,7 +1072,8 @@ export async function sendReportByEmail(
   filename: string, 
   recipientEmail: string, 
   subject: string,
-  body: string
+  body: string,
+  htmlBody?: string
 ): Promise<boolean> {
   try {
     const nodemailer = await import('nodemailer');
@@ -1080,6 +1091,7 @@ export async function sendReportByEmail(
       to: recipientEmail,
       subject,
       text: body,
+      html: htmlBody,
       attachments: [
         {
           filename,
