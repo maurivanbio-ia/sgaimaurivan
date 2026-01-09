@@ -49,7 +49,8 @@ import {
   setRelatorio360Emails, 
   setRelatorioFinanceiroEmails,
   triggerRelatorio360Now,
-  triggerRelatorioFinanceiroNow
+  triggerRelatorioFinanceiroNow,
+  sendResumoSemanalTest
 } from "./services/scheduledReportSender";
 import { 
   auditLogs,
@@ -6450,6 +6451,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       await triggerRelatorioFinanceiroNow();
       res.json({ success: true, message: 'Relatório Financeiro enviado com sucesso' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/relatorios-automaticos/enviar/resumo-semanal', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      const { emails } = req.body;
+      if (!emails || !Array.isArray(emails) || emails.length === 0) {
+        return res.status(400).json({ error: 'emails deve ser um array com pelo menos um email' });
+      }
+      await sendResumoSemanalTest(emails);
+      res.json({ success: true, message: 'Resumo semanal de teste enviado com sucesso' });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
