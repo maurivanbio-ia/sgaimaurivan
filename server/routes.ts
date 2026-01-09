@@ -5124,13 +5124,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           total: projetosList.length,
           emAndamento: projetosEmAndamento,
           concluidos: projetosConcluidos,
+          planejamento: projetosList.filter(p => p.status === 'planejamento').length,
+          atrasados: projetosList.filter(p => {
+            if (!p.dataFim || p.status === 'concluido') return false;
+            return new Date(p.dataFim) < now && p.status !== 'concluido';
+          }).length,
           porStatus: projetosList.reduce((acc: any, p) => {
-            acc[p.status] = (acc[p.status] || 0) + 1;
+            acc[p.status || 'outros'] = (acc[p.status || 'outros'] || 0) + 1;
+            return acc;
+          }, {}),
+          porTipo: projetosList.reduce((acc: any, p) => {
+            acc[p.tipo || 'outros'] = (acc[p.tipo || 'outros'] || 0) + 1;
             return acc;
           }, {}),
           lista: projetosList.slice(0, 20).map(p => ({
             id: p.id,
             nome: p.nome,
+            tipo: p.tipo,
             status: p.status,
             dataInicio: p.dataInicio,
             dataFim: p.dataFim,
