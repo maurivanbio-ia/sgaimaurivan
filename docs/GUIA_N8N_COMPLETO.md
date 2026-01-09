@@ -4,7 +4,7 @@
 
 ### URL Base
 ```
-{{$env.ECOGESTOR_URL}} = https://sua-url.replit.app
+{{$env.ECOGESTOR_URL}} = https://b9b1c202-724e-46bb-ada9-3bcb5f4744e7-00-qqitlex3vde4.spock.replit.dev
 ```
 
 ### Autenticação (Header)
@@ -18,10 +18,11 @@ X-API-Key: <SUA_N8N_API_KEY>
 ```json
 {
   "enviarEmail": "true",
-  "email": "seu-email@ecobrasil.bio.br"
+  "email": "maurivan@ecobrasil.bio.br"
 }
 ```
 **Endpoint:** `POST /api/webhooks/n8n/relatorios/360`
+**Remetente:** maurivan.bio@gmail.com
 
 ---
 
@@ -29,12 +30,13 @@ X-API-Key: <SUA_N8N_API_KEY>
 ```json
 {
   "enviarEmail": "true",
-  "email": "seu-email@ecobrasil.bio.br",
+  "email": "maurivan@ecobrasil.bio.br",
   "mes": 1,
   "ano": 2026
 }
 ```
 **Endpoint:** `POST /api/webhooks/n8n/relatorios/financeiro`
+**Remetente:** maurivan.bio@gmail.com
 
 ---
 
