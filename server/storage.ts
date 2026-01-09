@@ -1667,6 +1667,7 @@ export class DatabaseStorage implements IStorage {
     search?: string;
     startDate?: Date;
     endDate?: Date;
+    empreendimentoIds?: number[];
   }): Promise<FinanceiroLancamento[]> {
     const conditions = [];
 
@@ -1684,6 +1685,14 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.search) {
       conditions.push(ilike(financeiroLancamentos.descricao, `%${filters.search}%`));
+    }
+    // Filtro por lista de empreendimentos acessíveis (multi-tenancy)
+    if (filters?.empreendimentoIds !== undefined) {
+      if (filters.empreendimentoIds.length === 0) {
+        // Se não há empreendimentos acessíveis, retornar lista vazia
+        return [];
+      }
+      conditions.push(sql`${financeiroLancamentos.empreendimentoId} IN (${sql.join(filters.empreendimentoIds.map(id => sql`${id}`), sql`, `)})`);
     }
 
     let query = db.select().from(financeiroLancamentos);

@@ -1602,14 +1602,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Lançamentos Financeiros routes
-  app.get('/api/financeiro/lancamentos', async (req, res) => {
+  app.get('/api/financeiro/lancamentos', requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
+      const userCargo = req.user?.cargo || '';
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Buscar empreendimentos da unidade do usuário (ou todos para admin/diretor)
+      const empreendimentosAcessiveis = await storage.getEmpreendimentos(isAdmin ? undefined : userUnidade);
+      const empreendimentoIds = empreendimentosAcessiveis.map(e => e.id);
+      
       const filters = {
         tipo: req.query.tipo as string,
         status: req.query.status as string,
         empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
         categoriaId: req.query.categoriaId ? parseInt(req.query.categoriaId as string) : undefined,
         search: req.query.search as string,
+        empreendimentoIds: isAdmin ? undefined : empreendimentoIds,
       };
       const lancamentos = await storage.getLancamentos(filters);
       res.json(lancamentos);
