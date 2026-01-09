@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, Wrench, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Wrench, Loader2, RefreshCw, Camera, Image, Upload, XCircle } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,6 +122,13 @@ export default function EquipamentosPage() {
   const [editingEquipamento, setEditingEquipamento] = useState<Equipamento | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [equipamentoToDelete, setEquipamentoToDelete] = useState<number | null>(null);
+  
+  // Estados para imagens de dano
+  const [imagensDialogOpen, setImagensDialogOpen] = useState(false);
+  const [imagensEquipamentoId, setImagensEquipamentoId] = useState<number | null>(null);
+  const [imagensEquipamentoNome, setImagensEquipamentoNome] = useState<string>("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageDescricao, setImageDescricao] = useState("");
 
   // Filtros → query string
   const filters = useMemo(() => {
@@ -213,6 +220,107 @@ export default function EquipamentosPage() {
       });
     },
   });
+
+  // Query para imagens de dano
+  const { data: imagensDano = [], refetch: refetchImagens } = useQuery<Array<{
+    filePath: string;
+    descricao?: string;
+    dataUpload: string;
+    signedUrl?: string;
+  }>>({
+    queryKey: ["/api/equipamentos", imagensEquipamentoId, "imagens"],
+    queryFn: async () => {
+      if (!imagensEquipamentoId) return [];
+      const res = await fetch(`/api/equipamentos/${imagensEquipamentoId}/imagens`);
+      if (!res.ok) throw new Error("Erro ao buscar imagens");
+      return res.json();
+    },
+    enabled: !!imagensEquipamentoId && imagensDialogOpen,
+  });
+
+  // Handler para abrir dialog de imagens
+  const handleOpenImagens = (equipamento: Equipamento) => {
+    setImagensEquipamentoId(equipamento.id!);
+    setImagensEquipamentoNome(equipamento.nome);
+    setImageDescricao("");
+    setImagensDialogOpen(true);
+  };
+
+  // Handler para upload de imagem
+  const handleUploadImage = async (file: File) => {
+    if (!imagensEquipamentoId) return;
+    
+    setUploadingImage(true);
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      
+      // 1. Obter URL de upload
+      const urlRes = await fetch(`/api/equipamentos/${imagensEquipamentoId}/imagens/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extension })
+      });
+      
+      if (!urlRes.ok) throw new Error("Falha ao obter URL de upload");
+      const { uploadUrl, filePath } = await urlRes.json();
+      
+      // 2. Fazer upload do arquivo
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type }
+      });
+      
+      if (!uploadRes.ok) throw new Error("Falha ao enviar arquivo");
+      
+      // 3. Registrar a imagem no equipamento
+      const registerRes = await fetch(`/api/equipamentos/${imagensEquipamentoId}/imagens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath, descricao: imageDescricao })
+      });
+      
+      if (!registerRes.ok) throw new Error("Falha ao registrar imagem");
+      
+      toast({ title: "Sucesso", description: "Imagem enviada com sucesso!" });
+      setImageDescricao("");
+      refetchImagens();
+      queryClient.invalidateQueries({ queryKey: ["/api/equipamentos"] });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error?.message ?? "Falha ao enviar imagem",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handler para deletar imagem
+  const handleDeleteImage = async (filePath: string) => {
+    if (!imagensEquipamentoId) return;
+    
+    try {
+      const res = await fetch(`/api/equipamentos/${imagensEquipamentoId}/imagens`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath })
+      });
+      
+      if (!res.ok) throw new Error("Falha ao excluir imagem");
+      
+      toast({ title: "Sucesso", description: "Imagem removida!" });
+      refetchImagens();
+      queryClient.invalidateQueries({ queryKey: ["/api/equipamentos"] });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error?.message ?? "Falha ao excluir imagem",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Ações
   const onSubmit = (data: Equipamento) => {
@@ -386,6 +494,15 @@ export default function EquipamentosPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button 
+                            aria-label="Imagens de Dano" 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleOpenImagens(e)}
+                            title="Ver/Adicionar imagens de dano"
+                          >
+                            <Camera className="h-4 w-4 text-orange-500" />
+                          </Button>
                           <Button aria-label="Editar" variant="ghost" size="sm" onClick={() => handleEdit(e)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -532,6 +649,124 @@ export default function EquipamentosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Imagens de Dano */}
+      <Dialog open={imagensDialogOpen} onOpenChange={setImagensDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5 text-orange-500" />
+              Imagens de Dano - {imagensEquipamentoNome}
+            </DialogTitle>
+            <DialogDescription>
+              Registre fotos de danos, avarias ou problemas do equipamento para acompanhamento
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Upload de nova imagem */}
+            <Card className="border-dashed border-2 border-orange-300 bg-orange-50 dark:bg-orange-900/10">
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Descrição do Dano (opcional)</label>
+                    <Input 
+                      placeholder="Ex: Arranhão na lateral, Tela trincada, etc."
+                      value={imageDescricao}
+                      onChange={(e) => setImageDescricao(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadImage(file);
+                          e.target.value = '';
+                        }}
+                        disabled={uploadingImage}
+                      />
+                      <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors">
+                        {uploadingImage ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                        ) : (
+                          <Upload className="h-5 w-5 text-orange-500" />
+                        )}
+                        <span className="text-sm font-medium">
+                          {uploadingImage ? "Enviando..." : "Clique para selecionar imagem"}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Formatos aceitos: JPG, PNG, GIF, WebP. Tamanho máximo: 10MB
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Lista de imagens */}
+            {imagensDano.length === 0 ? (
+              <div className="text-center py-8">
+                <Image className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">Nenhuma imagem de dano registrada</p>
+                <p className="text-sm text-muted-foreground">Use o botão acima para adicionar fotos</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {imagensDano.map((img, index) => (
+                  <Card key={index} className="overflow-hidden">
+                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-800">
+                      {img.signedUrl ? (
+                        <img
+                          src={img.signedUrl}
+                          alt={img.descricao || `Imagem de dano ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <Image className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => handleDeleteImage(img.filePath)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <CardContent className="p-3">
+                      {img.descricao && (
+                        <p className="text-sm font-medium mb-1">{img.descricao}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Enviado em: {new Date(img.dataUpload).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImagensDialogOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
