@@ -1,0 +1,328 @@
+{
+  "name": "EcoGestor - Monitoramento de Frota",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "cron-semanal",
+      "name": "Segunda às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/frota/revisao-pendente",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-revisao-pendente",
+      "name": "Revisões Pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/frota/documentos-vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "60"
+            },
+            {
+              "name": "tipo",
+              "value": "ipva"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-ipva-vencendo",
+      "name": "IPVA Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/frota/documentos-vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "60"
+            },
+            {
+              "name": "tipo",
+              "value": "seguro"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-seguro-vencendo",
+      "name": "Seguro Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/frota/revisao-km",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "margem",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-revisao-km",
+      "name": "Revisão por KM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 650],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-results",
+      "name": "Consolidar Alertas",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const revisoes = $input.all()[0]?.json || {};\nconst ipva = $input.all()[1]?.json || {};\nconst seguro = $input.all()[2]?.json || {};\nconst revisaoKm = $input.all()[3]?.json || {};\n\nlet alertas = [];\n\nif (revisoes.total > 0) {\n  alertas.push(`${revisoes.total} veículo(s) com revisão pendente`);\n}\nif (ipva.total > 0) {\n  alertas.push(`${ipva.total} veículo(s) com IPVA vencendo`);\n}\nif (seguro.total > 0) {\n  alertas.push(`${seguro.total} veículo(s) com seguro vencendo`);\n}\nif (revisaoKm.total > 0) {\n  alertas.push(`${revisaoKm.total} veículo(s) próximo da quilometragem de revisão`);\n}\n\nreturn {\n  json: {\n    temAlertas: alertas.length > 0,\n    totalAlertas: alertas.length,\n    mensagem: alertas.length > 0 \n      ? `FROTA - Alertas:\\n${alertas.join('\\n')}` \n      : 'Frota sem alertas pendentes',\n    detalhes: { revisoes, ipva, seguro, revisaoKm }\n  }\n};"
+      },
+      "id": "code-consolidar",
+      "name": "Processar Alertas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "tem-alertas",
+              "leftValue": "={{ $json.temAlertas }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-tem-alertas",
+      "name": "Tem Alertas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1140, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"tipo\": \"alerta\"\n}",
+        "options": {}
+      },
+      "id": "notificar-frota",
+      "name": "Enviar Notificação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Segunda às 8h": {
+      "main": [
+        [
+          {
+            "node": "Revisões Pendentes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IPVA Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Seguro Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Revisão por KM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revisões Pendentes": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IPVA Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seguro Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revisão por KM": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Alertas": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Alertas": {
+      "main": [
+        [
+          {
+            "node": "Tem Alertas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Alertas?": {
+      "main": [
+        [
+          {
+            "node": "Enviar Notificação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

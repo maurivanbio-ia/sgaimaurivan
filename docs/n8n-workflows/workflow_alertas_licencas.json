@@ -1,0 +1,240 @@
+{
+  "name": "EcoGestor - Alertas de Licenças",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-diario",
+      "name": "Diariamente às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/licencas/vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-licencas-vencendo",
+      "name": "Buscar Licenças Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/licencas/vencidas",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "http-licencas-vencidas",
+      "name": "Buscar Licenças Vencidas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-licencas",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-vencendo",
+      "name": "Tem Licenças Vencendo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-licencas",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-vencidas",
+      "name": "Tem Licenças Vencidas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"ALERTA: {{ $json.total }} licença(s) vencendo nos próximos 30 dias!\",\n  \"tipo\": \"alerta\"\n}",
+        "options": {}
+      },
+      "id": "notificar-vencendo",
+      "name": "Notificar Licenças Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 280],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"URGENTE: {{ $json.total }} licença(s) vencida(s)! Ação imediata necessária.\",\n  \"tipo\": \"urgente\"\n}",
+        "options": {}
+      },
+      "id": "notificar-vencidas",
+      "name": "Notificar Licenças Vencidas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Diariamente às 9h": {
+      "main": [
+        [
+          {
+            "node": "Buscar Licenças Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Licenças Vencidas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Licenças Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Tem Licenças Vencendo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Licenças Vencidas": {
+      "main": [
+        [
+          {
+            "node": "Tem Licenças Vencidas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Licenças Vencendo?": {
+      "main": [
+        [
+          {
+            "node": "Notificar Licenças Vencendo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Licenças Vencidas?": {
+      "main": [
+        [
+          {
+            "node": "Notificar Licenças Vencidas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

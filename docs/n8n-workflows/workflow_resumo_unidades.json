@@ -1,0 +1,185 @@
+{
+  "name": "EcoGestor - Resumo Semanal por Unidade",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "cron-segunda",
+      "name": "Segunda às 7h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/resumo/goiania",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "http-resumo-goiania",
+      "name": "Resumo Goiânia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/resumo/salvador",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "http-resumo-salvador",
+      "name": "Resumo Salvador",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/resumo/luiz_eduardo_magalhaes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "http-resumo-lem",
+      "name": "Resumo Luiz Eduardo Magalhães",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const goiania = $input.all()[0]?.json || {};\nconst salvador = $input.all()[1]?.json || {};\nconst lem = $input.all()[2]?.json || {};\n\nconst formatUnit = (name, data) => {\n  const r = data.resumo || {};\n  return `${name}:\\n` +\n    `  - Licenças Ativas: ${r.licencasAtivas || 0}\\n` +\n    `  - Demandas Pendentes: ${r.demandasPendentes || 0}\\n` +\n    `  - Contratos Ativos: ${r.contratosAtivos || 0}\\n` +\n    `  - Colaboradores: ${r.colaboradores || 0}`;\n};\n\nconst resumo = [\n  formatUnit('GOIÂNIA', goiania),\n  formatUnit('SALVADOR', salvador),\n  formatUnit('LUIZ EDUARDO MAGALHÃES', lem)\n].join('\\n\\n');\n\nreturn {\n  json: {\n    mensagem: `RESUMO SEMANAL - ${new Date().toLocaleDateString('pt-BR')}\\n\\n${resumo}`,\n    goiania,\n    salvador,\n    lem\n  }\n};"
+      },
+      "id": "code-consolidar",
+      "name": "Consolidar Resumos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 350]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"tipo\": \"informativo\"\n}",
+        "options": {}
+      },
+      "id": "notificar-resumo",
+      "name": "Enviar Resumo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Segunda às 7h": {
+      "main": [
+        [
+          {
+            "node": "Resumo Goiânia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resumo Salvador",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resumo Luiz Eduardo Magalhães",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumo Goiânia": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Resumos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumo Salvador": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Resumos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumo Luiz Eduardo Magalhães": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Resumos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Resumos": {
+      "main": [
+        [
+          {
+            "node": "Enviar Resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
