@@ -175,6 +175,33 @@ async function fetchReportData(unidade?: string) {
     porCategoria[cat] = (porCategoria[cat] || 0) + Number(f.valor || 0);
   });
 
+  // Calcular receitas e despesas por empreendimento
+  const empreendimentoMap: Record<number, string> = {};
+  empreendimentosData.forEach(e => { empreendimentoMap[e.id] = e.nome; });
+
+  const porEmpreendimento: Record<number, { nome: string; receitas: number; despesas: number }> = {};
+  empreendimentosData.forEach(e => {
+    porEmpreendimento[e.id] = { nome: e.nome, receitas: 0, despesas: 0 };
+  });
+
+  financeiroData.forEach(f => {
+    const empId = f.empreendimentoId;
+    if (empId && porEmpreendimento[empId]) {
+      if (f.tipo === 'receita') {
+        porEmpreendimento[empId].receitas += Number(f.valor || 0);
+      } else if (f.tipo === 'despesa') {
+        porEmpreendimento[empId].despesas += Number(f.valor || 0);
+      }
+    }
+  });
+
+  const resultadoPorProjeto = Object.values(porEmpreendimento).map(p => ({
+    nome: p.nome,
+    receitas: p.receitas,
+    despesas: p.despesas,
+    resultado: p.receitas - p.despesas
+  })).filter(p => p.receitas > 0 || p.despesas > 0);
+
   const evolucaoMensal: { mes: string; receitas: number; despesas: number }[] = [];
   for (let i = 7; i >= 0; i--) {
     const d = new Date();
@@ -266,6 +293,7 @@ async function fetchReportData(unidade?: string) {
       totalPendente,
       porCategoria: Object.entries(porCategoria).map(([categoria, total]) => ({ categoria, total })),
       evolucaoMensal,
+      resultadoPorProjeto,
     },
     empreendimentos: empreendimentosData,
   };
@@ -919,14 +947,19 @@ export async function generateFinanceReportPDF(options: ReportOptions = {}): Pro
   doc.text('Resultado por Projeto', MARGINS.left, yPos);
   yPos += 8;
 
-  const projetosData = data.empreendimentos && data.empreendimentos.length > 0 
-    ? data.empreendimentos.slice(0, 15).map((e: any) => [(e.nome || 'N/A').substring(0, 30), formatCurrency(0), formatCurrency(0), formatCurrency(0)])
-    : [['Sem projetos cadastrados', 'R$ 0,00', 'R$ 0,00', 'R$ 0,00']];
+  const projetosFinData = data.financeiro.resultadoPorProjeto && data.financeiro.resultadoPorProjeto.length > 0 
+    ? data.financeiro.resultadoPorProjeto.slice(0, 15).map((p: any) => [
+        (p.nome || 'N/A').substring(0, 30), 
+        formatCurrency(p.receitas || 0), 
+        formatCurrency(p.despesas || 0), 
+        formatCurrency(p.resultado || 0)
+      ])
+    : [['Sem movimentações em projetos', 'R$ 0,00', 'R$ 0,00', 'R$ 0,00']];
 
   autoTable(doc, {
     startY: yPos,
     head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
-    body: projetosData,
+    body: projetosFinData,
     styles: { fontSize: 9, cellPadding: 4 },
     headStyles: { fillColor: ECOBRASIL_COLORS.blue, textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 248, 255] },
