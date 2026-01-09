@@ -477,7 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const licencas = await storage.getLicencasByDateRange(userUnidade, start, end);
       const demandas = await storage.getDemandasByDateRange(userUnidade, start, end);
-      const tarefasData = await storage.getTarefasByDateRange(userUnidade, start, end);
+      const tarefasData = await storage.getTarefasByDateRange(userUnidade, start, end, req.user.id);
       
       const events = [
         ...licencas.map((l: any) => ({ ...l, tipo: 'licenca', eventType: 'licenca' })),
@@ -4540,12 +4540,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Listar tarefas
   app.get('/api/tarefas', requireAuth, async (req, res) => {
     try {
-      const { unidade, responsavelId, criadoPor, status, prioridade, categoria, empreendimentoId, dataInicio, dataFim } = req.query;
+      const { status, prioridade, categoria, empreendimentoId, dataInicio, dataFim } = req.query;
       
       const filters: any = {};
-      if (unidade) filters.unidade = unidade as string;
-      if (responsavelId) filters.responsavelId = parseInt(responsavelId as string);
-      if (criadoPor) filters.criadoPor = parseInt(criadoPor as string);
       if (status) filters.status = status as string;
       if (prioridade) filters.prioridade = prioridade as string;
       if (categoria) filters.categoria = categoria as string;
@@ -4553,18 +4550,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (dataInicio) filters.dataInicio = dataInicio as string;
       if (dataFim) filters.dataFim = dataFim as string;
       
-      // Colaboradores só veem suas próprias tarefas
-      if (req.user.cargo === 'colaborador') {
-        filters.responsavelId = req.user.id;
-      }
-      // Coordenadores veem tarefas que criaram ou da sua equipe
-      else if (req.user.cargo === 'coordenador') {
-        if (!filters.responsavelId && !filters.criadoPor) {
-          filters.criadoPor = req.user.id;
-        }
-      }
-      // Se não for admin/diretor, filtrar por unidade
+      // Filtrar por usuário (responsável OU criador) - privacidade de tarefas
+      // Apenas admin/diretor podem ver todas as tarefas
       if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.userId = req.user.id;
         filters.unidade = req.user.unidade;
       }
       
@@ -4586,8 +4575,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Tarefa não encontrada' });
       }
       
-      // Verificar permissão
-      if (req.user.cargo === 'colaborador' && tarefa.responsavelId !== req.user.id) {
+      // Verificar permissão - usuário deve ser responsável, criador, ou admin/diretor
+      const isOwner = tarefa.responsavelId === req.user.id || tarefa.criadoPor === req.user.id;
+      const isAdmin = req.user.cargo === 'diretor' || req.user.role === 'admin';
+      
+      if (!isOwner && !isAdmin) {
         return res.status(403).json({ error: 'Sem permissão para ver esta tarefa' });
       }
       
@@ -4741,16 +4733,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tarefas atrasadas
   app.get('/api/tarefas-atrasadas', requireAuth, async (req, res) => {
     try {
-      let responsavelId: number | undefined;
+      let userId: number | undefined;
       let unidade: string | undefined;
       
-      if (req.user.cargo === 'colaborador') {
-        responsavelId = req.user.id;
-      } else if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+      // Filtrar por usuário (responsável OU criador) - privacidade de tarefas
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        userId = req.user.id;
         unidade = req.user.unidade;
       }
       
-      const tarefasList = await storage.getTarefasAtrasadas(responsavelId, unidade);
+      const tarefasList = await storage.getTarefasAtrasadas(userId, unidade);
       res.json(tarefasList);
     } catch (error) {
       console.error('Error fetching overdue tasks:', error);
@@ -4763,11 +4755,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const filters: any = {};
       
-      if (req.user.cargo === 'colaborador') {
-        filters.responsavelId = req.user.id;
-      } else if (req.user.cargo === 'coordenador') {
-        filters.criadoPor = req.user.id;
-      } else if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+      // Filtrar por usuário (responsável OU criador) - privacidade de tarefas
+      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+        filters.userId = req.user.id;
         filters.unidade = req.user.unidade;
       }
       

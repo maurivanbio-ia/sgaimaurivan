@@ -382,6 +382,7 @@ export interface IStorage {
     unidade?: string;
     responsavelId?: number;
     criadoPor?: number;
+    userId?: number;
     status?: string;
     prioridade?: string;
     categoria?: string;
@@ -393,12 +394,12 @@ export interface IStorage {
   createTarefa(tarefa: InsertTarefa): Promise<Tarefa>;
   updateTarefa(id: number, updates: Partial<InsertTarefa>): Promise<Tarefa>;
   deleteTarefa(id: number): Promise<boolean>;
-  getTarefasDoDia(responsavelId: number, data?: string): Promise<Tarefa[]>;
-  getTarefasAtrasadas(responsavelId?: number, unidade?: string): Promise<Tarefa[]>;
+  getTarefasDoDia(userId: number, data?: string): Promise<Tarefa[]>;
+  getTarefasAtrasadas(userId?: number, unidade?: string): Promise<Tarefa[]>;
+  getTarefasByDateRange(unidade: string, startDate: Date, endDate: Date, userId?: number): Promise<Tarefa[]>;
   getEstatisticasTarefas(filters?: {
     unidade?: string;
-    responsavelId?: number;
-    criadoPor?: number;
+    userId?: number;
   }): Promise<{
     total: number;
     pendentes: number;
@@ -1458,17 +1459,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(demandas.dataEntrega);
   }
 
-  async getTarefasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Tarefa[]> {
+  async getTarefasByDateRange(unidade: string, startDate: Date, endDate: Date, userId?: number): Promise<Tarefa[]> {
+    const conditions: any[] = [
+      eq(tarefas.unidade, unidade),
+      gte(tarefas.dataFim, startDate.toISOString().split('T')[0]),
+      lte(tarefas.dataFim, endDate.toISOString().split('T')[0])
+    ];
+    
+    if (userId) {
+      conditions.push(
+        or(
+          eq(tarefas.responsavelId, userId),
+          eq(tarefas.criadoPor, userId)
+        )
+      );
+    }
+    
     return await db
       .select()
       .from(tarefas)
-      .where(
-        and(
-          eq(tarefas.unidade, unidade),
-          gte(tarefas.dataFim, startDate.toISOString().split('T')[0]),
-          lte(tarefas.dataFim, endDate.toISOString().split('T')[0])
-        )
-      )
+      .where(and(...conditions))
       .orderBy(tarefas.dataFim);
   }
 
@@ -2745,6 +2755,7 @@ export class DatabaseStorage implements IStorage {
     unidade?: string;
     responsavelId?: number;
     criadoPor?: number;
+    userId?: number;
     status?: string;
     prioridade?: string;
     categoria?: string;
@@ -2758,11 +2769,20 @@ export class DatabaseStorage implements IStorage {
     if (filters?.unidade) {
       conditions.push(eq(tarefas.unidade, filters.unidade));
     }
-    if (filters?.responsavelId) {
-      conditions.push(eq(tarefas.responsavelId, filters.responsavelId));
-    }
-    if (filters?.criadoPor) {
-      conditions.push(eq(tarefas.criadoPor, filters.criadoPor));
+    if (filters?.userId) {
+      conditions.push(
+        or(
+          eq(tarefas.responsavelId, filters.userId),
+          eq(tarefas.criadoPor, filters.userId)
+        )
+      );
+    } else {
+      if (filters?.responsavelId) {
+        conditions.push(eq(tarefas.responsavelId, filters.responsavelId));
+      }
+      if (filters?.criadoPor) {
+        conditions.push(eq(tarefas.criadoPor, filters.criadoPor));
+      }
     }
     if (filters?.status) {
       conditions.push(eq(tarefas.status, filters.status));
@@ -2832,14 +2852,17 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
-  async getTarefasDoDia(responsavelId: number, data?: string): Promise<Tarefa[]> {
+  async getTarefasDoDia(userId: number, data?: string): Promise<Tarefa[]> {
     const hoje = data || new Date().toISOString().split('T')[0];
     return db
       .select()
       .from(tarefas)
       .where(
         and(
-          eq(tarefas.responsavelId, responsavelId),
+          or(
+            eq(tarefas.responsavelId, userId),
+            eq(tarefas.criadoPor, userId)
+          ),
           lte(tarefas.dataInicio, hoje),
           gte(tarefas.dataFim, hoje),
           ne(tarefas.status, 'concluida'),
@@ -2849,7 +2872,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(tarefas.prioridade));
   }
 
-  async getTarefasAtrasadas(responsavelId?: number, unidade?: string): Promise<Tarefa[]> {
+  async getTarefasAtrasadas(userId?: number, unidade?: string): Promise<Tarefa[]> {
     const hoje = new Date().toISOString().split('T')[0];
     const conditions: any[] = [
       lte(tarefas.dataFim, hoje),
@@ -2857,8 +2880,13 @@ export class DatabaseStorage implements IStorage {
       ne(tarefas.status, 'cancelada')
     ];
 
-    if (responsavelId) {
-      conditions.push(eq(tarefas.responsavelId, responsavelId));
+    if (userId) {
+      conditions.push(
+        or(
+          eq(tarefas.responsavelId, userId),
+          eq(tarefas.criadoPor, userId)
+        )
+      );
     }
     if (unidade) {
       conditions.push(eq(tarefas.unidade, unidade));
@@ -2873,8 +2901,7 @@ export class DatabaseStorage implements IStorage {
 
   async getEstatisticasTarefas(filters?: {
     unidade?: string;
-    responsavelId?: number;
-    criadoPor?: number;
+    userId?: number;
   }): Promise<{
     total: number;
     pendentes: number;
@@ -2888,11 +2915,13 @@ export class DatabaseStorage implements IStorage {
     if (filters?.unidade) {
       conditions.push(eq(tarefas.unidade, filters.unidade));
     }
-    if (filters?.responsavelId) {
-      conditions.push(eq(tarefas.responsavelId, filters.responsavelId));
-    }
-    if (filters?.criadoPor) {
-      conditions.push(eq(tarefas.criadoPor, filters.criadoPor));
+    if (filters?.userId) {
+      conditions.push(
+        or(
+          eq(tarefas.responsavelId, filters.userId),
+          eq(tarefas.criadoPor, filters.userId)
+        )
+      );
     }
 
     let query = db.select().from(tarefas).$dynamic();
