@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Calendar, ChevronLeft, ChevronRight, Shield, AlertTriangle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Shield, AlertTriangle, ClipboardList, FileText } from "lucide-react";
 import { parseISO } from "date-fns";
 
 interface LicenseEvent {
@@ -13,7 +13,7 @@ interface LicenseEvent {
   validade: string;
   empreendimentoNome: string;
   orgaoEmissor: string;
-  eventType?: 'licenca' | 'demanda';
+  eventType?: 'licenca' | 'demanda' | 'tarefa';
 }
 
 const MONTHS = [
@@ -177,6 +177,20 @@ export default function LicenseCalendar() {
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span>&gt; 90 dias</span>
                 </div>
+                <div className="border-l pl-4 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-3 w-3 text-blue-600" />
+                    <span>Licença</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3 w-3 text-amber-600" />
+                    <span>Demanda</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-3 w-3 text-purple-600" />
+                    <span>Tarefa</span>
+                  </div>
+                </div>
               </div>
 
               {/* Calendar Grid */}
@@ -250,23 +264,46 @@ export default function LicenseCalendar() {
                                 (new Date(license.validade).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
                               );
                               
+                              const getEventIcon = () => {
+                                if (license.eventType === 'tarefa') return <ClipboardList className="h-3 w-3 text-purple-600" />;
+                                if (license.eventType === 'demanda') return <FileText className="h-3 w-3 text-amber-600" />;
+                                return <Shield className="h-3 w-3 text-blue-600" />;
+                              };
+                              
+                              const getEventLabel = () => {
+                                if (license.eventType === 'tarefa') return 'Tarefa';
+                                if (license.eventType === 'demanda') return 'Demanda';
+                                return 'Licença';
+                              };
+                              
+                              const borderColor = license.eventType === 'tarefa' ? 'border-purple-500' : 
+                                                  license.eventType === 'demanda' ? 'border-amber-500' : 'border-primary';
+                              
                               return (
-                                <div key={i} className="border-l-2 border-primary pl-2 text-sm">
+                                <div key={i} className={`border-l-2 ${borderColor} pl-2 text-sm`}>
                                   <div className="flex items-center gap-2 mb-1">
-                                    <Shield className="h-3 w-3 text-blue-600" />
+                                    {getEventIcon()}
+                                    <Badge variant="outline" className="text-xs">{getEventLabel()}</Badge>
                                     <span className="font-medium">{license.tipo}</span>
-                                    {daysToExpiry <= 30 && (
+                                    {daysToExpiry <= 30 && license.eventType !== 'tarefa' && (
                                       <AlertTriangle className="h-3 w-3 text-orange-500" />
                                     )}
                                   </div>
                                   <div className="text-muted-foreground">
-                                    <div><strong>Empreendimento:</strong> {license.empreendimentoNome}</div>
-                                    <div><strong>Órgão:</strong> {license.orgaoEmissor}</div>
-                                    <div className={`font-medium ${urgency?.textColor}`}>
-                                      {daysToExpiry < 0 ? 'VENCIDA!' : 
-                                       daysToExpiry === 0 ? 'VENCE HOJE!' :
-                                       `${daysToExpiry} dias restantes`}
-                                    </div>
+                                    <div><strong>{license.eventType === 'tarefa' ? 'Título:' : 'Empreendimento:'}</strong> {license.empreendimentoNome}</div>
+                                    <div><strong>{license.eventType === 'tarefa' ? 'Status:' : 'Órgão:'}</strong> {license.orgaoEmissor}</div>
+                                    {license.eventType !== 'tarefa' && (
+                                      <div className={`font-medium ${urgency?.textColor}`}>
+                                        {daysToExpiry < 0 ? 'VENCIDA!' : 
+                                         daysToExpiry === 0 ? 'VENCE HOJE!' :
+                                         `${daysToExpiry} dias restantes`}
+                                      </div>
+                                    )}
+                                    {license.eventType === 'tarefa' && (
+                                      <div className="font-medium text-purple-600">
+                                        Prazo: {new Date(license.validade).toLocaleDateString('pt-BR')}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
