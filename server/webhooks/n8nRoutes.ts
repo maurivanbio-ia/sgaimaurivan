@@ -533,8 +533,7 @@ export function registerN8nWebhooks(app: Express) {
         empreendimentoId: empreendimentoId || null,
         unidade,
         responsavelId,
-        criadoEm: new Date(),
-        atualizadoEm: new Date(),
+        criadoPor: responsavelId,
       }).returning();
       
       res.json({
@@ -793,7 +792,6 @@ export function registerN8nWebhooks(app: Express) {
       const coordenadores = await db
         .select({
           id: users.id,
-          nome: users.nome,
           email: users.email,
           cargo: users.cargo,
           unidade: users.unidade,
@@ -833,7 +831,7 @@ export function registerN8nWebhooks(app: Express) {
         .select({
           id: financeiroLancamentos.id,
           tipo: financeiroLancamentos.tipo,
-          categoria: financeiroLancamentos.categoria,
+          categoriaId: financeiroLancamentos.categoriaId,
           descricao: financeiroLancamentos.descricao,
           valor: financeiroLancamentos.valor,
           data: financeiroLancamentos.data,
@@ -861,7 +859,7 @@ export function registerN8nWebhooks(app: Express) {
       // Agrupar despesas por categoria
       const despesasPorCategoria: { [key: string]: number } = {};
       resultado.filter(l => l.tipo === 'despesa').forEach(l => {
-        const cat = l.categoria || 'Outros';
+        const cat = `Categoria ${l.categoriaId}` || 'Outros';
         despesasPorCategoria[cat] = (despesasPorCategoria[cat] || 0) + parseFloat(l.valor || '0');
       });
       
@@ -935,8 +933,7 @@ export function registerN8nWebhooks(app: Express) {
         dataEntrega: cond.prazo || new Date().toISOString().split('T')[0],
         unidade: cond.unidade || 'goiania',
         responsavelId: parseInt(responsavelId),
-        criadoEm: new Date(),
-        atualizadoEm: new Date(),
+        criadoPor: parseInt(responsavelId),
       }).returning();
       
       res.json({

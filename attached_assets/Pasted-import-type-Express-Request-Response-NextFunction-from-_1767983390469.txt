@@ -1,0 +1,412 @@
+import type { Express, Request, Response, NextFunction } from "express";
+import { storage } from "../storage";
+import { db } from "../db";
+import {
+licencasAmbientais,
+empreendimentos,
+contratos,
+rhRegistros,
+veiculos,
+equipamentos,
+demandas,
+projetos,
+tarefas,
+users,
+condicionantes,
+segDocumentosColaboradores,
+colaboradores,
+financeiroLancamentos
+} from "@shared/schema";
+import { sql, eq, and, lt, gte, lte } from "drizzle-orm";
+
+const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
+const N8N_API_KEY = process.env.N8N_API_KEY;
+const apiKey = req.headers['x-api-key'] || req.query.api_key;
+
+if (!N8N_API_KEY || N8N_API_KEY.length < 16) {
+console.error("[n8n Webhooks] N8N_API_KEY não configurada ou muito curta (mínimo 16 caracteres)");
+return res.status(503).json({
+error: "Serviço não disponível",
+message: "API Key do n8n não está configurada no servidor. Configure a variável N8N_API_KEY."
+});
+}
+
+Assistant
+Vejo o código! O problema é que você tem o middleware requireApiKey mas não mostrou as rotas implementadas. Vou criar os endpoints necessários baseado na estrutura do seu código.
+
+Aqui está o código completo para adicionar no seu arquivo de rotas do n8n:
+
+// Continuação do requireApiKey
+if (apiKey !== N8N_API_KEY) {
+  console.error("[n8n Webhooks] API Key inválida");
+  return res.status(401).json({ 
+    error: "Não autorizado", 
+    message: "API Key inválida" 
+  });
+}
+  
+  next();
+};
+
+export function registerN8nWebhooks(app: Express) {
+  // 1. Licenças Vencendo
+  app.get("/api/webhooks/n8n/licencas/vencendo", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const dias = parseInt(req.query.dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + dias);
+
+      const licencas = await db
+        .select({
+          id: licencasAmbientais.id,
+          numero: licencasAmbientais.numero,
+          tipo: licencasAmbientais.tipo,
+          dataVencimento: licencasAmbientais.dataVencimento,
+          empresaId: licencasAmbientais.empreendimentoId,
+          status: licencasAmbientais.status
+        })
+        .from(licencasAmbientais)
+        .where(
+          and(
+            gte(licencasAmbientais.dataVencimento, hoje.toISOString().split('T')[0]),
+            lte(licencasAmbientais.dataVencimento, dataLimite.toISOString().split('T')[0])
+          )
+        );
+
+      const licencasComDias = licencas.map(lic => {
+        const vencimento = new Date(lic.dataVencimento);
+        const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          ...lic,
+          diasRestantes,
+          empresa: `Empreendimento ${lic.empresaId}` // Você pode fazer join com empreendimentos se necessário
+        };
+      });
+
+      res.json({ success: true, data: licencasComDias });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar licenças:", error);
+      res.status(500).json({ error: "Erro ao buscar licenças" });
+    }
+  });
+
+  // 2. Condicionantes Pendentes
+  app.get("/api/webhooks/n8n/condicionantes/pendentes", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const dias = parseInt(req.query.dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + dias);
+
+      const condicionantesPendentes = await db
+        .select()
+        .from(condicionantes)
+        .where(
+          and(
+            eq(condicionantes.status, 'pendente'),
+            gte(condicionantes.prazo, hoje.toISOString().split('T')[0]),
+            lte(condicionantes.prazo, dataLimite.toISOString().split('T')[0])
+          )
+        );
+
+      const comDias = condicionantesPendentes.map(cond => {
+        const prazoDate = new Date(cond.prazo);
+        const diasRestantes = Math.ceil((prazoDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          ...cond,
+          diasRestantes,
+          dataVencimento: cond.prazo
+        };
+      });
+
+      res.json({ success: true, data: comDias });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar condicionantes:", error);
+      res.status(500).json({ error: "Erro ao buscar condicionantes" });
+    }
+  });
+
+  // 3. Criar Demandas
+  app.post("/api/webhooks/n8n/demandas", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const demanda = req.body;
+      
+      const novaDemanda = await db.insert(demandas).values({
+        titulo: demanda.titulo,
+        descricao: demanda.descricao,
+        status: demanda.status || 'pendente',
+        prioridade: demanda.prioridade || 'media',
+        projetoId: demanda.projetoId,
+        responsavelId: demanda.responsavelId,
+        dataVencimento: demanda.dataVencimento,
+        tipo: demanda.tipo || 'condicionante'
+      }).returning();
+
+      res.json({ success: true, data: novaDemanda[0] });
+    } catch (error) {
+      console.error("[n8n] Erro ao criar demanda:", error);
+      res.status(500).json({ error: "Erro ao criar demanda" });
+    }
+  });
+
+  // 4. Coordenadores
+  app.get("/api/webhooks/n8n/coordenadores", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const coordenadores = await db
+        .select({
+          id: users.id,
+          nome: users.nome,
+          email: users.email,
+          unidadeId: users.unidadeId,
+          cargo: users.cargo
+        })
+        .from(users)
+        .where(eq(users.cargo, 'coordenador'));
+
+      res.json({ success: true, data: coordenadores });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar coordenadores:", error);
+      res.status(500).json({ error: "Erro ao buscar coordenadores" });
+    }
+  });
+
+  // 5. Relatório por Unidade
+  app.get("/api/webhooks/n8n/relatorio/unidade/:unidadeId", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const unidadeId = parseInt(req.params.unidadeId);
+      
+      // Buscar licenças da unidade
+      const licencas = await db
+        .select()
+        .from(licencasAmbientais)
+        .where(eq(licencasAmbientais.empreendimentoId, unidadeId));
+
+      // Buscar condicionantes pendentes
+      const condicionantesPendentes = await db
+        .select()
+        .from(condicionantes)
+        .where(eq(condicionantes.status, 'pendente'));
+
+      // Buscar demandas em aberto
+      const demandasAbertas = await db
+        .select()
+        .from(demandas)
+        .where(eq(demandas.status, 'pendente'));
+
+      res.json({ 
+        success: true, 
+        data: {
+          unidadeId,
+          unidadeNome: `Unidade ${unidadeId}`,
+          licencas,
+          condicionantes: condicionantesPendentes,
+          demandas: demandasAbertas
+        }
+      });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar relatório:", error);
+      res.status(500).json({ error: "Erro ao buscar relatório" });
+    }
+  });
+
+  // 6. Relatório Financeiro Mensal
+  app.get("/api/webhooks/n8n/financeiro/relatorio-mensal", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const mes = parseInt(req.query.mes as string);
+      const ano = parseInt(req.query.ano as string);
+
+      const lancamentos = await db
+        .select()
+        .from(financeiroLancamentos)
+        .where(
+          sql`EXTRACT(MONTH FROM ${financeiroLancamentos.data}) = ${mes} AND EXTRACT(YEAR FROM ${financeiroLancamentos.data}) = ${ano}`
+        );
+
+      const receitas = lancamentos
+        .filter(l => l.tipo === 'receita')
+        .reduce((sum, l) => sum + parseFloat(l.valor.toString()), 0);
+
+      const despesas = lancamentos
+        .filter(l => l.tipo === 'despesa')
+        .reduce((sum, l) => sum + parseFloat(l.valor.toString()), 0);
+
+      res.json({ 
+        success: true, 
+        data: {
+          mes,
+          ano,
+          receitas: receitas.toFixed(2),
+          despesas: despesas.toFixed(2),
+          saldo: (receitas - despesas).toFixed(2),
+          detalhamento: lancamentos
+        }
+      });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar relatório financeiro:", error);
+      res.status(500).json({ error: "Erro ao buscar relatório financeiro" });
+    }
+  });
+
+  // 7. Contratos Vencendo
+  app.get("/api/webhooks/n8n/contratos/vencendo", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const dias = parseInt(req.query.dias as string) || 60;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + dias);
+
+      const contratosVencendo = await db
+        .select()
+        .from(contratos)
+        .where(
+          and(
+            gte(contratos.dataVencimento, hoje.toISOString().split('T')[0]),
+            lte(contratos.dataVencimento, dataLimite.toISOString().split('T')[0])
+          )
+        );
+
+      const comDias = contratosVencendo.map(contrato => {
+        const vencimento = new Date(contrato.dataVencimento);
+        const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          ...contrato,
+          diasRestantes,
+          empresa: contrato.fornecedor
+        };
+      });
+
+      res.json({ success: true, data: comDias });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar contratos:", error);
+      res.status(500).json({ error: "Erro ao buscar contratos" });
+    }
+  });
+
+  // 8. CNH Vencendo
+  app.get("/api/webhooks/n8n/rh/cnh-vencendo", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const dias = parseInt(req.query.dias as string) || 60;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + dias);
+
+      const cnhVencendo = await db
+        .select({
+          id: colaboradores.id,
+          funcionario: colaboradores.nome,
+          cpf: colaboradores.cpf,
+          dataVencimento: colaboradores.cnhVencimento
+        })
+        .from(colaboradores)
+        .where(
+          and(
+            gte(colaboradores.cnhVencimento, hoje.toISOString().split('T')[0]),
+            lte(colaboradores.cnhVencimento, dataLimite.toISOString().split('T')[0])
+          )
+        );
+
+      const comDias = cnhVencendo.map(cnh => {
+        const vencimento = new Date(cnh.dataVencimento);
+        const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        return { ...cnh, diasRestantes };
+      });
+
+      res.json({ success: true, data: comDias });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar CNH:", error);
+      res.status(500).json({ error: "Erro ao buscar CNH" });
+    }
+  });
+
+  // 9. Documentos Frota Vencendo
+  app.get("/api/webhooks/n8n/frota/documentos-vencendo", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const dias = parseInt(req.query.dias as string) || 60;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + dias);
+
+      const veiculosVencendo = await db
+        .select()
+        .from(veiculos)
+        .where(
+          and(
+            gte(veiculos.vencimentoLicenciamento, hoje.toISOString().split('T')[0]),
+            lte(veiculos.vencimentoLicenciamento, dataLimite.toISOString().split('T')[0])
+          )
+        );
+
+      const comDias = veiculosVencendo.map(veiculo => {
+        const vencimento = new Date(veiculo.vencimentoLicenciamento);
+        const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          id: veiculo.id,
+          veiculo: `${veiculo.marca} ${veiculo.modelo} - ${veiculo.placa}`,
+          tipoDocumento: 'Licenciamento',
+          dataVencimento: veiculo.vencimentoLicenciamento,
+          diasRestantes
+        };
+      });
+
+      res.json({ success: true, data: comDias });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar documentos frota:", error);
+      res.status(500).json({ error: "Erro ao buscar documentos frota" });
+    }
+  });
+
+  // 10. Exames ASO Vencendo
+  app.get("/api/webhooks/n8n/sst/exames-vencendo", requireApiKey, async (req: Request, res: Response) => {
+    try {
+      const dias = parseInt(req.query.dias as string) || 30;
+      const hoje = new Date();
+      const dataLimite = new Date();
+      dataLimite.setDate(hoje.getDate() + dias);
+
+      const examesVencendo = await db
+        .select({
+          id: segDocumentosColaboradores.id,
+          funcionario: colaboradores.nome,
+          cpf: colaboradores.cpf,
+          dataVencimento: segDocumentosColaboradores.dataVencimento,
+          tipo: segDocumentosColaboradores.tipo
+        })
+        .from(segDocumentosColaboradores)
+        .innerJoin(colaboradores, eq(segDocumentosColaboradores.colaboradorId, colaboradores.id))
+        .where(
+          and(
+            eq(segDocumentosColaboradores.tipo, 'ASO'),
+            gte(segDocumentosColaboradores.dataVencimento, hoje.toISOString().split('T')[0]),
+            lte(segDocumentosColaboradores.dataVencimento, dataLimite.toISOString().split('T')[0])
+          )
+        );
+
+      const comDias = examesVencendo.map(exame => {
+        const vencimento = new Date(exame.dataVencimento);
+        const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        return { ...exame, diasRestantes };
+      });
+
+      res.json({ success: true, data: comDias });
+    } catch (error) {
+      console.error("[n8n] Erro ao buscar exames ASO:", error);
+      res.status(500).json({ error: "Erro ao buscar exames ASO" });
+    }
+  });
+
+  console.log("[n8n Webhooks] Rotas registradas com sucesso");
+}
+📋 Para Implementar:
+
+Adicione este código no arquivo de rotas do n8n (provavelmente server/routes/n8n.ts ou similar)
+No arquivo principal do servidor (server/index.ts), importe e registre:
+import { registerN8nWebhooks } from "./routes/n8n";
+
+// Depois de configurar o Express
+registerN8nWebhooks(app);
+Certifique-se que a variável N8N_API_KEY=bor192023 está configurada nos Secrets do Replit
+
+Reinicie o servidor Replit
+
+Depois disso, teste novamente os workflows no n8n!
