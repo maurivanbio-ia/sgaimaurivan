@@ -238,7 +238,7 @@ export default function GestaoDados() {
         body: JSON.stringify({
           cliente, uf, projeto, subprojeto, disciplina, tipoDocumento, 
           entrega, area, periodo, status, extensao,
-          responsavel: currentUser?.nome || currentUser?.email,
+          responsavel: currentUser?.email,
         }),
       });
       if (res.ok) {
@@ -254,7 +254,10 @@ export default function GestaoDados() {
   // Inicializar estrutura macro
   const initMacroMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/datasets/estrutura/macro", { method: "POST" });
+      const res = await fetch("/api/datasets/estrutura/macro", { 
+        method: "POST",
+        credentials: "include"
+      });
       if (!res.ok) throw new Error("Erro ao inicializar estrutura");
       return res.json();
     },
@@ -412,7 +415,7 @@ export default function GestaoDados() {
           descricao,
           tipo: tipo || "outro",
           tamanho: file.size,
-          usuario: currentUser?.nome || currentUser?.email || "Usuário",
+          usuario: currentUser?.email || "Usuário",
           url: reader.result as string,
           dataUpload: new Date().toISOString(),
         });
