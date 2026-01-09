@@ -134,7 +134,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
   financeiro: {
     dashboard: readOnly,
     dashboard_executivo: noAccess,
-    dashboard_coordenador: noAccess,
+    dashboard_coordenador: readOnly,
     meu_painel: createEdit,
     empreendimentos: readOnly,
     licencas: readOnly,
@@ -163,7 +163,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
   rh: {
     dashboard: readOnly,
     dashboard_executivo: noAccess,
-    dashboard_coordenador: noAccess,
+    dashboard_coordenador: readOnly,
     meu_painel: createEdit,
     empreendimentos: readOnly,
     licencas: readOnly,
@@ -192,7 +192,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
   colaborador: {
     dashboard: readOnly,
     dashboard_executivo: noAccess,
-    dashboard_coordenador: noAccess,
+    dashboard_coordenador: readOnly,
     meu_painel: createEdit,
     empreendimentos: readOnly,
     licencas: readOnly,
