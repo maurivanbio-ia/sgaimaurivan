@@ -383,6 +383,11 @@ export default function GestaoDados() {
       toast({ title: "Erro", description: "Selecione o empreendimento e o arquivo.", variant: "destructive" });
       return;
     }
+    
+    if (!pastaDestino) {
+      toast({ title: "Erro", description: "Selecione a pasta de destino.", variant: "destructive" });
+      return;
+    }
 
     setIsUploading(true);
     const reader = new FileReader();
@@ -407,6 +412,7 @@ export default function GestaoDados() {
           status,
           classificacao,
           titulo,
+          pastaDestino,
         });
       } else {
         uploadMutation.mutate({
@@ -418,6 +424,7 @@ export default function GestaoDados() {
           usuario: currentUser?.email || "Usuário",
           url: reader.result as string,
           dataUpload: new Date().toISOString(),
+          pastaDestino,
         });
       }
     };
@@ -749,6 +756,23 @@ export default function GestaoDados() {
                 </div>
 
                 <div>
+                  <Label>Pasta Destino *</Label>
+                  <Select value={pastaDestino} onValueChange={setPastaDestino}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a pasta de destino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pastas.filter(p => p.tipo !== "macro" || p.caminho === "/ECOBRASIL_GESTAO_DADOS").map((pasta) => (
+                        <SelectItem key={pasta.id} value={pasta.caminho}>
+                          {pasta.caminho.replace("/ECOBRASIL_GESTAO_DADOS/", "").replace("/ECOBRASIL_GESTAO_DADOS", "Raiz") || pasta.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Selecione onde o arquivo sera armazenado</p>
+                </div>
+
+                <div>
                   <Label>Arquivo *</Label>
                   <Input
                     type="file"
@@ -985,7 +1009,7 @@ export default function GestaoDados() {
                 Estrutura de Pastas Institucional
               </CardTitle>
               <CardDescription>
-                Hierarquia de pastas para organizacao dos documentos do projeto
+                Hierarquia de pastas para organizacao dos documentos do projeto. Clique em uma pasta para ver seus arquivos.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -998,15 +1022,98 @@ export default function GestaoDados() {
                   </Button>
                 </div>
               ) : (
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[500px]">
                   <div className="space-y-1">
-                    {pastas.filter(p => !p.pai || p.pai === "/ECOBRASIL_GESTAO_DADOS").map((pasta) => (
-                      <div key={pasta.id} className="flex items-center gap-2 py-1 px-2 hover:bg-muted rounded">
-                        <FolderOpen className="h-4 w-4 text-amber-500" />
-                        <span className="font-mono text-sm">{pasta.nome}</span>
-                        <Badge variant="outline" className="text-xs ml-auto">{pasta.tipo}</Badge>
-                      </div>
-                    ))}
+                    {pastas.filter(p => !p.pai || p.pai === "/ECOBRASIL_GESTAO_DADOS").map((pasta) => {
+                      const subpastas = pastas.filter(p => p.pai === pasta.caminho);
+                      const arquivosDaPasta = datasets.filter(d => d.pastaDestino === pasta.caminho);
+                      
+                      return (
+                        <Collapsible key={pasta.id}>
+                          <CollapsibleTrigger className="w-full">
+                            <div className="flex items-center gap-2 py-2 px-2 hover:bg-muted rounded cursor-pointer">
+                              <ChevronRight className="h-4 w-4 text-muted-foreground collapsible-chevron" />
+                              <FolderOpen className="h-4 w-4 text-amber-500" />
+                              <span className="font-mono text-sm font-medium">{pasta.nome}</span>
+                              <Badge variant="outline" className="text-xs ml-auto">
+                                {arquivosDaPasta.length} {arquivosDaPasta.length === 1 ? "arquivo" : "arquivos"}
+                              </Badge>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-6 pl-4 border-l-2 border-muted">
+                              {subpastas.map((subpasta) => {
+                                const arquivosSubpasta = datasets.filter(d => d.pastaDestino === subpasta.caminho);
+                                const subsubpastas = pastas.filter(p => p.pai === subpasta.caminho);
+                                
+                                return (
+                                  <Collapsible key={subpasta.id}>
+                                    <CollapsibleTrigger className="w-full">
+                                      <div className="flex items-center gap-2 py-1 px-2 hover:bg-muted rounded cursor-pointer">
+                                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                        <FolderOpen className="h-3 w-3 text-amber-400" />
+                                        <span className="font-mono text-xs">{subpasta.nome}</span>
+                                        {arquivosSubpasta.length > 0 && (
+                                          <Badge variant="secondary" className="text-xs ml-auto">{arquivosSubpasta.length}</Badge>
+                                        )}
+                                      </div>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <div className="ml-4 pl-2 border-l border-muted">
+                                        {subsubpastas.map((ssp) => {
+                                          const arquivosSsp = datasets.filter(d => d.pastaDestino === ssp.caminho);
+                                          return (
+                                            <div key={ssp.id} className="flex items-center gap-2 py-1 px-2 hover:bg-muted/50 rounded">
+                                              <FolderOpen className="h-3 w-3 text-amber-300" />
+                                              <span className="font-mono text-xs text-muted-foreground">{ssp.nome}</span>
+                                              {arquivosSsp.length > 0 && (
+                                                <Badge variant="secondary" className="text-xs ml-auto">{arquivosSsp.length}</Badge>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                        {arquivosSubpasta.map((arq) => (
+                                          <div key={arq.id} className="flex items-center gap-2 py-1 px-2 hover:bg-blue-50 dark:hover:bg-blue-950 rounded">
+                                            <FileText className="h-3 w-3 text-blue-500" />
+                                            <span className="text-xs truncate flex-1">{arq.codigoArquivo || arq.nome}</span>
+                                            <div className="flex gap-1">
+                                              <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handlePreview(arq)}>
+                                                <Eye className="h-3 w-3" />
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handleDownload(arq)}>
+                                                <Download className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                );
+                              })}
+                              {arquivosDaPasta.map((arq) => (
+                                <div key={arq.id} className="flex items-center gap-2 py-1 px-2 hover:bg-blue-50 dark:hover:bg-blue-950 rounded">
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                  <span className="text-sm truncate flex-1">{arq.codigoArquivo || arq.nome}</span>
+                                  <Badge className={getStatusBadge(arq.status)} variant="outline">{arq.status || "N/A"}</Badge>
+                                  <div className="flex gap-1">
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handlePreview(arq)}>
+                                      <Eye className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownload(arq)}>
+                                      <Download className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                              {subpastas.length === 0 && arquivosDaPasta.length === 0 && (
+                                <p className="text-xs text-muted-foreground py-2 px-2 italic">Pasta vazia</p>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               )}
