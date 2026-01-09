@@ -454,69 +454,103 @@ async function sendResumoSemanalDemandas() {
 export async function sendResumoSemanalTest(emails: string[]) {
   console.log('[Resumo Demandas] Enviando teste para:', emails);
 
-  const stats = {
-    demandasAtivas: 5,
-    demandasAtrasadas: 2,
-    tarefasAtivas: 8,
-    tarefasAtrasadas: 1
-  };
-
-  const htmlBody = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: linear-gradient(135deg, #228B22 0%, #006400 100%); padding: 20px; border-radius: 10px 10px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Resumo Semanal</h1>
-        <p style="color: #90EE90; margin: 5px 0 0 0;">Suas demandas e tarefas no EcoGestor</p>
-      </div>
-      
-      <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
-        <p style="margin: 0 0 20px 0; background: #fff3cd; padding: 10px; border-radius: 5px; color: #856404;">
-          <strong>TESTE</strong> - Este é um email de teste do sistema de resumo semanal.
-        </p>
-        <p style="margin: 0 0 20px 0;">Este é o resumo semanal contendo <strong>apenas</strong> as demandas e tarefas atribuídas a você no EcoGestor.</p>
-        
-        <table style="width: 100%; border-collapse: separate; border-spacing: 10px;">
-          <tr>
-            <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #228B22; width: 50%;">
-              <div style="font-size: 28px; font-weight: bold; color: #228B22;">${stats.demandasAtivas}</div>
-              <div style="color: #666; font-size: 14px;">Demandas ativas</div>
-            </td>
-            <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545; width: 50%;">
-              <div style="font-size: 28px; font-weight: bold; color: #dc3545;">${stats.demandasAtrasadas}</div>
-              <div style="color: #666; font-size: 14px;">Demandas atrasadas</div>
-            </td>
-          </tr>
-          <tr>
-            <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff;">
-              <div style="font-size: 28px; font-weight: bold; color: #007bff;">${stats.tarefasAtivas}</div>
-              <div style="color: #666; font-size: 14px;">Tarefas ativas</div>
-            </td>
-            <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
-              <div style="font-size: 28px; font-weight: bold; color: #ffc107;">${stats.tarefasAtrasadas}</div>
-              <div style="color: #666; font-size: 14px;">Tarefas atrasadas</div>
-            </td>
-          </tr>
-        </table>
-        
-        <p style="margin: 20px 0 0 0; color: #666; font-size: 14px;">
-          <strong>Recomenda-se revisar prazos e prioridades para a semana.</strong>
-        </p>
-      </div>
-      
-      <div style="background: #e9ecef; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
-        <p style="margin: 0; color: #666; font-size: 12px;">
-          Este é um email automático do sistema EcoGestor.<br>
-          EcoBrasil - Consultoria Ambiental | ${new Date().toLocaleDateString('pt-BR')}
-        </p>
-      </div>
-    </div>
-  `;
-
   for (const email of emails) {
-    await sendResumoDemandasEmail(
-      email,
-      `[TESTE] Resumo semanal - Suas demandas e tarefas | EcoGestor`,
-      htmlBody
-    );
+    try {
+      // Buscar dados reais do usuário
+      const stats = await getDemandasTarefasStats(email);
+      
+      // Gerar tabelas detalhadas
+      const demandasAtrasadasHtml = generateDemandasTable(stats.demandasAtrasadas, '⚠️ Demandas Atrasadas', '#dc3545');
+      const demandasAtivasHtml = generateDemandasTable(
+        stats.demandasAtivas.filter((d: any) => !stats.demandasAtrasadas.some((a: any) => a.id === d.id)),
+        '📋 Demandas em Andamento',
+        '#228B22'
+      );
+      const tarefasAtrasadasHtml = generateTarefasTable(stats.tarefasAtrasadas, '⚠️ Tarefas Atrasadas', '#dc3545');
+      const tarefasAtivasHtml = generateTarefasTable(
+        stats.tarefasAtivas.filter((t: any) => !stats.tarefasAtrasadas.some((a: any) => a.id === t.id)),
+        '✅ Tarefas em Andamento',
+        '#007bff'
+      );
+
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #228B22 0%, #006400 100%); padding: 20px; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Resumo Semanal</h1>
+            <p style="color: #90EE90; margin: 5px 0 0 0;">Suas demandas e tarefas no EcoGestor</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
+            <p style="margin: 0 0 10px 0; background: #fff3cd; padding: 10px; border-radius: 5px; color: #856404;">
+              <strong>TESTE</strong> - Este é um email de teste do sistema de resumo semanal.
+            </p>
+            <p style="margin: 0 0 20px 0;">Este é o resumo semanal das demandas e tarefas atribuídas a você no EcoGestor.</p>
+            
+            <!-- Cards resumo -->
+            <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 25px;">
+              <tr>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #228B22; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #228B22;">${stats.totalDemandasAtivas}</div>
+                  <div style="color: #666; font-size: 12px;">Demandas ativas</div>
+                </td>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #dc3545;">${stats.totalDemandasAtrasadas}</div>
+                  <div style="color: #666; font-size: 12px;">Demandas atrasadas</div>
+                </td>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #007bff;">${stats.totalTarefasAtivas}</div>
+                  <div style="color: #666; font-size: 12px;">Tarefas ativas</div>
+                </td>
+                <td style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; width: 25%;">
+                  <div style="font-size: 28px; font-weight: bold; color: #ffc107;">${stats.totalTarefasAtrasadas}</div>
+                  <div style="color: #666; font-size: 12px;">Tarefas atrasadas</div>
+                </td>
+              </tr>
+            </table>
+            
+            <!-- Tabelas detalhadas -->
+            ${demandasAtrasadasHtml}
+            ${tarefasAtrasadasHtml}
+            ${demandasAtivasHtml}
+            ${tarefasAtivasHtml}
+            
+            ${(stats.totalDemandasAtivas === 0 && stats.totalTarefasAtivas === 0) ? 
+              '<p style="text-align: center; color: #28a745; font-size: 16px; padding: 20px;">🎉 Parabéns! Você não tem demandas ou tarefas pendentes.</p>' : 
+              '<p style="margin: 20px 0 0 0; color: #666; font-size: 14px;"><strong>💡 Dica:</strong> Revise os prazos e prioridades para organizar melhor sua semana.</p>'
+            }
+            
+            <!-- Botões de acesso -->
+            <div style="margin-top: 25px; text-align: center;">
+              <a href="${PLATFORM_URL}/demandas" style="display: inline-block; background: #228B22; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                📋 Ver Demandas
+              </a>
+              <a href="${PLATFORM_URL}/minhas-tarefas" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                ✅ Ver Tarefas
+              </a>
+              <a href="${PLATFORM_URL}/calendario" style="display: inline-block; background: #6c757d; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 5px; font-weight: 500;">
+                📅 Calendário
+              </a>
+            </div>
+          </div>
+          
+          <div style="background: #e9ecef; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
+            <p style="margin: 0; color: #666; font-size: 12px;">
+              Este é um email automático do sistema EcoGestor.<br>
+              EcoBrasil - Consultoria Ambiental | ${new Date().toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+        </div>
+      `;
+
+      await sendResumoDemandasEmail(
+        email,
+        `[TESTE] Resumo semanal - Suas demandas e tarefas | EcoGestor`,
+        htmlBody
+      );
+      console.log(`[Resumo Demandas] Teste enviado para ${email}`);
+    } catch (error) {
+      console.error(`[Resumo Demandas] Erro ao enviar teste para ${email}:`, error);
+    }
   }
 
   return true;
