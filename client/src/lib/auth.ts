@@ -5,6 +5,8 @@ import { queryClient } from "./queryClient";
 export interface User {
   id: number;
   email: string;
+  nome?: string;
+  cargo?: string;
   role?: string;
   unidade?: string;
 }
@@ -15,7 +17,7 @@ export interface LoginData {
 }
 
 export function useAuth() {
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     retry: false,
   });
