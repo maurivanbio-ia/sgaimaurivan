@@ -758,6 +758,7 @@ export default function FinanceiroPage() {
     empreendimento: "",
     search: ""
   });
+  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState<string>("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLancamento, setEditingLancamento] = useState<FinanceiroLancamento | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -882,14 +883,37 @@ export default function FinanceiroPage() {
     },
   });
 
-  // Fetch financial stats for charts
+  // Fetch financial stats for charts (filtered by empreendimento)
   const { data: stats } = useQuery<FinancialStats>({
-    queryKey: ["/api/financeiro/stats"],
+    queryKey: ["/api/financeiro/stats", selectedEmpreendimentoId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedEmpreendimentoId && selectedEmpreendimentoId !== "todos") {
+        params.append("empreendimentoId", selectedEmpreendimentoId);
+      }
+      const queryStr = params.toString();
+      const res = await fetch(`/api/financeiro/stats${queryStr ? `?${queryStr}` : ""}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
   });
 
-  // Fetch expense evolution by category
+  // Fetch expense evolution by category (filtered by empreendimento)
   const { data: expenseEvolution } = useQuery<ExpenseEvolutionData>({
-    queryKey: ["/api/financeiro/expense-evolution", selectedExpenseCategory],
+    queryKey: ["/api/financeiro/expense-evolution", selectedExpenseCategory, selectedEmpreendimentoId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedEmpreendimentoId && selectedEmpreendimentoId !== "todos") {
+        params.append("empreendimentoId", selectedEmpreendimentoId);
+      }
+      if (selectedExpenseCategory && selectedExpenseCategory !== "todas") {
+        params.append("categoriaId", selectedExpenseCategory);
+      }
+      const queryStr = params.toString();
+      const res = await fetch(`/api/financeiro/expense-evolution${queryStr ? `?${queryStr}` : ""}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch expense evolution");
+      return res.json();
+    },
   });
 
   // Fetch empreendimentos for lookup
@@ -1127,17 +1151,18 @@ export default function FinanceiroPage() {
   return (
     <div className="container mx-auto py-8 space-y-6" data-testid="page-financeiro">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Módulo Financeiro
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Gestão completa dos aspectos econômicos dos projetos
-          </p>
-        </div>
-        
-        <div className="flex gap-3">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Módulo Financeiro
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Gestão completa dos aspectos econômicos dos projetos
+            </p>
+          </div>
+          
+          <div className="flex gap-3">
           <FinancialReportPDF 
             stats={stats} 
             empreendimentos={empreendimentos}
@@ -1169,6 +1194,36 @@ export default function FinanceiroPage() {
               <NovoLancamentoForm onSuccess={() => setDialogOpen(false)} />
             </DialogContent>
           </Dialog>
+        </div>
+        </div>
+        
+        {/* Empreendimento Filter */}
+        <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
+          <Building className="h-5 w-5 text-muted-foreground" />
+          <Label className="text-sm font-medium whitespace-nowrap">Filtrar por Empreendimento:</Label>
+          <Select value={selectedEmpreendimentoId} onValueChange={setSelectedEmpreendimentoId}>
+            <SelectTrigger className="w-[300px]" data-testid="select-empreendimento-filter">
+              <SelectValue placeholder="Todos os empreendimentos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Empreendimentos</SelectItem>
+              {empreendimentos.map((emp) => (
+                <SelectItem key={emp.id} value={emp.id.toString()}>
+                  {emp.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedEmpreendimentoId !== "todos" && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setSelectedEmpreendimentoId("todos")}
+              data-testid="button-limpar-filtro"
+            >
+              Limpar Filtro
+            </Button>
+          )}
         </div>
       </div>
 
