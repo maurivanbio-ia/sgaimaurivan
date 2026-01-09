@@ -44,6 +44,14 @@ import { websocketService } from "./services/websocketService";
 import { auditLogService } from "./services/auditLogService";
 import { scheduledReportsService } from "./services/scheduledReportsService";
 import { 
+  initScheduledReportSender, 
+  getReportConfig, 
+  setRelatorio360Emails, 
+  setRelatorioFinanceiroEmails,
+  triggerRelatorio360Now,
+  triggerRelatorioFinanceiroNow
+} from "./services/scheduledReportSender";
+import { 
   auditLogs,
   documentos,
   scheduledReports,
@@ -6307,6 +6315,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // CONFIGURAÇÃO DE RELATÓRIOS AUTOMÁTICOS
+  // ==========================================
+  
+  app.get('/api/relatorios-automaticos/config', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      const config = getReportConfig();
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/relatorios-automaticos/config/360/emails', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      const { emails } = req.body;
+      if (!Array.isArray(emails)) {
+        return res.status(400).json({ error: 'emails deve ser um array' });
+      }
+      setRelatorio360Emails(emails);
+      res.json({ success: true, message: 'Emails do Relatório 360° atualizados' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/relatorios-automaticos/config/financeiro/emails', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      const { emails } = req.body;
+      if (!Array.isArray(emails)) {
+        return res.status(400).json({ error: 'emails deve ser um array' });
+      }
+      setRelatorioFinanceiroEmails(emails);
+      res.json({ success: true, message: 'Emails do Relatório Financeiro atualizados' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/relatorios-automaticos/enviar/360', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      await triggerRelatorio360Now();
+      res.json({ success: true, message: 'Relatório 360° enviado com sucesso' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/relatorios-automaticos/enviar/financeiro', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      await triggerRelatorioFinanceiroNow();
+      res.json({ success: true, message: 'Relatório Financeiro enviado com sucesso' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Register n8n webhooks (before creating HTTP server)
   registerN8nWebhooks(app);
   
@@ -6320,6 +6400,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize scheduled reports service
   scheduledReportsService.initialize();
+  
+  // Initialize automated report sender (Relatório 360 e Financeiro)
+  initScheduledReportSender();
   
   return httpServer;
 }
