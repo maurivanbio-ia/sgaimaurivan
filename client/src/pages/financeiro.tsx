@@ -179,9 +179,24 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
 
   const tipoSelecionado = form.watch("tipo");
 
+  // Formatar data local como YYYY-MM-DD sem conversão UTC
+  const formatDateLocal = (date: Date | null | undefined): string | null => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const createLancamentoMutation = useMutation({
     mutationFn: async (data: NovoLancamentoFormData) => {
-      return apiRequest("POST", "/api/financeiro/lancamentos", data);
+      const payload = {
+        ...data,
+        data: formatDateLocal(data.data),
+        dataVencimento: formatDateLocal(data.dataVencimento),
+        dataPagamento: formatDateLocal(data.dataPagamento),
+      };
+      return apiRequest("POST", "/api/financeiro/lancamentos", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -542,6 +557,15 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
     queryKey: ["/api/financeiro/categorias"],
   });
 
+  // Formatar data local como YYYY-MM-DD sem conversão UTC
+  const formatDateLocal = (date: Date | null | undefined): string | null => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const form = useForm<NovoLancamentoFormData>({
     resolver: zodResolver(novoLancamentoSchema),
     defaultValues: {
@@ -573,9 +597,9 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
         empreendimentoId: data.empreendimentoId,
         categoriaId: data.categoriaId,
         valor: data.valor.toString(),
-        data: data.data.toISOString(),
-        dataVencimento: data.dataVencimento?.toISOString() || null,
-        dataPagamento: data.dataPagamento?.toISOString() || null,
+        data: formatDateLocal(data.data) as string,
+        dataVencimento: formatDateLocal(data.dataVencimento) || undefined,
+        dataPagamento: formatDateLocal(data.dataPagamento) || undefined,
         descricao: data.descricao,
         observacoes: data.observacoes || null,
       },
