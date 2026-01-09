@@ -2886,6 +2886,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/rh/:id/documentos', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
+    try {
+      const rhId = parseInt(req.params.id);
+      if (isNaN(rhId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+
+      const rhRegistro = await db.select().from(rhRegistros).where(eq(rhRegistros.id, rhId)).limit(1);
+      if (!rhRegistro.length) {
+        return res.status(404).json({ message: "Registro de RH não encontrado" });
+      }
+
+      const crypto = await import('crypto');
+      const checksum = crypto.createHash('md5').update(req.file.buffer).digest('hex');
+      const userId = req.session.userId!;
+
+      const [arquivo] = await db.insert(arquivos).values({
+        nome: req.file.originalname,
+        tipo: req.file.mimetype,
+        tamanho: req.file.size,
+        dados: req.file.buffer,
+        checksum,
+        origem: "rh",
+        uploaderId: userId,
+      }).returning();
+
+      const currentArquivos = (rhRegistro[0].arquivosIdsJson as number[]) || [];
+      await db.update(rhRegistros)
+        .set({ arquivosIdsJson: [...currentArquivos, arquivo.id] })
+        .where(eq(rhRegistros.id, rhId));
+
+      res.json({ message: "Documento enviado com sucesso", arquivo });
+    } catch (error: any) {
+      console.error("Upload RH document error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get('/api/rh/:id/documentos', requireAuth, async (req, res) => {
+    try {
+      const rhId = parseInt(req.params.id);
+      if (isNaN(rhId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+
+      const rhRegistro = await db.select().from(rhRegistros).where(eq(rhRegistros.id, rhId)).limit(1);
+      if (!rhRegistro.length) {
+        return res.status(404).json({ message: "Registro não encontrado" });
+      }
+
+      const arquivoIds = (rhRegistro[0].arquivosIdsJson as number[]) || [];
+      if (arquivoIds.length === 0) {
+        return res.json([]);
+      }
+
+      const docs = await db.select({
+        id: arquivos.id,
+        nome: arquivos.nome,
+        tipo: arquivos.tipo,
+        tamanho: arquivos.tamanho,
+        criadoEm: arquivos.criadoEm,
+      }).from(arquivos).where(inArray(arquivos.id, arquivoIds));
+
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete('/api/rh/:rhId/documentos/:docId', requireAuth, async (req, res) => {
+    try {
+      const rhId = parseInt(req.params.rhId);
+      const docId = parseInt(req.params.docId);
+
+      if (isNaN(rhId) || isNaN(docId)) {
+        return res.status(400).json({ message: "IDs inválidos" });
+      }
+
+      const rhRegistro = await db.select().from(rhRegistros).where(eq(rhRegistros.id, rhId)).limit(1);
+      if (!rhRegistro.length) {
+        return res.status(404).json({ message: "Registro não encontrado" });
+      }
+
+      const currentArquivos = (rhRegistro[0].arquivosIdsJson as number[]) || [];
+      const updatedArquivos = currentArquivos.filter(id => id !== docId);
+
+      await db.update(rhRegistros)
+        .set({ arquivosIdsJson: updatedArquivos })
+        .where(eq(rhRegistros.id, rhId));
+
+      await db.delete(arquivos).where(eq(arquivos.id, docId));
+
+      res.json({ message: "Documento removido com sucesso" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ========================================
   // COORDENADORES RANKING - GAMIFICATION
   // ========================================
