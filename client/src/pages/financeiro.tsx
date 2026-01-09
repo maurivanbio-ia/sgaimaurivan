@@ -48,6 +48,26 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
+
+// Helper global para parsear datas do servidor como data local (evita conversão UTC)
+function parseServerDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  // Extrair apenas YYYY-MM-DD e criar data local ao meio-dia para evitar problemas de timezone
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length !== 3) return null;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1; // meses são 0-indexed
+  const day = parseInt(parts[2], 10);
+  return new Date(year, month, day, 12, 0, 0); // meio-dia para evitar edge cases
+}
+
+// Helper para formatar data do servidor para exibição
+function formatServerDate(dateStr: string | null | undefined): string {
+  const date = parseServerDate(dateStr);
+  if (!date) return '-';
+  return format(date, "dd/MM/yyyy", { locale: ptBR });
+}
+
 import { useToast } from "@/hooks/use-toast";
 import type { FinanceiroLancamento, Empreendimento, CategoriaFinanceira } from "@shared/schema";
 import * as z from "zod";
@@ -574,9 +594,9 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
       categoriaId: lancamento.categoriaId || 0,
       categoriaOutros: "",
       valor: Number(lancamento.valor),
-      data: new Date(lancamento.data),
-      dataVencimento: lancamento.dataVencimento ? new Date(lancamento.dataVencimento) : null,
-      dataPagamento: lancamento.dataPagamento ? new Date(lancamento.dataPagamento) : null,
+      data: parseServerDate(lancamento.data) || new Date(),
+      dataVencimento: parseServerDate(lancamento.dataVencimento),
+      dataPagamento: parseServerDate(lancamento.dataPagamento),
       descricao: lancamento.descricao,
       observacoes: lancamento.observacoes || "",
     },
@@ -1700,12 +1720,12 @@ export default function FinanceiroPage() {
                         return (
                           <tr key={lancamento.id} className="border-b hover:bg-muted/50" data-testid={`row-lancamento-${lancamento.id}`}>
                             <td className="p-4">
-                              {format(new Date(lancamento.data), "dd/MM/yyyy", { locale: ptBR })}
+                              {formatServerDate(lancamento.data)}
                             </td>
                             <td className="p-4 text-sm">
                               {lancamento.dataVencimento ? (
-                                <span className={new Date(lancamento.dataVencimento) < new Date() && lancamento.status !== 'pago' ? 'text-red-600 font-medium' : ''}>
-                                  {format(new Date(lancamento.dataVencimento), "dd/MM/yyyy", { locale: ptBR })}
+                                <span className={(parseServerDate(lancamento.dataVencimento) || new Date()) < new Date() && lancamento.status !== 'pago' ? 'text-red-600 font-medium' : ''}>
+                                  {formatServerDate(lancamento.dataVencimento)}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
@@ -1713,7 +1733,7 @@ export default function FinanceiroPage() {
                             </td>
                             <td className="p-4 text-sm">
                               {lancamento.dataPagamento ? (
-                                format(new Date(lancamento.dataPagamento), "dd/MM/yyyy", { locale: ptBR })
+                                formatServerDate(lancamento.dataPagamento)
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
