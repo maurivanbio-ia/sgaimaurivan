@@ -18,6 +18,7 @@ import {
   financeiroLancamentos
 } from "@shared/schema";
 import { sql, eq, and, lt, gte, lte } from "drizzle-orm";
+import { generatePlatformReportPDF, generateFinanceReportPDF, sendReportByEmail } from "../services/reportPdfService";
 
 const requireApiKey = (req: Request, res: Response, next: NextFunction) => {
   const N8N_API_KEY = process.env.N8N_API_KEY;
@@ -1079,6 +1080,94 @@ export function registerN8nWebhooks(app: Express) {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ==========================================
+  // RELATÓRIOS PDF (GET + POST)
+  // ==========================================
+
+  const handleRelatorio360PDF = async (req: Request, res: Response) => {
+    try {
+      const params = getParams(req);
+      const { unidade, email, enviarEmail } = params;
+      
+      const pdfBuffer = await generatePlatformReportPDF({ unidade: unidade as string });
+      const filename = `Relatorio_360_EcoBrasil_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      if (enviarEmail === 'true' && email) {
+        const enviado = await sendReportByEmail(
+          pdfBuffer,
+          filename,
+          email as string,
+          'Relatório 360° EcoBrasil - Semanal',
+          `Segue em anexo o Relatório 360° EcoBrasil gerado automaticamente.\n\nData: ${new Date().toLocaleDateString('pt-BR')}\n${unidade ? `Unidade: ${unidade}` : 'Todas as unidades'}\n\nEste é um email automático do sistema EcoGestor.`
+        );
+        
+        return res.json({
+          success: enviado,
+          message: enviado ? 'Relatório enviado por email com sucesso' : 'Erro ao enviar email',
+          filename,
+          recipientEmail: email
+        });
+      }
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error("Erro ao gerar relatório 360:", error);
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  app.get("/api/webhooks/n8n/relatorios/360", requireApiKey, handleRelatorio360PDF);
+  app.post("/api/webhooks/n8n/relatorios/360", requireApiKey, handleRelatorio360PDF);
+
+  const handleRelatorioFinanceiroPDF = async (req: Request, res: Response) => {
+    try {
+      const params = getParams(req);
+      const { unidade, mes, ano, email, enviarEmail } = params;
+      
+      const pdfBuffer = await generateFinanceReportPDF({
+        unidade: unidade as string,
+        mes: mes ? parseInt(mes as string) : undefined,
+        ano: ano ? parseInt(ano as string) : undefined
+      });
+      
+      const mesNum = mes ? parseInt(mes as string) : new Date().getMonth() + 1;
+      const anoNum = ano ? parseInt(ano as string) : new Date().getFullYear();
+      const filename = `Relatorio_Financeiro_${anoNum}_${String(mesNum).padStart(2, '0')}.pdf`;
+      
+      if (enviarEmail === 'true' && email) {
+        const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        
+        const enviado = await sendReportByEmail(
+          pdfBuffer,
+          filename,
+          email as string,
+          `Relatório Financeiro - ${monthNames[mesNum - 1]} ${anoNum}`,
+          `Segue em anexo o Relatório Financeiro gerado automaticamente.\n\nPeríodo: ${monthNames[mesNum - 1]} de ${anoNum}\n${unidade ? `Unidade: ${unidade}` : 'Todas as unidades'}\n\nEste é um email automático do sistema EcoGestor.`
+        );
+        
+        return res.json({
+          success: enviado,
+          message: enviado ? 'Relatório enviado por email com sucesso' : 'Erro ao enviar email',
+          filename,
+          recipientEmail: email,
+          periodo: `${monthNames[mesNum - 1]} ${anoNum}`
+        });
+      }
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error("Erro ao gerar relatório financeiro:", error);
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  app.get("/api/webhooks/n8n/relatorios/financeiro", requireApiKey, handleRelatorioFinanceiroPDF);
+  app.post("/api/webhooks/n8n/relatorios/financeiro", requireApiKey, handleRelatorioFinanceiroPDF);
 
   console.log("[n8n Webhooks] Rotas registradas com sucesso");
 }

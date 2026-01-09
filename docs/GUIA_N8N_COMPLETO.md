@@ -376,6 +376,137 @@ Você pode filtrar dados por unidade usando POST:
 
 ---
 
+---
+
+## Fluxo 13: Relatório 360° Semanal (PDF por Email)
+
+**Executa:** Toda segunda-feira às 8h
+
+### Nós:
+
+1. **Schedule Trigger**
+   - Expression: `0 8 * * 1`
+
+2. **HTTP Request**
+   - Method: POST
+   - URL: `{{$env.ECOGESTOR_URL}}/api/webhooks/n8n/relatorios/360`
+   - Authentication: Header Auth > EcoGestor API Key
+   - Body (JSON):
+   ```json
+   {
+     "enviarEmail": "true",
+     "email": "diretoria@ecobrasil.bio.br"
+   }
+   ```
+
+3. **IF**
+   - Condition: `{{$json.success}}` = true
+
+4. **Send Confirmation** (opcional)
+   - Email de confirmação para TI
+
+### Parâmetros disponíveis:
+
+| Parâmetro | Descrição | Exemplo |
+|-----------|-----------|---------|
+| `unidade` | Filtrar por unidade | `goiania`, `salvador`, `luiz_eduardo_magalhaes` |
+| `email` | Email de destino | `diretoria@ecobrasil.bio.br` |
+| `enviarEmail` | Enviar por email | `true` |
+
+**Sem `enviarEmail=true`**: Retorna o PDF diretamente (para download)
+
+---
+
+## Fluxo 14: Relatório Financeiro Semanal (PDF por Email)
+
+**Executa:** Toda sexta-feira às 17h
+
+### Nós:
+
+1. **Schedule Trigger**
+   - Expression: `0 17 * * 5`
+
+2. **HTTP Request**
+   - Method: POST
+   - URL: `{{$env.ECOGESTOR_URL}}/api/webhooks/n8n/relatorios/financeiro`
+   - Authentication: Header Auth > EcoGestor API Key
+   - Body (JSON):
+   ```json
+   {
+     "enviarEmail": "true",
+     "email": "financeiro@ecobrasil.bio.br"
+   }
+   ```
+
+3. **IF**
+   - Condition: `{{$json.success}}` = true
+
+4. **Send Confirmation** (opcional)
+
+### Parâmetros disponíveis:
+
+| Parâmetro | Descrição | Exemplo |
+|-----------|-----------|---------|
+| `unidade` | Filtrar por unidade | `goiania` |
+| `mes` | Mês do relatório (1-12) | `1` (Janeiro) |
+| `ano` | Ano do relatório | `2026` |
+| `email` | Email de destino | `financeiro@ecobrasil.bio.br` |
+| `enviarEmail` | Enviar por email | `true` |
+
+---
+
+## Exemplos de Configuração Completa
+
+### Relatório 360° para Múltiplas Unidades
+
+Crie um fluxo separado para cada unidade:
+
+```json
+// Unidade Goiânia
+{
+  "unidade": "goiania",
+  "enviarEmail": "true",
+  "email": "coordenacao.goiania@ecobrasil.bio.br"
+}
+
+// Unidade Salvador
+{
+  "unidade": "salvador",
+  "enviarEmail": "true",
+  "email": "coordenacao.salvador@ecobrasil.bio.br"
+}
+
+// Unidade Luiz Eduardo Magalhães
+{
+  "unidade": "luiz_eduardo_magalhaes",
+  "enviarEmail": "true",
+  "email": "coordenacao.lem@ecobrasil.bio.br"
+}
+```
+
+### Testando os Endpoints de Relatório
+
+```bash
+# Baixar Relatório 360° como PDF
+curl -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+  "https://sua-url.replit.app/api/webhooks/n8n/relatorios/360" \
+  --output relatorio360.pdf
+
+# Enviar Relatório 360° por email
+curl -X POST -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+  -H "Content-Type: application/json" \
+  -d '{"enviarEmail": "true", "email": "seu@email.com"}' \
+  "https://sua-url.replit.app/api/webhooks/n8n/relatorios/360"
+
+# Relatório Financeiro de Janeiro/2026
+curl -X POST -H "N8N_API_KEY: EcoBrasil2024SecureKey!" \
+  -H "Content-Type: application/json" \
+  -d '{"mes": 1, "ano": 2026, "enviarEmail": "true", "email": "financeiro@ecobrasil.bio.br"}' \
+  "https://sua-url.replit.app/api/webhooks/n8n/relatorios/financeiro"
+```
+
+---
+
 ## Suporte
 
 Em caso de dúvidas, consulte a documentação do n8n ou entre em contato com a equipe de TI.
