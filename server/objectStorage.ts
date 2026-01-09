@@ -79,6 +79,66 @@ export class ObjectStorageService {
     };
   }
 
+  // Gets the upload URL for equipment damage images
+  async getEquipmentImageUploadURL(extension: string = 'jpg'): Promise<{ uploadUrl: string; filePath: string }> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    if (!privateObjectDir) {
+      throw new Error(
+        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
+          "tool and set PRIVATE_OBJECT_DIR env var."
+      );
+    }
+
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/equipamentos/${objectId}.${extension}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    // Sign URL for PUT method with TTL
+    const uploadUrl = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+
+    return {
+      uploadUrl,
+      filePath: `/files/equipamentos/${objectId}.${extension}`
+    };
+  }
+
+  // Gets signed URL to view an image
+  async getSignedViewURL(filePath: string): Promise<string> {
+    const fullObjectPath = this.getFullObjectPath(filePath);
+    const { bucketName, objectName } = parseObjectPath(fullObjectPath);
+
+    return await signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec: 3600,
+    });
+  }
+
+  // Deletes a file from object storage
+  async deleteFile(filePath: string): Promise<void> {
+    const fullObjectPath = this.getFullObjectPath(filePath);
+    const { bucketName, objectName } = parseObjectPath(fullObjectPath);
+
+    const deleteUrl = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "DELETE",
+      ttlSec: 300,
+    });
+
+    const response = await fetch(deleteUrl, { method: "DELETE" });
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Failed to delete file: ${response.status}`);
+    }
+  }
+
   // Gets the full object path for a file path
   getFullObjectPath(filePath: string): string {
     if (!filePath.startsWith("/files/")) {

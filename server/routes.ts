@@ -2171,6 +2171,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get upload URL for equipment damage image
+  app.post('/api/equipamentos/:id/imagens/upload-url', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) {
+        return res.status(404).json({ error: 'Equipamento not found' });
+      }
+
+      const { extension = 'jpg' } = req.body;
+      const { ObjectStorageService } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      const { uploadUrl, filePath } = await objectStorageService.getEquipmentImageUploadURL(extension);
+      
+      res.json({ uploadUrl, filePath });
+    } catch (error) {
+      console.error('Error getting upload URL:', error);
+      res.status(500).json({ error: 'Failed to get upload URL' });
+    }
+  });
+
+  // Add damage image to equipment
+  app.post('/api/equipamentos/:id/imagens', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) {
+        return res.status(404).json({ error: 'Equipamento not found' });
+      }
+
+      const { filePath, descricao } = req.body;
+      if (!filePath) {
+        return res.status(400).json({ error: 'filePath is required' });
+      }
+
+      // Parse existing images
+      let imagens: Array<{ filePath: string; descricao?: string; dataUpload: string }> = [];
+      if (equipamento.imagensDanoJson) {
+        try {
+          imagens = JSON.parse(equipamento.imagensDanoJson);
+        } catch (e) {
+          imagens = [];
+        }
+      }
+
+      // Add new image
+      imagens.push({
+        filePath,
+        descricao: descricao || '',
+        dataUpload: new Date().toISOString()
+      });
+
+      // Update equipment
+      const updated = await storage.updateEquipamento(id, {
+        imagensDanoJson: JSON.stringify(imagens)
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error adding damage image:', error);
+      res.status(500).json({ error: 'Failed to add damage image' });
+    }
+  });
+
+  // Get damage images for equipment (with signed URLs)
+  app.get('/api/equipamentos/:id/imagens', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) {
+        return res.status(404).json({ error: 'Equipamento not found' });
+      }
+
+      let imagens: Array<{ filePath: string; descricao?: string; dataUpload: string }> = [];
+      if (equipamento.imagensDanoJson) {
+        try {
+          imagens = JSON.parse(equipamento.imagensDanoJson);
+        } catch (e) {
+          imagens = [];
+        }
+      }
+
+      // Generate signed URLs for viewing
+      const { ObjectStorageService } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      
+      const imagensComUrl = await Promise.all(
+        imagens.map(async (img) => {
+          try {
+            const signedUrl = await objectStorageService.getSignedViewURL(img.filePath);
+            return { ...img, signedUrl };
+          } catch (error) {
+            console.error('Error getting signed URL for image:', error);
+            return { ...img, signedUrl: null };
+          }
+        })
+      );
+
+      res.json(imagensComUrl);
+    } catch (error) {
+      console.error('Error fetching damage images:', error);
+      res.status(500).json({ error: 'Failed to fetch damage images' });
+    }
+  });
+
+  // Delete damage image from equipment
+  app.delete('/api/equipamentos/:id/imagens', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipamento ID' });
+      }
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) {
+        return res.status(404).json({ error: 'Equipamento not found' });
+      }
+
+      const { filePath } = req.body;
+      if (!filePath) {
+        return res.status(400).json({ error: 'filePath is required' });
+      }
+
+      // Parse existing images
+      let imagens: Array<{ filePath: string; descricao?: string; dataUpload: string }> = [];
+      if (equipamento.imagensDanoJson) {
+        try {
+          imagens = JSON.parse(equipamento.imagensDanoJson);
+        } catch (e) {
+          imagens = [];
+        }
+      }
+
+      // Remove image from list
+      const imagensFiltradas = imagens.filter(img => img.filePath !== filePath);
+
+      // Delete from object storage
+      try {
+        const { ObjectStorageService } = await import("./objectStorage");
+        const objectStorageService = new ObjectStorageService();
+        await objectStorageService.deleteFile(filePath);
+      } catch (error) {
+        console.error('Error deleting file from storage:', error);
+      }
+
+      // Update equipment
+      const updated = await storage.updateEquipamento(id, {
+        imagensDanoJson: JSON.stringify(imagensFiltradas)
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error deleting damage image:', error);
+      res.status(500).json({ error: 'Failed to delete damage image' });
+    }
+  });
+
   // ==== END EQUIPMENT ROUTES ====
 
   // =============================================
