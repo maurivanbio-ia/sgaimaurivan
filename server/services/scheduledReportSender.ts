@@ -25,13 +25,13 @@ const defaultConfig: ReportScheduleConfig = {
     enabled: true,
     cronExpression: '0 9 * * 1',
     emails: ['ecobrasil@ecobrasil.bio.br', 'flavia@ecobrasil.bio.br', 'maurivan@ecobrasil.bio.br'],
-    unidades: ['goiania', 'salvador', 'luiz_eduardo_magalhaes']
+    unidades: ['salvador']
   },
   relatorioFinanceiro: {
     enabled: true,
     cronExpression: '0 9 * * 1',
     emails: ['ecobrasil@ecobrasil.bio.br', 'flavia@ecobrasil.bio.br', 'amanda@ecobrasil.bio.br', 'maurivan@ecobrasil.bio.br'],
-    unidades: ['goiania', 'salvador', 'luiz_eduardo_magalhaes']
+    unidades: ['salvador']
   }
 };
 

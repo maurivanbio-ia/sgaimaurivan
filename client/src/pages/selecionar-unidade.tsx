@@ -48,15 +48,6 @@ const FieldsIcon = () => (
 
 const unidades = [
   {
-    id: 'goiania' as Unidade,
-    nome: 'Goiânia',
-    cidade: 'Goiânia',
-    estado: 'Goiás',
-    gradient: 'from-emerald-500 via-green-600 to-teal-600',
-    accentColor: 'emerald',
-    icon: CerradoIcon,
-  },
-  {
     id: 'salvador' as Unidade,
     nome: 'Salvador',
     cidade: 'Salvador',
@@ -64,15 +55,6 @@ const unidades = [
     gradient: 'from-blue-500 via-cyan-600 to-teal-600',
     accentColor: 'blue',
     icon: OceanIcon,
-  },
-  {
-    id: 'luiz-eduardo-magalhaes' as Unidade,
-    nome: 'Luiz Eduardo Magalhães',
-    cidade: 'Luiz Eduardo Magalhães',
-    estado: 'Bahia',
-    gradient: 'from-violet-500 via-purple-600 to-indigo-600',
-    accentColor: 'violet',
-    icon: FieldsIcon,
   },
 ];
 

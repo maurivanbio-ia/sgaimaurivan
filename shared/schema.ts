@@ -10,7 +10,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("colaborador"), // admin ou colaborador
   cargo: text("cargo").notNull().default("colaborador"), // coordenador, diretor, rh, financeiro, colaborador
-  unidade: text("unidade").notNull().default("goiania"), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default("salvador"), // unidade padrão
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -38,7 +38,7 @@ export const empreendimentos = pgTable("empreendimentos", {
   dataInicio: date("data_inicio"),
   dataFimPrevista: date("data_fim_prevista"),
   dataFimReal: date("data_fim_real"),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   // Campos para gamificação e acompanhamento financeiro
   coordenadorId: integer("coordenador_id").references(() => users.id), // Coordenador responsável pelo projeto
   valorContratado: decimal("valor_contratado", { precision: 15, scale: 2 }).default("0"), // Valor hipotético (contrato)
@@ -293,7 +293,7 @@ export const rhRegistros = pgTable("rh_registros", {
   contratoTrabalhoUrl: text("contrato_trabalho_url"), // URL do contrato de trabalho CLT
   fichaRegistroUrl: text("ficha_registro_url"), // URL da ficha de registro
   documentosCltJson: json("documentos_clt_json").default([]), // Outros documentos CLT
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
@@ -376,7 +376,7 @@ export const demandas = pgTable("demandas", {
   recorrente: boolean("recorrente").notNull().default(false),
   recorrenciaCron: text("recorrencia_cron"), // expressão cron para repetição
   recorrenciaFim: date("recorrencia_fim"), // data final para parar de gerar instâncias
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -529,7 +529,7 @@ export const rhRegistrosRelations = relations(rhRegistros, ({ one }) => ({
 // =============================================
 export const aiDocuments = pgTable("ai_documents", {
   id: serial("id").primaryKey(),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   source: text("source").notNull(), // nome do arquivo ou módulo
   sourceType: text("source_type").notNull(), // pdf, xlsx, database, contrato, licenca, etc
@@ -541,7 +541,7 @@ export const aiDocuments = pgTable("ai_documents", {
 
 export const aiConversations = pgTable("ai_conversations", {
   id: serial("id").primaryKey(),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   userId: integer("user_id").references(() => users.id).notNull(),
   message: text("message").notNull(), // mensagem do usuário
   response: text("response").notNull(), // resposta do agente
@@ -552,7 +552,7 @@ export const aiConversations = pgTable("ai_conversations", {
 
 export const aiLogs = pgTable("ai_logs", {
   id: serial("id").primaryKey(),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   userId: integer("user_id").references(() => users.id),
   action: text("action").notNull(), // index_document, query, generate_report, etc
   details: json("details").default({}), // detalhes da ação
@@ -717,7 +717,7 @@ export const equipamentos = pgTable("equipamentos", {
   observacoes: text("observacoes"),
   imagensDanoJson: text("imagens_dano_json"), // JSON array de URLs de imagens de danos/avarias
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -763,7 +763,7 @@ export const veiculos = pgTable("veiculos", {
   termoVistoriaId: integer("termo_vistoria_id").references(() => arquivos.id),
   dataAluguel: date("data_aluguel"),
   dataEntrega: date("data_entrega"),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
@@ -871,7 +871,7 @@ export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
   statusPagamento: text("status_pagamento").notNull().default("pendente"), // pendente, pago
   comprovanteUrl: text("comprovante_url"), // URL do arquivo de comprovante
   observacoes: text("observacoes"),
-  unidade: text("unidade").notNull().default('goiania'), // goiania, salvador, luiz-eduardo-magalhaes
+  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
