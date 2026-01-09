@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { UnidadeProvider } from "@/contexts/UnidadeContext";
+import { PermissionProvider } from "@/contexts/PermissionContext";
 import { useAuth } from "./lib/auth";
 import Login from "./pages/login";
 import Register from "./pages/register";
@@ -39,6 +40,7 @@ import Cronograma from "./pages/cronograma";
 import GestaoEquipe from "./pages/gestao-equipe";
 import PortalColaborador from "./pages/portal-colaborador";
 import Sidebar from "./components/layout/sidebar";
+import { PermissionGate } from "./components/PermissionGate";
 import ClienteSidebar from "./components/layout/cliente-sidebar";
 import ClienteLogin from "./pages/cliente/login";
 import ClienteDashboard from "./pages/cliente/dashboard";
@@ -102,39 +104,41 @@ function Router() {
             <div className="flex min-h-screen">
               <Sidebar />
               <main className="flex-1 md:ml-64 pt-16 md:pt-0 transition-all duration-300" id="main">
-                <Switch>
-                  <Route path="/" component={Dashboard} />
-                  <Route path="/dashboard" component={Dashboard} />
-                  <Route path="/dashboard-executivo" component={DashboardExecutivo} />
-                  <Route path="/dashboard-coordenador" component={DashboardCoordenador} />
-                  <Route path="/ia" component={EcoAssistente} />
-                  <Route path="/mapa" component={MapaEmpreendimentos} />
-                  <Route path="/calendario" component={Calendario} />
-                  <Route path="/cronograma" component={Cronograma} />
-                  <Route path="/empreendimentos" component={Projects} />
-                  <Route path="/empreendimentos/novo" component={NewProject} />
-                  <Route path="/empreendimentos/:id/editar" component={EditProject} />
-                  <Route path="/empreendimentos/:id" component={ProjectDetail} />
-                  <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
-                  <Route path="/licencas/:id/editar" component={EditLicense} />
-                  <Route path="/alertas" component={AlertConfig} />
-                  <Route path="/licencas/ativas" component={LicencasAtivas} />
-                  <Route path="/licencas/vencer" component={LicencasVencer} />
-                  <Route path="/licencas/vencidas" component={LicencasVencidas} />
-                  <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
-                  <Route path="/entregas/mes" component={EntregasMes} />
-                  <Route path="/painel" component={PainelIntegrado} />
-                  <Route path="/demandas" component={Demandas} />
-                  <Route path="/financeiro" component={Financeiro} />
-                  <Route path="/frota" component={Frota} />
-                  <Route path="/equipamentos" component={Equipamentos} />
-                  <Route path="/rh" component={Rh} />
-                  <Route path="/gestao-dados" component={GestaoDados} />
-                  <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
-                  <Route path="/gestao-equipe" component={GestaoEquipe} />
-                  <Route path="/minhas-tarefas" component={PortalColaborador} />
-                  <Route component={NotFound} />
-                </Switch>
+                <PermissionGate>
+                  <Switch>
+                    <Route path="/" component={Dashboard} />
+                    <Route path="/dashboard" component={Dashboard} />
+                    <Route path="/dashboard-executivo" component={DashboardExecutivo} />
+                    <Route path="/dashboard-coordenador" component={DashboardCoordenador} />
+                    <Route path="/ia" component={EcoAssistente} />
+                    <Route path="/mapa" component={MapaEmpreendimentos} />
+                    <Route path="/calendario" component={Calendario} />
+                    <Route path="/cronograma" component={Cronograma} />
+                    <Route path="/empreendimentos" component={Projects} />
+                    <Route path="/empreendimentos/novo" component={NewProject} />
+                    <Route path="/empreendimentos/:id/editar" component={EditProject} />
+                    <Route path="/empreendimentos/:id" component={ProjectDetail} />
+                    <Route path="/empreendimentos/:id/licencas/nova" component={NewLicense} />
+                    <Route path="/licencas/:id/editar" component={EditLicense} />
+                    <Route path="/alertas" component={AlertConfig} />
+                    <Route path="/licencas/ativas" component={LicencasAtivas} />
+                    <Route path="/licencas/vencer" component={LicencasVencer} />
+                    <Route path="/licencas/vencidas" component={LicencasVencidas} />
+                    <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
+                    <Route path="/entregas/mes" component={EntregasMes} />
+                    <Route path="/painel" component={PainelIntegrado} />
+                    <Route path="/demandas" component={Demandas} />
+                    <Route path="/financeiro" component={Financeiro} />
+                    <Route path="/frota" component={Frota} />
+                    <Route path="/equipamentos" component={Equipamentos} />
+                    <Route path="/rh" component={Rh} />
+                    <Route path="/gestao-dados" component={GestaoDados} />
+                    <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
+                    <Route path="/gestao-equipe" component={GestaoEquipe} />
+                    <Route path="/minhas-tarefas" component={PortalColaborador} />
+                    <Route component={NotFound} />
+                  </Switch>
+                </PermissionGate>
               </main>
             </div>
           )}
@@ -149,10 +153,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="licenca-facil-theme">
         <UnidadeProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <PermissionProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </PermissionProvider>
         </UnidadeProvider>
       </ThemeProvider>
     </QueryClientProvider>
