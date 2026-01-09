@@ -586,7 +586,104 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
 
       yPos = Math.max(leftEndY, rightEndY) + 8;
 
-      // === PAGE 4: FINANCIAL ANALYSIS ===
+      // === PAGE 4: PROJECTS ANALYSIS ===
+      doc.addPage();
+      yPos = MARGINS.top;
+
+      doc.setFontSize(16);
+      doc.setTextColor(...ECOBRASIL_COLORS.darkGreen);
+      doc.text('Análise de Projetos', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 15;
+
+      // Project KPI Cards
+      const projectKpis = [
+        { label: 'Total', value: data.projetos?.total || 0, color: ECOBRASIL_COLORS.blue },
+        { label: 'Em Andamento', value: data.projetos?.emAndamento || 0, color: ECOBRASIL_COLORS.green },
+        { label: 'Concluídos', value: data.projetos?.concluidos || 0, color: ECOBRASIL_COLORS.darkGreen },
+        { label: 'Planejamento', value: data.projetos?.planejamento || 0, color: ECOBRASIL_COLORS.yellow },
+        { label: 'Atrasados', value: data.projetos?.atrasados || 0, color: ECOBRASIL_COLORS.red },
+      ];
+
+      const projKpiWidth = 34;
+      const projKpiStartX = (pageWidth - (projKpiWidth * 5 + 4 * 4)) / 2;
+
+      projectKpis.forEach((kpi, idx) => {
+        const kpiX = projKpiStartX + idx * (projKpiWidth + 4);
+        doc.setFillColor(250, 250, 250);
+        doc.roundedRect(kpiX, yPos, projKpiWidth, 22, 2, 2, 'F');
+        doc.setDrawColor(...kpi.color);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(kpiX, yPos, projKpiWidth, 22, 2, 2, 'S');
+
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 100);
+        doc.text(kpi.label, kpiX + projKpiWidth / 2, yPos + 7, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.setTextColor(...kpi.color);
+        doc.text(kpi.value.toString(), kpiX + projKpiWidth / 2, yPos + 17, { align: 'center' });
+      });
+
+      yPos += 32;
+
+      // Row 1: Status Pie Chart (left) + Type Distribution (right)
+      leftEndY = yPos;
+      rightEndY = yPos;
+
+      // Project Status Pie Chart with all statuses
+      const fullProjectStatusData = Object.entries(data.projetos?.porStatus || {}).map(([status, count]) => ({
+        label: status === 'em_andamento' ? 'Em Andamento' :
+               status === 'concluido' ? 'Concluído' :
+               status === 'planejamento' ? 'Planejamento' :
+               status === 'cancelado' ? 'Cancelado' :
+               status === 'pausado' ? 'Pausado' : status,
+        value: count as number,
+      })).filter(d => d.value > 0);
+
+      if (fullProjectStatusData.length > 0) {
+        leftEndY = drawPieChart(MARGINS.left, yPos, 28, fullProjectStatusData, 'Projetos por Status');
+      }
+
+      // Project Type Distribution
+      const projectTypeData = Object.entries(data.projetos?.porTipo || {}).map(([tipo, count]) => ({
+        label: tipo || 'Outros',
+        value: count as number,
+        color: CHART_COLORS[Object.keys(data.projetos?.porTipo || {}).indexOf(tipo) % CHART_COLORS.length],
+      })).filter(d => d.value > 0).slice(0, 6);
+
+      if (projectTypeData.length > 0) {
+        rightEndY = drawHorizontalBarChart(
+          MARGINS.left + chartWidth + 10, yPos, chartWidth, 70,
+          projectTypeData, 'Projetos por Tipo'
+        );
+      }
+
+      yPos = Math.max(leftEndY, rightEndY) + 10;
+      checkNewPage(60);
+
+      // Project Details Table
+      addSectionTitle('Detalhes dos Projetos', ECOBRASIL_COLORS.purple);
+
+      if (data.projetos?.lista && data.projetos.lista.length > 0) {
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Nome', 'Tipo', 'Status', 'Início', 'Fim Previsto']],
+          body: data.projetos.lista.slice(0, 12).map((p: any) => [
+            (p.nome || '-').substring(0, 30),
+            p.tipo || '-',
+            translateStatus(p.status),
+            formatDate(p.dataInicio),
+            formatDate(p.dataFim),
+          ]),
+          styles: { fontSize: 7, cellPadding: 2 },
+          headStyles: { fillColor: ECOBRASIL_COLORS.purple, textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [250, 245, 255] },
+          margin: { left: MARGINS.left, right: MARGINS.right },
+        });
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      // === PAGE 5: FINANCIAL ANALYSIS ===
       doc.addPage();
       yPos = MARGINS.top;
 
