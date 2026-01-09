@@ -18,6 +18,8 @@ The frontend is built with React, TypeScript, Vite, Wouter for routing, TanStack
 ### Multi-Tenancy
 The system implements multi-tenancy at the unit level, ensuring complete data isolation. Users are assigned a unit during registration and can only access data pertinent to their unit. The unit context is enforced server-side for all data access, including API endpoints and AI functionalities. The Executive Dashboard provides a consolidated view across all units for directors.
 
+**Financial Module Multi-Tenancy** (Jan 2026): Financial transactions (`financeiro_lancamentos`) are now filtered by unit. The `/api/financeiro/lancamentos` endpoint retrieves only transactions associated with empreendimentos belonging to the user's unit. Admin and Director roles can view all transactions across units. This ensures users don't see financial data from other organizational units.
+
 ### EcoGestor-AI
 An AI conversational agent is integrated, accessible via a chat UI. It uses OpenAI embeddings for document indexing and vector search, and GPT-4o-mini for conversational responses. It can execute automated actions (e.g., check licenses, vehicles) and provides context-aware responses with document retrieval. AI data and conversations are isolated by unit.
 
