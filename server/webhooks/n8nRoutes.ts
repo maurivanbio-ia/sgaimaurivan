@@ -83,10 +83,7 @@ export function registerN8nWebhooks(app: Express) {
         : licencas;
       
       res.json({
-        total: resultado.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        licencas: resultado.map(l => ({
+        data: resultado.map(l => ({
           ...l,
           diasParaVencer: Math.ceil((new Date(l.validade!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
           urgencia: calcularUrgencia(l.validade!)
@@ -94,7 +91,7 @@ export function registerN8nWebhooks(app: Express) {
       });
     } catch (error) {
       console.error("Webhook licenças vencendo error:", error);
-      res.status(500).json({ error: "Erro ao buscar licenças" });
+      res.json({ data: [] });
     }
   });
 
@@ -129,16 +126,14 @@ export function registerN8nWebhooks(app: Express) {
         : licencas;
       
       res.json({
-        total: resultado.length,
-        dataConsulta: new Date().toISOString(),
-        licencas: resultado.map(l => ({
+        data: resultado.map(l => ({
           ...l,
           diasVencida: Math.ceil((hoje.getTime() - new Date(l.validade!).getTime()) / (1000 * 60 * 60 * 24))
         }))
       });
     } catch (error) {
       console.error("Webhook licenças vencidas error:", error);
-      res.status(500).json({ error: "Erro ao buscar licenças vencidas" });
+      res.json({ data: [] });
     }
   });
 
@@ -168,15 +163,10 @@ export function registerN8nWebhooks(app: Express) {
           urgencia: calcularUrgencia(c.prazo!)
         }));
       
-      res.json({
-        total: resultado.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        condicionantes: resultado
-      });
+      res.json({ data: resultado });
     } catch (error) {
       console.error("Webhook condicionantes pendentes error:", error);
-      res.status(500).json({ error: "Erro ao buscar condicionantes" });
+      res.json({ data: [] });
     }
   });
 
@@ -216,17 +206,14 @@ export function registerN8nWebhooks(app: Express) {
         );
       
       res.json({
-        total: contratosData.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        contratos: contratosData.map(c => ({
+        data: contratosData.map(c => ({
           ...c,
           diasParaVencer: Math.ceil((new Date(c.vigenciaFim!).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
         }))
       });
     } catch (error) {
       console.error("Webhook contratos vencendo error:", error);
-      res.status(500).json({ error: "Erro ao buscar contratos" });
+      res.json({ data: [] });
     }
   });
 
@@ -254,15 +241,10 @@ export function registerN8nWebhooks(app: Express) {
         ORDER BY cp.data_vencimento ASC
       `);
       
-      res.json({
-        total: pagamentos.rows.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        pagamentos: pagamentos.rows
-      });
+      res.json({ data: pagamentos.rows || [] });
     } catch (error) {
       console.error("Webhook pagamentos pendentes error:", error);
-      res.status(500).json({ error: "Erro ao buscar pagamentos" });
+      res.json({ data: [] });
     }
   });
 
@@ -281,9 +263,7 @@ export function registerN8nWebhooks(app: Express) {
         : rh;
       
       res.json({
-        total: resultado.length,
-        dataConsulta: new Date().toISOString(),
-        colaboradores: resultado.map(r => ({
+        data: resultado.map(r => ({
           id: r.id,
           nome: r.nomeColaborador,
           regimeContratacao: r.regimeContratacao,
@@ -294,7 +274,7 @@ export function registerN8nWebhooks(app: Express) {
       });
     } catch (error) {
       console.error("Webhook RH colaboradores error:", error);
-      res.status(500).json({ error: "Erro ao buscar colaboradores" });
+      res.json({ data: [] });
     }
   });
 
@@ -329,15 +309,10 @@ export function registerN8nWebhooks(app: Express) {
           unidade: v.unidade
         }));
       
-      res.json({
-        total: alertas.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        alertas: alertas.sort((a, b) => a.diasParaRevisao - b.diasParaRevisao)
-      });
+      res.json({ data: alertas.sort((a, b) => a.diasParaRevisao - b.diasParaRevisao) });
     } catch (error) {
       console.error("Webhook frota revisão error:", error);
-      res.status(500).json({ error: "Erro ao buscar veículos" });
+      res.json({ data: [] });
     }
   });
 
@@ -372,15 +347,10 @@ export function registerN8nWebhooks(app: Express) {
           unidade: e.unidade
         }));
       
-      res.json({
-        total: alertas.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        alertas: alertas.sort((a, b) => a.diasParaManutencao - b.diasParaManutencao)
-      });
+      res.json({ data: alertas.sort((a, b) => a.diasParaManutencao - b.diasParaManutencao) });
     } catch (error) {
       console.error("Webhook equipamentos manutenção error:", error);
-      res.status(500).json({ error: "Erro ao buscar equipamentos" });
+      res.json({ data: [] });
     }
   });
 
@@ -415,15 +385,10 @@ export function registerN8nWebhooks(app: Express) {
             : null
         }));
       
-      res.json({
-        total: resultado.length,
-        periodo: `Próximos ${diasNum} dias`,
-        dataConsulta: new Date().toISOString(),
-        demandas: resultado
-      });
+      res.json({ data: resultado });
     } catch (error) {
       console.error("Webhook demandas pendentes error:", error);
-      res.status(500).json({ error: "Erro ao buscar demandas" });
+      res.json({ data: [] });
     }
   });
 
@@ -638,9 +603,7 @@ export function registerN8nWebhooks(app: Express) {
         : colaboradores;
       
       res.json({
-        total: resultado.length,
-        filtro: { dias: diasNum, unidade: unidade || 'todas' },
-        colaboradores: resultado.map(c => ({
+        data: resultado.map(c => ({
           ...c,
           diasParaVencer: c.cnhVencimento 
             ? Math.ceil((new Date(c.cnhVencimento).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
@@ -650,7 +613,7 @@ export function registerN8nWebhooks(app: Express) {
       });
     } catch (error) {
       console.error("Webhook CNH vencendo error:", error);
-      res.status(500).json({ error: "Erro ao buscar CNH vencendo" });
+      res.json({ data: [] });
     }
   });
 
@@ -709,14 +672,10 @@ export function registerN8nWebhooks(app: Express) {
         })
         .filter(Boolean);
       
-      res.json({
-        total: resultado.length,
-        filtro: { dias: diasNum, unidade: unidade || 'todas', tipo: tipo || 'todos' },
-        veiculos: resultado
-      });
+      res.json({ data: resultado });
     } catch (error) {
       console.error("Webhook documentos frota vencendo error:", error);
-      res.status(500).json({ error: "Erro ao buscar documentos de frota vencendo" });
+      res.json({ data: [] });
     }
   });
 
@@ -765,9 +724,7 @@ export function registerN8nWebhooks(app: Express) {
       }
       
       res.json({
-        total: resultado.length,
-        filtro: { dias: diasNum, unidade: unidade || 'todas', tipo: tipo || 'todos' },
-        documentos: resultado.map(d => ({
+        data: resultado.map(d => ({
           ...d,
           diasParaVencer: d.dataValidade 
             ? Math.ceil((new Date(d.dataValidade).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
@@ -777,7 +734,7 @@ export function registerN8nWebhooks(app: Express) {
       });
     } catch (error) {
       console.error("Webhook exames SST vencendo error:", error);
-      res.status(500).json({ error: "Erro ao buscar exames SST vencendo" });
+      res.json({ data: [] });
     }
   });
 
@@ -803,14 +760,10 @@ export function registerN8nWebhooks(app: Express) {
         ? coordenadores.filter(c => c.unidade === unidade)
         : coordenadores;
       
-      res.json({
-        total: resultado.length,
-        filtro: { unidade: unidade || 'todas' },
-        coordenadores: resultado
-      });
+      res.json({ data: resultado });
     } catch (error) {
       console.error("Webhook coordenadores error:", error);
-      res.status(500).json({ error: "Erro ao buscar coordenadores" });
+      res.json({ data: [] });
     }
   });
 
