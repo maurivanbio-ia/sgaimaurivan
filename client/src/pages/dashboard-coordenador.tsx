@@ -128,31 +128,51 @@ export default function DashboardCoordenador() {
   const categoriaMap = new Map(categorias.map(c => [c.id, c]));
   const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
   
-  const myDespesas = lancamentos.filter(l => 
-    myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa'
-  );
+  // Se não tiver projetos como coordenador, mostra todos os lançamentos da unidade
+  const myDespesas = myProjects.length > 0 
+    ? lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa')
+    : lancamentos.filter(l => l.tipo === 'despesa');
   
   const totalGastos = myDespesas.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
 
-  const gastosPorProjeto = myProjects.map(projeto => {
-    const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
-    const despesasProjeto = lancamentos.filter(l => 
-      l.empreendimentoId === projeto.empreendimentoId && l.tipo === 'despesa'
-    );
-    const totalDespesas = despesasProjeto.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
-    const orcamento = parseFloat(String(projeto.orcamentoPrevisto || 0)) || 0;
-    
-    return {
-      id: projeto.id,
-      nome: projeto.nome,
-      empreendimento: empreendimento?.nome || '-',
-      empreendimentoId: projeto.empreendimentoId,
-      totalGastos: totalDespesas,
-      orcamento,
-      percentualGasto: orcamento > 0 ? (totalDespesas / orcamento) * 100 : 0,
-      status: projeto.status
-    };
-  });
+  // Se não tiver projetos como coordenador, agrupa por empreendimento
+  const gastosPorProjeto = myProjects.length > 0 
+    ? myProjects.map(projeto => {
+        const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
+        const despesasProjeto = lancamentos.filter(l => 
+          l.empreendimentoId === projeto.empreendimentoId && l.tipo === 'despesa'
+        );
+        const totalDespesas = despesasProjeto.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
+        const orcamento = parseFloat(String(projeto.orcamentoPrevisto || 0)) || 0;
+        
+        return {
+          id: projeto.id,
+          nome: projeto.nome,
+          empreendimento: empreendimento?.nome || '-',
+          empreendimentoId: projeto.empreendimentoId,
+          totalGastos: totalDespesas,
+          orcamento,
+          percentualGasto: orcamento > 0 ? (totalDespesas / orcamento) * 100 : 0,
+          status: projeto.status
+        };
+      })
+    : Array.from(new Set(lancamentos.filter(l => l.tipo === 'despesa').map(l => l.empreendimentoId)))
+        .map(emprId => {
+          const empreendimento = empreendimentoMap.get(emprId);
+          const despesasEmpr = lancamentos.filter(l => l.empreendimentoId === emprId && l.tipo === 'despesa');
+          const totalDespesas = despesasEmpr.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
+          
+          return {
+            id: emprId,
+            nome: empreendimento?.nome || `Empreendimento #${emprId}`,
+            empreendimento: empreendimento?.nome || '-',
+            empreendimentoId: emprId,
+            totalGastos: totalDespesas,
+            orcamento: 0,
+            percentualGasto: 0,
+            status: 'ativo'
+          };
+        });
 
   const gastosPorCategoria = myDespesas.reduce((acc, l) => {
     const categoria = categoriaMap.get(l.categoriaId);
@@ -225,7 +245,9 @@ export default function DashboardCoordenador() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{formatCurrency(totalGastos)}</div>
-              <p className="text-xs text-muted-foreground">despesas nos seus projetos</p>
+              <p className="text-xs text-muted-foreground">
+                {myProjects.length > 0 ? 'despesas nos seus projetos' : 'despesas na sua unidade'}
+              </p>
             </CardContent>
           </Card>
 
@@ -246,7 +268,7 @@ export default function DashboardCoordenador() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Gastos por Projeto
+                {myProjects.length > 0 ? 'Gastos por Projeto' : 'Gastos por Empreendimento'}
               </CardTitle>
             </CardHeader>
             <CardContent>
