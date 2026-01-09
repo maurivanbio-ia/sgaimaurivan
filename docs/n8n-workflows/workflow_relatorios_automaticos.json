@@ -1,0 +1,192 @@
+{
+  "name": "EcoGestor - Relatórios Automáticos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "cron-360",
+      "name": "Segunda 8h - Relatório 360",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 * * 5"
+            }
+          ]
+        }
+      },
+      "id": "cron-financeiro",
+      "name": "Sexta 17h - Relatório Financeiro",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/relatorios/360",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enviarEmail\": \"true\",\n  \"email\": \"maurivan@ecobrasil.bio.br,diretoria@ecobrasil.bio.br\"\n}",
+        "options": {}
+      },
+      "id": "http-360",
+      "name": "Enviar Relatório 360°",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/relatorios/financeiro",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enviarEmail\": \"true\",\n  \"email\": \"maurivan@ecobrasil.bio.br,financeiro@ecobrasil.bio.br\"\n}",
+        "options": {}
+      },
+      "id": "http-financeiro",
+      "name": "Enviar Relatório Financeiro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-success-360",
+      "name": "Verificar Sucesso 360",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-success-fin",
+      "name": "Verificar Sucesso Financeiro",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 500]
+    }
+  ],
+  "connections": {
+    "Segunda 8h - Relatório 360": {
+      "main": [
+        [
+          {
+            "node": "Enviar Relatório 360°",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sexta 17h - Relatório Financeiro": {
+      "main": [
+        [
+          {
+            "node": "Enviar Relatório Financeiro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Relatório 360°": {
+      "main": [
+        [
+          {
+            "node": "Verificar Sucesso 360",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Relatório Financeiro": {
+      "main": [
+        [
+          {
+            "node": "Verificar Sucesso Financeiro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

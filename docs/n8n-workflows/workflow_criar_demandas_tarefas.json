@@ -1,0 +1,150 @@
+{
+  "name": "EcoGestor - Criar Demandas e Tarefas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ecogestor-criar-demanda",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-demanda",
+      "name": "Webhook Criar Demanda",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "criar-demanda"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ecogestor-criar-tarefa",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-tarefa",
+      "name": "Webhook Criar Tarefa",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 500],
+      "webhookId": "criar-tarefa"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/criar-demanda",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"titulo\": \"{{ $json.body.titulo }}\",\n  \"descricao\": \"{{ $json.body.descricao || '' }}\",\n  \"setor\": \"{{ $json.body.setor || 'Licenciamento' }}\",\n  \"prioridade\": \"{{ $json.body.prioridade || 'media' }}\",\n  \"dataEntrega\": \"{{ $json.body.dataEntrega }}\",\n  \"unidade\": \"{{ $json.body.unidade || 'goiania' }}\",\n  \"empreendimentoId\": {{ $json.body.empreendimentoId || 'null' }},\n  \"responsavelId\": {{ $json.body.responsavelId || 'null' }}\n}",
+        "options": {}
+      },
+      "id": "http-criar-demanda",
+      "name": "Criar Demanda no EcoGestor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/criar-tarefa",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"titulo\": \"{{ $json.body.titulo }}\",\n  \"descricao\": \"{{ $json.body.descricao || '' }}\",\n  \"responsavelId\": {{ $json.body.responsavelId }},\n  \"prioridade\": \"{{ $json.body.prioridade || 'media' }}\",\n  \"categoria\": \"{{ $json.body.categoria || 'operacional' }}\",\n  \"prazo\": \"{{ $json.body.prazo }}\"\n}",
+        "options": {}
+      },
+      "id": "http-criar-tarefa",
+      "name": "Criar Tarefa no EcoGestor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-demanda",
+      "name": "Responder Demanda",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-tarefa",
+      "name": "Responder Tarefa",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [700, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Criar Demanda": {
+      "main": [
+        [
+          {
+            "node": "Criar Demanda no EcoGestor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Criar Tarefa": {
+      "main": [
+        [
+          {
+            "node": "Criar Tarefa no EcoGestor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Demanda no EcoGestor": {
+      "main": [
+        [
+          {
+            "node": "Responder Demanda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Tarefa no EcoGestor": {
+      "main": [
+        [
+          {
+            "node": "Responder Tarefa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

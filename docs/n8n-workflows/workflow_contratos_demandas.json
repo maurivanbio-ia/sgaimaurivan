@@ -1,0 +1,297 @@
+{
+  "name": "EcoGestor - Contratos e Demandas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1,4"
+            }
+          ]
+        }
+      },
+      "id": "cron-seg-qui",
+      "name": "Segunda e Quinta às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/contratos/vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "60"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-contratos-vencendo",
+      "name": "Contratos Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/contratos/pagamentos-pendentes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-pagamentos-pendentes",
+      "name": "Pagamentos Pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/demandas/pendentes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-demandas-pendentes",
+      "name": "Demandas Pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/condicionantes/pendentes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-condicionantes",
+      "name": "Condicionantes Pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 650],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const contratos = $input.all()[0]?.json || {};\nconst pagamentos = $input.all()[1]?.json || {};\nconst demandas = $input.all()[2]?.json || {};\nconst condicionantes = $input.all()[3]?.json || {};\n\nlet alertas = [];\n\nif (contratos.total > 0) {\n  alertas.push(`${contratos.total} contrato(s) vencendo em 60 dias`);\n}\nif (pagamentos.total > 0) {\n  alertas.push(`${pagamentos.total} pagamento(s) pendente(s) em 7 dias`);\n}\nif (demandas.total > 0) {\n  alertas.push(`${demandas.total} demanda(s) com prazo em 7 dias`);\n}\nif (condicionantes.total > 0) {\n  alertas.push(`${condicionantes.total} condicionante(s) pendente(s) em 30 dias`);\n}\n\nreturn {\n  json: {\n    temAlertas: alertas.length > 0,\n    mensagem: alertas.length > 0 \n      ? `GESTÃO - Alertas:\\n${alertas.join('\\n')}` \n      : 'Sem alertas de contratos/demandas pendentes',\n    detalhes: { contratos, pagamentos, demandas, condicionantes }\n  }\n};"
+      },
+      "id": "code-processar",
+      "name": "Processar Alertas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "tem-alertas",
+              "leftValue": "={{ $json.temAlertas }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-tem-alertas",
+      "name": "Tem Alertas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"tipo\": \"alerta\"\n}",
+        "options": {}
+      },
+      "id": "notificar-gestao",
+      "name": "Enviar Notificação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Segunda e Quinta às 9h": {
+      "main": [
+        [
+          {
+            "node": "Contratos Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pagamentos Pendentes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Demandas Pendentes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Condicionantes Pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contratos Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pagamentos Pendentes": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Demandas Pendentes": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Condicionantes Pendentes": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Alertas": {
+      "main": [
+        [
+          {
+            "node": "Tem Alertas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Alertas?": {
+      "main": [
+        [
+          {
+            "node": "Enviar Notificação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

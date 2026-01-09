@@ -1,0 +1,260 @@
+{
+  "name": "EcoGestor - Manutenção de Equipamentos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1,15 * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-quinzenal",
+      "name": "Dias 1 e 15 às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/equipamentos/manutencao-pendente",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-manutencao-goiania",
+      "name": "Manutenção Goiânia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/equipamentos/manutencao-pendente",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            },
+            {
+              "name": "unidade",
+              "value": "salvador"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-manutencao-salvador",
+      "name": "Manutenção Salvador",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/equipamentos/manutencao-pendente",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            },
+            {
+              "name": "unidade",
+              "value": "luiz_eduardo_magalhaes"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-manutencao-lem",
+      "name": "Manutenção LEM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const goiania = $input.all()[0]?.json || {};\nconst salvador = $input.all()[1]?.json || {};\nconst lem = $input.all()[2]?.json || {};\n\nlet alertas = [];\n\nif (goiania.total > 0) {\n  alertas.push(`Goiânia: ${goiania.total} equipamento(s) com manutenção pendente`);\n}\nif (salvador.total > 0) {\n  alertas.push(`Salvador: ${salvador.total} equipamento(s) com manutenção pendente`);\n}\nif (lem.total > 0) {\n  alertas.push(`LEM: ${lem.total} equipamento(s) com manutenção pendente`);\n}\n\nreturn {\n  json: {\n    temAlertas: alertas.length > 0,\n    totalGeral: (goiania.total || 0) + (salvador.total || 0) + (lem.total || 0),\n    mensagem: alertas.length > 0 \n      ? `EQUIPAMENTOS - Manutenção Pendente:\\n${alertas.join('\\n')}` \n      : 'Sem manutenções pendentes',\n    detalhes: { goiania, salvador, lem }\n  }\n};"
+      },
+      "id": "code-processar",
+      "name": "Processar Alertas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 350]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "tem-alertas",
+              "leftValue": "={{ $json.temAlertas }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-tem-alertas",
+      "name": "Tem Alertas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 350]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"tipo\": \"alerta\"\n}",
+        "options": {}
+      },
+      "id": "notificar-equipamentos",
+      "name": "Notificar Manutenção",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 330],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Dias 1 e 15 às 8h": {
+      "main": [
+        [
+          {
+            "node": "Manutenção Goiânia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Manutenção Salvador",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Manutenção LEM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manutenção Goiânia": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manutenção Salvador": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manutenção LEM": {
+      "main": [
+        [
+          {
+            "node": "Processar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Alertas": {
+      "main": [
+        [
+          {
+            "node": "Tem Alertas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Alertas?": {
+      "main": [
+        [
+          {
+            "node": "Notificar Manutenção",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

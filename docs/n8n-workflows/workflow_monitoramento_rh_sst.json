@@ -1,0 +1,296 @@
+{
+  "name": "EcoGestor - Monitoramento RH e SST",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-mensal",
+      "name": "Dia 1 de cada mês às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/rh/cnh-vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "60"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-cnh-vencendo",
+      "name": "CNH Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/sst/exames-vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            },
+            {
+              "name": "tipo",
+              "value": "ASO"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-aso-vencendo",
+      "name": "ASO Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/sst/exames-vencendo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "60"
+            },
+            {
+              "name": "tipo",
+              "value": "NR-35"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-nr35-vencendo",
+      "name": "NR-35 Vencendo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/rh/colaboradores",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "http-colaboradores",
+      "name": "Listar Colaboradores",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 650],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cnh = $input.all()[0]?.json || {};\nconst aso = $input.all()[1]?.json || {};\nconst nr35 = $input.all()[2]?.json || {};\nconst colaboradores = $input.all()[3]?.json || {};\n\nlet alertas = [];\n\nif (cnh.total > 0) {\n  alertas.push(`${cnh.total} colaborador(es) com CNH vencendo em 60 dias`);\n}\nif (aso.total > 0) {\n  alertas.push(`${aso.total} exame(s) ASO vencendo em 30 dias`);\n}\nif (nr35.total > 0) {\n  alertas.push(`${nr35.total} certificação(ões) NR-35 vencendo em 60 dias`);\n}\n\nreturn {\n  json: {\n    temAlertas: alertas.length > 0,\n    totalColaboradores: colaboradores.total || 0,\n    mensagem: alertas.length > 0 \n      ? `RH/SST - Alertas do Mês:\\n${alertas.join('\\n')}` \n      : 'Sem alertas de RH/SST pendentes',\n    detalhes: { cnh, aso, nr35, colaboradores }\n  }\n};"
+      },
+      "id": "code-processar",
+      "name": "Processar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "tem-alertas",
+              "leftValue": "={{ $json.temAlertas }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-tem-alertas",
+      "name": "Tem Alertas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecogestor.replit.app/api/webhooks/n8n/notificar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mensagem\": \"{{ $json.mensagem }}\",\n  \"tipo\": \"alerta\"\n}",
+        "options": {}
+      },
+      "id": "notificar-rh",
+      "name": "Notificar RH",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "EcoGestor API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Dia 1 de cada mês às 8h": {
+      "main": [
+        [
+          {
+            "node": "CNH Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ASO Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "NR-35 Vencendo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Listar Colaboradores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CNH Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Processar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ASO Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Processar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NR-35 Vencendo": {
+      "main": [
+        [
+          {
+            "node": "Processar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar Colaboradores": {
+      "main": [
+        [
+          {
+            "node": "Processar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Dados": {
+      "main": [
+        [
+          {
+            "node": "Tem Alertas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Alertas?": {
+      "main": [
+        [
+          {
+            "node": "Notificar RH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
