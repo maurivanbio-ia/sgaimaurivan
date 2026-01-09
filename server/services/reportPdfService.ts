@@ -238,6 +238,31 @@ export async function sendReportByEmail(
   body: string
 ): Promise<boolean> {
   try {
+    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+    
+    if (SENDGRID_API_KEY) {
+      const sgMail = await import('@sendgrid/mail');
+      sgMail.default.setApiKey(SENDGRID_API_KEY);
+      
+      await sgMail.default.send({
+        to: recipientEmail,
+        from: process.env.SMTP_FROM || 'relatorios@ecobrasil.bio.br',
+        subject,
+        text: body,
+        attachments: [
+          {
+            filename,
+            content: pdfBuffer.toString('base64'),
+            type: 'application/pdf',
+            disposition: 'attachment',
+          },
+        ],
+      });
+      
+      console.log(`[Email] Relatório enviado via SendGrid para ${recipientEmail}`);
+      return true;
+    }
+    
     const nodemailer = await import('nodemailer');
     
     const transporter = nodemailer.default.createTransport({
@@ -264,6 +289,7 @@ export async function sendReportByEmail(
       ],
     });
 
+    console.log(`[Email] Relatório enviado via SMTP para ${recipientEmail}`);
     return true;
   } catch (error) {
     console.error('Erro ao enviar email com relatório:', error);
