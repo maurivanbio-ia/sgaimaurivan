@@ -29,7 +29,7 @@ const defaultConfig: ReportScheduleConfig = {
   relatorioFinanceiro: {
     enabled: true,
     cronExpression: '0 9 * * 1',
-    emails: ['ecobrasil@ecobrasil.bio.br', 'flavia@ecobrasil.bio.br'],
+    emails: ['ecobrasil@ecobrasil.bio.br', 'flavia@ecobrasil.bio.br', 'amanda@ecobrasil.bio.br'],
     unidades: ['goiania', 'salvador', 'luiz_eduardo_magalhaes']
   }
 };
