@@ -72,6 +72,18 @@ const rhRegistroSchema = z.object({
   contatoEmail: z.string().email("Email inválido").optional().or(z.literal("")),
   contatoTelefone: z.string().optional(),
   empreendimentoId: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
+  // Regime de Contratação
+  regimeContratacao: z.string().optional(),
+  // Documentos PJ
+  contratoPjUrl: z.string().optional(),
+  cnpj: z.string().optional(),
+  razaoSocial: z.string().optional(),
+  // Documentos CLT
+  ctpsNumero: z.string().optional(),
+  ctpsSerie: z.string().optional(),
+  pis: z.string().optional(),
+  contratoTrabalhoUrl: z.string().optional(),
+  fichaRegistroUrl: z.string().optional(),
 });
 
 type RhRegistro = z.infer<typeof rhRegistroSchema>;
@@ -125,8 +137,19 @@ export default function RhPage() {
       cnh: "",
       fornecedor: "",
       empreendimentoId: undefined,
+      regimeContratacao: "",
+      contratoPjUrl: "",
+      cnpj: "",
+      razaoSocial: "",
+      ctpsNumero: "",
+      ctpsSerie: "",
+      pis: "",
+      contratoTrabalhoUrl: "",
+      fichaRegistroUrl: "",
     },
   });
+
+  const regimeContratacao = form.watch("regimeContratacao");
 
   const createMutation = useMutation({
     mutationFn: async (data: RhRegistro) => apiRequest("POST", "/api/rh", data),
@@ -198,6 +221,15 @@ export default function RhPage() {
       cnh: "",
       fornecedor: "",
       empreendimentoId: undefined,
+      regimeContratacao: "",
+      contratoPjUrl: "",
+      cnpj: "",
+      razaoSocial: "",
+      ctpsNumero: "",
+      ctpsSerie: "",
+      pis: "",
+      contratoTrabalhoUrl: "",
+      fichaRegistroUrl: "",
     });
     setIsDialogOpen(true);
   };
@@ -319,7 +351,7 @@ export default function RhPage() {
                     <TableHead>ID</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>CPF</TableHead>
-                    <TableHead>CNH</TableHead>
+                    <TableHead>Regime</TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Empreendimento</TableHead>
                     <TableHead>Contato</TableHead>
@@ -332,7 +364,13 @@ export default function RhPage() {
                       <TableCell className="font-medium">{r.id}</TableCell>
                       <TableCell>{r.nomeColaborador}</TableCell>
                       <TableCell>{r.cpf || "-"}</TableCell>
-                      <TableCell>{r.cnh || "-"}</TableCell>
+                      <TableCell>
+                        {r.regimeContratacao ? (
+                          <span className={`px-2 py-1 text-xs rounded-full ${r.regimeContratacao === 'CLT' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {r.regimeContratacao}
+                          </span>
+                        ) : "-"}
+                      </TableCell>
                       <TableCell>{r.fornecedor || "-"}</TableCell>
                       <TableCell>
                         {r.empreendimentoId
@@ -441,6 +479,69 @@ export default function RhPage() {
                   <FormItem><FormLabel>Telefone</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                 )}/>
               </div>
+
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-4">Regime de Contratação</h4>
+                <FormField name="regimeContratacao" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Contrato</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o regime" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="CLT">CLT</SelectItem>
+                        <SelectItem value="PJ">Pessoa Jurídica (PJ)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}/>
+              </div>
+
+              {regimeContratacao === "PJ" && (
+                <div className="border rounded-lg p-4 bg-blue-50/50 space-y-4">
+                  <h4 className="text-sm font-medium text-blue-800">Documentos PJ</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField name="cnpj" control={form.control} render={({ field }) => (
+                      <FormItem><FormLabel>CNPJ</FormLabel><FormControl><Input {...field} placeholder="00.000.000/0000-00" /></FormControl></FormItem>
+                    )}/>
+                    <FormField name="razaoSocial" control={form.control} render={({ field }) => (
+                      <FormItem><FormLabel>Razão Social</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                    )}/>
+                    <FormField name="contratoPjUrl" control={form.control} render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>URL do Contrato de Prestação de Serviços</FormLabel>
+                        <FormControl><Input {...field} placeholder="https://..." /></FormControl>
+                      </FormItem>
+                    )}/>
+                  </div>
+                </div>
+              )}
+
+              {regimeContratacao === "CLT" && (
+                <div className="border rounded-lg p-4 bg-green-50/50 space-y-4">
+                  <h4 className="text-sm font-medium text-green-800">Documentos CLT</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField name="ctpsNumero" control={form.control} render={({ field }) => (
+                      <FormItem><FormLabel>Nº CTPS</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                    )}/>
+                    <FormField name="ctpsSerie" control={form.control} render={({ field }) => (
+                      <FormItem><FormLabel>Série CTPS</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                    )}/>
+                    <FormField name="pis" control={form.control} render={({ field }) => (
+                      <FormItem><FormLabel>PIS/PASEP</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                    )}/>
+                    <FormField name="contratoTrabalhoUrl" control={form.control} render={({ field }) => (
+                      <FormItem><FormLabel>URL do Contrato de Trabalho</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl></FormItem>
+                    )}/>
+                    <FormField name="fichaRegistroUrl" control={form.control} render={({ field }) => (
+                      <FormItem className="md:col-span-2"><FormLabel>URL da Ficha de Registro</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl></FormItem>
+                    )}/>
+                  </div>
+                </div>
+              )}
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); setEditingRegistro(null); form.reset(); }}>
