@@ -1132,6 +1132,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== DEMANDAS ROUTES ====
 
+  // Get user's own demandas (assigned to them)
+  app.get('/api/minhas-demandas', requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const userUnidade = req.user.unidade;
+      const demandas = await storage.getDemandasByResponsavel(userId, userUnidade);
+      res.json(demandas);
+    } catch (error) {
+      console.error('Error fetching user demandas:', error);
+      res.status(500).json({ error: 'Failed to fetch demandas' });
+    }
+  });
+
   // Get all demandas with filters
   app.get('/api/demandas', async (req, res) => {
     try {

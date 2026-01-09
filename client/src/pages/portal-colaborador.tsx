@@ -23,7 +23,9 @@ import {
   Eye,
   History,
   Trash2,
-  Edit
+  Edit,
+  Lock,
+  Globe
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -49,6 +51,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -74,6 +77,21 @@ interface Tarefa {
   horasRealizadas?: number;
   observacoes?: string;
   observacoesColaborador?: string;
+  visivelCalendarioGeral?: boolean;
+}
+
+interface Demanda {
+  id: number;
+  titulo: string;
+  descricao?: string;
+  setor: string;
+  status: string;
+  prioridade: string;
+  dataEntrega: string;
+  dataConclusao?: string;
+  empreendimentoId?: number;
+  responsavelId: number;
+  observacoes?: string;
 }
 
 interface PedidoReembolso {
@@ -177,6 +195,7 @@ const tarefaFormSchema = z.object({
   dataInicio: z.string().min(1, "Data de início é obrigatória"),
   dataFim: z.string().min(1, "Data de fim é obrigatória"),
   horasEstimadas: z.string().optional(),
+  visivelCalendarioGeral: z.boolean().default(false),
 });
 
 type TarefaFormData = z.infer<typeof tarefaFormSchema>;
@@ -218,6 +237,7 @@ export default function PortalColaboradorPage() {
       dataInicio: new Date().toISOString().split('T')[0],
       dataFim: new Date().toISOString().split('T')[0],
       horasEstimadas: "",
+      visivelCalendarioGeral: false,
     },
   });
 
@@ -244,6 +264,10 @@ export default function PortalColaboradorPage() {
   const { data: historicoReembolso = [] } = useQuery<HistoricoReembolso[]>({
     queryKey: ["/api/reembolsos", selectedReembolso?.id, "historico"],
     enabled: !!selectedReembolso,
+  });
+
+  const { data: minhasDemandas = [], isLoading: loadingDemandas } = useQuery<Demanda[]>({
+    queryKey: ["/api/minhas-demandas"],
   });
 
   const updateTarefaMutation = useMutation({
@@ -298,6 +322,7 @@ export default function PortalColaboradorPage() {
       apiRequest("POST", "/api/minhas-tarefas", {
         ...data,
         horasEstimadas: data.horasEstimadas ? parseFloat(data.horasEstimadas) : null,
+        visivelCalendarioGeral: data.visivelCalendarioGeral || false,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tarefas"] });
@@ -426,7 +451,14 @@ export default function PortalColaboradorPage() {
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <CardTitle className="text-base font-medium line-clamp-2">{tarefa.titulo}</CardTitle>
-            {isOverdue && <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {tarefa.visivelCalendarioGeral ? (
+                <Globe className="h-4 w-4 text-blue-500" title="Visível no calendário geral" />
+              ) : (
+                <Lock className="h-4 w-4 text-gray-400" title="Tarefa privada" />
+              )}
+              {isOverdue && <AlertTriangle className="h-5 w-5 text-red-500" />}
+            </div>
           </div>
           <CardDescription className="line-clamp-2">{tarefa.descricao || "Sem descrição"}</CardDescription>
         </CardHeader>
@@ -608,14 +640,18 @@ export default function PortalColaboradorPage() {
 
       <div className="flex justify-between items-center">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="hoje" data-testid="tab-hoje">
               <Calendar className="h-4 w-4 mr-2" />
-              Tarefas de Hoje ({tarefasHoje.length})
+              Hoje ({tarefasHoje.length})
             </TabsTrigger>
             <TabsTrigger value="todas" data-testid="tab-todas">
               <ClipboardList className="h-4 w-4 mr-2" />
-              Todas as Tarefas
+              Tarefas
+            </TabsTrigger>
+            <TabsTrigger value="demandas" data-testid="tab-demandas">
+              <FileText className="h-4 w-4 mr-2" />
+              Demandas ({minhasDemandas.length})
             </TabsTrigger>
             <TabsTrigger value="reembolsos" data-testid="tab-reembolsos">
               <Receipt className="h-4 w-4 mr-2" />
@@ -688,6 +724,65 @@ export default function PortalColaboradorPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredTarefas.map((tarefa) => (
                 <TarefaCard key={tarefa.id} tarefa={tarefa} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="demandas" className="space-y-4">
+          {loadingDemandas ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : minhasDemandas.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">Nenhuma demanda atribuída</h3>
+                <p className="text-muted-foreground">Quando você for responsável por uma demanda, ela aparecerá aqui.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {minhasDemandas.map((demanda) => (
+                <Card key={demanda.id} className="hover:shadow-lg transition-shadow" data-testid={`card-demanda-${demanda.id}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{demanda.titulo}</CardTitle>
+                      <Badge className={PRIORIDADE_CONFIG[demanda.prioridade]?.color || 'bg-gray-500'}>
+                        {PRIORIDADE_CONFIG[demanda.prioridade]?.label || demanda.prioridade}
+                      </Badge>
+                    </div>
+                    <CardDescription>{demanda.setor}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <Badge variant="outline" className={
+                          demanda.status === 'concluido' ? 'bg-green-50 text-green-700' :
+                          demanda.status === 'em_andamento' ? 'bg-blue-50 text-blue-700' :
+                          demanda.status === 'em_revisao' ? 'bg-purple-50 text-purple-700' :
+                          'bg-yellow-50 text-yellow-700'
+                        }>
+                          {demanda.status === 'a_fazer' ? 'A Fazer' :
+                           demanda.status === 'em_andamento' ? 'Em Andamento' :
+                           demanda.status === 'em_revisao' ? 'Em Revisão' :
+                           demanda.status === 'concluido' ? 'Concluído' :
+                           demanda.status}
+                        </Badge>
+                      </div>
+                      {demanda.dataEntrega && (
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          Entrega: {new Date(demanda.dataEntrega).toLocaleDateString('pt-BR')}
+                        </div>
+                      )}
+                      {demanda.descricao && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{demanda.descricao}</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -1312,6 +1407,28 @@ export default function PortalColaboradorPage() {
                       />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={tarefaForm.control}
+                name="visivelCalendarioGeral"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Visível no Calendário Geral</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Quando ativado, esta tarefa aparece no calendário de todos os usuários
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-calendario-geral"
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

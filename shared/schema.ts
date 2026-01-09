@@ -1486,6 +1486,7 @@ export const tarefas = pgTable("tarefas", {
   observacoesColaborador: text("observacoes_colaborador"), // notas do colaborador
   observacoesCoordenador: text("observacoes_coordenador"), // notas do coordenador
   arquivos: text("arquivos").array(), // URLs de arquivos anexados
+  visivelCalendarioGeral: boolean("visivel_calendario_geral").notNull().default(false), // se aparece no calendário para todos
   iniciadaEm: timestamp("iniciada_em"),
   concluidaEm: timestamp("concluida_em"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
