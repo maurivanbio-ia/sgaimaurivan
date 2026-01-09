@@ -97,8 +97,17 @@ function Router() {
     return <Login />;
   }
 
+  // Aguarda carregar dados do usuário para verificar cargo
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
   // Portal exclusivo para colaboradores - layout simplificado
-  const isColaborador = user?.cargo === "colaborador";
+  const isColaborador = user.cargo === "colaborador";
   
   if (isColaborador) {
     return (
