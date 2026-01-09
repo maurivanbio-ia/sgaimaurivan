@@ -528,6 +528,12 @@ export default function PortalColaboradorPage() {
   const TarefaCard = ({ tarefa, showQuickActions = true }: { tarefa: Tarefa; showQuickActions?: boolean }) => {
     const isOverdue = new Date(tarefa.dataFim) < new Date() && tarefa.status !== 'concluida' && tarefa.status !== 'cancelada';
     
+    const handleQuickDelete = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSelectedTarefa(tarefa);
+      setShowDeleteConfirm(true);
+    };
+    
     return (
       <Card 
         className={`cursor-pointer hover:shadow-md transition-shadow ${isOverdue ? 'border-red-500' : ''}`}
@@ -537,13 +543,22 @@ export default function PortalColaboradorPage() {
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <CardTitle className="text-base font-medium line-clamp-2">{tarefa.titulo}</CardTitle>
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {tarefa.visivelCalendarioGeral ? (
                 <Globe className="h-4 w-4 text-blue-500" title="Visível no calendário geral" />
               ) : (
                 <Lock className="h-4 w-4 text-gray-400" title="Tarefa privada" />
               )}
               {isOverdue && <AlertTriangle className="h-5 w-5 text-red-500" />}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                onClick={handleQuickDelete}
+                title="Excluir tarefa"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           <CardDescription className="line-clamp-2">{tarefa.descricao || "Sem descrição"}</CardDescription>
