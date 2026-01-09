@@ -129,53 +129,31 @@ export default function DashboardCoordenador() {
   const categoriaMap = new Map(categorias.map(c => [c.id, c]));
   const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
   
-  // IDs de empreendimentos da unidade do usuário
-  const empreendimentosDaUnidade = empreendimentos.filter(e => e.unidade === user?.unidade);
-  const empreendimentosDaUnidadeIds = new Set(empreendimentosDaUnidade.map(e => e.id));
-  
-  // Filtra despesas: se tiver projetos, mostra dos seus projetos; senão, mostra da sua unidade
-  const myDespesas = myProjects.length > 0 
-    ? lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa')
-    : lancamentos.filter(l => empreendimentosDaUnidadeIds.has(l.empreendimentoId) && l.tipo === 'despesa');
+  // Filtra despesas: mostra APENAS dos projetos onde o usuário é coordenador
+  const myDespesas = lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa');
   
   const totalGastos = myDespesas.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
 
-  // Gastos por projeto: se tiver projetos, agrupa por projeto; senão, agrupa por empreendimento da unidade
-  const gastosPorProjeto = myProjects.length > 0 
-    ? myProjects.map(projeto => {
-        const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
-        const despesasProjeto = lancamentos.filter(l => 
-          l.empreendimentoId === projeto.empreendimentoId && l.tipo === 'despesa'
-        );
-        const totalDespesas = despesasProjeto.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
-        const orcamento = parseFloat(String(projeto.orcamentoPrevisto || 0)) || 0;
-        
-        return {
-          id: projeto.id,
-          nome: projeto.nome,
-          empreendimento: empreendimento?.nome || '-',
-          empreendimentoId: projeto.empreendimentoId,
-          totalGastos: totalDespesas,
-          orcamento,
-          percentualGasto: orcamento > 0 ? (totalDespesas / orcamento) * 100 : 0,
-          status: projeto.status
-        };
-      })
-    : empreendimentosDaUnidade.map(empreendimento => {
-          const despesasEmpr = lancamentos.filter(l => l.empreendimentoId === empreendimento.id && l.tipo === 'despesa');
-          const totalDespesas = despesasEmpr.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
-          
-          return {
-            id: empreendimento.id,
-            nome: empreendimento.nome,
-            empreendimento: empreendimento.nome,
-            empreendimentoId: empreendimento.id,
-            totalGastos: totalDespesas,
-            orcamento: 0,
-            percentualGasto: 0,
-            status: 'ativo'
-          };
-        }).filter(g => g.totalGastos > 0);
+  // Gastos por projeto: mostra apenas projetos onde o usuário é coordenador
+  const gastosPorProjeto = myProjects.map(projeto => {
+    const empreendimento = empreendimentoMap.get(projeto.empreendimentoId);
+    const despesasProjeto = lancamentos.filter(l => 
+      l.empreendimentoId === projeto.empreendimentoId && l.tipo === 'despesa'
+    );
+    const totalDespesas = despesasProjeto.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
+    const orcamento = parseFloat(String(projeto.orcamentoPrevisto || 0)) || 0;
+    
+    return {
+      id: projeto.id,
+      nome: projeto.nome,
+      empreendimento: empreendimento?.nome || '-',
+      empreendimentoId: projeto.empreendimentoId,
+      totalGastos: totalDespesas,
+      orcamento,
+      percentualGasto: orcamento > 0 ? (totalDespesas / orcamento) * 100 : 0,
+      status: projeto.status
+    };
+  });
 
   const gastosPorCategoria = myDespesas.reduce((acc, l) => {
     const categoria = categoriaMap.get(l.categoriaId);
@@ -248,9 +226,7 @@ export default function DashboardCoordenador() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{formatCurrency(totalGastos)}</div>
-              <p className="text-xs text-muted-foreground">
-                {myProjects.length > 0 ? 'despesas nos seus projetos' : 'despesas na sua unidade'}
-              </p>
+              <p className="text-xs text-muted-foreground">despesas nos seus projetos</p>
             </CardContent>
           </Card>
 
@@ -271,7 +247,7 @@ export default function DashboardCoordenador() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                {myProjects.length > 0 ? 'Gastos por Projeto' : 'Gastos por Empreendimento'}
+                Gastos por Empreendimento
               </CardTitle>
             </CardHeader>
             <CardContent>

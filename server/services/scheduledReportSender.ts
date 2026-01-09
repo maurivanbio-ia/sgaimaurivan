@@ -164,9 +164,15 @@ const resumoDemandasConfig = {
 async function getDemandasTarefasStats(responsavelEmail: string) {
   const now = new Date();
   
+  const user = await db.select().from(users).where(eq(users.email, responsavelEmail)).limit(1);
+  if (!user.length) {
+    return { demandasAtivas: 0, demandasAtrasadas: 0, tarefasAtivas: 0, tarefasAtrasadas: 0 };
+  }
+  const userId = user[0].id;
+  
   const demandasAtivas = await db.select().from(demandas).where(
     and(
-      eq(demandas.responsavelEmail, responsavelEmail),
+      eq(demandas.responsavelId, userId),
       or(eq(demandas.status, 'pendente'), eq(demandas.status, 'em_andamento'), eq(demandas.status, 'a_fazer'))
     )
   );
@@ -178,14 +184,14 @@ async function getDemandasTarefasStats(responsavelEmail: string) {
 
   const tarefasAtivas = await db.select().from(tarefas).where(
     and(
-      eq(tarefas.responsavelEmail, responsavelEmail),
+      eq(tarefas.responsavelId, userId),
       or(eq(tarefas.status, 'pendente'), eq(tarefas.status, 'em_andamento'), eq(tarefas.status, 'a_fazer'))
     )
   );
 
   const tarefasAtrasadas = tarefasAtivas.filter(t => {
-    if (!t.dataLimite) return false;
-    return new Date(t.dataLimite) < now;
+    if (!t.dataFim) return false;
+    return new Date(t.dataFim) < now;
   });
 
   return {
@@ -374,6 +380,13 @@ export function initScheduledReportSender() {
       timezone: 'America/Sao_Paulo'
     });
     console.log(`[Scheduled Reports] Relatório Financeiro agendado: ${config.relatorioFinanceiro.cronExpression} (toda segunda às 9h)`);
+  }
+
+  if (resumoDemandasConfig.enabled) {
+    resumoDemandasJob = cron.schedule(resumoDemandasConfig.cronExpression, sendResumoSemanalDemandas, {
+      timezone: 'America/Sao_Paulo'
+    });
+    console.log(`[Scheduled Reports] Resumo Semanal de Demandas agendado: ${resumoDemandasConfig.cronExpression} (toda segunda às 9h)`);
   }
   
   console.log('[Scheduled Reports] Serviço iniciado com sucesso');
