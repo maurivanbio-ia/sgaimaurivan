@@ -41,23 +41,46 @@ export function ExportButton({
         }
       }
 
-      // Cria um link temporário para download
+      // Faz o fetch do arquivo
+      const response = await fetch(url, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Erro ao exportar dados');
+      }
+      
+      // Obtém o nome do arquivo do header Content-Disposition
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${entity}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+      
+      // Converte para blob e baixa
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = ''; // O nome do arquivo será definido pelo servidor
+      link.href = blobUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
 
       toast({
         title: "Exportação realizada",
         description: `Arquivo ${format.toUpperCase()} baixado com sucesso!`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na exportação:', error);
       toast({
         title: "Erro na exportação",
-        description: "Erro ao exportar dados. Tente novamente.",
+        description: error.message || "Erro ao exportar dados. Tente novamente.",
         variant: "destructive",
       });
     } finally {
