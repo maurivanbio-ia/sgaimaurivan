@@ -1,5 +1,154 @@
 # Guia Completo de Configuração n8n - EcoGestor
 
+## Referência Rápida - Copie e Cole no n8n
+
+### URL Base
+```
+{{$env.ECOGESTOR_URL}} = https://sua-url.replit.app
+```
+
+### Autenticação (Header)
+```
+X-API-Key: <SUA_N8N_API_KEY>
+```
+
+---
+
+### Enviar Relatório 360° por Email
+```json
+{
+  "enviarEmail": "true",
+  "email": "seu-email@ecobrasil.bio.br"
+}
+```
+**Endpoint:** `POST /api/webhooks/n8n/relatorios/360`
+
+---
+
+### Enviar Relatório Financeiro por Email
+```json
+{
+  "enviarEmail": "true",
+  "email": "seu-email@ecobrasil.bio.br",
+  "mes": 1,
+  "ano": 2026
+}
+```
+**Endpoint:** `POST /api/webhooks/n8n/relatorios/financeiro`
+
+---
+
+### Filtrar por Unidade (Adicione a qualquer endpoint)
+```json
+{
+  "unidade": "goiania"
+}
+```
+Opções: `goiania`, `salvador`, `luiz_eduardo_magalhaes`
+
+---
+
+### Licenças Vencendo (próximos X dias)
+```json
+{
+  "dias": 30,
+  "unidade": "salvador"
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/licencas/vencendo`
+
+---
+
+### Condicionantes Pendentes
+```json
+{
+  "dias": 30
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/condicionantes/pendentes`
+
+---
+
+### Contratos a Vencer
+```json
+{
+  "dias": 60
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/contratos/vencendo`
+
+---
+
+### Resumo Financeiro
+```json
+{
+  "unidade": "goiania"
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/financeiro/resumo`
+
+---
+
+### RH - Documentos Vencendo
+```json
+{
+  "dias": 30
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/rh/documentos-vencendo`
+
+---
+
+### Frota - Manutenções/Revisões
+```json
+{
+  "dias": 30
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/frota/manutencao`
+
+---
+
+### Equipamentos - Calibrações Pendentes
+```json
+{
+  "dias": 30
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/equipamentos/calibracao`
+
+---
+
+### Demandas Pendentes
+```json
+{
+  "unidade": "salvador"
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/demandas/pendentes`
+
+---
+
+### Tarefas da Equipe
+```json
+{
+  "status": "em_andamento"
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/tarefas/equipe`
+
+---
+
+### Resumo do Coordenador
+```json
+{
+  "coordenadorId": 17
+}
+```
+**Endpoint:** `GET/POST /api/webhooks/n8n/coordenador/resumo`
+
+---
+
 ## Configuração Inicial
 
 ### 1. Criar Credencial de Autenticação
