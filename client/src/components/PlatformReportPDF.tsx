@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { FileDown, Loader2, FileText } from "lucide-react";
+import { FileDown, Loader2, FileText, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { UnlockDialog, isModuleUnlocked } from "@/components/UnlockDialog";
+import { useQuery } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoPath from "@assets/image_1767899664691.png";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { User } from "@shared/schema";
 
 const ECOBRASIL_COLORS = {
   green: [34, 139, 34] as [number, number, number],
@@ -43,7 +46,22 @@ interface PlatformReportPDFProps {
 export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "default" }: PlatformReportPDFProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
   const { toast } = useToast();
+  
+  // Buscar usuário logado para verificar role
+  const { data: currentUser } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+  
+  // Verifica se o usuário é diretor ou admin (não precisa de senha)
+  const isDirectorOrAdmin = currentUser?.role === 'diretor' || currentUser?.role === 'admin';
+  
+  // Verifica se o módulo de relatórios está desbloqueado na sessão
+  const isReportUnlocked = isModuleUnlocked('relatorios');
+  
+  // Pode acessar se for diretor/admin OU se tiver desbloqueado com senha
+  const canAccessReport = isDirectorOrAdmin || isReportUnlocked;
 
   const loadImage = (src: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -1061,76 +1079,106 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
     }
   };
 
-  return (
-    <Dialog open={isDialogOpen} onOpenChange={(open) => !isExporting && setIsDialogOpen(open)}>
-      <DialogTrigger asChild>
-        <Button variant={buttonVariant} size={buttonSize} disabled={isExporting} data-testid="button-relatorio-plataforma">
-          {isExporting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Gerando...
-            </>
-          ) : (
-            <>
-              <FileText className="h-4 w-4 mr-2" />
-              Relatório 360°
-            </>
-          )}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileDown className="h-5 w-5 text-green-600" />
-            Relatório Completo da Plataforma
-          </DialogTitle>
-          <DialogDescription>
-            Gere um relatório PDF completo com todos os dados da plataforma EcoGestor.
-          </DialogDescription>
-        </DialogHeader>
+  // Handler para abrir o diálogo - verifica se precisa de senha primeiro
+  const handleOpenDialog = () => {
+    if (canAccessReport) {
+      setIsDialogOpen(true);
+    } else {
+      setShowUnlockDialog(true);
+    }
+  };
 
-        <div className="space-y-4 py-4">
-          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-            <h4 className="font-medium text-sm">O relatório incluirá:</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Resumo executivo com KPIs gerais</li>
-              <li>• Gráficos de status por módulo</li>
-              <li>• Análise financeira com gráficos</li>
-              <li>• Tabelas de evolução mensal</li>
-              <li>• Alertas e pendências</li>
-              <li>• Listagens detalhadas de todos os módulos</li>
-            </ul>
+  return (
+    <>
+      <Button 
+        variant={buttonVariant} 
+        size={buttonSize} 
+        disabled={isExporting} 
+        onClick={handleOpenDialog}
+        data-testid="button-relatorio-plataforma"
+      >
+        {isExporting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Gerando...
+          </>
+        ) : (
+          <>
+            <FileText className="h-4 w-4 mr-2" />
+            Relatório 360°
+            {!isDirectorOrAdmin && !isReportUnlocked && <Lock className="h-3 w-3 ml-1" />}
+          </>
+        )}
+      </Button>
+
+      {/* Diálogo de senha para usuários não-diretores */}
+      <UnlockDialog
+        open={showUnlockDialog}
+        onOpenChange={setShowUnlockDialog}
+        moduleName="relatorios"
+        onSuccess={() => {
+          setShowUnlockDialog(false);
+          setIsDialogOpen(true);
+        }}
+        onCancel={() => setShowUnlockDialog(false)}
+      />
+
+      {/* Diálogo principal do relatório */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !isExporting && setIsDialogOpen(open)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="h-5 w-5 text-green-600" />
+              Relatório Completo da Plataforma
+            </DialogTitle>
+            <DialogDescription>
+              Gere um relatório PDF completo com todos os dados da plataforma EcoGestor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <h4 className="font-medium text-sm">O relatório incluirá:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Resumo executivo com KPIs gerais</li>
+                <li>• Gráficos de status por módulo</li>
+                <li>• Análise financeira com gráficos</li>
+                <li>• Tabelas de evolução mensal</li>
+                <li>• Alertas e pendências</li>
+                <li>• Listagens detalhadas de todos os módulos</li>
+              </ul>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              O relatório será gerado em formato PDF com a identidade visual da EcoBrasil.
+            </p>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            O relatório será gerado em formato PDF com a identidade visual da EcoBrasil.
-          </p>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isExporting}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={generatePDF}
-            disabled={isExporting}
-            className="bg-green-600 hover:bg-green-700"
-            data-testid="button-gerar-relatorio"
-          >
-            {isExporting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Gerando...
-              </>
-            ) : (
-              <>
-                <FileDown className="h-4 w-4 mr-2" />
-                Gerar Relatório
-              </>
-            )}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isExporting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={generatePDF}
+              disabled={isExporting}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-gerar-relatorio"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Gerar Relatório
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
