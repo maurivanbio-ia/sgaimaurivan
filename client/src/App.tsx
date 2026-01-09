@@ -35,6 +35,7 @@ import Projetos from "./pages/projetos";
 import Contratos from "./pages/contratos";
 import GestaoDados from "./pages/gestaoDados";
 import SegurancaTrabalho from "./pages/segurancaTrabalho";
+import WhatsAppConfig from "./pages/whatsapp-config";
 import PainelIntegrado from "./pages/painel-integrado";
 import MapaEmpreendimentos from "./pages/mapa";
 import Calendario from "./pages/calendario";
@@ -160,6 +161,7 @@ function Router() {
                     <Route path="/contratos" component={Contratos} />
                     <Route path="/gestao-dados" component={GestaoDados} />
                     <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
+                    <Route path="/whatsapp" component={WhatsAppConfig} />
                     <Route path="/gestao-equipe" component={GestaoEquipe} />
                     <Route path="/minhas-tarefas" component={PortalColaborador} />
                     <Route component={NotFound} />
