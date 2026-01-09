@@ -192,7 +192,7 @@ export default function GestaoDados() {
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
     queryFn: async () => {
-      const res = await fetch("/api/empreendimentos");
+      const res = await fetch("/api/empreendimentos", { credentials: "include" });
       if (!res.ok) throw new Error("Erro ao carregar empreendimentos");
       return res.json();
     },
@@ -206,7 +206,7 @@ export default function GestaoDados() {
       const params = new URLSearchParams();
       if (filterEmpreendimento !== "all") params.append("empreendimentoId", filterEmpreendimento);
       if (filterTipo !== "all") params.append("tipo", filterTipo);
-      const res = await fetch(`/api/datasets?${params.toString()}`);
+      const res = await fetch(`/api/datasets?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Erro ao carregar arquivos");
       return res.json();
     },
@@ -216,7 +216,7 @@ export default function GestaoDados() {
   const { data: pastas = [], isLoading: pastasLoading } = useQuery<any[]>({
     queryKey: ["/api/datasets/pastas"],
     queryFn: async () => {
-      const res = await fetch("/api/datasets/pastas");
+      const res = await fetch("/api/datasets/pastas", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -254,6 +254,7 @@ export default function GestaoDados() {
       const res = await fetch("/api/datasets/gerar-codigo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           cliente, uf, projeto, subprojeto, disciplina, tipoDocumento, 
           entrega, area, periodo, status, extensao,
