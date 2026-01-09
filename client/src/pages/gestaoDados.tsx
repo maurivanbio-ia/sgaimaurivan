@@ -213,7 +213,7 @@ export default function GestaoDados() {
   });
 
   // Buscar pastas
-  const { data: pastas = [] } = useQuery<any[]>({
+  const { data: pastas = [], isLoading: pastasLoading } = useQuery<any[]>({
     queryKey: ["/api/datasets/pastas"],
     queryFn: async () => {
       const res = await fetch("/api/datasets/pastas");
@@ -221,6 +221,25 @@ export default function GestaoDados() {
       return res.json();
     },
   });
+
+  // Auto-inicializar estrutura de pastas se estiver vazia
+  const [autoInitialized, setAutoInitialized] = useState(false);
+  
+  useEffect(() => {
+    if (!pastasLoading && pastas.length === 0 && !autoInitialized) {
+      setAutoInitialized(true);
+      fetch("/api/datasets/estrutura/macro", { 
+        method: "POST",
+        credentials: "include"
+      })
+        .then(res => {
+          if (res.ok) {
+            queryClient.invalidateQueries({ queryKey: ["/api/datasets/pastas"] });
+          }
+        })
+        .catch(console.error);
+    }
+  }, [pastasLoading, pastas.length, autoInitialized]);
 
   // Gerar preview do código quando campos mudam
   useEffect(() => {
@@ -1013,13 +1032,15 @@ export default function GestaoDados() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {pastas.length === 0 ? (
+              {pastasLoading || (pastas.length === 0 && !autoInitialized) ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <FolderTree className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Estrutura de pastas nao inicializada.</p>
-                  <Button className="mt-4" onClick={() => initMacroMutation.mutate()}>
-                    Inicializar Estrutura
-                  </Button>
+                  <FolderTree className="h-12 w-12 mx-auto mb-2 opacity-50 animate-pulse" />
+                  <p>Carregando estrutura de pastas...</p>
+                </div>
+              ) : pastas.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FolderTree className="h-12 w-12 mx-auto mb-2 opacity-50 animate-pulse" />
+                  <p>Inicializando estrutura de pastas...</p>
                 </div>
               ) : (
                 <ScrollArea className="h-[500px]">
