@@ -1,0 +1,114 @@
+1. Problema principal. URL de webhook usada com método incorreto
+
+Você está chamando:
+
+https://ecobrasilgestor.replit.app/api/webhooks/n8n/licencas/vencendo
+
+
+porém:
+
+⚠️ Webhooks do n8n não aceitam GET por padrão
+
+Webhooks do n8n, quando criados pelo node Webhook, normalmente aceitam:
+
+POST (default)
+
+GET somente se explicitamente configurado
+
+Se esse endpoint foi criado no Replit para receber dados do n8n, então ele não é um webhook do n8n, mas sim uma API externa, e o erro passa a ser outro (ver item 2).
+
+2. Verifique se o endpoint realmente existe no backend (Replit)
+
+No backend (Express / FastAPI / Flask), o endpoint precisa existir exatamente assim:
+
+Exemplo em Express.js
+app.get('/api/webhooks/n8n/licencas/vencendo', (req, res) => {
+  const dias = req.query.dias;
+  ...
+});
+
+
+Se no backend estiver algo como:
+
+POST /api/webhooks/n8n/licencas/vencendo
+
+
+então GET nunca vai funcionar e o 404 é esperado.
+
+✅ Ajuste necessário no n8n
+
+Se o backend for POST, altere:
+
+Method: POST
+
+3. Query Parameter está correto, mas o backend pode não estar lendo
+
+Você enviou corretamente:
+
+?dias=90
+
+
+Porém, confirme no backend:
+
+Express: req.query.dias
+
+FastAPI: dias: int
+
+Flask: request.args.get("dias")
+
+Se o backend estiver esperando body JSON, então query string não será lida.
+
+Alternativa segura
+
+Use POST + Body JSON:
+
+No n8n:
+
+Method: POST
+
+Send Body: JSON
+
+{
+  "dias": 90
+}
+
+4. API Key não está sendo usada (erro crítico)
+
+Você tem no input:
+
+apiKey: EcoBrasil2024SecureKey!
+
+
+Mas não está enviando isso no header.
+
+Se o backend exige autenticação, ele pode responder 404 ou 401 deliberadamente.
+
+Ajuste correto no n8n
+
+Ative Send Headers e adicione:
+
+Header 1
+
+Name: x-api-key
+Value: {{ $('Workflow Configuration').first().json.apiKey }}
+
+
+ou, se o backend usa Authorization:
+
+Authorization: Bearer EcoBrasil2024SecureKey!
+
+5. Teste rápido fora do n8n (passo obrigatório)
+
+Antes de insistir no workflow, teste direto no navegador ou curl:
+
+GET
+https://ecobrasilgestor.replit.app/api/webhooks/n8n/licencas/vencendo?dias=90
+
+POST
+curl -X POST https://ecobrasilgestor.replit.app/api/webhooks/n8n/licencas/vencendo \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: EcoBrasil2024SecureKey!" \
+  -d '{"dias":90}'
+
+
+Se isso falhar, o problema está 100% no backend, não no n8n.
