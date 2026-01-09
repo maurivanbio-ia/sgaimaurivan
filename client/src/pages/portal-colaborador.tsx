@@ -169,6 +169,18 @@ const reembolsoFormSchema = z.object({
 
 type ReembolsoFormData = z.infer<typeof reembolsoFormSchema>;
 
+const tarefaFormSchema = z.object({
+  titulo: z.string().min(1, "Título é obrigatório"),
+  descricao: z.string().optional(),
+  categoria: z.string().min(1, "Categoria é obrigatória"),
+  prioridade: z.string().min(1, "Prioridade é obrigatória"),
+  dataInicio: z.string().min(1, "Data de início é obrigatória"),
+  dataFim: z.string().min(1, "Data de fim é obrigatória"),
+  horasEstimadas: z.string().optional(),
+});
+
+type TarefaFormData = z.infer<typeof tarefaFormSchema>;
+
 export default function PortalColaboradorPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("hoje");
@@ -182,6 +194,7 @@ export default function PortalColaboradorPage() {
   const [isViewReembolsoOpen, setIsViewReembolsoOpen] = useState(false);
   const [selectedReembolso, setSelectedReembolso] = useState<PedidoReembolso | null>(null);
   const [reembolsoStatusFilter, setReembolsoStatusFilter] = useState("all");
+  const [isTarefaDialogOpen, setIsTarefaDialogOpen] = useState(false);
 
   const reembolsoForm = useForm<ReembolsoFormData>({
     resolver: zodResolver(reembolsoFormSchema),
@@ -192,6 +205,19 @@ export default function PortalColaboradorPage() {
       valor: "",
       dataGasto: new Date().toISOString().split('T')[0],
       comprovante: "",
+    },
+  });
+
+  const tarefaForm = useForm<TarefaFormData>({
+    resolver: zodResolver(tarefaFormSchema),
+    defaultValues: {
+      titulo: "",
+      descricao: "",
+      categoria: "",
+      prioridade: "media",
+      dataInicio: new Date().toISOString().split('T')[0],
+      dataFim: new Date().toISOString().split('T')[0],
+      horasEstimadas: "",
     },
   });
 
@@ -267,6 +293,26 @@ export default function PortalColaboradorPage() {
     },
   });
 
+  const createTarefaMutation = useMutation({
+    mutationFn: async (data: TarefaFormData) =>
+      apiRequest("POST", "/api/minhas-tarefas", {
+        ...data,
+        horasEstimadas: data.horasEstimadas ? parseFloat(data.horasEstimadas) : null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tarefas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/minhas-tarefas-hoje"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tarefas-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas/calendar"] });
+      toast({ title: "Sucesso", description: "Tarefa criada com sucesso!" });
+      setIsTarefaDialogOpen(false);
+      tarefaForm.reset();
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao criar tarefa", variant: "destructive" });
+    },
+  });
+
   const filteredTarefas = useMemo(() => {
     if (statusFilter === "all") return todasTarefas;
     return todasTarefas.filter(t => t.status === statusFilter);
@@ -316,6 +362,10 @@ export default function PortalColaboradorPage() {
 
   const onSubmitReembolso = (data: ReembolsoFormData) => {
     createReembolsoMutation.mutate(data);
+  };
+
+  const onSubmitTarefa = (data: TarefaFormData) => {
+    createTarefaMutation.mutate(data);
   };
 
   const handleViewReembolso = (reembolso: PedidoReembolso) => {
