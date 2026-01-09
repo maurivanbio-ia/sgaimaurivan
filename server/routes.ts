@@ -93,6 +93,8 @@ declare module 'express-session' {
 
 // Painel unlock password (retrieved from environment variable)
 const PAINEL_UNLOCK_PASSWORD = process.env.PAINEL_UNLOCK_PASSWORD || "";
+// Admin unlock password for restricted modules
+const ADMIN_UNLOCK_PASSWORD = process.env.ADMIN_UNLOCK_PASSWORD || "";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Trust proxy for secure cookies behind reverse proxy
@@ -313,6 +315,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get unlock status error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Module unlock endpoint - validates admin password for restricted module access
+  app.post("/api/auth/unlock-module", requireAuth, async (req, res) => {
+    try {
+      const { password, module } = req.body;
+      
+      if (!password || typeof password !== 'string') {
+        return res.status(400).json({ success: false, message: "Senha é obrigatória" });
+      }
+
+      if (!module || typeof module !== 'string') {
+        return res.status(400).json({ success: false, message: "Módulo é obrigatório" });
+      }
+
+      if (!ADMIN_UNLOCK_PASSWORD) {
+        return res.status(500).json({ success: false, message: "Configuração de desbloqueio não disponível" });
+      }
+
+      if (password === ADMIN_UNLOCK_PASSWORD) {
+        console.log(`Módulo '${module}' desbloqueado por usuário ${req.session.userId}`);
+        return res.json({ success: true, message: "Módulo desbloqueado com sucesso" });
+      } else {
+        console.log(`Tentativa de desbloqueio do módulo '${module}' falhou para usuário ${req.session.userId}`);
+        return res.json({ success: false, message: "Senha incorreta" });
+      }
+    } catch (error) {
+      console.error("Module unlock error:", error);
+      res.status(500).json({ success: false, message: "Internal server error" });
     }
   });
 
