@@ -85,6 +85,7 @@ export default function Sidebar() {
     { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
     { href: "/seguranca-trabalho", label: "SST", icon: ShieldCheck, testid: "nav-seguranca-trabalho" },
     { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, testid: "nav-whatsapp" },
+    { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: Calendar, testid: "nav-relatorios-automaticos" },
   ];
 
   const SidebarContent = () => (
