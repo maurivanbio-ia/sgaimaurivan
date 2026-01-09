@@ -1038,6 +1038,24 @@ export function registerN8nWebhooks(app: Express) {
     });
   });
 
+  // Rota de teste SEM autenticação para debug
+  app.get("/api/webhooks/n8n/test/sst", async (req, res) => {
+    try {
+      const documentos = await db
+        .select()
+        .from(segDocumentosColaboradores)
+        .limit(5);
+      
+      res.json({ 
+        success: true, 
+        total: documentos.length,
+        data: documentos
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Rota de teste para verificar schema de condicionantes
   app.get("/api/webhooks/n8n/test/condicionantes", requireApiKey, async (req, res) => {
     try {
