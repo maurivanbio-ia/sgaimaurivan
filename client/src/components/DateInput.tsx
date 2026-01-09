@@ -56,9 +56,8 @@ export function DateInput({
     if (digitsOnly.length === 8) {
       const parsed = parse(newValue, "dd/MM/yyyy", new Date(), { locale: ptBR });
       if (isValid(parsed)) {
-        // Create UTC date to avoid timezone offset issues
-        const utcDate = new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0));
-        onChange(utcDate);
+        // Usar a data exatamente como digitada, sem conversão de fuso horário
+        onChange(parsed);
       }
     } else if (digitsOnly.length === 0) {
       onChange(undefined);
@@ -67,9 +66,8 @@ export function DateInput({
 
   const handleCalendarSelect = (date: Date | undefined) => {
     if (date) {
-      // Create UTC date to avoid timezone offset issues
-      const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
-      onChange(utcDate);
+      // Usar a data exatamente como selecionada, sem conversão de fuso horário
+      onChange(date);
     } else {
       onChange(date);
     }
