@@ -66,6 +66,8 @@ import {
   type Contrato,
   type InsertContrato,
   datasets,
+  datasetVersoes,
+  datasetAuditTrail,
   type Dataset,
   type InsertDataset,
   colaboradores,
@@ -2340,6 +2342,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDataset(id: number): Promise<boolean> {
+    // Primeiro excluir registros relacionados
+    await db.delete(datasetVersoes).where(eq(datasetVersoes.datasetId, id));
+    await db.delete(datasetAuditTrail).where(eq(datasetAuditTrail.datasetId, id));
+    
+    // Depois excluir o dataset
     const result = await db.delete(datasets).where(eq(datasets.id, id));
     return result.rowCount !== null && result.rowCount > 0;
   }
