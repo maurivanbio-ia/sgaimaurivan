@@ -106,6 +106,8 @@ export default function RhPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [registroToDelete, setRegistroToDelete] = useState<number | null>(null);
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
+  const [viewingRegistro, setViewingRegistro] = useState<any | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   const filters = useMemo(() => {
     const params: Record<string, string> = {};
@@ -411,10 +413,13 @@ export default function RhPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(r)}>
+                          <Button variant="ghost" size="sm" onClick={() => { setViewingRegistro(r); setIsViewDialogOpen(true); }} title="Visualizar">
+                            <Eye className="h-4 w-4 text-blue-500" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(r)} title="Editar">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id!)}>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id!)} title="Excluir">
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
@@ -711,6 +716,139 @@ export default function RhPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Colaborador</DialogTitle>
+            <DialogDescription>
+              Informações completas do registro de RH
+            </DialogDescription>
+          </DialogHeader>
+          {viewingRegistro && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Nome</p>
+                  <p className="font-semibold">{viewingRegistro.nomeColaborador || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">CPF</p>
+                  <p>{viewingRegistro.cpf || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">RG</p>
+                  <p>{viewingRegistro.rg || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">CNH</p>
+                  <p>{viewingRegistro.cnh || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Categoria CNH</p>
+                  <p>{viewingRegistro.cnhCategoria || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Vencimento CNH</p>
+                  <p>{viewingRegistro.cnhVencimento ? new Date(viewingRegistro.cnhVencimento).toLocaleDateString('pt-BR') : "-"}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3">Contratação</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Regime</p>
+                    <p>{viewingRegistro.regimeContratacao || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Fornecedor</p>
+                    <p>{viewingRegistro.fornecedor || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Empreendimento</p>
+                    <p>{viewingRegistro.empreendimentoId ? empreendimentos.find((e: any) => e.id === viewingRegistro.empreendimentoId)?.nome || "-" : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Valor</p>
+                    <p>{viewingRegistro.valor ? `R$ ${viewingRegistro.valor} (${viewingRegistro.valorTipo || 'mensal'})` : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Data Início</p>
+                    <p>{viewingRegistro.dataInicio ? new Date(viewingRegistro.dataInicio).toLocaleDateString('pt-BR') : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Data Fim</p>
+                    <p>{viewingRegistro.dataFim ? new Date(viewingRegistro.dataFim).toLocaleDateString('pt-BR') : "-"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3">Contato</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Email</p>
+                    <p>{viewingRegistro.contatoEmail || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-muted-foreground">Telefone</p>
+                    <p>{viewingRegistro.contatoTelefone || "-"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {viewingRegistro.regimeContratacao === 'PJ' && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Dados PJ</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">CNPJ</p>
+                      <p>{viewingRegistro.cnpj || "-"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">Razão Social</p>
+                      <p>{viewingRegistro.razaoSocial || "-"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {viewingRegistro.regimeContratacao === 'CLT' && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Dados CLT</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">CTPS</p>
+                      <p>{viewingRegistro.ctpsNumero ? `${viewingRegistro.ctpsNumero} / ${viewingRegistro.ctpsSerie || ''}` : "-"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">PIS</p>
+                      <p>{viewingRegistro.pis || "-"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3">Seguro</h4>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Número do Seguro</p>
+                  <p>{viewingRegistro.seguroNumero || "-"}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsViewDialogOpen(false); setViewingRegistro(null); }}>
+              Fechar
+            </Button>
+            <Button onClick={() => { setIsViewDialogOpen(false); handleEdit(viewingRegistro); }}>
+              <Edit className="h-4 w-4 mr-2" /> Editar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
