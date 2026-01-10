@@ -64,7 +64,7 @@ import {
   historicosPontuacao,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql, eq, and, isNull, gte, lte, sum, desc } from "drizzle-orm";
+import { sql, eq, and, isNull, gte, lte, sum, desc, or, ilike, SQL } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
@@ -4209,6 +4209,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== RH ROUTES ====
+  app.get('/api/rh', requireAuth, async (req, res) => {
+    try {
+      const { search, fornecedor, empreendimento } = req.query;
+      const userUnidade = req.user?.unidade;
+      
+      const conditions: SQL[] = [isNull(rhRegistros.deletedAt)];
+      
+      if (userUnidade) {
+        conditions.push(eq(rhRegistros.unidade, userUnidade));
+      }
+      
+      if (empreendimento && empreendimento !== 'all') {
+        const empId = parseInt(empreendimento as string);
+        if (!isNaN(empId)) {
+          conditions.push(eq(rhRegistros.empreendimentoId, empId));
+        }
+      }
+      
+      if (fornecedor && fornecedor !== 'all') {
+        conditions.push(eq(rhRegistros.fornecedor, fornecedor as string));
+      }
+      
+      if (search) {
+        conditions.push(
+          or(
+            ilike(rhRegistros.nomeColaborador, `%${search}%`),
+            ilike(rhRegistros.cpf, `%${search}%`)
+          )!
+        );
+      }
+      
+      const result = await db.select().from(rhRegistros).where(and(...conditions));
+      res.json(result);
+    } catch (error: any) {
+      console.error("Erro ao buscar registros RH:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get('/api/empreendimentos/:empreendimentoId/rh', requireAuth, async (req, res) => {
     try {
       const empreendimentoId = parseInt(req.params.empreendimentoId);
