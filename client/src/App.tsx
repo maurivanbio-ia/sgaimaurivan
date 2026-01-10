@@ -30,7 +30,10 @@ import Demandas from "./pages/demandas";
 import Financeiro from "./pages/financeiro";
 import Frota from "./pages/frota";
 import Equipamentos from "./pages/equipamentos";
+import Amostras from "./pages/amostras";
+import Fornecedores from "./pages/fornecedores";
 import Rh from "./pages/rh";
+import Treinamentos from "./pages/treinamentos";
 import Projetos from "./pages/projetos";
 import GestaoDados from "./pages/gestaoDados";
 import SegurancaTrabalho from "./pages/segurancaTrabalho";
@@ -43,6 +46,8 @@ import GestaoEquipe from "./pages/gestao-equipe";
 import Gamificacao from "./pages/gamificacao";
 import PortalColaborador from "./pages/portal-colaborador";
 import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
+import PropostasComerciais from "./pages/propostas-comerciais";
+import BaseConhecimento from "./pages/base-conhecimento";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -156,7 +161,10 @@ function Router() {
                     <Route path="/financeiro" component={Financeiro} />
                     <Route path="/frota" component={Frota} />
                     <Route path="/equipamentos" component={Equipamentos} />
+                    <Route path="/amostras" component={Amostras} />
+                    <Route path="/fornecedores" component={Fornecedores} />
                     <Route path="/rh" component={Rh} />
+                    <Route path="/treinamentos" component={Treinamentos} />
                     <Route path="/projetos" component={Projetos} />
                     <Route path="/gestao-dados" component={GestaoDados} />
                     <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
@@ -164,6 +172,8 @@ function Router() {
                     <Route path="/gestao-equipe" component={GestaoEquipe} />
                     <Route path="/gamificacao" component={Gamificacao} />
                     <Route path="/minhas-tarefas" component={PortalColaborador} />
+                    <Route path="/propostas-comerciais" component={PropostasComerciais} />
+                    <Route path="/base-conhecimento" component={BaseConhecimento} />
                     <Route component={NotFound} />
                   </Switch>
                 </PermissionGate>
