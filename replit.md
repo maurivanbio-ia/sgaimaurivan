@@ -70,6 +70,60 @@ A comprehensive document management system with standardized file coding (e.g., 
 ### n8n Webhook Integration (Automação)
 A comprehensive webhook API for n8n automation workflows with API key authentication. It provides endpoints for licenses, condicionantes, contracts, finance, RH, SST, frota, equipamentos, demands, tasks, coordinator summaries, and utility functions (e.g., health check, notifications). This includes fields for vehicle insurance, IPVA, licensing, next maintenance mileage, and CNH details for RH records.
 
+### Propostas Comerciais (Commercial Proposals)
+Complete commercial proposal management system with:
+- **Proposal tracking**: Title, client info, values (predicted, approved, executed), profit margin
+- **Status workflow**: elaboracao, enviado, aprovado, recusado, em_execucao, concluido, cancelado
+- **Proposal items**: Detailed line items with quantity, unit price, categories
+- **Date tracking**: Elaboration, submission, approval, validity dates
+- **Route**: /propostas-comerciais
+- **Database Tables**: propostasComerciais, propostaItens
+
+### Gestão de Amostras (Sample Management)
+Environmental sample tracking for monitoring campaigns:
+- **Sample types**: agua, solo, ar, sedimento, efluente, residuo, outro
+- **Collection data**: Point, coordinates (lat/long), date/time, collector info
+- **Laboratory tracking**: Lab name, submission date, expected/actual result dates
+- **Status workflow**: coletada, enviada_lab, em_analise, resultado_parcial, concluida, descartada
+- **Analysis parameters**: Parameters analyzed, temperature, pH, conductivity
+- **Route**: /amostras
+- **Database Table**: amostras
+
+### Banco de Fornecedores (Supplier Database)
+Comprehensive supplier management:
+- **Supplier types**: laboratorio, transportadora, consultoria, equipamentos, servicos, materiais, outro
+- **Contact info**: CNPJ/CPF, address, phone, email, website, primary contact
+- **Rating system**: 1-5 star evaluation
+- **Contract tracking**: Active contract status, start/end dates, contract value
+- **Status**: ativo, inativo, bloqueado
+- **Route**: /fornecedores
+- **Database Table**: fornecedores
+
+### Treinamentos e Capacitações (Training Management)
+Training and certification management:
+- **Training types**: nr, tecnico, obrigatorio, reciclagem, desenvolvimento, outro
+- **Modality**: presencial, online, hibrido
+- **Details**: Title, description, duration (hours), institution, instructor, location
+- **Date tracking**: Start date, end date, certificate validity
+- **Status**: agendado, em_andamento, concluido, cancelado
+- **Participant management**: Track attendees, grades, attendance, certificate issuance
+- **Route**: /treinamentos
+- **Database Tables**: treinamentos, treinamentoParticipantes
+
+### Base de Conhecimento (Knowledge Base)
+Document and template library:
+- **Document types**: modelo, procedimento, legislacao, manual, formulario, checklist, outro
+- **Categories**: licenciamento, monitoramento, sst, rh, financeiro, etc.
+- **Content**: Text/markdown content or file attachments
+- **Versioning**: Track document versions
+- **Tags**: Searchable keywords
+- **Visibility**: Public or private documents
+- **Featured**: Highlight important documents
+- **Metrics**: View and download counters
+- **Status**: ativo, rascunho, arquivado
+- **Route**: /base-conhecimento
+- **Database Table**: baseConhecimento
+
 ### Database and Data Handling
 The PostgreSQL database uses Drizzle ORM. Key tables are enhanced with fields supporting multi-tenancy, project management, and AI features. Foreign key constraints are enforced, soft deletion is implemented, and file uploads include metadata tracking and checksums.
 
