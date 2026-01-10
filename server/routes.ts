@@ -85,6 +85,7 @@ import {
   sendResumoSemanalTest,
   triggerRelatorioAnualNow
 } from "./services/scheduledReportSender";
+import { initBackupService, performBackup, listBackups, downloadBackup } from "./services/backupService";
 import { 
   auditLogs,
   documentos,
@@ -3079,6 +3080,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error repairing paiIds:', error);
       res.status(500).json({ error: 'Failed to repair paiIds' });
+    }
+  });
+
+  // =============================================
+  // BACKUP ROUTES
+  // =============================================
+
+  // GET /api/backups - List all backups
+  app.get('/api/backups', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem gerenciar backups.' });
+      }
+      
+      const backups = await listBackups();
+      res.json(backups);
+    } catch (error) {
+      console.error('Error listing backups:', error);
+      res.status(500).json({ error: 'Falha ao listar backups' });
+    }
+  });
+
+  // POST /api/backups/trigger - Trigger manual backup
+  app.post('/api/backups/trigger', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem executar backups.' });
+      }
+      
+      console.log('[Backup] Backup manual solicitado por:', user?.email);
+      const result = await performBackup();
+      
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          message: 'Backup realizado com sucesso',
+          timestamp: result.timestamp,
+          tables: result.tables,
+          filePath: result.filePath
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error || 'Falha ao realizar backup'
+        });
+      }
+    } catch (error) {
+      console.error('Error triggering backup:', error);
+      res.status(500).json({ error: 'Falha ao executar backup' });
+    }
+  });
+
+  // GET /api/backups/:fileName - Download specific backup
+  app.get('/api/backups/:fileName', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem baixar backups.' });
+      }
+      
+      const { fileName } = req.params;
+      const content = await downloadBackup(fileName);
+      
+      if (!content) {
+        return res.status(404).json({ error: 'Backup não encontrado' });
+      }
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(content);
+    } catch (error) {
+      console.error('Error downloading backup:', error);
+      res.status(500).json({ error: 'Falha ao baixar backup' });
     }
   });
 
@@ -9174,6 +9250,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize automated report sender (Relatório 360 e Financeiro)
   initScheduledReportSender();
+  
+  // Initialize automatic backup service (daily at 00:00)
+  initBackupService();
   
   return httpServer;
 }
