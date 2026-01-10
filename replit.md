@@ -34,6 +34,16 @@ A separate external portal for clients to access their projects and licenses. It
 ### Team Management (Gestão de Equipe)
 A comprehensive system for team and task management with role-based access control. Coordinators manage team members, link them to HR records, empreendimentos, and projects, ensuring multi-tenant isolation. It includes full CRUD for tasks with categories, priorities, and status tracking, a collaborator portal for personal tasks, a coordinator dashboard with statistics, time tracking, and real-time notifications for task assignments.
 
+### Gamification System
+A comprehensive gamification system to motivate team performance through points and achievements:
+- **Point System**: Tasks and demands award points based on complexity (Baixa=5pts, Média=15pts, Alta=30pts) and deadline compliance (Antecipado=+10pts, No prazo=+5pts, Atrasado=-5pts)
+- **Monthly Ranking**: Top 20 performers displayed with medal icons for top 3
+- **Achievements/Badges**: Unlockable achievements like "Iniciante", "Trabalhador", "Produtivo", "Pontual", "Mestre", "Demandador", "Expert"
+- **Points History**: Complete log of earned points with timestamps
+- **Statistics**: General monthly statistics including total participants, tasks, demands, and points
+- **Navigation**: Accessible via sidebar under "Equipe" category at /gamificacao route
+- **Database Tables**: pontuacoesGamificacao, conquistasGamificacao, usuarioConquistas, historicosPontuacao
+
 ### Resource Management
 Vehicles can be classified as owned or rented, with conditional validation for rental-specific fields. Vehicles, RH records, and equipment can be optionally assigned to specific `empreendimentos` with proper filtering.
 
