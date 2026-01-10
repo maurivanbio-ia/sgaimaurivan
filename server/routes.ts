@@ -1145,6 +1145,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint para limpar notificações duplicadas
+  app.post("/api/notifications/cleanup-duplicates", requireAuth, async (req, res) => {
+    try {
+      const count = await notificationService.cleanupDuplicateNotifications();
+      res.json({ message: `${count} notificações duplicadas removidas`, count });
+    } catch (error) {
+      console.error("Cleanup duplicates error:", error);
+      res.status(500).json({ message: "Erro ao limpar notificações duplicadas" });
+    }
+  });
+
+  // Endpoint para limpar todas as notificações pendentes (reset)
+  app.post("/api/notifications/clear-all", requireAuth, async (req, res) => {
+    try {
+      const count = await notificationService.clearAllPendingNotifications();
+      res.json({ message: "Todas as notificações pendentes foram limpas", count });
+    } catch (error) {
+      console.error("Clear all notifications error:", error);
+      res.status(500).json({ message: "Erro ao limpar notificações" });
+    }
+  });
+
   app.get("/api/entregas/mes", requireAuth, async (req, res) => {
     try {
       const entregas = await storage.getEntregasDoMes();
