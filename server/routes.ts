@@ -4296,9 +4296,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (empreendimento && empreendimento !== 'all') {
-        const empId = parseInt(empreendimento as string);
-        if (!isNaN(empId)) {
-          conditions.push(eq(rhRegistros.empreendimentoId, empId));
+        if (empreendimento === 'administrativo') {
+          conditions.push(isNull(rhRegistros.empreendimentoId));
+        } else {
+          const empId = parseInt(empreendimento as string);
+          if (!isNaN(empId)) {
+            conditions.push(eq(rhRegistros.empreendimentoId, empId));
+          }
         }
       }
       

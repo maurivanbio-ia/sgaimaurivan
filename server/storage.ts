@@ -317,6 +317,7 @@ export interface IStorage {
     cargo?: string;
     search?: string;
     empreendimentoId?: number;
+    unidade?: string;
   }): Promise<RhRegistro[]>;
   getRhRegistroById(id: number): Promise<RhRegistro | undefined>;
   createRhRegistro(registro: InsertRhRegistro): Promise<RhRegistro>;
@@ -2269,12 +2270,13 @@ export class DatabaseStorage implements IStorage {
     cargo?: string;
     search?: string;
     empreendimentoId?: number;
+    unidade?: string;
   }): Promise<RhRegistro[]> {
     let query = db.select().from(rhRegistros).$dynamic();
 
-    if (filters) {
-      const conditions = [];
+    const conditions: SQL[] = [isNull(rhRegistros.deletedAt)];
 
+    if (filters) {
       if (filters.status) {
         conditions.push(eq(rhRegistros.status, filters.status));
       }
@@ -2287,19 +2289,21 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(rhRegistros.empreendimentoId, filters.empreendimentoId));
       }
 
+      if (filters.unidade) {
+        conditions.push(eq(rhRegistros.unidade, filters.unidade));
+      }
+
       if (filters.search) {
         conditions.push(
           or(
-            ilike(rhRegistros.nome, `%${filters.search}%`),
+            ilike(rhRegistros.nomeColaborador, `%${filters.search}%`),
             ilike(rhRegistros.cpf, `%${filters.search}%`)
-          )
+          )!
         );
       }
-
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
     }
+
+    query = query.where(and(...conditions));
 
     return query.orderBy(desc(rhRegistros.criadoEm));
   }

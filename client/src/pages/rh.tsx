@@ -367,6 +367,7 @@ export default function RhPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os Empreendimentos</SelectItem>
+                <SelectItem value="administrativo">Administrativo (Escritório)</SelectItem>
                 {empreendimentos.map((e: any) => (
                   <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
                 ))}
