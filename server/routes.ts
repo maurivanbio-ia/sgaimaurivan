@@ -4209,6 +4209,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== RH ROUTES ====
+  
+  // GET /api/colaboradores - Combined list of RH records and system users for selection fields
+  app.get('/api/colaboradores', requireAuth, async (req, res) => {
+    try {
+      const { search } = req.query;
+      const userUnidade = req.user?.unidade;
+      
+      // Get RH collaborators
+      const rhConditions: SQL[] = [isNull(rhRegistros.deletedAt)];
+      if (userUnidade) {
+        rhConditions.push(eq(rhRegistros.unidade, userUnidade));
+      }
+      
+      let rhColaboradores = await db.select({
+        id: rhRegistros.id,
+        nome: rhRegistros.nomeColaborador,
+        email: rhRegistros.contatoEmail,
+        tipo: sql<string>`'rh'`.as('tipo'),
+      }).from(rhRegistros).where(and(...rhConditions));
+      
+      // Get system users
+      const userConditions: SQL[] = [];
+      if (userUnidade) {
+        userConditions.push(eq(users.unidade, userUnidade));
+      }
+      
+      let systemUsers = await db.select({
+        id: users.id,
+        nome: users.cargo,
+        email: users.email,
+        tipo: sql<string>`'user'`.as('tipo'),
+      }).from(users).where(userConditions.length > 0 ? and(...userConditions) : undefined);
+      
+      // Combine and dedupe by email
+      const combined: { id: number; nome: string; email: string | null; tipo: string }[] = [];
+      const seenEmails = new Set<string>();
+      
+      // Add RH collaborators first (they have priority)
+      for (const rh of rhColaboradores) {
+        const key = rh.email?.toLowerCase() || `rh-${rh.id}`;
+        if (!seenEmails.has(key)) {
+          seenEmails.add(key);
+          combined.push({ id: rh.id, nome: rh.nome, email: rh.email, tipo: rh.tipo });
+        }
+      }
+      
+      // Add system users (using email as name if cargo is empty)
+      for (const user of systemUsers) {
+        const key = user.email.toLowerCase();
+        if (!seenEmails.has(key)) {
+          seenEmails.add(key);
+          // Extract name from email if cargo is empty
+          const displayName = user.nome || user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          combined.push({ id: user.id, nome: displayName, email: user.email, tipo: user.tipo });
+        }
+      }
+      
+      // Apply search filter if provided
+      let result = combined;
+      if (search && typeof search === 'string') {
+        const searchLower = search.toLowerCase();
+        result = combined.filter(c => 
+          c.nome.toLowerCase().includes(searchLower) || 
+          (c.email && c.email.toLowerCase().includes(searchLower))
+        );
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Erro ao buscar colaboradores:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
   app.get('/api/rh', requireAuth, async (req, res) => {
     try {
       const { search, fornecedor, empreendimento } = req.query;
