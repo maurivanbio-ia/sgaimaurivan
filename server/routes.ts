@@ -86,6 +86,7 @@ import {
   triggerRelatorioAnualNow
 } from "./services/scheduledReportSender";
 import { initBackupService, performBackup, listBackups, downloadBackup } from "./services/backupService";
+import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
   documentos,
@@ -451,6 +452,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criadoPor: req.session.userId,
       });
       const empreendimento = await storage.createEmpreendimento(data);
+      
+      // Criar pastas automaticamente para o novo empreendimento
+      try {
+        await criarPastasParaEmpreendimento(
+          empreendimento.id,
+          empreendimento.cliente || empreendimento.nome,
+          empreendimento.uf || 'BR',
+          empreendimento.nome
+        );
+        console.log(`[Folder Structure] Pastas criadas automaticamente para empreendimento: ${empreendimento.nome}`);
+      } catch (folderError) {
+        console.error('[Folder Structure] Erro ao criar pastas para empreendimento:', folderError);
+      }
+      
       res.status(201).json(empreendimento);
     } catch (error) {
       console.error("Create empreendimento error:", error);
@@ -2897,160 +2912,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return `${basePath}/01_GESTAO_E_CONTRATOS`;
   }
 
-  // Endpoint para garantir estrutura macro
+  // Endpoint para garantir estrutura macro institucional (nova estrutura)
   app.post('/api/datasets/estrutura/macro', requireAuth, async (req, res) => {
     try {
-      const todasPastas = await db.select().from(datasetPastas);
-      const caminhosExistentes = new Set(todasPastas.map(p => p.caminho));
+      // Criar estrutura institucional
+      await criarEstruturaInstitucional();
       
-      // Criar pasta raiz
-      if (!caminhosExistentes.has("/ECOBRASIL_GESTAO_DADOS")) {
-        await db.insert(datasetPastas).values({
-          nome: "ECOBRASIL_GESTAO_DADOS",
-          caminho: "/ECOBRASIL_GESTAO_DADOS",
-          tipo: "macro",
-        });
-      }
+      // Sincronizar pastas para todos os empreendimentos existentes
+      const result = await sincronizarPastasExistentes();
       
-      // Criar subpastas macro
-      for (const pasta of ESTRUTURA_MACRO) {
-        if (!caminhosExistentes.has(pasta.caminho)) {
-          await db.insert(datasetPastas).values({
-            nome: pasta.nome,
-            caminho: pasta.caminho,
-            pai: "/ECOBRASIL_GESTAO_DADOS",
-            tipo: "macro",
-          });
-        }
-      }
-      
-      // Buscar todos os empreendimentos ativos e criar pastas para cada um
-      const empreendimentosList = await db.select().from(empreendimentos);
-      
-      for (const emp of empreendimentosList) {
-        const nomeNormalizado = normalizarTexto(emp.nome);
-        const empPath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/${nomeNormalizado}`;
-        
-        // Buscar ID da pasta pai (02_PROJETOS)
-        const projetosPai = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS")).limit(1);
-        const projetosPaiId = projetosPai.length > 0 ? projetosPai[0].id : null;
-        
-        // Criar pasta do empreendimento
-        let empPastaId: number | null = null;
-        const existingEmpPasta = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, empPath)).limit(1);
-        
-        if (existingEmpPasta.length > 0) {
-          empPastaId = existingEmpPasta[0].id;
-        } else {
-          const [insertedEmp] = await db.insert(datasetPastas).values({
-            nome: nomeNormalizado,
-            caminho: empPath,
-            pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
-            paiId: projetosPaiId,
-            tipo: "empreendimento",
-            empreendimentoId: emp.id,
-          }).returning();
-          empPastaId = insertedEmp.id;
-          caminhosExistentes.add(empPath);
-        }
-        
-        // Estrutura hierárquica até 4º nível para cada empreendimento
-        const estruturaEmpreendimento: { [key: string]: string[] } = {
-          "01_LICENCAS": [
-            "01_LICENCA_PREVIA",
-            "02_LICENCA_INSTALACAO", 
-            "03_LICENCA_OPERACAO",
-            "04_RENOVACOES",
-            "05_CONDICIONANTES"
-          ],
-          "02_CONTRATOS": [
-            "01_CONTRATOS_VIGENTES",
-            "02_CONTRATOS_ENCERRADOS",
-            "03_ADITIVOS",
-            "04_PROPOSTAS"
-          ],
-          "03_DOCUMENTOS_TECNICOS": [
-            "01_EIA_RIMA",
-            "02_PBA",
-            "03_RCA_PCA",
-            "04_ESTUDOS_COMPLEMENTARES",
-            "05_PARECERES_TECNICOS"
-          ],
-          "04_RELATORIOS": [
-            "01_RELATORIOS_MENSAIS",
-            "02_RELATORIOS_TRIMESTRAIS",
-            "03_RELATORIOS_ANUAIS",
-            "04_RELATORIOS_ESPECIAIS"
-          ],
-          "05_MAPAS": [
-            "01_MAPAS_BASE",
-            "02_MAPAS_TEMATICOS",
-            "03_CARTAS_IMAGEM",
-            "04_SHAPEFILES"
-          ],
-          "06_CORRESPONDENCIAS": [
-            "01_OFICIOS_ENVIADOS",
-            "02_OFICIOS_RECEBIDOS",
-            "03_EMAILS",
-            "04_ATAS_REUNIAO"
-          ],
-          "07_FOTOS": [
-            "01_CAMPO",
-            "02_MONITORAMENTO",
-            "03_EVENTOS",
-            "04_AEREAS"
-          ],
-          "08_PLANILHAS": [
-            "01_DADOS_BRUTOS",
-            "02_ANALISES",
-            "03_CONSOLIDADOS"
-          ]
-        };
-        
-        // Criar pastas de 3º nível e 4º nível com paiId correto
-        for (const [pasta3, subpastas4] of Object.entries(estruturaEmpreendimento)) {
-          const pasta3Path = `${empPath}/${pasta3}`;
-          let pasta3Id: number | null = null;
-          
-          // Criar pasta de 3º nível
-          const existingPasta3 = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, pasta3Path)).limit(1);
-          
-          if (existingPasta3.length > 0) {
-            pasta3Id = existingPasta3[0].id;
-          } else {
-            const [insertedPasta3] = await db.insert(datasetPastas).values({
-              nome: pasta3,
-              caminho: pasta3Path,
-              pai: empPath,
-              paiId: empPastaId,
-              tipo: "subpasta",
-              empreendimentoId: emp.id,
-            }).returning();
-            pasta3Id = insertedPasta3.id;
-            caminhosExistentes.add(pasta3Path);
-          }
-          
-          // Criar subpastas de 4º nível
-          for (const subpasta4 of subpastas4) {
-            const pasta4Path = `${pasta3Path}/${subpasta4}`;
-            const existingPasta4 = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, pasta4Path)).limit(1);
-            
-            if (existingPasta4.length === 0) {
-              await db.insert(datasetPastas).values({
-                nome: subpasta4,
-                caminho: pasta4Path,
-                pai: pasta3Path,
-                paiId: pasta3Id,
-                tipo: "subpasta",
-                empreendimentoId: emp.id,
-              });
-              caminhosExistentes.add(pasta4Path);
-            }
-          }
-        }
-      }
-      
-      res.json({ success: true, message: "Estrutura macro e empreendimentos criada com sucesso" });
+      res.json({ 
+        success: true, 
+        message: `Estrutura institucional criada. ${result.synced} projetos sincronizados.`,
+        synced: result.synced,
+        errors: result.errors
+      });
     } catch (error) {
       console.error('Error creating macro structure:', error);
       res.status(500).json({ error: 'Failed to create macro structure' });
