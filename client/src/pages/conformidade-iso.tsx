@@ -247,46 +247,43 @@ export default function ConformidadeISO() {
                 </TabsTrigger>
               </TabsList>
 
-              {['iso14001', 'iso9001', 'iso45001'].map((norma) => (
-                <TabsContent key={norma} value={norma}>
-                  <ScrollArea className="h-[400px]">
-                    <Accordion type="multiple" className="w-full">
-                      {(data as any)[norma]?.requisitos?.map((req: RequisitoISO) => (
+              <TabsContent value="iso14001" className="mt-4">
+                <ScrollArea className="h-[400px]">
+                  {data.iso14001.requisitos.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Nenhum requisito encontrado</p>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="w-full">
+                      {data.iso14001.requisitos.map((req: RequisitoISO) => (
                         <AccordionItem key={req.id} value={req.id}>
-                          <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-3 text-left">
-                              <span className="font-mono text-sm text-muted-foreground">{req.codigo}</span>
-                              <span className="flex-1">{req.titulo}</span>
+                          <AccordionTrigger className="hover:no-underline py-3">
+                            <div className="flex items-center gap-3 text-left w-full pr-4">
+                              <span className="font-mono text-sm text-muted-foreground min-w-[50px]">{req.codigo}</span>
+                              <span className="flex-1 text-sm">{req.titulo}</span>
                               <StatusBadge status={req.status} />
                             </div>
                           </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="pl-4 space-y-3">
+                          <AccordionContent className="pb-4">
+                            <div className="pl-4 space-y-3 border-l-2 border-green-500 ml-6">
                               <p className="text-sm text-muted-foreground">{req.descricao}</p>
-                              
                               {req.indicador !== undefined && (
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm">Indicador:</span>
                                   <Progress value={req.indicador} className="w-24 h-2" />
                                   <span className="text-sm font-medium">{req.indicador}%</span>
-                                  {req.meta && (
-                                    <span className="text-sm text-muted-foreground">(Meta: {req.meta}%)</span>
-                                  )}
+                                  {req.meta && <span className="text-sm text-muted-foreground">(Meta: {req.meta}%)</span>}
                                 </div>
                               )}
-                              
                               <div className="flex items-center gap-2 text-sm">
                                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                                <span>Módulo relacionado: {req.moduloRelacionado}</span>
+                                <span>Módulo: {req.moduloRelacionado}</span>
                               </div>
-                              
                               {req.evidencias.length > 0 && (
                                 <div>
                                   <span className="text-sm font-medium">Evidências:</span>
                                   <ul className="list-disc list-inside text-sm text-muted-foreground mt-1">
-                                    {req.evidencias.map((ev, i) => (
-                                      <li key={i}>{ev}</li>
-                                    ))}
+                                    {req.evidencias.map((ev, i) => <li key={i}>{ev}</li>)}
                                   </ul>
                                 </div>
                               )}
@@ -295,9 +292,107 @@ export default function ConformidadeISO() {
                         </AccordionItem>
                       ))}
                     </Accordion>
-                  </ScrollArea>
-                </TabsContent>
-              ))}
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="iso9001" className="mt-4">
+                <ScrollArea className="h-[400px]">
+                  {data.iso9001.requisitos.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Nenhum requisito encontrado</p>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="w-full">
+                      {data.iso9001.requisitos.map((req: RequisitoISO) => (
+                        <AccordionItem key={req.id} value={req.id}>
+                          <AccordionTrigger className="hover:no-underline py-3">
+                            <div className="flex items-center gap-3 text-left w-full pr-4">
+                              <span className="font-mono text-sm text-muted-foreground min-w-[50px]">{req.codigo}</span>
+                              <span className="flex-1 text-sm">{req.titulo}</span>
+                              <StatusBadge status={req.status} />
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-4">
+                            <div className="pl-4 space-y-3 border-l-2 border-blue-500 ml-6">
+                              <p className="text-sm text-muted-foreground">{req.descricao}</p>
+                              {req.indicador !== undefined && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">Indicador:</span>
+                                  <Progress value={req.indicador} className="w-24 h-2" />
+                                  <span className="text-sm font-medium">{req.indicador}%</span>
+                                  {req.meta && <span className="text-sm text-muted-foreground">(Meta: {req.meta}%)</span>}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 text-sm">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span>Módulo: {req.moduloRelacionado}</span>
+                              </div>
+                              {req.evidencias.length > 0 && (
+                                <div>
+                                  <span className="text-sm font-medium">Evidências:</span>
+                                  <ul className="list-disc list-inside text-sm text-muted-foreground mt-1">
+                                    {req.evidencias.map((ev, i) => <li key={i}>{ev}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="iso45001" className="mt-4">
+                <ScrollArea className="h-[400px]">
+                  {data.iso45001.requisitos.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Nenhum requisito encontrado</p>
+                    </div>
+                  ) : (
+                    <Accordion type="single" collapsible className="w-full">
+                      {data.iso45001.requisitos.map((req: RequisitoISO) => (
+                        <AccordionItem key={req.id} value={req.id}>
+                          <AccordionTrigger className="hover:no-underline py-3">
+                            <div className="flex items-center gap-3 text-left w-full pr-4">
+                              <span className="font-mono text-sm text-muted-foreground min-w-[50px]">{req.codigo}</span>
+                              <span className="flex-1 text-sm">{req.titulo}</span>
+                              <StatusBadge status={req.status} />
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-4">
+                            <div className="pl-4 space-y-3 border-l-2 border-orange-500 ml-6">
+                              <p className="text-sm text-muted-foreground">{req.descricao}</p>
+                              {req.indicador !== undefined && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">Indicador:</span>
+                                  <Progress value={req.indicador} className="w-24 h-2" />
+                                  <span className="text-sm font-medium">{req.indicador}%</span>
+                                  {req.meta && <span className="text-sm text-muted-foreground">(Meta: {req.meta}%)</span>}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 text-sm">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span>Módulo: {req.moduloRelacionado}</span>
+                              </div>
+                              {req.evidencias.length > 0 && (
+                                <div>
+                                  <span className="text-sm font-medium">Evidências:</span>
+                                  <ul className="list-disc list-inside text-sm text-muted-foreground mt-1">
+                                    {req.evidencias.map((ev, i) => <li key={i}>{ev}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
+                </ScrollArea>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
