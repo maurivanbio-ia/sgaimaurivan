@@ -168,6 +168,12 @@ export default function GestaoDados() {
   const [isUploadingToFolder, setIsUploadingToFolder] = useState(false);
   const [folderFiles, setFolderFiles] = useState<Dataset[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
+  
+  // Estados para proteção por senha (senha validada no servidor)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [folderPassword, setFolderPassword] = useState("");
+  const [pendingAction, setPendingAction] = useState<"create" | "delete" | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   // Formulário básico
   const [nome, setNome] = useState("");
@@ -245,16 +251,19 @@ export default function GestaoDados() {
     enabled: !!selectedPasta?.id,
   });
 
-  // Mutation para criar pasta
+  // Mutation para criar pasta (requer senha)
   const createFolderMutation = useMutation({
-    mutationFn: async (data: { nome: string; paiId?: number | null; empreendimentoId?: number }) => {
+    mutationFn: async (data: { nome: string; paiId?: number | null; empreendimentoId?: number; senha: string }) => {
       const res = await fetch("/api/pastas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Erro ao criar pasta");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao criar pasta");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -262,6 +271,9 @@ export default function GestaoDados() {
       refetchPastas();
       toast({ title: "Sucesso", description: "Pasta criada com sucesso!" });
       setIsCreateFolderOpen(false);
+      setIsPasswordDialogOpen(false);
+      setFolderPassword("");
+      setPendingAction(null);
       setNewFolderName("");
       setParentFolderId(null);
     },
@@ -270,11 +282,19 @@ export default function GestaoDados() {
     },
   });
 
-  // Mutation para excluir pasta
+  // Mutation para excluir pasta (requer senha)
   const deleteFolderMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/pastas/${id}`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Erro ao excluir pasta");
+    mutationFn: async (data: { id: number; senha: string }) => {
+      const res = await fetch(`/api/pastas/${data.id}`, { 
+        method: "DELETE", 
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senha: data.senha }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao excluir pasta");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -282,9 +302,13 @@ export default function GestaoDados() {
       refetchPastas();
       if (selectedPasta) setSelectedPasta(null);
       toast({ title: "Sucesso", description: "Pasta excluída com sucesso!" });
+      setIsPasswordDialogOpen(false);
+      setFolderPassword("");
+      setPendingAction(null);
+      setPendingDeleteId(null);
     },
-    onError: () => {
-      toast({ title: "Erro", description: "Falha ao excluir pasta.", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Erro", description: error.message || "Falha ao excluir pasta.", variant: "destructive" });
     },
   });
 
