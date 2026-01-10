@@ -2930,41 +2930,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const nomeNormalizado = normalizarTexto(emp.nome);
         const empPath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/${nomeNormalizado}`;
         
+        // Buscar ID da pasta pai (02_PROJETOS)
+        const projetosPai = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS")).limit(1);
+        const projetosPaiId = projetosPai.length > 0 ? projetosPai[0].id : null;
+        
         // Criar pasta do empreendimento
-        if (!caminhosExistentes.has(empPath)) {
-          await db.insert(datasetPastas).values({
+        let empPastaId: number | null = null;
+        const existingEmpPasta = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, empPath)).limit(1);
+        
+        if (existingEmpPasta.length > 0) {
+          empPastaId = existingEmpPasta[0].id;
+        } else {
+          const [insertedEmp] = await db.insert(datasetPastas).values({
             nome: nomeNormalizado,
             caminho: empPath,
             pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+            paiId: projetosPaiId,
             tipo: "empreendimento",
             empreendimentoId: emp.id,
-          });
+          }).returning();
+          empPastaId = insertedEmp.id;
           caminhosExistentes.add(empPath);
         }
         
-        // Criar subpastas do empreendimento
-        const subpastasEmp = [
-          "01_LICENCAS",
-          "02_CONTRATOS", 
-          "03_DOCUMENTOS_TECNICOS",
-          "04_RELATORIOS",
-          "05_MAPAS",
-          "06_CORRESPONDENCIAS",
-          "07_FOTOS",
-          "08_PLANILHAS"
-        ];
+        // Estrutura hierárquica até 4º nível para cada empreendimento
+        const estruturaEmpreendimento: { [key: string]: string[] } = {
+          "01_LICENCAS": [
+            "01_LICENCA_PREVIA",
+            "02_LICENCA_INSTALACAO", 
+            "03_LICENCA_OPERACAO",
+            "04_RENOVACOES",
+            "05_CONDICIONANTES"
+          ],
+          "02_CONTRATOS": [
+            "01_CONTRATOS_VIGENTES",
+            "02_CONTRATOS_ENCERRADOS",
+            "03_ADITIVOS",
+            "04_PROPOSTAS"
+          ],
+          "03_DOCUMENTOS_TECNICOS": [
+            "01_EIA_RIMA",
+            "02_PBA",
+            "03_RCA_PCA",
+            "04_ESTUDOS_COMPLEMENTARES",
+            "05_PARECERES_TECNICOS"
+          ],
+          "04_RELATORIOS": [
+            "01_RELATORIOS_MENSAIS",
+            "02_RELATORIOS_TRIMESTRAIS",
+            "03_RELATORIOS_ANUAIS",
+            "04_RELATORIOS_ESPECIAIS"
+          ],
+          "05_MAPAS": [
+            "01_MAPAS_BASE",
+            "02_MAPAS_TEMATICOS",
+            "03_CARTAS_IMAGEM",
+            "04_SHAPEFILES"
+          ],
+          "06_CORRESPONDENCIAS": [
+            "01_OFICIOS_ENVIADOS",
+            "02_OFICIOS_RECEBIDOS",
+            "03_EMAILS",
+            "04_ATAS_REUNIAO"
+          ],
+          "07_FOTOS": [
+            "01_CAMPO",
+            "02_MONITORAMENTO",
+            "03_EVENTOS",
+            "04_AEREAS"
+          ],
+          "08_PLANILHAS": [
+            "01_DADOS_BRUTOS",
+            "02_ANALISES",
+            "03_CONSOLIDADOS"
+          ]
+        };
         
-        for (const subpasta of subpastasEmp) {
-          const subpastaPath = `${empPath}/${subpasta}`;
-          if (!caminhosExistentes.has(subpastaPath)) {
-            await db.insert(datasetPastas).values({
-              nome: subpasta,
-              caminho: subpastaPath,
+        // Criar pastas de 3º nível e 4º nível com paiId correto
+        for (const [pasta3, subpastas4] of Object.entries(estruturaEmpreendimento)) {
+          const pasta3Path = `${empPath}/${pasta3}`;
+          let pasta3Id: number | null = null;
+          
+          // Criar pasta de 3º nível
+          const existingPasta3 = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, pasta3Path)).limit(1);
+          
+          if (existingPasta3.length > 0) {
+            pasta3Id = existingPasta3[0].id;
+          } else {
+            const [insertedPasta3] = await db.insert(datasetPastas).values({
+              nome: pasta3,
+              caminho: pasta3Path,
               pai: empPath,
+              paiId: empPastaId,
               tipo: "subpasta",
               empreendimentoId: emp.id,
-            });
-            caminhosExistentes.add(subpastaPath);
+            }).returning();
+            pasta3Id = insertedPasta3.id;
+            caminhosExistentes.add(pasta3Path);
+          }
+          
+          // Criar subpastas de 4º nível
+          for (const subpasta4 of subpastas4) {
+            const pasta4Path = `${pasta3Path}/${subpasta4}`;
+            const existingPasta4 = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, pasta4Path)).limit(1);
+            
+            if (existingPasta4.length === 0) {
+              await db.insert(datasetPastas).values({
+                nome: subpasta4,
+                caminho: pasta4Path,
+                pai: pasta3Path,
+                paiId: pasta3Id,
+                tipo: "subpasta",
+                empreendimentoId: emp.id,
+              });
+              caminhosExistentes.add(pasta4Path);
+            }
           }
         }
       }
@@ -2973,6 +3053,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating macro structure:', error);
       res.status(500).json({ error: 'Failed to create macro structure' });
+    }
+  });
+
+  // Endpoint para reparar paiIds de pastas existentes
+  app.post('/api/datasets/estrutura/reparar-paiids', requireAuth, async (req, res) => {
+    try {
+      const todasPastas = await db.select().from(datasetPastas);
+      let reparadas = 0;
+      
+      for (const pasta of todasPastas) {
+        if (pasta.pai && !pasta.paiId) {
+          // Buscar a pasta pai pelo caminho
+          const pastaPai = todasPastas.find(p => p.caminho === pasta.pai);
+          if (pastaPai) {
+            await db.update(datasetPastas)
+              .set({ paiId: pastaPai.id })
+              .where(eq(datasetPastas.id, pasta.id));
+            reparadas++;
+          }
+        }
+      }
+      
+      res.json({ success: true, message: `${reparadas} pastas reparadas com paiId correto` });
+    } catch (error) {
+      console.error('Error repairing paiIds:', error);
+      res.status(500).json({ error: 'Failed to repair paiIds' });
     }
   });
 
