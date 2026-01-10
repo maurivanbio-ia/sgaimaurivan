@@ -6726,7 +6726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/relatorios-automaticos/config', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       const config = getReportConfig();
@@ -6738,7 +6738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/relatorios-automaticos/config/360/emails', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       const { emails } = req.body;
@@ -6754,7 +6754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/relatorios-automaticos/config/financeiro/emails', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       const { emails } = req.body;
@@ -6770,7 +6770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/relatorios-automaticos/enviar/360', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       await triggerRelatorio360Now();
@@ -6782,7 +6782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/relatorios-automaticos/enviar/financeiro', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       await triggerRelatorioFinanceiroNow();
@@ -6794,7 +6794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/relatorios-automaticos/enviar/resumo-semanal', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       const { emails } = req.body;
@@ -6810,7 +6810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/relatorios-automaticos/enviar/anual', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador' && req.user.cargo !== 'admin') {
         return res.status(403).json({ error: 'Acesso negado' });
       }
       await triggerRelatorioAnualNow();
