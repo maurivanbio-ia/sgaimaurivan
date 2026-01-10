@@ -2007,3 +2007,261 @@ export const insertHistoricoPontuacaoSchema = createInsertSchema(historicosPontu
 export type InsertHistoricoPontuacao = z.infer<typeof insertHistoricoPontuacaoSchema>;
 export type HistoricoPontuacao = typeof historicosPontuacao.$inferSelect;
 
+// ============================================
+// PROPOSTAS COMERCIAIS (Orçamentos Detalhados)
+// ============================================
+export const propostasComerciais = pgTable("propostas_comerciais", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  clienteNome: text("cliente_nome").notNull(),
+  clienteEmail: text("cliente_email"),
+  clienteTelefone: text("cliente_telefone"),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  valorPrevisto: decimal("valor_previsto", { precision: 15, scale: 2 }).notNull(),
+  valorAprovado: decimal("valor_aprovado", { precision: 15, scale: 2 }),
+  valorExecutado: decimal("valor_executado", { precision: 15, scale: 2 }).default("0"),
+  margemLucro: decimal("margem_lucro", { precision: 5, scale: 2 }),
+  status: text("status").notNull().default("elaboracao"), // elaboracao, enviado, aprovado, recusado, em_execucao, concluido, cancelado
+  dataElaboracao: date("data_elaboracao").notNull(),
+  dataEnvio: date("data_envio"),
+  dataAprovacao: date("data_aprovacao"),
+  dataValidade: date("data_validade"),
+  observacoes: text("observacoes"),
+  arquivoPdf: text("arquivo_pdf"),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertPropostaComercialSchema = createInsertSchema(propostasComerciais).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export type InsertPropostaComercial = z.infer<typeof insertPropostaComercialSchema>;
+export type PropostaComercial = typeof propostasComerciais.$inferSelect;
+
+// Itens da proposta comercial
+export const propostaItens = pgTable("proposta_itens", {
+  id: serial("id").primaryKey(),
+  propostaId: integer("proposta_id").references(() => propostasComerciais.id).notNull(),
+  descricao: text("descricao").notNull(),
+  quantidade: decimal("quantidade", { precision: 10, scale: 2 }).notNull().default("1"),
+  unidadeMedida: text("unidade_medida").default("un"), // un, h, km, dia, etc
+  valorUnitario: decimal("valor_unitario", { precision: 15, scale: 2 }).notNull(),
+  valorTotal: decimal("valor_total", { precision: 15, scale: 2 }).notNull(),
+  categoria: text("categoria"), // mao_de_obra, material, equipamento, deslocamento, outros
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertPropostaItemSchema = createInsertSchema(propostaItens).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertPropostaItem = z.infer<typeof insertPropostaItemSchema>;
+export type PropostaItem = typeof propostaItens.$inferSelect;
+
+// ============================================
+// GESTÃO DE AMOSTRAS
+// ============================================
+export const amostras = pgTable("amostras", {
+  id: serial("id").primaryKey(),
+  codigo: text("codigo").notNull(), // código único da amostra
+  tipo: text("tipo").notNull(), // agua, solo, ar, sedimento, efluente, residuo, outro
+  subtipo: text("subtipo"), // agua_superficial, agua_subterranea, solo_contaminado, etc
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  pontoColeta: text("ponto_coleta").notNull(),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  dataColeta: date("data_coleta").notNull(),
+  horaColeta: text("hora_coleta"),
+  coletorId: integer("coletor_id").references(() => users.id),
+  coletorNome: text("coletor_nome"),
+  laboratorioNome: text("laboratorio_nome"),
+  laboratorioId: integer("laboratorio_id"),
+  dataEnvioLab: date("data_envio_lab"),
+  dataPrevisaoResultado: date("data_previsao_resultado"),
+  dataResultado: date("data_resultado"),
+  status: text("status").notNull().default("coletada"), // coletada, enviada_lab, em_analise, resultado_parcial, concluida, descartada
+  parametrosAnalisados: text("parametros_analisados"), // lista de parâmetros
+  resultadoArquivo: text("resultado_arquivo"),
+  laudoArquivo: text("laudo_arquivo"),
+  observacoes: text("observacoes"),
+  temperaturaColeta: decimal("temperatura_coleta", { precision: 5, scale: 2 }),
+  phColeta: decimal("ph_coleta", { precision: 4, scale: 2 }),
+  condutividade: decimal("condutividade", { precision: 10, scale: 2 }),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertAmostraSchema = createInsertSchema(amostras).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export type InsertAmostra = z.infer<typeof insertAmostraSchema>;
+export type Amostra = typeof amostras.$inferSelect;
+
+// ============================================
+// BANCO DE FORNECEDORES
+// ============================================
+export const fornecedores = pgTable("fornecedores", {
+  id: serial("id").primaryKey(),
+  razaoSocial: text("razao_social").notNull(),
+  nomeFantasia: text("nome_fantasia"),
+  cnpj: text("cnpj"),
+  cpf: text("cpf"),
+  tipo: text("tipo").notNull(), // laboratorio, transportadora, consultoria, equipamentos, servicos, materiais, outro
+  categoria: text("categoria"), // subcategoria específica
+  email: text("email"),
+  telefone: text("telefone"),
+  celular: text("celular"),
+  endereco: text("endereco"),
+  cidade: text("cidade"),
+  uf: text("uf"),
+  cep: text("cep"),
+  site: text("site"),
+  contatoPrincipal: text("contato_principal"),
+  contatoEmail: text("contato_email"),
+  contatoTelefone: text("contato_telefone"),
+  servicosPrestados: text("servicos_prestados"),
+  observacoes: text("observacoes"),
+  avaliacao: integer("avaliacao"), // 1-5 estrelas
+  status: text("status").notNull().default("ativo"), // ativo, inativo, bloqueado
+  contratoVigente: boolean("contrato_vigente").default(false),
+  dataInicioContrato: date("data_inicio_contrato"),
+  dataFimContrato: date("data_fim_contrato"),
+  valorContrato: decimal("valor_contrato", { precision: 15, scale: 2 }),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertFornecedorSchema = createInsertSchema(fornecedores).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export type InsertFornecedor = z.infer<typeof insertFornecedorSchema>;
+export type Fornecedor = typeof fornecedores.$inferSelect;
+
+// ============================================
+// TREINAMENTOS E CAPACITAÇÕES
+// ============================================
+export const treinamentos = pgTable("treinamentos", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  tipo: text("tipo").notNull(), // nr, tecnico, obrigatorio, reciclagem, desenvolvimento, outro
+  categoria: text("categoria"), // nr06, nr10, nr33, nr35, primeiros_socorros, etc
+  cargaHoraria: integer("carga_horaria"), // em horas
+  modalidade: text("modalidade").notNull().default("presencial"), // presencial, online, hibrido
+  instituicao: text("instituicao"),
+  instrutor: text("instrutor"),
+  local: text("local"),
+  dataInicio: date("data_inicio").notNull(),
+  dataFim: date("data_fim"),
+  dataValidade: date("data_validade"), // data de vencimento do certificado
+  status: text("status").notNull().default("agendado"), // agendado, em_andamento, concluido, cancelado
+  custoTotal: decimal("custo_total", { precision: 15, scale: 2 }),
+  certificadoModelo: text("certificado_modelo"),
+  observacoes: text("observacoes"),
+  obrigatorio: boolean("obrigatorio").default(false),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertTreinamentoSchema = createInsertSchema(treinamentos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+});
+
+export type InsertTreinamento = z.infer<typeof insertTreinamentoSchema>;
+export type Treinamento = typeof treinamentos.$inferSelect;
+
+// Participantes do treinamento
+export const treinamentoParticipantes = pgTable("treinamento_participantes", {
+  id: serial("id").primaryKey(),
+  treinamentoId: integer("treinamento_id").references(() => treinamentos.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id),
+  rhId: integer("rh_id"), // referência ao registro de RH
+  nome: text("nome").notNull(),
+  email: text("email"),
+  presenca: boolean("presenca").default(false),
+  nota: decimal("nota", { precision: 5, scale: 2 }),
+  aprovado: boolean("aprovado"),
+  certificadoEmitido: boolean("certificado_emitido").default(false),
+  certificadoArquivo: text("certificado_arquivo"),
+  dataEmissaoCertificado: date("data_emissao_certificado"),
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertTreinamentoParticipanteSchema = createInsertSchema(treinamentoParticipantes).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertTreinamentoParticipante = z.infer<typeof insertTreinamentoParticipanteSchema>;
+export type TreinamentoParticipante = typeof treinamentoParticipantes.$inferSelect;
+
+// ============================================
+// BASE DE CONHECIMENTO
+// ============================================
+export const baseConhecimento = pgTable("base_conhecimento", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  tipo: text("tipo").notNull(), // modelo, procedimento, legislacao, manual, formulario, checklist, outro
+  categoria: text("categoria"), // licenciamento, monitoramento, sst, rh, financeiro, etc
+  subcategoria: text("subcategoria"),
+  conteudo: text("conteudo"), // conteúdo em texto/markdown
+  arquivoUrl: text("arquivo_url"),
+  arquivoNome: text("arquivo_nome"),
+  arquivoTipo: text("arquivo_tipo"), // pdf, docx, xlsx, etc
+  versao: text("versao").default("1.0"),
+  tags: text("tags"), // palavras-chave separadas por vírgula
+  publico: boolean("publico").default(false), // visível para todos ou restrito
+  destaque: boolean("destaque").default(false), // aparece em destaque
+  visualizacoes: integer("visualizacoes").default(0),
+  downloads: integer("downloads").default(0),
+  status: text("status").notNull().default("ativo"), // ativo, rascunho, arquivado
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertBaseConhecimentoSchema = createInsertSchema(baseConhecimento).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+  visualizacoes: true,
+  downloads: true,
+});
+
+export type InsertBaseConhecimento = z.infer<typeof insertBaseConhecimentoSchema>;
+export type BaseConhecimento = typeof baseConhecimento.$inferSelect;
+
