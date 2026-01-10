@@ -57,9 +57,26 @@ import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+const CARGO_OPTIONS = [
+  { value: "consultor", label: "Consultor" },
+  { value: "coordenador", label: "Coordenador" },
+  { value: "piloto_fluvial", label: "Piloto Fluvial" },
+  { value: "auxiliar_campo", label: "Auxiliar de Campo" },
+  { value: "auxiliar_administrativo", label: "Auxiliar Administrativo" },
+  { value: "analista_ambiental", label: "Analista Ambiental" },
+  { value: "engenheiro", label: "Engenheiro" },
+  { value: "biologo", label: "Biólogo" },
+  { value: "geologo", label: "Geólogo" },
+  { value: "tecnico_ambiental", label: "Técnico Ambiental" },
+  { value: "motorista", label: "Motorista" },
+  { value: "estagiario", label: "Estagiário" },
+  { value: "outro", label: "Outro" },
+];
+
 const rhRegistroSchema = z.object({
   id: z.number().optional(),
   nomeColaborador: z.string().min(1, "Nome obrigatório"),
+  cargo: z.string().optional(),
   cpf: z.string().optional(),
   rg: z.string().optional(),
   cnh: z.string().optional(),
@@ -135,6 +152,7 @@ export default function RhPage() {
     resolver: zodResolver(rhRegistroSchema),
     defaultValues: {
       nomeColaborador: "",
+      cargo: "",
       cpf: "",
       rg: "",
       cnh: "",
@@ -447,6 +465,23 @@ export default function RhPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField name="nomeColaborador" control={form.control} render={({ field }) => (
                   <FormItem><FormLabel>Nome *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField name="cargo" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cargo</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o cargo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CARGO_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
                 )}/>
                 <FormField name="cpf" control={form.control} render={({ field }) => (
                   <FormItem><FormLabel>CPF</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>

@@ -21,6 +21,7 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 interface Colaborador {
   id: number;
   nome: string;
+  cargo: string | null;
   email: string | null;
   tipo: string;
 }
@@ -390,6 +391,9 @@ export default function EditProject() {
                                   <User className="mr-2 h-4 w-4" />
                                   <div className="flex flex-col">
                                     <span>{colab.nome}</span>
+                                    {colab.cargo && (
+                                      <span className="text-xs text-primary font-medium">{colab.cargo}</span>
+                                    )}
                                     {colab.email && (
                                       <span className="text-xs text-muted-foreground">{colab.email}</span>
                                     )}

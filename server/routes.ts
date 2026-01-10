@@ -4225,6 +4225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let rhColaboradores = await db.select({
         id: rhRegistros.id,
         nome: rhRegistros.nomeColaborador,
+        cargo: rhRegistros.cargo,
         email: rhRegistros.contatoEmail,
         tipo: sql<string>`'rh'`.as('tipo'),
       }).from(rhRegistros).where(and(...rhConditions));
@@ -4243,7 +4244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).from(users).where(userConditions.length > 0 ? and(...userConditions) : undefined);
       
       // Combine and dedupe by email
-      const combined: { id: number; nome: string; email: string | null; tipo: string }[] = [];
+      const combined: { id: number; nome: string; cargo: string | null; email: string | null; tipo: string }[] = [];
       const seenEmails = new Set<string>();
       
       // Add RH collaborators first (they have priority)
@@ -4251,7 +4252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const key = rh.email?.toLowerCase() || `rh-${rh.id}`;
         if (!seenEmails.has(key)) {
           seenEmails.add(key);
-          combined.push({ id: rh.id, nome: rh.nome, email: rh.email, tipo: rh.tipo });
+          combined.push({ id: rh.id, nome: rh.nome, cargo: rh.cargo, email: rh.email, tipo: rh.tipo });
         }
       }
       
@@ -4262,7 +4263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           seenEmails.add(key);
           // Extract name from email if cargo is empty
           const displayName = user.nome || user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          combined.push({ id: user.id, nome: displayName, email: user.email, tipo: user.tipo });
+          combined.push({ id: user.id, nome: displayName, cargo: user.nome || null, email: user.email, tipo: user.tipo });
         }
       }
       
