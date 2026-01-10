@@ -3840,7 +3840,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/empreendimentos/:empreendimentoId/contratos', requireAuth, contratoController.getContratosByEmpreendimento);
   
   // Upload de PDF para contrato específico
-  app.post('/api/empreendimentos/:empreendimentoId/contratos/:contratoId/pdf', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
+  app.post('/api/empreendimentos/:empreendimentoId/contratos/:contratoId/pdf', requireAuth, (req, res, next) => {
+    arquivoController.upload.single('file')(req, res, (err: any) => {
+      if (err) {
+        console.error("Multer error:", err);
+        return res.status(400).json({ message: err.message || "Erro no upload do arquivo" });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "Nenhum arquivo foi enviado" });
@@ -3854,6 +3862,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any).userId;
       const crypto = await import("crypto");
       const fs = await import("fs");
+      
+      if (!fs.existsSync(req.file.path)) {
+        console.error("File not found at path:", req.file.path);
+        return res.status(500).json({ message: "Arquivo não foi salvo corretamente" });
+      }
       
       const fileBuffer = fs.readFileSync(req.file.path);
       const checksum = crypto.createHash("md5").update(fileBuffer).digest("hex");
