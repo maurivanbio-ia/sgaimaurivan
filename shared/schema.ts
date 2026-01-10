@@ -2270,3 +2270,107 @@ export const insertBaseConhecimentoSchema = createInsertSchema(baseConhecimento)
 export type InsertBaseConhecimento = z.infer<typeof insertBaseConhecimentoSchema>;
 export type BaseConhecimento = typeof baseConhecimento.$inferSelect;
 
+// ============================================
+// PORTAL DE COMUNICAÇÃO INTERNA
+// ============================================
+
+// Murais/Quadros de avisos
+export const murais = pgTable("murais", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  icone: text("icone").default("megaphone"), // ícone do mural
+  cor: text("cor").default("#3b82f6"), // cor do mural
+  ordem: integer("ordem").default(0),
+  ativo: boolean("ativo").default(true),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertMuralSchema = createInsertSchema(murais).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertMural = z.infer<typeof insertMuralSchema>;
+export type Mural = typeof murais.$inferSelect;
+
+// Comunicados/Avisos
+export const comunicados = pgTable("comunicados", {
+  id: serial("id").primaryKey(),
+  muralId: integer("mural_id").references(() => murais.id),
+  titulo: text("titulo").notNull(),
+  conteudo: text("conteudo").notNull(), // suporta markdown/HTML
+  resumo: text("resumo"), // prévia do comunicado
+  tipo: text("tipo").notNull().default("aviso"), // aviso, comunicado, urgente, informativo, celebracao
+  prioridade: text("prioridade").notNull().default("normal"), // baixa, normal, alta, urgente
+  fixado: boolean("fixado").default(false), // aparece sempre no topo
+  destaque: boolean("destaque").default(false), // aparece em destaque
+  imagemCapa: text("imagem_capa"), // imagem de capa opcional
+  anexos: json("anexos").$type<{ nome: string; url: string; tipo: string }[]>().default([]),
+  dataPublicacao: timestamp("data_publicacao").defaultNow().notNull(),
+  dataExpiracao: timestamp("data_expiracao"), // quando o comunicado expira
+  visibilidade: text("visibilidade").notNull().default("todos"), // todos, coordenadores, diretores, colaboradores
+  status: text("status").notNull().default("publicado"), // rascunho, publicado, arquivado
+  visualizacoes: integer("visualizacoes").default(0),
+  unidade: text("unidade").notNull().default("salvador"),
+  autorId: integer("autor_id").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertComunicadoSchema = createInsertSchema(comunicados).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+  visualizacoes: true,
+});
+
+export type InsertComunicado = z.infer<typeof insertComunicadoSchema>;
+export type Comunicado = typeof comunicados.$inferSelect;
+
+// Comentários em comunicados
+export const comunicadoComentarios = pgTable("comunicado_comentarios", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id).notNull(),
+  autorId: integer("autor_id").references(() => users.id).notNull(),
+  conteudo: text("conteudo").notNull(),
+  paiId: integer("pai_id"), // para respostas a comentários
+  curtidas: integer("curtidas").default(0),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertComunicadoComentarioSchema = createInsertSchema(comunicadoComentarios).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  deletedAt: true,
+  curtidas: true,
+});
+
+export type InsertComunicadoComentario = z.infer<typeof insertComunicadoComentarioSchema>;
+export type ComunicadoComentario = typeof comunicadoComentarios.$inferSelect;
+
+// Visualizações de comunicados (para tracking de quem viu)
+export const comunicadoVisualizacoes = pgTable("comunicado_visualizacoes", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  visualizadoEm: timestamp("visualizado_em").defaultNow().notNull(),
+});
+
+// Curtidas em comunicados
+export const comunicadoCurtidas = pgTable("comunicado_curtidas", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
