@@ -195,7 +195,7 @@ export default function Sidebar() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className={cn("p-4 border-b border-border", collapsed && "px-2")}>
+      <div className={cn("p-2 border-b border-border", collapsed && "px-1")}>
         <Link
           href="/"
           aria-label="Ir para o início"
@@ -204,29 +204,29 @@ export default function Sidebar() {
           <img
             src={logoEcoBrasil}
             alt="EcoBrasil"
-            className={cn("h-auto transition-all", collapsed ? "w-10" : "w-32")}
+            className={cn("h-auto transition-all", collapsed ? "w-8" : "w-24")}
             loading="lazy"
             decoding="async"
           />
         </Link>
       </div>
 
-      <div className={cn("p-4 border-b border-border", collapsed && "px-2")}>
+      <div className={cn("px-2 py-1.5 border-b border-border", collapsed && "px-1")}>
         <div className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md",
-          collapsed && "justify-center px-2"
+          "flex items-center gap-1.5 px-2 py-1 rounded-md bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-sm",
+          collapsed && "justify-center px-1"
         )}>
-          <Building2 className="h-4 w-4 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-bold truncate">{getNomeUnidade()}</span>}
+          <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+          {!collapsed && <span className="text-xs font-semibold truncate">{getNomeUnidade()}</span>}
         </div>
       </div>
 
-      <div className={cn("p-4 border-b border-border", collapsed && "px-2")}>
+      <div className={cn("px-2 py-1.5 border-b border-border", collapsed && "px-1")}>
         {!collapsed && <GlobalSearch />}
       </div>
 
-      <nav className="flex-1 p-2 overflow-y-auto" role="navigation" aria-label="Navegação principal">
-        <div className="space-y-1">
+      <nav className="flex-1 px-1 py-1 overflow-y-auto" role="navigation" aria-label="Navegação principal">
+        <div className="space-y-0.5">
           {NAV_CATEGORIES.map((category) => {
             const CategoryIcon = category.icon;
             const categoryKey = category.label.toLowerCase().replace(/\s/g, '-');
@@ -238,21 +238,21 @@ export default function Sidebar() {
                 <button
                   onClick={() => toggleCategory(categoryKey)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                    "w-full flex items-center gap-2 px-2 py-1 rounded-md transition-colors",
                     hasActiveItem 
                       ? "bg-primary/10 text-primary font-semibold" 
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    collapsed && "justify-center px-2"
+                    collapsed && "justify-center px-1"
                   )}
                 >
-                  <CategoryIcon className="h-4 w-4 flex-shrink-0" />
+                  <CategoryIcon className="h-3.5 w-3.5 flex-shrink-0" />
                   {!collapsed && (
                     <>
-                      <span className="text-xs font-semibold uppercase tracking-wider flex-1 text-left">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider flex-1 text-left">
                         {category.label}
                       </span>
                       <ChevronDown className={cn(
-                        "h-4 w-4 transition-transform",
+                        "h-3 w-3 transition-transform",
                         isExpanded && "rotate-180"
                       )} />
                     </>
@@ -260,7 +260,7 @@ export default function Sidebar() {
                 </button>
                 
                 {(isExpanded || collapsed) && (
-                  <div className={cn("mt-1 space-y-0.5", !collapsed && "ml-4 border-l border-border pl-2")}>
+                  <div className={cn("mt-0.5 space-y-0", !collapsed && "ml-3 border-l border-border pl-1.5")}>
                     {category.items.map((item) => {
                       const Icon = item.icon;
                       return (
@@ -272,15 +272,15 @@ export default function Sidebar() {
                         >
                           <div
                             className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer",
+                              "flex items-center gap-2 px-2 py-1 rounded-md transition-colors cursor-pointer",
                               isActive(item.href)
                                 ? "bg-primary text-primary-foreground"
                                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                              collapsed && "justify-center px-2"
+                              collapsed && "justify-center px-1"
                             )}
                           >
-                            <Icon className="h-4 w-4 flex-shrink-0" />
-                            {!collapsed && <span className="text-sm">{item.label}</span>}
+                            <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                            {!collapsed && <span className="text-xs">{item.label}</span>}
                           </div>
                         </Link>
                       );
@@ -293,36 +293,37 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className={cn("p-4 border-t border-border space-y-2", collapsed && "px-2")}>
-        <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "justify-between")}>
+      <div className={cn("px-2 py-1.5 border-t border-border space-y-1", collapsed && "px-1")}>
+        <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between")}>
           <NotificationsCenter />
           <ThemeToggle />
         </div>
         
         <Button
           variant="ghost"
+          size="sm"
           onClick={handleLogout}
           className={cn(
-            "w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10",
-            collapsed && "px-2"
+            "w-full h-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+            collapsed && "px-1"
           )}
           data-testid="button-logout"
           disabled={isLoggingOut}
         >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span className="ml-2">{isLoggingOut ? "Saindo..." : "Sair"}</span>}
+          <LogOut className="h-4 w-4" />
+          {!collapsed && <span className="ml-1.5 text-xs">{isLoggingOut ? "Saindo..." : "Sair"}</span>}
         </Button>
       </div>
 
-      <div className="hidden md:block p-2 border-t border-border">
+      <div className="hidden md:block px-2 py-1 border-t border-border">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full"
+          className="w-full h-6"
           aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </Button>
       </div>
     </div>
