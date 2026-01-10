@@ -1334,16 +1334,51 @@ export default function GestaoDados() {
                                       {subIsExpanded && subSubfolders.length > 0 && (
                                         <div className="ml-4 pl-2 border-l border-muted">
                                           {subSubfolders.map((ssub) => {
+                                            const ssubIsExpanded = expandedFolders.has(ssub.id);
+                                            const ssubSubfolders = getSubfolders(ssub.id);
                                             const ssubIsSelected = selectedPasta?.id === ssub.id;
                                             return (
-                                              <div 
-                                                key={ssub.id}
-                                                className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${ssubIsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                                                onClick={() => handleSelectFolder(ssub)}
-                                              >
-                                                <span className="w-3" />
-                                                <FolderOpen className={`h-3 w-3 ${ssubIsSelected ? 'text-primary' : 'text-amber-300'}`} />
-                                                <span className="font-mono text-xs truncate" title={ssub.nome}>{ssub.nome}</span>
+                                              <div key={ssub.id}>
+                                                <div 
+                                                  className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${ssubIsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                                                >
+                                                  <button
+                                                    onClick={() => toggleFolderExpanded(ssub.id)}
+                                                    className="p-0.5"
+                                                  >
+                                                    {ssubSubfolders.length > 0 ? (
+                                                      ssubIsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+                                                    ) : <span className="w-3" />}
+                                                  </button>
+                                                  <FolderOpen className={`h-3 w-3 ${ssubIsSelected ? 'text-primary' : 'text-amber-300'}`} />
+                                                  <span 
+                                                    className="font-mono text-xs truncate flex-1"
+                                                    onClick={() => handleSelectFolder(ssub)}
+                                                    title={ssub.nome}
+                                                  >
+                                                    {ssub.nome}
+                                                  </span>
+                                                </div>
+                                                
+                                                {/* Fourth level */}
+                                                {ssubIsExpanded && ssubSubfolders.length > 0 && (
+                                                  <div className="ml-4 pl-2 border-l border-muted">
+                                                    {ssubSubfolders.map((l4) => {
+                                                      const l4IsSelected = selectedPasta?.id === l4.id;
+                                                      return (
+                                                        <div 
+                                                          key={l4.id}
+                                                          className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${l4IsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                                                          onClick={() => handleSelectFolder(l4)}
+                                                        >
+                                                          <span className="w-3" />
+                                                          <FolderOpen className={`h-3 w-3 ${l4IsSelected ? 'text-primary' : 'text-amber-200'}`} />
+                                                          <span className="font-mono text-xs truncate" title={l4.nome}>{l4.nome}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
                                               </div>
                                             );
                                           })}
