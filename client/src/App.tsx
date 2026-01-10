@@ -48,6 +48,7 @@ import PortalColaborador from "./pages/portal-colaborador";
 import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
 import PropostasComerciais from "./pages/propostas-comerciais";
 import BaseConhecimento from "./pages/base-conhecimento";
+import Comunicacao from "./pages/comunicacao";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -174,6 +175,7 @@ function Router() {
                     <Route path="/minhas-tarefas" component={PortalColaborador} />
                     <Route path="/propostas-comerciais" component={PropostasComerciais} />
                     <Route path="/base-conhecimento" component={BaseConhecimento} />
+                    <Route path="/comunicacao" component={Comunicacao} />
                     <Route component={NotFound} />
                   </Switch>
                 </PermissionGate>
