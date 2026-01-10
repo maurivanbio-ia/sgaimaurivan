@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Empreendimento } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -46,6 +46,7 @@ const statusOptions = [
 ];
 
 const projectSchema = z.object({
+  codigo: z.string().optional(),
   nome: z.string().min(1, "Nome é obrigatório"),
   cliente: z.string().min(1, "Cliente é obrigatório"),
   localizacao: z.string().min(1, "Localização é obrigatória"),
@@ -94,6 +95,7 @@ export default function EditProject() {
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
+      codigo: "",
       nome: "",
       cliente: "",
       localizacao: "",
@@ -109,6 +111,7 @@ export default function EditProject() {
   useEffect(() => {
     if (project) {
       form.reset({
+        codigo: project.codigo || "",
         nome: project.nome,
         cliente: project.cliente,
         localizacao: project.localizacao,
@@ -175,6 +178,32 @@ export default function EditProject() {
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="codigo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Hash className="h-4 w-4" />
+                      Código do Projeto
+                    </FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        placeholder="Ex: PROJ001"
+                        className="uppercase"
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        data-testid="input-codigo"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Código usado para identificação nas pastas. Use letras maiúsculas, números, _ ou -
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="nome"
