@@ -39,6 +39,8 @@ import {
   comunicadoMencoes,
   comunicadoLeituraObrigatoria,
   comunicadoEventos, insertComunicadoEventoSchema,
+  ramaisContatos, insertRamalContatoSchema,
+  linksUteis, insertLinkUtilSchema,
   users,
   campanhas,
   cronogramaItens,
@@ -8486,6 +8488,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error fetching engagement stats:', error);
       res.status(500).json({ error: 'Erro ao buscar estatísticas de engajamento' });
+    }
+  });
+
+  // =============================================
+  // RAMAIS E CONTATOS
+  // =============================================
+  
+  app.get('/api/ramais-contatos', requireAuth, async (req, res) => {
+    try {
+      const contatos = await db
+        .select()
+        .from(ramaisContatos)
+        .where(and(
+          eq(ramaisContatos.unidade, req.user.unidade),
+          eq(ramaisContatos.ativo, true)
+        ))
+        .orderBy(ramaisContatos.ordem);
+      res.json(contatos);
+    } catch (error: any) {
+      console.error('Error fetching ramais-contatos:', error);
+      res.status(500).json({ error: 'Erro ao buscar contatos' });
+    }
+  });
+
+  app.post('/api/ramais-contatos', requireAuth, async (req, res) => {
+    try {
+      const data = insertRamalContatoSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.session.userId,
+      });
+      const [contato] = await db.insert(ramaisContatos).values(data).returning();
+      res.json(contato);
+    } catch (error: any) {
+      console.error('Error creating ramal-contato:', error);
+      res.status(500).json({ error: 'Erro ao criar contato' });
+    }
+  });
+
+  app.put('/api/ramais-contatos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [contato] = await db
+        .update(ramaisContatos)
+        .set({
+          ...req.body,
+          atualizadoEm: new Date(),
+        })
+        .where(and(
+          eq(ramaisContatos.id, id),
+          eq(ramaisContatos.unidade, req.user.unidade)
+        ))
+        .returning();
+      
+      if (!contato) return res.status(404).json({ error: 'Contato não encontrado' });
+      res.json(contato);
+    } catch (error: any) {
+      console.error('Error updating ramal-contato:', error);
+      res.status(500).json({ error: 'Erro ao atualizar contato' });
+    }
+  });
+
+  app.delete('/api/ramais-contatos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      await db
+        .update(ramaisContatos)
+        .set({ ativo: false })
+        .where(and(
+          eq(ramaisContatos.id, id),
+          eq(ramaisContatos.unidade, req.user.unidade)
+        ));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting ramal-contato:', error);
+      res.status(500).json({ error: 'Erro ao deletar contato' });
+    }
+  });
+
+  // =============================================
+  // LINKS ÚTEIS
+  // =============================================
+  
+  app.get('/api/links-uteis', requireAuth, async (req, res) => {
+    try {
+      const { categoria } = req.query;
+      let query = db
+        .select()
+        .from(linksUteis)
+        .where(and(
+          eq(linksUteis.unidade, req.user.unidade),
+          eq(linksUteis.ativo, true),
+          categoria && categoria !== 'all' ? eq(linksUteis.categoria, categoria as string) : undefined
+        ))
+        .orderBy(linksUteis.ordem);
+      
+      const links = await query;
+      res.json(links);
+    } catch (error: any) {
+      console.error('Error fetching links-uteis:', error);
+      res.status(500).json({ error: 'Erro ao buscar links' });
+    }
+  });
+
+  app.post('/api/links-uteis', requireAuth, async (req, res) => {
+    try {
+      const data = insertLinkUtilSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.session.userId,
+      });
+      const [link] = await db.insert(linksUteis).values(data).returning();
+      res.json(link);
+    } catch (error: any) {
+      console.error('Error creating link-util:', error);
+      res.status(500).json({ error: 'Erro ao criar link' });
+    }
+  });
+
+  app.put('/api/links-uteis/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [link] = await db
+        .update(linksUteis)
+        .set({
+          ...req.body,
+          atualizadoEm: new Date(),
+        })
+        .where(and(
+          eq(linksUteis.id, id),
+          eq(linksUteis.unidade, req.user.unidade)
+        ))
+        .returning();
+      
+      if (!link) return res.status(404).json({ error: 'Link não encontrado' });
+      res.json(link);
+    } catch (error: any) {
+      console.error('Error updating link-util:', error);
+      res.status(500).json({ error: 'Erro ao atualizar link' });
+    }
+  });
+
+  app.delete('/api/links-uteis/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      await db
+        .update(linksUteis)
+        .set({ ativo: false })
+        .where(and(
+          eq(linksUteis.id, id),
+          eq(linksUteis.unidade, req.user.unidade)
+        ));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting link-util:', error);
+      res.status(500).json({ error: 'Erro ao deletar link' });
+    }
+  });
+
+  app.post('/api/links-uteis/:id/acessar', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [link] = await db
+        .update(linksUteis)
+        .set({
+          acessos: sql`${linksUteis.acessos} + 1`,
+        })
+        .where(and(
+          eq(linksUteis.id, id),
+          eq(linksUteis.unidade, req.user.unidade),
+          eq(linksUteis.ativo, true)
+        ))
+        .returning();
+      
+      if (!link) return res.status(404).json({ error: 'Link não encontrado' });
+      res.json({ url: link.url, acessos: link.acessos });
+    } catch (error: any) {
+      console.error('Error accessing link-util:', error);
+      res.status(500).json({ error: 'Erro ao acessar link' });
     }
   });
 
