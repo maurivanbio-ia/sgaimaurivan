@@ -73,10 +73,16 @@ const CARGO_OPTIONS = [
   { value: "outro", label: "Outro" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "ativo", label: "Ativo" },
+  { value: "inativo", label: "Inativo" },
+];
+
 const rhRegistroSchema = z.object({
   id: z.number().optional(),
   nomeColaborador: z.string().min(1, "Nome obrigatório"),
   cargo: z.string().optional(),
+  status: z.string().default("ativo"),
   cpf: z.string().optional(),
   rg: z.string().optional(),
   cnh: z.string().optional(),
@@ -153,6 +159,7 @@ export default function RhPage() {
     defaultValues: {
       nomeColaborador: "",
       cargo: "",
+      status: "ativo",
       cpf: "",
       rg: "",
       cnh: "",
@@ -399,6 +406,8 @@ export default function RhPage() {
                   <TableRow>
                     <TableHead>ID</TableHead>
                     <TableHead>Nome</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>CPF</TableHead>
                     <TableHead>Regime</TableHead>
                     <TableHead>Fornecedor</TableHead>
@@ -412,6 +421,16 @@ export default function RhPage() {
                     <TableRow key={r.id} data-testid={`row-rh-${r.id}`}>
                       <TableCell className="font-medium">{r.id}</TableCell>
                       <TableCell>{r.nomeColaborador}</TableCell>
+                      <TableCell>
+                        {r.cargo ? (
+                          <span className="text-sm">{CARGO_OPTIONS.find(c => c.value === r.cargo)?.label || r.cargo}</span>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 text-xs rounded-full ${r.status === 'ativo' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'}`}>
+                          {r.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </TableCell>
                       <TableCell>{r.cpf || "-"}</TableCell>
                       <TableCell>
                         {r.regimeContratacao ? (
@@ -477,6 +496,23 @@ export default function RhPage() {
                       </FormControl>
                       <SelectContent>
                         {CARGO_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}/>
+                <FormField name="status" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "ativo"}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
                       </SelectContent>

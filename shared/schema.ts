@@ -267,6 +267,7 @@ export const rhRegistros = pgTable("rh_registros", {
   fornecedor: text("fornecedor"),
   nomeColaborador: text("nome_colaborador").notNull(),
   cargo: text("cargo"), // Consultor, Coordenador, Piloto Fluvial, Auxiliar de Campo, etc.
+  status: text("status").notNull().default("ativo"), // ativo, inativo
   cpf: text("cpf"),
   rg: text("rg"),
   cnh: text("cnh"),
