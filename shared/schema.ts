@@ -1629,7 +1629,7 @@ export type Tarefa = typeof tarefas.$inferSelect;
 // Tabela de atualizações/comentários de tarefas
 export const tarefaAtualizacoes = pgTable("tarefa_atualizacoes", {
   id: serial("id").primaryKey(),
-  tarefaId: integer("tarefa_id").references(() => tarefas.id).notNull(),
+  tarefaId: integer("tarefa_id").references(() => tarefas.id, { onDelete: "cascade" }).notNull(),
   usuarioId: integer("usuario_id").references(() => users.id).notNull(),
   tipo: text("tipo").notNull().default("comentario"), // comentario, status_change, anexo
   conteudo: text("conteudo").notNull(),
@@ -1650,7 +1650,7 @@ export type TarefaAtualizacao = typeof tarefaAtualizacoes.$inferSelect;
 // Tabela de registro de horas (timesheet)
 export const registroHoras = pgTable("registro_horas", {
   id: serial("id").primaryKey(),
-  tarefaId: integer("tarefa_id").references(() => tarefas.id).notNull(),
+  tarefaId: integer("tarefa_id").references(() => tarefas.id, { onDelete: "cascade" }).notNull(),
   colaboradorId: integer("colaborador_id").references(() => users.id).notNull(),
   data: date("data").notNull(),
   horaInicio: text("hora_inicio").notNull(), // HH:mm
