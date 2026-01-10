@@ -19,11 +19,16 @@ import {
   HardHat,
   Building2,
   TrendingUp,
-  RefreshCcw
+  RefreshCcw,
+  ArrowRight,
+  Info,
+  Lightbulb,
+  ExternalLink
 } from "lucide-react";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Link } from "wouter";
 
 interface ConformidadeData {
   iso14001: {
@@ -426,31 +431,193 @@ export default function ConformidadeISO() {
         </Card>
       </div>
 
+      {scoreGeral === 0 && (
+        <Card className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+              <Lightbulb className="h-5 w-5" />
+              Como Melhorar Sua Conformidade
+            </CardTitle>
+            <CardDescription>
+              Para que o sistema calcule automaticamente sua conformidade, você precisa cadastrar dados nos módulos monitorados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <Leaf className="h-5 w-5 text-green-500" />
+                  <span className="font-medium">ISO 14001 - Ambiental</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Cadastre licenças ambientais e acompanhe condicionantes para melhorar este indicador.
+                </p>
+                <div className="flex gap-2">
+                  <Link href="/licencas">
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <FileText className="h-3 w-3" /> Licenças
+                    </Button>
+                  </Link>
+                  <Link href="/condicionantes">
+                    <Button size="sm" variant="outline" className="gap-1">
+                      Condicionantes
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  <span className="font-medium">ISO 9001 - Qualidade</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Mantenha treinamentos atualizados, fornecedores qualificados e documentos em dia.
+                </p>
+                <div className="flex gap-2">
+                  <Link href="/treinamentos">
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <GraduationCap className="h-3 w-3" /> Treinamentos
+                    </Button>
+                  </Link>
+                  <Link href="/fornecedores">
+                    <Button size="sm" variant="outline" className="gap-1">
+                      Fornecedores
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <HardHat className="h-5 w-5 text-orange-500" />
+                  <span className="font-medium">ISO 45001 - SST</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Registre colaboradores, CNHs, documentos SST e mantenha a frota regularizada.
+                </p>
+                <div className="flex gap-2">
+                  <Link href="/rh">
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <Users className="h-3 w-3" /> RH
+                    </Button>
+                  </Link>
+                  <Link href="/frota">
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <Truck className="h-3 w-3" /> Frota
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Info className="h-5 w-5 text-primary" />
+            O Que Cada Norma Verifica
+          </CardTitle>
+          <CardDescription>
+            Entenda como o sistema monitora automaticamente sua conformidade
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Leaf className="h-6 w-6 text-green-500" />
+                <h3 className="font-semibold text-green-600 dark:text-green-400">ISO 14001 - Gestão Ambiental</h3>
+              </div>
+              <ul className="text-sm space-y-2 text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                  <span>Licenças ambientais vigentes</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                  <span>Condicionantes cumpridas no prazo</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                  <span>Equipamentos calibrados</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-6 w-6 text-blue-500" />
+                <h3 className="font-semibold text-blue-600 dark:text-blue-400">ISO 9001 - Qualidade</h3>
+              </div>
+              <ul className="text-sm space-y-2 text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <span>Treinamentos concluídos e válidos</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <span>Fornecedores avaliados (nota 4+)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <span>Base de conhecimento atualizada</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <HardHat className="h-6 w-6 text-orange-500" />
+                <h3 className="font-semibold text-orange-600 dark:text-orange-400">ISO 45001 - SST</h3>
+              </div>
+              <ul className="text-sm space-y-2 text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                  <span>CNHs de colaboradores vigentes</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                  <span>Documentos SST em dia</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                  <span>Frota com licenciamento e seguro válidos</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Módulos Monitorados</CardTitle>
           <CardDescription>
-            Dados coletados automaticamente de cada módulo da plataforma
+            Acesse os módulos para cadastrar dados e melhorar sua conformidade
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
-              { icon: FileText, label: "Licenças", color: "text-blue-500" },
-              { icon: Users, label: "RH", color: "text-purple-500" },
-              { icon: GraduationCap, label: "Treinamentos", color: "text-green-500" },
-              { icon: Truck, label: "Frota", color: "text-orange-500" },
-              { icon: Wrench, label: "Equipamentos", color: "text-gray-500" },
-              { icon: HardHat, label: "SST", color: "text-yellow-500" },
+              { icon: FileText, label: "Licenças", color: "text-blue-500", href: "/licencas" },
+              { icon: Users, label: "RH", color: "text-purple-500", href: "/rh" },
+              { icon: GraduationCap, label: "Treinamentos", color: "text-green-500", href: "/treinamentos" },
+              { icon: Truck, label: "Frota", color: "text-orange-500", href: "/frota" },
+              { icon: Wrench, label: "Equipamentos", color: "text-gray-500", href: "/equipamentos" },
+              { icon: HardHat, label: "SST", color: "text-yellow-500", href: "/sst" },
             ].map((mod, i) => (
-              <div 
-                key={i} 
-                className="flex flex-col items-center p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
-              >
-                <mod.icon className={`h-8 w-8 ${mod.color} mb-2`} />
-                <span className="text-sm font-medium">{mod.label}</span>
-                <CheckCircle2 className="h-4 w-4 text-green-500 mt-1" />
-              </div>
+              <Link key={i} href={mod.href}>
+                <div 
+                  className="flex flex-col items-center p-4 rounded-lg border bg-card hover:bg-accent hover:border-primary/50 transition-colors cursor-pointer group"
+                >
+                  <mod.icon className={`h-8 w-8 ${mod.color} mb-2 group-hover:scale-110 transition-transform`} />
+                  <span className="text-sm font-medium">{mod.label}</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </Link>
             ))}
           </div>
         </CardContent>
