@@ -266,6 +266,7 @@ export const rhRegistros = pgTable("rh_registros", {
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   fornecedor: text("fornecedor"),
   nomeColaborador: text("nome_colaborador").notNull(),
+  cargo: text("cargo"), // Consultor, Coordenador, Piloto Fluvial, Auxiliar de Campo, etc.
   cpf: text("cpf"),
   rg: text("rg"),
   cnh: text("cnh"),
