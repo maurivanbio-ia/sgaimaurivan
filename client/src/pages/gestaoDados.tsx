@@ -682,6 +682,32 @@ export default function GestaoDados() {
     setSelectedPasta(pasta);
   };
 
+  // Helper: Build flat list with indentation for folder selector
+  const buildFolderSelectOptions = () => {
+    const options: { value: string; label: string; depth: number }[] = [];
+    
+    const addFolderWithChildren = (folder: DatasetPasta, depth: number) => {
+      const indent = "\u00A0\u00A0\u00A0\u00A0".repeat(depth);
+      const prefix = depth > 0 ? "└─ " : "";
+      options.push({
+        value: folder.caminho,
+        label: `${indent}${prefix}${folder.nome}`,
+        depth
+      });
+      
+      const children = pastas.filter(p => p.paiId === folder.id).sort((a, b) => a.nome.localeCompare(b.nome));
+      children.forEach(child => addFolderWithChildren(child, depth + 1));
+    };
+    
+    // Start with root folders
+    const rootFolders = pastas.filter(p => !p.paiId).sort((a, b) => a.nome.localeCompare(b.nome));
+    rootFolders.forEach(folder => addFolderWithChildren(folder, 0));
+    
+    return options;
+  };
+
+  const folderSelectOptions = buildFolderSelectOptions();
+
   // Helper: Create new subfolder
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) {
@@ -964,15 +990,15 @@ export default function GestaoDados() {
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a pasta de destino" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {pastas.filter(p => p.tipo !== "macro" || p.caminho === "/ECOBRASIL_GESTAO_DADOS").map((pasta) => (
-                        <SelectItem key={pasta.id} value={pasta.caminho}>
-                          {pasta.caminho.replace("/ECOBRASIL_GESTAO_DADOS/", "").replace("/ECOBRASIL_GESTAO_DADOS", "Raiz") || pasta.nome}
+                    <SelectContent className="max-h-[300px]">
+                      {folderSelectOptions.map((option, idx) => (
+                        <SelectItem key={idx} value={option.value} className="font-mono text-xs">
+                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">Selecione onde o arquivo sera armazenado</p>
+                  <p className="text-xs text-muted-foreground mt-1">Selecione onde o arquivo sera armazenado (hierarquia de pastas)</p>
                 </div>
 
                 <div>
