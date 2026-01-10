@@ -49,6 +49,7 @@ import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
 import PropostasComerciais from "./pages/propostas-comerciais";
 import BaseConhecimento from "./pages/base-conhecimento";
 import Comunicacao from "./pages/comunicacao";
+import ConformidadeISO from "./pages/conformidade-iso";
 import RamaisContatos from "./pages/ramais-contatos";
 import LinksUteis from "./pages/links-uteis";
 import Sidebar from "./components/layout/sidebar";
@@ -180,6 +181,7 @@ function Router() {
                     <Route path="/propostas-comerciais" component={PropostasComerciais} />
                     <Route path="/base-conhecimento" component={BaseConhecimento} />
                     <Route path="/comunicacao" component={Comunicacao} />
+                    <Route path="/conformidade-iso" component={ConformidadeISO} />
                     <Route component={NotFound} />
                   </Switch>
                 </PermissionGate>
