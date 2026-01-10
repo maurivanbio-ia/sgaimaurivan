@@ -134,6 +134,18 @@ Document and template library:
 - **Route**: /base-conhecimento
 - **Database Table**: baseConhecimento
 
+### Conformidade ISO (ISO Conformity)
+Automatic ISO compliance monitoring system:
+- **Supported Standards**: ISO 14001 (Environmental), ISO 9001 (Quality), ISO 45001 (Occupational Health & Safety)
+- **Automatic Calculation**: Compliance scores calculated from existing platform data
+- **Data Sources**: Licenses, condicionantes, trainings, RH records, fleet, equipment, SST documents, suppliers
+- **Alerts**: Automatic alerts for non-conformities (critical, warning, info levels)
+- **Dashboard**: Visual indicators with scores, requirements accordion, and alert panel
+- **Real-time**: Updates automatically as data changes across modules
+- **Route**: /conformidade-iso
+- **API Endpoint**: GET /api/conformidade-iso
+- **Service**: server/services/conformidadeISOService.ts
+
 ### Automatic Backup System
 Daily automatic database backup scheduled at 00:00 (Brasília timezone):
 - **Backup Content**: All major tables exported to JSON (users, empreendimentos, licencas, demandas, contracts, finances, RH, fleet, equipment, projects, proposals, samples, suppliers, trainings, knowledge base, tasks, datasets)

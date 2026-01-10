@@ -2961,6 +2961,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =============================================
+  // CONFORMIDADE ISO ROUTES
+  // =============================================
+  
+  app.get('/api/conformidade-iso', requireAuth, async (req: any, res) => {
+    try {
+      const { calcularConformidadeISO } = await import('./services/conformidadeISOService');
+      const unidade = req.query.unidade as string || req.user?.unidade;
+      const conformidade = await calcularConformidadeISO(unidade);
+      res.json(conformidade);
+    } catch (error) {
+      console.error('Error calculating ISO conformity:', error);
+      res.status(500).json({ error: 'Erro ao calcular conformidade ISO' });
+    }
+  });
+
+  // =============================================
   // BACKUP ROUTES
   // =============================================
 

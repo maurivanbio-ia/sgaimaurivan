@@ -1,0 +1,365 @@
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Shield, 
+  AlertTriangle, 
+  CheckCircle2, 
+  XCircle, 
+  Clock, 
+  FileText, 
+  Users, 
+  Truck, 
+  Wrench,
+  GraduationCap,
+  Leaf,
+  HardHat,
+  Building2,
+  TrendingUp,
+  RefreshCcw
+} from "lucide-react";
+import { useUnidade } from "@/contexts/UnidadeContext";
+import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+interface ConformidadeData {
+  iso14001: {
+    score: number;
+    requisitos: RequisitoISO[];
+  };
+  iso9001: {
+    score: number;
+    requisitos: RequisitoISO[];
+  };
+  iso45001: {
+    score: number;
+    requisitos: RequisitoISO[];
+  };
+  alertas: AlertaConformidade[];
+  resumo: {
+    totalRequisitos: number;
+    conformes: number;
+    naoConformes: number;
+    emImplementacao: number;
+  };
+}
+
+interface RequisitoISO {
+  id: string;
+  codigo: string;
+  titulo: string;
+  descricao: string;
+  status: 'conforme' | 'nao_conforme' | 'em_implementacao' | 'nao_aplicavel';
+  evidencias: string[];
+  moduloRelacionado: string;
+  indicador?: number;
+  meta?: number;
+}
+
+interface AlertaConformidade {
+  id: string;
+  tipo: 'critico' | 'atencao' | 'info';
+  mensagem: string;
+  modulo: string;
+  dataCriacao: string;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'conforme':
+      return <Badge className="bg-green-500 text-white"><CheckCircle2 className="h-3 w-3 mr-1" /> Conforme</Badge>;
+    case 'nao_conforme':
+      return <Badge className="bg-red-500 text-white"><XCircle className="h-3 w-3 mr-1" /> Não Conforme</Badge>;
+    case 'em_implementacao':
+      return <Badge className="bg-yellow-500 text-white"><Clock className="h-3 w-3 mr-1" /> Em Implementação</Badge>;
+    default:
+      return <Badge variant="outline">N/A</Badge>;
+  }
+}
+
+function ScoreCard({ title, score, icon: Icon, color }: { title: string; score: number; icon: any; color: string }) {
+  const getColorClass = (score: number) => {
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-yellow-500";
+    return "text-red-500";
+  };
+
+  return (
+    <Card className="relative overflow-hidden">
+      <div className={`absolute top-0 right-0 w-24 h-24 ${color} opacity-10 rounded-bl-full`} />
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <Icon className={`h-5 w-5 ${color.replace('bg-', 'text-')}`} />
+          <CardTitle className="text-lg">{title}</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-end gap-2 mb-2">
+          <span className={`text-4xl font-bold ${getColorClass(score)}`}>{score}%</span>
+          <span className="text-muted-foreground text-sm mb-1">de conformidade</span>
+        </div>
+        <Progress value={score} className="h-2" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlertaCard({ alerta }: { alerta: AlertaConformidade }) {
+  const getAlertStyle = (tipo: string) => {
+    switch (tipo) {
+      case 'critico':
+        return { bg: 'bg-red-50 dark:bg-red-950', border: 'border-red-200 dark:border-red-800', icon: XCircle, iconColor: 'text-red-500' };
+      case 'atencao':
+        return { bg: 'bg-yellow-50 dark:bg-yellow-950', border: 'border-yellow-200 dark:border-yellow-800', icon: AlertTriangle, iconColor: 'text-yellow-500' };
+      default:
+        return { bg: 'bg-blue-50 dark:bg-blue-950', border: 'border-blue-200 dark:border-blue-800', icon: Clock, iconColor: 'text-blue-500' };
+    }
+  };
+
+  const style = getAlertStyle(alerta.tipo);
+  const Icon = style.icon;
+
+  return (
+    <div className={`p-3 rounded-lg border ${style.bg} ${style.border}`}>
+      <div className="flex items-start gap-3">
+        <Icon className={`h-5 w-5 ${style.iconColor} mt-0.5`} />
+        <div className="flex-1">
+          <p className="font-medium text-sm">{alerta.mensagem}</p>
+          <p className="text-xs text-muted-foreground mt-1">Módulo: {alerta.modulo}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ConformidadeISO() {
+  const { unidadeSelecionada } = useUnidade();
+
+  const { data: conformidade, isLoading, refetch, isFetching } = useQuery<ConformidadeData>({
+    queryKey: ['/api/conformidade-iso', unidadeSelecionada],
+    refetchInterval: 60000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-32 bg-muted rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const data = conformidade || {
+    iso14001: { score: 0, requisitos: [] },
+    iso9001: { score: 0, requisitos: [] },
+    iso45001: { score: 0, requisitos: [] },
+    alertas: [],
+    resumo: { totalRequisitos: 0, conformes: 0, naoConformes: 0, emImplementacao: 0 }
+  };
+
+  const scoreGeral = Math.round((data.iso14001.score + data.iso9001.score + data.iso45001.score) / 3);
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Shield className="h-8 w-8 text-primary" />
+            Conformidade ISO
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Monitoramento automático de atendimento às normas ISO 14001, 9001 e 45001
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => refetch()} 
+          disabled={isFetching}
+          className="gap-2"
+        >
+          <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="md:col-span-1 bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Score Geral
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-5xl font-bold text-primary">{scoreGeral}%</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {data.resumo.conformes} de {data.resumo.totalRequisitos} requisitos atendidos
+            </p>
+          </CardContent>
+        </Card>
+
+        <ScoreCard 
+          title="ISO 14001" 
+          score={data.iso14001.score} 
+          icon={Leaf} 
+          color="bg-green-500" 
+        />
+        <ScoreCard 
+          title="ISO 9001" 
+          score={data.iso9001.score} 
+          icon={FileText} 
+          color="bg-blue-500" 
+        />
+        <ScoreCard 
+          title="ISO 45001" 
+          score={data.iso45001.score} 
+          icon={HardHat} 
+          color="bg-orange-500" 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Requisitos por Norma</CardTitle>
+            <CardDescription>Clique para expandir e ver detalhes dos requisitos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="iso14001">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="iso14001" className="gap-2">
+                  <Leaf className="h-4 w-4" /> ISO 14001
+                </TabsTrigger>
+                <TabsTrigger value="iso9001" className="gap-2">
+                  <FileText className="h-4 w-4" /> ISO 9001
+                </TabsTrigger>
+                <TabsTrigger value="iso45001" className="gap-2">
+                  <HardHat className="h-4 w-4" /> ISO 45001
+                </TabsTrigger>
+              </TabsList>
+
+              {['iso14001', 'iso9001', 'iso45001'].map((norma) => (
+                <TabsContent key={norma} value={norma}>
+                  <ScrollArea className="h-[400px]">
+                    <Accordion type="multiple" className="w-full">
+                      {(data as any)[norma]?.requisitos?.map((req: RequisitoISO) => (
+                        <AccordionItem key={req.id} value={req.id}>
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-3 text-left">
+                              <span className="font-mono text-sm text-muted-foreground">{req.codigo}</span>
+                              <span className="flex-1">{req.titulo}</span>
+                              <StatusBadge status={req.status} />
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="pl-4 space-y-3">
+                              <p className="text-sm text-muted-foreground">{req.descricao}</p>
+                              
+                              {req.indicador !== undefined && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">Indicador:</span>
+                                  <Progress value={req.indicador} className="w-24 h-2" />
+                                  <span className="text-sm font-medium">{req.indicador}%</span>
+                                  {req.meta && (
+                                    <span className="text-sm text-muted-foreground">(Meta: {req.meta}%)</span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center gap-2 text-sm">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span>Módulo relacionado: {req.moduloRelacionado}</span>
+                              </div>
+                              
+                              {req.evidencias.length > 0 && (
+                                <div>
+                                  <span className="text-sm font-medium">Evidências:</span>
+                                  <ul className="list-disc list-inside text-sm text-muted-foreground mt-1">
+                                    {req.evidencias.map((ev, i) => (
+                                      <li key={i}>{ev}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </ScrollArea>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Alertas de Conformidade
+            </CardTitle>
+            <CardDescription>
+              Itens que requerem atenção imediata
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-3">
+                {data.alertas.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-green-500" />
+                    <p>Nenhum alerta de conformidade</p>
+                  </div>
+                ) : (
+                  data.alertas.map((alerta) => (
+                    <AlertaCard key={alerta.id} alerta={alerta} />
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Módulos Monitorados</CardTitle>
+          <CardDescription>
+            Dados coletados automaticamente de cada módulo da plataforma
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {[
+              { icon: FileText, label: "Licenças", color: "text-blue-500" },
+              { icon: Users, label: "RH", color: "text-purple-500" },
+              { icon: GraduationCap, label: "Treinamentos", color: "text-green-500" },
+              { icon: Truck, label: "Frota", color: "text-orange-500" },
+              { icon: Wrench, label: "Equipamentos", color: "text-gray-500" },
+              { icon: HardHat, label: "SST", color: "text-yellow-500" },
+            ].map((mod, i) => (
+              <div 
+                key={i} 
+                className="flex flex-col items-center p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
+              >
+                <mod.icon className={`h-8 w-8 ${mod.color} mb-2`} />
+                <span className="text-sm font-medium">{mod.label}</span>
+                <CheckCircle2 className="h-4 w-4 text-green-500 mt-1" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

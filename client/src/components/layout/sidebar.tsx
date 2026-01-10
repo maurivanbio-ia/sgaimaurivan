@@ -43,7 +43,8 @@ import {
   BookOpen,
   Megaphone,
   Phone,
-  Link2
+  Link2,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -188,6 +189,7 @@ export default function Sidebar() {
       label: "Sistema",
       icon: Settings,
       items: [
+        { href: "/conformidade-iso", label: "Conformidade ISO", icon: Shield, testid: "nav-conformidade-iso" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
       ]
     },
