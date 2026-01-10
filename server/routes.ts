@@ -57,9 +57,14 @@ import {
   datasetPastas,
   datasetVersoes,
   datasetAuditTrail,
+  metasCustoProjeto,
+  insertMetaCustoProjetoSchema,
+  financeiroLancamentos,
+  pontuacoesGamificacao,
+  historicosPontuacao,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql, eq, and, isNull } from "drizzle-orm";
+import { sql, eq, and, isNull, gte, lte, sum, desc } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
@@ -6853,6 +6858,317 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: 'Conquistas padrão criadas' });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== ECONOMIA (GAMIFICAÇÃO POR CUSTOS) ====================
+
+  // Calculate economy points for all projects for a given month
+  app.post('/api/gamificacao/calcular-economia', requireAuth, async (req, res) => {
+    try {
+      const { periodo, unidade } = req.body;
+      
+      if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
+        return res.status(400).json({ error: 'Período inválido. Use formato YYYY-MM' });
+      }
+
+      const userUnidade = unidade || req.user?.unidade || 'salvador';
+      
+      // Get all empreendimentos with orcamentoPrevisto > 0
+      const empreendimentosQuery = await db
+        .select()
+        .from(empreendimentos)
+        .where(and(
+          eq(empreendimentos.unidade, userUnidade),
+          isNull(empreendimentos.deletedAt),
+          sql`CAST(${empreendimentos.orcamentoPrevisto} AS DECIMAL) > 0`
+        ));
+
+      const resultados: any[] = [];
+      let totalPontos = 0;
+
+      // Parse period for date filtering
+      const [ano, mes] = periodo.split('-').map(Number);
+      const periodoInicio = `${periodo}-01`;
+      const ultimoDia = new Date(ano, mes, 0).getDate();
+      const periodoFim = `${periodo}-${ultimoDia}`;
+
+      for (const emp of empreendimentosQuery) {
+        // Get coordenador (using responsavelId or coordenadorId)
+        const coordenadorId = emp.coordenadorId || emp.criadoPor;
+        if (!coordenadorId) continue;
+
+        // Calculate orcamentoBase (monthly = anual / 12)
+        const orcamentoPrevisto = parseFloat(emp.orcamentoPrevisto?.toString() || '0');
+        const orcamentoBase = orcamentoPrevisto / 12;
+
+        // Check for active campanhas in the period
+        const campanhasAtivas = await db
+          .select()
+          .from(campanhas)
+          .where(and(
+            eq(campanhas.empreendimentoId, emp.id),
+            lte(campanhas.periodoInicio, periodoFim),
+            gte(campanhas.periodoFim, periodoInicio)
+          ));
+
+        const numCampanhas = campanhasAtivas.length;
+        
+        // ajusteCampanha = 1.0 + (campanhasAtivas * 0.25) (25% increase per campaign)
+        const ajusteCampanha = 1.0 + (numCampanhas * 0.25);
+        
+        // Calculate orcamentoAjustado
+        const orcamentoAjustado = orcamentoBase * ajusteCampanha;
+
+        // Get gastoReal from financeiro table (sum of valor where tipo = 'despesa')
+        const gastoResult = await db
+          .select({ total: sum(financeiroLancamentos.valor) })
+          .from(financeiroLancamentos)
+          .where(and(
+            eq(financeiroLancamentos.empreendimentoId, emp.id),
+            eq(financeiroLancamentos.tipo, 'despesa'),
+            gte(financeiroLancamentos.data, periodoInicio),
+            lte(financeiroLancamentos.data, periodoFim)
+          ));
+
+        const gastoReal = parseFloat(gastoResult[0]?.total?.toString() || '0');
+
+        // Calculate economia
+        const economia = orcamentoAjustado - gastoReal;
+        
+        // Calculate percentualEconomia
+        const percentualEconomia = orcamentoAjustado > 0 
+          ? (economia / orcamentoAjustado) * 100 
+          : 0;
+
+        // Determine pontosAtribuidos based on percentualEconomia
+        let pontosAtribuidos = 0;
+        let categoria = '';
+        
+        if (percentualEconomia >= 20) {
+          pontosAtribuidos = 50;
+          categoria = 'Economia Excepcional';
+        } else if (percentualEconomia >= 10) {
+          pontosAtribuidos = 30;
+          categoria = 'Boa Economia';
+        } else if (percentualEconomia >= 0) {
+          pontosAtribuidos = 10;
+          categoria = 'Dentro do Orçamento';
+        } else if (percentualEconomia >= -10) {
+          pontosAtribuidos = 0;
+          categoria = 'Leve Estouro';
+        } else {
+          pontosAtribuidos = -10;
+          categoria = 'Estouro Significativo';
+        }
+
+        // Check if record already exists for this empreendimento/periodo
+        const existing = await db
+          .select()
+          .from(metasCustoProjeto)
+          .where(and(
+            eq(metasCustoProjeto.empreendimentoId, emp.id),
+            eq(metasCustoProjeto.periodo, periodo)
+          ))
+          .limit(1);
+
+        let metaRecord;
+        if (existing.length > 0) {
+          // Update existing record
+          const updated = await db
+            .update(metasCustoProjeto)
+            .set({
+              coordenadorId,
+              orcamentoBase: orcamentoBase.toFixed(2),
+              ajusteCampanha: ajusteCampanha.toFixed(2),
+              orcamentoAjustado: orcamentoAjustado.toFixed(2),
+              gastoReal: gastoReal.toFixed(2),
+              economia: economia.toFixed(2),
+              percentualEconomia: percentualEconomia.toFixed(2),
+              pontosAtribuidos,
+              campanhasAtivas: numCampanhas,
+              status: 'calculado',
+              unidade: userUnidade,
+              calculadoEm: new Date(),
+            })
+            .where(eq(metasCustoProjeto.id, existing[0].id))
+            .returning();
+          metaRecord = updated[0];
+        } else {
+          // Insert new record
+          const inserted = await db
+            .insert(metasCustoProjeto)
+            .values({
+              empreendimentoId: emp.id,
+              coordenadorId,
+              periodo,
+              orcamentoBase: orcamentoBase.toFixed(2),
+              ajusteCampanha: ajusteCampanha.toFixed(2),
+              orcamentoAjustado: orcamentoAjustado.toFixed(2),
+              gastoReal: gastoReal.toFixed(2),
+              economia: economia.toFixed(2),
+              percentualEconomia: percentualEconomia.toFixed(2),
+              pontosAtribuidos,
+              campanhasAtivas: numCampanhas,
+              status: 'calculado',
+              unidade: userUnidade,
+              calculadoEm: new Date(),
+            })
+            .returning();
+          metaRecord = inserted[0];
+        }
+
+        // Update pontuacoesGamificacao.pontosEconomia for the coordenador
+        const existingPontuacao = await db
+          .select()
+          .from(pontuacoesGamificacao)
+          .where(and(
+            eq(pontuacoesGamificacao.usuarioId, coordenadorId),
+            eq(pontuacoesGamificacao.periodo, periodo)
+          ))
+          .limit(1);
+
+        if (existingPontuacao.length > 0) {
+          const novosPontosEconomia = (existingPontuacao[0].pontosEconomia || 0) + pontosAtribuidos;
+          await db
+            .update(pontuacoesGamificacao)
+            .set({
+              pontosEconomia: novosPontosEconomia,
+              pontos: (existingPontuacao[0].pontos || 0) + pontosAtribuidos,
+              atualizadoEm: new Date(),
+            })
+            .where(eq(pontuacoesGamificacao.id, existingPontuacao[0].id));
+        } else {
+          await db
+            .insert(pontuacoesGamificacao)
+            .values({
+              usuarioId: coordenadorId,
+              pontos: pontosAtribuidos,
+              pontosEconomia: pontosAtribuidos,
+              periodo,
+              unidade: userUnidade,
+            });
+        }
+
+        // Add entry to historicosPontuacao
+        await db
+          .insert(historicosPontuacao)
+          .values({
+            usuarioId: coordenadorId,
+            pontos: pontosAtribuidos,
+            tipo: 'economia_projeto',
+            descricao: `${categoria} - ${emp.nome} (${percentualEconomia.toFixed(1)}%)`,
+            referenciaId: emp.id,
+            referenciaTipo: 'empreendimento',
+          });
+
+        totalPontos += pontosAtribuidos;
+        resultados.push({
+          empreendimentoId: emp.id,
+          empreendimentoNome: emp.nome,
+          coordenadorId,
+          orcamentoBase,
+          orcamentoAjustado,
+          gastoReal,
+          economia,
+          percentualEconomia,
+          pontosAtribuidos,
+          categoria,
+          campanhasAtivas: numCampanhas,
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        resultados, 
+        totalPontos,
+        periodo,
+        unidade: userUnidade,
+      });
+    } catch (error: any) {
+      console.error('Error calculating economy points:', error);
+      res.status(500).json({ error: error.message || 'Erro ao calcular economia' });
+    }
+  });
+
+  // Get economy data for a period
+  app.get('/api/gamificacao/economia/:periodo', requireAuth, async (req, res) => {
+    try {
+      const { periodo } = req.params;
+      const userUnidade = req.user?.unidade;
+
+      if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
+        return res.status(400).json({ error: 'Período inválido. Use formato YYYY-MM' });
+      }
+
+      const metas = await db
+        .select({
+          id: metasCustoProjeto.id,
+          empreendimentoId: metasCustoProjeto.empreendimentoId,
+          empreendimentoNome: empreendimentos.nome,
+          coordenadorId: metasCustoProjeto.coordenadorId,
+          coordenadorEmail: users.email,
+          periodo: metasCustoProjeto.periodo,
+          orcamentoBase: metasCustoProjeto.orcamentoBase,
+          ajusteCampanha: metasCustoProjeto.ajusteCampanha,
+          orcamentoAjustado: metasCustoProjeto.orcamentoAjustado,
+          gastoReal: metasCustoProjeto.gastoReal,
+          economia: metasCustoProjeto.economia,
+          percentualEconomia: metasCustoProjeto.percentualEconomia,
+          pontosAtribuidos: metasCustoProjeto.pontosAtribuidos,
+          campanhasAtivas: metasCustoProjeto.campanhasAtivas,
+          status: metasCustoProjeto.status,
+          observacoes: metasCustoProjeto.observacoes,
+          calculadoEm: metasCustoProjeto.calculadoEm,
+          criadoEm: metasCustoProjeto.criadoEm,
+        })
+        .from(metasCustoProjeto)
+        .leftJoin(empreendimentos, eq(metasCustoProjeto.empreendimentoId, empreendimentos.id))
+        .leftJoin(users, eq(metasCustoProjeto.coordenadorId, users.id))
+        .where(and(
+          eq(metasCustoProjeto.periodo, periodo),
+          userUnidade ? eq(metasCustoProjeto.unidade, userUnidade) : sql`1=1`
+        ))
+        .orderBy(desc(metasCustoProjeto.pontosAtribuidos));
+
+      res.json(metas);
+    } catch (error: any) {
+      console.error('Error fetching economy data:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar dados de economia' });
+    }
+  });
+
+  // Get ranking of coordinators by economy points for a period
+  app.get('/api/gamificacao/economia/ranking/:periodo', requireAuth, async (req, res) => {
+    try {
+      const { periodo } = req.params;
+      const userUnidade = req.user?.unidade;
+
+      if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
+        return res.status(400).json({ error: 'Período inválido. Use formato YYYY-MM' });
+      }
+
+      const ranking = await db
+        .select({
+          coordenadorId: metasCustoProjeto.coordenadorId,
+          coordenadorEmail: users.email,
+          totalPontos: sum(metasCustoProjeto.pontosAtribuidos),
+          totalProjetos: sql<number>`COUNT(*)`,
+          mediaPercentualEconomia: sql<number>`AVG(CAST(${metasCustoProjeto.percentualEconomia} AS DECIMAL))`,
+        })
+        .from(metasCustoProjeto)
+        .leftJoin(users, eq(metasCustoProjeto.coordenadorId, users.id))
+        .where(and(
+          eq(metasCustoProjeto.periodo, periodo),
+          userUnidade ? eq(metasCustoProjeto.unidade, userUnidade) : sql`1=1`
+        ))
+        .groupBy(metasCustoProjeto.coordenadorId, users.email)
+        .orderBy(desc(sum(metasCustoProjeto.pontosAtribuidos)));
+
+      res.json(ranking);
+    } catch (error: any) {
+      console.error('Error fetching economy ranking:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar ranking de economia' });
     }
   });
 

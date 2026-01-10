@@ -2013,6 +2013,38 @@ export type InsertHistoricoPontuacao = z.infer<typeof insertHistoricoPontuacaoSc
 export type HistoricoPontuacao = typeof historicosPontuacao.$inferSelect;
 
 // ============================================
+// METAS DE CUSTO MENSAL POR PROJETO (para gamificação)
+// ============================================
+export const metasCustoProjeto = pgTable("metas_custo_projeto", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  coordenadorId: integer("coordenador_id").references(() => users.id).notNull(),
+  periodo: text("periodo").notNull(), // formato: YYYY-MM
+  orcamentoBase: decimal("orcamento_base", { precision: 15, scale: 2 }).notNull(), // orçamento mensal base (rateio do anual)
+  ajusteCampanha: decimal("ajuste_campanha", { precision: 5, scale: 2 }).default("1.0"), // multiplicador para campanhas (1.0 = normal, 1.5 = campanha ativa)
+  orcamentoAjustado: decimal("orcamento_ajustado", { precision: 15, scale: 2 }).notNull(), // orcamentoBase * ajusteCampanha
+  gastoReal: decimal("gasto_real", { precision: 15, scale: 2 }).default("0"), // gasto efetivo no período
+  economia: decimal("economia", { precision: 15, scale: 2 }).default("0"), // orcamentoAjustado - gastoReal (positivo = economia)
+  percentualEconomia: decimal("percentual_economia", { precision: 5, scale: 2 }).default("0"), // (economia / orcamentoAjustado) * 100
+  pontosAtribuidos: integer("pontos_atribuidos").default(0), // pontos dados/penalizados
+  campanhasAtivas: integer("campanhas_ativas").default(0), // quantidade de campanhas ativas no período
+  status: text("status").notNull().default("pendente"), // pendente, calculado, aprovado
+  observacoes: text("observacoes"),
+  unidade: text("unidade").notNull().default("salvador"),
+  calculadoEm: timestamp("calculado_em"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertMetaCustoProjetoSchema = createInsertSchema(metasCustoProjeto).omit({
+  id: true,
+  criadoEm: true,
+  calculadoEm: true,
+});
+
+export type InsertMetaCustoProjeto = z.infer<typeof insertMetaCustoProjetoSchema>;
+export type MetaCustoProjeto = typeof metasCustoProjeto.$inferSelect;
+
+// ============================================
 // PROPOSTAS COMERCIAIS (Orçamentos Detalhados)
 // ============================================
 export const propostasComerciais = pgTable("propostas_comerciais", {
