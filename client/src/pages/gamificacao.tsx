@@ -18,8 +18,16 @@ import {
   XCircle,
   Zap,
   Crown,
-  Loader2
+  Loader2,
+  Info,
+  HelpCircle
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface RankingItem {
   posicao: number;
@@ -204,6 +212,77 @@ export default function GamificacaoPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <CardContent className="p-4">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="como-funciona" className="border-none">
+              <AccordionTrigger className="hover:no-underline py-2">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5 text-primary" />
+                  <span className="font-semibold">Como funciona a pontuação?</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-yellow-500" />
+                      Complexidade
+                    </h4>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li className="flex justify-between">
+                        <span>Baixa</span>
+                        <Badge variant="secondary">+5 pts</Badge>
+                      </li>
+                      <li className="flex justify-between">
+                        <span>Média</span>
+                        <Badge variant="secondary">+15 pts</Badge>
+                      </li>
+                      <li className="flex justify-between">
+                        <span>Alta</span>
+                        <Badge variant="secondary">+30 pts</Badge>
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-500" />
+                      Prazo de Entrega
+                    </h4>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li className="flex justify-between">
+                        <span>Antecipada</span>
+                        <Badge className="bg-green-500">+10 pts</Badge>
+                      </li>
+                      <li className="flex justify-between">
+                        <span>No prazo</span>
+                        <Badge className="bg-blue-500">+5 pts</Badge>
+                      </li>
+                      <li className="flex justify-between">
+                        <span>Atrasada</span>
+                        <Badge variant="destructive">-5 pts</Badge>
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Info className="h-4 w-4 text-purple-500" />
+                      Como ganhar pontos
+                    </h4>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li>Conclua tarefas e demandas</li>
+                      <li>Quanto maior a complexidade, mais pontos</li>
+                      <li>Entregue antes do prazo para bônus</li>
+                      <li>Desbloqueie conquistas para pontos extras</li>
+                    </ul>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="ranking" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
