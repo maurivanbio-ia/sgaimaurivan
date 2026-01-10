@@ -2501,4 +2501,64 @@ export const insertComunicadoEventoSchema = createInsertSchema(comunicadoEventos
 export type InsertComunicadoEvento = z.infer<typeof insertComunicadoEventoSchema>;
 export type ComunicadoEvento = typeof comunicadoEventos.$inferSelect;
 
+// ============================================
+// RAMAIS E CONTATOS
+// ============================================
+export const ramaisContatos = pgTable("ramais_contatos", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  cargo: text("cargo"),
+  departamento: text("departamento"),
+  ramal: text("ramal"),
+  telefone: text("telefone"),
+  celular: text("celular"),
+  email: text("email"),
+  foto: text("foto"),
+  ordem: integer("ordem").default(0),
+  ativo: boolean("ativo").default(true),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertRamalContatoSchema = createInsertSchema(ramaisContatos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertRamalContato = z.infer<typeof insertRamalContatoSchema>;
+export type RamalContato = typeof ramaisContatos.$inferSelect;
+
+// ============================================
+// LINKS ÚTEIS
+// ============================================
+export const linksUteis = pgTable("links_uteis", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  url: text("url").notNull(),
+  icone: text("icone").default("link"), // nome do ícone lucide
+  cor: text("cor").default("#3b82f6"),
+  categoria: text("categoria"), // sistemas, portais, ferramentas, documentos
+  ordem: integer("ordem").default(0),
+  acessos: integer("acessos").default(0),
+  ativo: boolean("ativo").default(true),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertLinkUtilSchema = createInsertSchema(linksUteis).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  acessos: true,
+});
+
+export type InsertLinkUtil = z.infer<typeof insertLinkUtilSchema>;
+export type LinkUtil = typeof linksUteis.$inferSelect;
+
 

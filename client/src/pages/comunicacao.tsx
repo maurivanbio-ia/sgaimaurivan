@@ -35,6 +35,16 @@ import {
   Smile,
   MapPin,
   Copy,
+  Phone,
+  Mail,
+  Smartphone,
+  Building2,
+  Link2,
+  ExternalLink,
+  Globe,
+  Wrench,
+  FolderOpen,
+  Layers,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -905,6 +915,694 @@ function TemplatesTab({ onUseTemplate }: { onUseTemplate: (template: Template) =
   );
 }
 
+type RamalContato = {
+  id: number;
+  nome: string;
+  cargo?: string;
+  departamento?: string;
+  ramal?: string;
+  telefone?: string;
+  celular?: string;
+  email?: string;
+  foto?: string;
+  ordem?: number;
+};
+
+type LinkUtil = {
+  id: number;
+  titulo: string;
+  descricao?: string;
+  url: string;
+  icone?: string;
+  cor?: string;
+  categoria?: string;
+  acessos?: number;
+  ordem?: number;
+};
+
+const LINK_CATEGORIAS = [
+  { value: "all", label: "Todos" },
+  { value: "sistemas", label: "Sistemas" },
+  { value: "portais", label: "Portais" },
+  { value: "ferramentas", label: "Ferramentas" },
+  { value: "documentos", label: "Documentos" },
+];
+
+const LINK_ICONS: { [key: string]: any } = {
+  globe: Globe,
+  wrench: Wrench,
+  folder: FolderOpen,
+  layers: Layers,
+  file: FileText,
+  link: Link2,
+  building: Building2,
+  users: Users,
+};
+
+function ContatosTab() {
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingContato, setEditingContato] = useState<RamalContato | null>(null);
+  const [contatoForm, setContatoForm] = useState({
+    nome: "",
+    cargo: "",
+    departamento: "",
+    ramal: "",
+    telefone: "",
+    celular: "",
+    email: "",
+  });
+
+  const { data: contatos = [], isLoading } = useQuery<RamalContato[]>({
+    queryKey: ["/api/ramais-contatos"],
+    queryFn: async () => {
+      const res = await fetch("/api/ramais-contatos");
+      if (!res.ok) throw new Error("Erro ao buscar contatos");
+      return res.json();
+    },
+  });
+
+  const filteredContatos = useMemo(() => {
+    if (!searchTerm) return contatos;
+    const term = searchTerm.toLowerCase();
+    return contatos.filter(
+      (c) =>
+        c.nome.toLowerCase().includes(term) ||
+        c.departamento?.toLowerCase().includes(term) ||
+        c.cargo?.toLowerCase().includes(term)
+    );
+  }, [contatos, searchTerm]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof contatoForm) =>
+      apiRequest("POST", "/api/ramais-contatos", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ramais-contatos"] });
+      toast({ title: "Contato criado!" });
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao criar contato", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: typeof contatoForm }) =>
+      apiRequest("PUT", `/api/ramais-contatos/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ramais-contatos"] });
+      toast({ title: "Contato atualizado!" });
+      setIsDialogOpen(false);
+      setEditingContato(null);
+      resetForm();
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao atualizar", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/ramais-contatos/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ramais-contatos"] });
+      toast({ title: "Contato removido!" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao excluir", variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setContatoForm({
+      nome: "",
+      cargo: "",
+      departamento: "",
+      ramal: "",
+      telefone: "",
+      celular: "",
+      email: "",
+    });
+  };
+
+  const handleEdit = (contato: RamalContato) => {
+    setEditingContato(contato);
+    setContatoForm({
+      nome: contato.nome,
+      cargo: contato.cargo || "",
+      departamento: contato.departamento || "",
+      ramal: contato.ramal || "",
+      telefone: contato.telefone || "",
+      celular: contato.celular || "",
+      email: contato.email || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleNew = () => {
+    setEditingContato(null);
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: `${label} copiado!` });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Phone className="h-5 w-5" />
+          Ramais e Contatos
+        </h3>
+        <Button onClick={handleNew}>
+          <Plus className="h-4 w-4 mr-2" />
+          Adicionar Contato
+        </Button>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nome, departamento..."
+          className="pl-10"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredContatos.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Nenhum contato encontrado</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredContatos.map((contato) => (
+            <Card key={contato.id} className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                      {contato.nome.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-semibold">{contato.nome}</h4>
+                    {contato.cargo && (
+                      <p className="text-sm text-muted-foreground">{contato.cargo}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(contato)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-destructive"
+                    onClick={() => deleteMutation.mutate(contato.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {contato.departamento && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                  <Building2 className="h-4 w-4" />
+                  <span>{contato.departamento}</span>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {contato.ramal && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>Ramal: {contato.ramal}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(contato.ramal!, "Ramal")}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {contato.telefone && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <a href={`tel:${contato.telefone}`} className="hover:underline">{contato.telefone}</a>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(contato.telefone!, "Telefone")}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {contato.celular && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-muted-foreground" />
+                      <a href={`tel:${contato.celular}`} className="hover:underline">{contato.celular}</a>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(contato.celular!, "Celular")}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {contato.email && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <a href={`mailto:${contato.email}`} className="hover:underline truncate max-w-[180px]">{contato.email}</a>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(contato.email!, "Email")}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingContato ? "Editar Contato" : "Novo Contato"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Nome *</label>
+              <Input
+                value={contatoForm.nome}
+                onChange={(e) => setContatoForm({ ...contatoForm, nome: e.target.value })}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Cargo</label>
+                <Input
+                  value={contatoForm.cargo}
+                  onChange={(e) => setContatoForm({ ...contatoForm, cargo: e.target.value })}
+                  placeholder="Cargo"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Departamento</label>
+                <Input
+                  value={contatoForm.departamento}
+                  onChange={(e) => setContatoForm({ ...contatoForm, departamento: e.target.value })}
+                  placeholder="Departamento"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Ramal</label>
+                <Input
+                  value={contatoForm.ramal}
+                  onChange={(e) => setContatoForm({ ...contatoForm, ramal: e.target.value })}
+                  placeholder="Ex: 1234"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Telefone</label>
+                <Input
+                  value={contatoForm.telefone}
+                  onChange={(e) => setContatoForm({ ...contatoForm, telefone: e.target.value })}
+                  placeholder="(00) 0000-0000"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Celular</label>
+                <Input
+                  value={contatoForm.celular}
+                  onChange={(e) => setContatoForm({ ...contatoForm, celular: e.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  value={contatoForm.email}
+                  onChange={(e) => setContatoForm({ ...contatoForm, email: e.target.value })}
+                  placeholder="email@empresa.com"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (editingContato) {
+                  updateMutation.mutate({ id: editingContato.id, data: contatoForm });
+                } else {
+                  createMutation.mutate(contatoForm);
+                }
+              }}
+              disabled={!contatoForm.nome || createMutation.isPending || updateMutation.isPending}
+            >
+              {(createMutation.isPending || updateMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {editingContato ? "Atualizar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function LinksUteisTab() {
+  const { toast } = useToast();
+  const [categoriaFilter, setCategoriaFilter] = useState("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<LinkUtil | null>(null);
+  const [linkForm, setLinkForm] = useState({
+    titulo: "",
+    descricao: "",
+    url: "",
+    icone: "link",
+    cor: "#3b82f6",
+    categoria: "sistemas",
+  });
+
+  const { data: links = [], isLoading } = useQuery<LinkUtil[]>({
+    queryKey: ["/api/links-uteis", categoriaFilter],
+    queryFn: async () => {
+      const params = categoriaFilter !== "all" ? `?categoria=${categoriaFilter}` : "";
+      const res = await fetch(`/api/links-uteis${params}`);
+      if (!res.ok) throw new Error("Erro ao buscar links");
+      return res.json();
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof linkForm) =>
+      apiRequest("POST", "/api/links-uteis", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/links-uteis"] });
+      toast({ title: "Link criado!" });
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao criar link", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: typeof linkForm }) =>
+      apiRequest("PUT", `/api/links-uteis/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/links-uteis"] });
+      toast({ title: "Link atualizado!" });
+      setIsDialogOpen(false);
+      setEditingLink(null);
+      resetForm();
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao atualizar", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/links-uteis/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/links-uteis"] });
+      toast({ title: "Link removido!" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao excluir", variant: "destructive" });
+    },
+  });
+
+  const accessMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/links-uteis/${id}/acessar`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/links-uteis"] });
+      window.open(data.url, "_blank");
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao acessar link", variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setLinkForm({
+      titulo: "",
+      descricao: "",
+      url: "",
+      icone: "link",
+      cor: "#3b82f6",
+      categoria: "sistemas",
+    });
+  };
+
+  const handleEdit = (link: LinkUtil) => {
+    setEditingLink(link);
+    setLinkForm({
+      titulo: link.titulo,
+      descricao: link.descricao || "",
+      url: link.url,
+      icone: link.icone || "link",
+      cor: link.cor || "#3b82f6",
+      categoria: link.categoria || "sistemas",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleNew = () => {
+    setEditingLink(null);
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenLink = (link: LinkUtil) => {
+    accessMutation.mutate(link.id);
+  };
+
+  const getIconComponent = (iconName: string) => {
+    return LINK_ICONS[iconName] || Link2;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Link2 className="h-5 w-5" />
+          Links Úteis
+        </h3>
+        <Button onClick={handleNew}>
+          <Plus className="h-4 w-4 mr-2" />
+          Adicionar Link
+        </Button>
+      </div>
+
+      <Tabs value={categoriaFilter} onValueChange={setCategoriaFilter}>
+        <TabsList>
+          {LINK_CATEGORIAS.map((cat) => (
+            <TabsTrigger key={cat.value} value={cat.value}>
+              {cat.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : links.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Link2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Nenhum link encontrado</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {links.map((link) => {
+            const IconComponent = getIconComponent(link.icone || "link");
+            return (
+              <Card 
+                key={link.id} 
+                className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => handleOpenLink(link)}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div 
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: (link.cor || "#3b82f6") + "20" }}
+                  >
+                    <IconComponent 
+                      className="h-6 w-6" 
+                      style={{ color: link.cor || "#3b82f6" }}
+                    />
+                  </div>
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(link)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => deleteMutation.mutate(link.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <h4 className="font-semibold mb-1 flex items-center gap-2">
+                  {link.titulo}
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </h4>
+                {link.descricao && (
+                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{link.descricao}</p>
+                )}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                  <Badge variant="secondary" className="text-xs">
+                    {LINK_CATEGORIAS.find(c => c.value === link.categoria)?.label || link.categoria}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {link.acessos || 0} acessos
+                  </span>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingLink ? "Editar Link" : "Novo Link"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título *</label>
+              <Input
+                value={linkForm.titulo}
+                onChange={(e) => setLinkForm({ ...linkForm, titulo: e.target.value })}
+                placeholder="Título do link"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">URL *</label>
+              <Input
+                value={linkForm.url}
+                onChange={(e) => setLinkForm({ ...linkForm, url: e.target.value })}
+                placeholder="https://exemplo.com"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descrição</label>
+              <Textarea
+                value={linkForm.descricao}
+                onChange={(e) => setLinkForm({ ...linkForm, descricao: e.target.value })}
+                placeholder="Breve descrição do link"
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Ícone</label>
+                <Select value={linkForm.icone} onValueChange={(v) => setLinkForm({ ...linkForm, icone: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="link">Link</SelectItem>
+                    <SelectItem value="globe">Globo</SelectItem>
+                    <SelectItem value="wrench">Ferramenta</SelectItem>
+                    <SelectItem value="folder">Pasta</SelectItem>
+                    <SelectItem value="layers">Camadas</SelectItem>
+                    <SelectItem value="file">Arquivo</SelectItem>
+                    <SelectItem value="building">Prédio</SelectItem>
+                    <SelectItem value="users">Usuários</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Categoria</label>
+                <Select value={linkForm.categoria} onValueChange={(v) => setLinkForm({ ...linkForm, categoria: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sistemas">Sistemas</SelectItem>
+                    <SelectItem value="portais">Portais</SelectItem>
+                    <SelectItem value="ferramentas">Ferramentas</SelectItem>
+                    <SelectItem value="documentos">Documentos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Cor</label>
+              <div className="flex gap-2">
+                <Input
+                  type="color"
+                  value={linkForm.cor}
+                  onChange={(e) => setLinkForm({ ...linkForm, cor: e.target.value })}
+                  className="w-12 h-10 p-1"
+                />
+                <Input
+                  value={linkForm.cor}
+                  onChange={(e) => setLinkForm({ ...linkForm, cor: e.target.value })}
+                  placeholder="#3b82f6"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (editingLink) {
+                  updateMutation.mutate({ id: editingLink.id, data: linkForm });
+                } else {
+                  createMutation.mutate(linkForm);
+                }
+              }}
+              disabled={!linkForm.titulo || !linkForm.url || createMutation.isPending || updateMutation.isPending}
+            >
+              {(createMutation.isPending || updateMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {editingLink ? "Atualizar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function ComunicacaoPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -1364,6 +2062,14 @@ export default function ComunicacaoPage() {
             <Copy className="h-4 w-4" />
             Templates
           </TabsTrigger>
+          <TabsTrigger value="contatos" className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Contatos
+          </TabsTrigger>
+          <TabsTrigger value="links" className="flex items-center gap-2">
+            <Link2 className="h-4 w-4" />
+            Links
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="feed" className="space-y-6">
@@ -1460,6 +2166,14 @@ export default function ComunicacaoPage() {
 
         <TabsContent value="templates">
           <TemplatesTab onUseTemplate={handleUseTemplate} />
+        </TabsContent>
+
+        <TabsContent value="contatos">
+          <ContatosTab />
+        </TabsContent>
+
+        <TabsContent value="links">
+          <LinksUteisTab />
         </TabsContent>
       </Tabs>
 
