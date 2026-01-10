@@ -1405,75 +1405,38 @@ export default function GestaoDados() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* File Upload Section */}
+                    {/* File Upload Section - Opens structured upload modal */}
                     <div className="border rounded-lg p-4 bg-muted/30">
                       <div className="flex items-center gap-2 mb-3">
                         <Upload className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-sm">Enviar arquivo para esta pasta</span>
+                        <span className="font-medium text-sm">Cadastrar documento nesta pasta</span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                        <div>
-                          <Label className="text-xs">Empreendimento</Label>
-                          <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {empreendimentos.map((e) => (
-                                <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      {selectedEmpreendimento ? (
-                        <div className="border-2 border-dashed rounded-md p-4 text-center hover:border-primary/50 transition-colors">
-                          <input 
-                            type="file" 
-                            id="folder-file-upload"
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              
-                              setIsUploadingToFolder(true);
-                              try {
-                                const params = await getUploadParameters();
-                                const response = await fetch(params.url, {
-                                  method: params.method,
-                                  body: file,
-                                  headers: { 'Content-Type': file.type },
-                                });
-                                if (!response.ok) throw new Error("Upload failed");
-                                
-                                handleFileUploadComplete({ uploadURL: params.url, filePath: params.filePath }, file.name, file.size);
-                              } catch (error) {
-                                console.error("Upload error:", error);
-                                toast({ title: "Erro", description: "Falha no upload do arquivo.", variant: "destructive" });
-                              } finally {
-                                setIsUploadingToFolder(false);
-                              }
-                            }}
-                          />
-                          <label htmlFor="folder-file-upload" className="cursor-pointer">
-                            {isUploadingToFolder ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                <span className="text-sm">Enviando...</span>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center gap-2">
-                                <Upload className="h-8 w-8 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Clique para selecionar ou arraste um arquivo</span>
-                              </div>
-                            )}
-                          </label>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center py-4">
-                          Selecione um empreendimento para habilitar o upload.
-                        </p>
-                      )}
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Para enviar um arquivo, use o processo estruturado de cadastro com geracao automatica de codigo.
+                      </p>
+                      <Button 
+                        className="w-full"
+                        onClick={() => {
+                          // Pre-fill pasta destino based on selected folder
+                          if (selectedPasta) {
+                            setPastaDestino(selectedPasta.caminho);
+                            // Try to extract empreendimento from folder path
+                            const empFromPath = pastas.find(p => 
+                              selectedPasta.caminho.startsWith(p.caminho) && p.empreendimentoId
+                            );
+                            if (empFromPath?.empreendimentoId) {
+                              setSelectedEmpreendimento(empFromPath.empreendimentoId.toString());
+                            }
+                          }
+                          setIsUploadDialogOpen(true);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Cadastrar Documento com Codigo
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        O codigo sera gerado automaticamente baseado nos metadados informados
+                      </p>
                     </div>
 
                     {/* Files List */}
