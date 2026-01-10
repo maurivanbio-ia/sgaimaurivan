@@ -1110,6 +1110,9 @@ export const datasets = pgTable("datasets", {
   titulo: text("titulo"),
   pastaDestino: text("pasta_destino"),
   hashSha256: text("hash_sha256"),
+  objectPath: text("object_path"), // Path to file in Object Storage
+  pastaId: integer("pasta_id"), // Reference to datasetPastas folder
+  unidade: text("unidade").notNull().default('salvador'), // Multi-tenant isolation
 });
 
 export const datasetsRelations = relations(datasets, ({ one, many }) => ({
@@ -1164,11 +1167,13 @@ export const datasetAuditTrailRelations = relations(datasetAuditTrail, ({ one })
 export const datasetPastas = pgTable("dataset_pastas", {
   id: serial("id").primaryKey(),
   nome: text("nome").notNull(),
-  caminho: text("caminho").notNull().unique(),
+  caminho: text("caminho").notNull(),
   pai: text("pai"),
+  paiId: integer("pai_id"), // Reference to parent folder
   tipo: text("tipo").notNull().default("macro"), // macro, empreendimento, projeto, subpasta
   projetoId: integer("projeto_id"),
   empreendimentoId: integer("empreendimento_id"),
+  unidade: text("unidade").notNull().default('salvador'), // Multi-tenant isolation
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
