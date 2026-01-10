@@ -5,7 +5,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, FlaskConical, Loader2, MapPin } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, FlaskConical, Loader2, MapPin, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,6 +208,54 @@ export default function AmostrasPage() {
       : createMutation.mutate(data);
   };
 
+  const handleExportExcel = () => {
+    if (amostras.length === 0) {
+      toast({ title: "Nenhuma amostra para exportar", variant: "destructive" });
+      return;
+    }
+
+    const exportData = amostras.map((amostra: any) => ({
+      "Código": amostra.codigo,
+      "Tipo": TIPO_OPTIONS.find(t => t.value === amostra.tipo)?.label || amostra.tipo,
+      "Subtipo": amostra.subtipo || "",
+      "Ponto de Coleta": amostra.pontoColeta,
+      "Latitude": amostra.latitude || "",
+      "Longitude": amostra.longitude || "",
+      "Data da Coleta": amostra.dataColeta ? new Date(amostra.dataColeta).toLocaleDateString('pt-BR') : "",
+      "Hora da Coleta": amostra.horaColeta || "",
+      "Coletor": amostra.coletorNome || "",
+      "Laboratório": amostra.laboratorioNome || "",
+      "Status": STATUS_OPTIONS.find(s => s.value === amostra.status)?.label || amostra.status,
+      "Parâmetros Analisados": amostra.parametrosAnalisados || "",
+      "Observações": amostra.observacoes || "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Amostras");
+
+    const colWidths = [
+      { wch: 15 }, // Código
+      { wch: 12 }, // Tipo
+      { wch: 12 }, // Subtipo
+      { wch: 25 }, // Ponto de Coleta
+      { wch: 12 }, // Latitude
+      { wch: 12 }, // Longitude
+      { wch: 12 }, // Data
+      { wch: 10 }, // Hora
+      { wch: 20 }, // Coletor
+      { wch: 20 }, // Laboratório
+      { wch: 15 }, // Status
+      { wch: 30 }, // Parâmetros
+      { wch: 30 }, // Observações
+    ];
+    ws["!cols"] = colWidths;
+
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `amostras_${today}.xlsx`);
+    toast({ title: "Excel exportado com sucesso!" });
+  };
+
   const handleNew = () => {
     setEditingAmostra(null);
     form.reset({
@@ -278,6 +327,13 @@ export default function AmostrasPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportExcel}
+            disabled={amostras.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" /> Exportar Excel
+          </Button>
           <RefreshButton />
           <Button onClick={handleNew} data-testid="button-nova-amostra">
             <Plus className="h-4 w-4 mr-2" /> Nova Amostra
