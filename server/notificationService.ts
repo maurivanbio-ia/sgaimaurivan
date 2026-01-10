@@ -139,17 +139,15 @@ export class NotificationService {
     }
   }
 
-  // Limpa todas as notificações não lidas (para reset)
+  // Limpa TODAS as notificações (para reset completo)
   async clearAllPendingNotifications(): Promise<number> {
     try {
-      const result = await db
-        .delete(notifications)
-        .where(eq(notifications.lida, false));
+      const result = await db.delete(notifications);
       
-      console.log('Todas as notificações pendentes foram limpas');
+      console.log('Todas as notificações foram limpas');
       return 0;
     } catch (error) {
-      console.error('Erro ao limpar notificações pendentes:', error);
+      console.error('Erro ao limpar notificações:', error);
       return 0;
     }
   }
