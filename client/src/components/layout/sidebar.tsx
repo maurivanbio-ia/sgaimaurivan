@@ -24,15 +24,34 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   MapPin,
   Calendar,
   CalendarDays,
   UserCog,
   CheckSquare,
-  MessageCircle
+  MessageCircle,
+  Trophy,
+  FileText,
+  Settings,
+  Briefcase,
+  FolderOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
+
+interface NavCategory {
+  label: string;
+  icon: any;
+  items: NavItem[];
+}
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  testid: string;
+}
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -62,30 +81,83 @@ export default function Sidebar() {
     }
   };
 
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(["dashboard", "projetos", "equipe"]);
+
   const isActive = (path: string) => {
     if (path === "/" && location === "/") return true;
     if (path !== "/" && location.startsWith(path)) return true;
     return false;
   };
 
-  const NAV = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
-    { href: "/dashboard-coordenador", label: "Meu Painel", icon: User, testid: "nav-dashboard-coordenador" },
-    { href: "/minhas-tarefas", label: "Minhas Tarefas", icon: CheckSquare, testid: "nav-minhas-tarefas" },
-    { href: "/gestao-equipe", label: "Gestão de Equipe", icon: UserCog, testid: "nav-gestao-equipe" },
-    { href: "/mapa", label: "Mapa", icon: MapPin, testid: "nav-mapa" },
-    { href: "/calendario", label: "Calendário", icon: Calendar, testid: "nav-calendario" },
-    { href: "/cronograma", label: "Cronograma", icon: CalendarDays, testid: "nav-cronograma" },
-    { href: "/empreendimentos", label: "Empreendimentos", icon: Building, testid: "nav-projects" },
-    { href: "/demandas", label: "Demandas", icon: ClipboardList, testid: "nav-demandas" },
-    { href: "/financeiro", label: "Financeiro", icon: DollarSign, testid: "nav-financeiro" },
-    { href: "/frota", label: "Frota", icon: Car, testid: "nav-frota" },
-    { href: "/equipamentos", label: "Equipamentos", icon: Wrench, testid: "nav-equipamentos" },
-    { href: "/rh", label: "RH", icon: Users, testid: "nav-rh" },
-    { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
-    { href: "/seguranca-trabalho", label: "SST", icon: ShieldCheck, testid: "nav-seguranca-trabalho" },
-    { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, testid: "nav-whatsapp" },
-    { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: Calendar, testid: "nav-relatorios-automaticos" },
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const NAV_CATEGORIES: NavCategory[] = [
+    {
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      items: [
+        { href: "/", label: "Visão Geral", icon: LayoutDashboard, testid: "nav-dashboard" },
+        { href: "/dashboard-coordenador", label: "Meu Painel", icon: User, testid: "nav-dashboard-coordenador" },
+        { href: "/mapa", label: "Mapa", icon: MapPin, testid: "nav-mapa" },
+      ]
+    },
+    {
+      label: "Projetos",
+      icon: Briefcase,
+      items: [
+        { href: "/empreendimentos", label: "Empreendimentos", icon: Building, testid: "nav-projects" },
+        { href: "/demandas", label: "Demandas", icon: ClipboardList, testid: "nav-demandas" },
+        { href: "/calendario", label: "Calendário", icon: Calendar, testid: "nav-calendario" },
+        { href: "/cronograma", label: "Cronograma", icon: CalendarDays, testid: "nav-cronograma" },
+      ]
+    },
+    {
+      label: "Equipe",
+      icon: Users,
+      items: [
+        { href: "/gestao-equipe", label: "Gestão de Equipe", icon: UserCog, testid: "nav-gestao-equipe" },
+        { href: "/minhas-tarefas", label: "Minhas Tarefas", icon: CheckSquare, testid: "nav-minhas-tarefas" },
+        { href: "/rh", label: "RH", icon: Users, testid: "nav-rh" },
+        { href: "/gamificacao", label: "Gamificação", icon: Trophy, testid: "nav-gamificacao" },
+      ]
+    },
+    {
+      label: "Financeiro",
+      icon: DollarSign,
+      items: [
+        { href: "/financeiro", label: "Lançamentos", icon: DollarSign, testid: "nav-financeiro" },
+      ]
+    },
+    {
+      label: "Recursos",
+      icon: Car,
+      items: [
+        { href: "/frota", label: "Frota", icon: Car, testid: "nav-frota" },
+        { href: "/equipamentos", label: "Equipamentos", icon: Wrench, testid: "nav-equipamentos" },
+      ]
+    },
+    {
+      label: "Documentos",
+      icon: FolderOpen,
+      items: [
+        { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
+      ]
+    },
+    {
+      label: "Sistema",
+      icon: Settings,
+      items: [
+        { href: "/seguranca-trabalho", label: "SST", icon: ShieldCheck, testid: "nav-seguranca-trabalho" },
+        { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, testid: "nav-whatsapp" },
+        { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
+      ]
+    },
   ];
 
   const SidebarContent = () => (
@@ -122,28 +194,67 @@ export default function Sidebar() {
 
       <nav className="flex-1 p-2 overflow-y-auto" role="navigation" aria-label="Navegação principal">
         <div className="space-y-1">
-          {NAV.map((item) => {
-            const Icon = item.icon;
+          {NAV_CATEGORIES.map((category) => {
+            const CategoryIcon = category.icon;
+            const categoryKey = category.label.toLowerCase().replace(/\s/g, '-');
+            const isExpanded = expandedCategories.includes(categoryKey);
+            const hasActiveItem = category.items.some(item => isActive(item.href));
+            
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-testid={item.testid}
-                onClick={() => setMobileOpen(false)}
-              >
-                <div
+              <div key={categoryKey}>
+                <button
+                  onClick={() => toggleCategory(categoryKey)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors cursor-pointer",
-                    isActive(item.href)
-                      ? "bg-primary text-primary-foreground"
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                    hasActiveItem 
+                      ? "bg-primary/10 text-primary font-semibold" 
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     collapsed && "justify-center px-2"
                   )}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
-                </div>
-              </Link>
+                  <CategoryIcon className="h-4 w-4 flex-shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="text-xs font-semibold uppercase tracking-wider flex-1 text-left">
+                        {category.label}
+                      </span>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 transition-transform",
+                        isExpanded && "rotate-180"
+                      )} />
+                    </>
+                  )}
+                </button>
+                
+                {(isExpanded || collapsed) && (
+                  <div className={cn("mt-1 space-y-0.5", !collapsed && "ml-4 border-l border-border pl-2")}>
+                    {category.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          data-testid={item.testid}
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          <div
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer",
+                              isActive(item.href)
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              collapsed && "justify-center px-2"
+                            )}
+                          >
+                            <Icon className="h-4 w-4 flex-shrink-0" />
+                            {!collapsed && <span className="text-sm">{item.label}</span>}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

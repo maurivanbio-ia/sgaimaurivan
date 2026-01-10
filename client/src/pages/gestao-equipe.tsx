@@ -107,6 +107,7 @@ const tarefaSchema = z.object({
   projetoId: z.number().optional(),
   categoria: z.enum(["campo", "escritorio", "relatorio", "reuniao", "vistoria"]),
   prioridade: z.enum(["baixa", "media", "alta", "urgente"]),
+  complexidade: z.enum(["baixa", "media", "alta"]).default("media"),
   status: z.enum(["pendente", "em_andamento", "concluida", "cancelada"]).default("pendente"),
   dataInicio: z.string().min(1, "Data de início obrigatória"),
   dataFim: z.string().min(1, "Data de fim obrigatória"),
@@ -139,6 +140,12 @@ const PRIORIDADE_OPTIONS = [
   { value: "media", label: "Média", color: "bg-blue-500" },
   { value: "alta", label: "Alta", color: "bg-orange-500" },
   { value: "urgente", label: "Urgente", color: "bg-red-500" },
+];
+
+const COMPLEXIDADE_OPTIONS = [
+  { value: "baixa", label: "Baixa (5 pts)", color: "bg-green-500" },
+  { value: "media", label: "Média (15 pts)", color: "bg-yellow-500" },
+  { value: "alta", label: "Alta (30 pts)", color: "bg-red-500" },
 ];
 
 const STATUS_OPTIONS = [
@@ -297,6 +304,7 @@ export default function GestaoEquipePage() {
       descricao: "",
       categoria: "campo",
       prioridade: "media",
+      complexidade: "media",
       status: "pendente",
       dataInicio: new Date().toISOString().split("T")[0],
       dataFim: new Date().toISOString().split("T")[0],
@@ -456,6 +464,7 @@ export default function GestaoEquipePage() {
       descricao: "",
       categoria: "campo",
       prioridade: "media",
+      complexidade: "media",
       status: "pendente",
       dataInicio: new Date().toISOString().split("T")[0],
       dataFim: new Date().toISOString().split("T")[0],
@@ -1238,6 +1247,28 @@ export default function GestaoEquipePage() {
                         </FormControl>
                         <SelectContent>
                           {PRIORIDADE_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={tarefaForm.control}
+                  name="complexidade"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Complexidade</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-tarefa-complexidade">
+                            <SelectValue placeholder="Complexidade" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COMPLEXIDADE_OPTIONS.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                           ))}
                         </SelectContent>

@@ -81,6 +81,7 @@ type Status =
   | "concluido"
   | "cancelado";
 type Prioridade = "baixa" | "media" | "alta";
+type Complexidade = "baixa" | "media" | "alta";
 
 type Demanda = {
   id: number;
@@ -88,6 +89,7 @@ type Demanda = {
   descricao: string;
   setor: string;
   prioridade: Prioridade;
+  complexidade: Complexidade;
   responsavel: string;
   dataEntrega: string;
   status: Status;
@@ -198,6 +200,7 @@ function DemandaForm({
     descricao: initial?.descricao ?? "",
     setor: initial?.setor ?? SETORES[0],
     prioridade: (initial?.prioridade ?? "media") as Prioridade,
+    complexidade: (initial?.complexidade ?? "media") as Complexidade,
     responsavel: initial?.responsavel ?? "",
     dataEntrega: initial?.dataEntrega 
       ? new Date(initial.dataEntrega).toISOString().split('T')[0]
@@ -213,6 +216,7 @@ function DemandaForm({
         descricao: form.descricao.trim(),
         setor: form.setor,
         prioridade: form.prioridade,
+        complexidade: form.complexidade,
         responsavel: form.responsavel.trim(),
         dataEntrega: form.dataEntrega,
         status: form.status,
@@ -290,7 +294,7 @@ function DemandaForm({
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <Label>Setor *</Label>
           <Select
@@ -323,6 +327,23 @@ function DemandaForm({
               <SelectItem value="baixa">Baixa</SelectItem>
               <SelectItem value="media">Média</SelectItem>
               <SelectItem value="alta">Alta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Complexidade *</Label>
+          <Select
+            value={form.complexidade}
+            onValueChange={(v: Complexidade) => setForm({ ...form, complexidade: v })}
+          >
+            <SelectTrigger data-testid="select-complexidade">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="baixa">Baixa (5 pts)</SelectItem>
+              <SelectItem value="media">Média (15 pts)</SelectItem>
+              <SelectItem value="alta">Alta (30 pts)</SelectItem>
             </SelectContent>
           </Select>
         </div>
