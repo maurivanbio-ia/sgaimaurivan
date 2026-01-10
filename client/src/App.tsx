@@ -49,6 +49,8 @@ import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
 import PropostasComerciais from "./pages/propostas-comerciais";
 import BaseConhecimento from "./pages/base-conhecimento";
 import Comunicacao from "./pages/comunicacao";
+import RamaisContatos from "./pages/ramais-contatos";
+import LinksUteis from "./pages/links-uteis";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -164,6 +166,8 @@ function Router() {
                     <Route path="/equipamentos" component={Equipamentos} />
                     <Route path="/amostras" component={Amostras} />
                     <Route path="/fornecedores" component={Fornecedores} />
+                    <Route path="/ramais-contatos" component={RamaisContatos} />
+                    <Route path="/links-uteis" component={LinksUteis} />
                     <Route path="/rh" component={Rh} />
                     <Route path="/treinamentos" component={Treinamentos} />
                     <Route path="/projetos" component={Projetos} />

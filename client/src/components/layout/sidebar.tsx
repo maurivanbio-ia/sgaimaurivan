@@ -41,7 +41,9 @@ import {
   Truck,
   GraduationCap,
   BookOpen,
-  Megaphone
+  Megaphone,
+  Phone,
+  Link2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -149,6 +151,7 @@ export default function Sidebar() {
         { href: "/frota", label: "Frota", icon: Car, testid: "nav-frota" },
         { href: "/equipamentos", label: "Equipamentos", icon: Wrench, testid: "nav-equipamentos" },
         { href: "/fornecedores", label: "Fornecedores", icon: Truck, testid: "nav-fornecedores" },
+        { href: "/ramais-contatos", label: "Ramais e Contatos", icon: Phone, testid: "nav-ramais-contatos" },
       ]
     },
     {
@@ -171,6 +174,7 @@ export default function Sidebar() {
       items: [
         { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
         { href: "/base-conhecimento", label: "Base de Conhecimento", icon: BookOpen, testid: "nav-base-conhecimento" },
+        { href: "/links-uteis", label: "Links Úteis", icon: Link2, testid: "nav-links-uteis" },
       ]
     },
     {

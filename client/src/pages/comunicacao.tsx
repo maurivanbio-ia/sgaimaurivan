@@ -2062,14 +2062,6 @@ export default function ComunicacaoPage() {
             <Copy className="h-4 w-4" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="contatos" className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            Contatos
-          </TabsTrigger>
-          <TabsTrigger value="links" className="flex items-center gap-2">
-            <Link2 className="h-4 w-4" />
-            Links
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="feed" className="space-y-6">
@@ -2166,14 +2158,6 @@ export default function ComunicacaoPage() {
 
         <TabsContent value="templates">
           <TemplatesTab onUseTemplate={handleUseTemplate} />
-        </TabsContent>
-
-        <TabsContent value="contatos">
-          <ContatosTab />
-        </TabsContent>
-
-        <TabsContent value="links">
-          <LinksUteisTab />
         </TabsContent>
       </Tabs>
 
