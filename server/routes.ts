@@ -6518,9 +6518,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/gamificacao/seed-conquistas', requireAuth, async (req, res) => {
     try {
-      if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Acesso negado' });
-      }
       const { seedConquistas } = await import('./services/gamificacaoService');
       await seedConquistas();
       res.json({ success: true, message: 'Conquistas padrão criadas' });
