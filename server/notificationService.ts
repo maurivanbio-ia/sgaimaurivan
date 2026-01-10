@@ -1,4 +1,7 @@
 import { storage } from "./storage";
+import { db } from "./db";
+import { notifications } from "@shared/schema";
+import { eq, and, sql, gte } from "drizzle-orm";
 import type { InsertNotification } from "@shared/schema";
 
 export interface NotificationData {
@@ -12,9 +15,46 @@ export interface NotificationData {
 
 export class NotificationService {
   
-  // Cria uma nova notificação no sistema
+  // Verifica se já existe uma notificação similar não lida para o mesmo item
+  private async checkExistingNotification(tipo: string, itemId?: number, titulo?: string): Promise<boolean> {
+    try {
+      if (!itemId) return false;
+      
+      // Verificar notificações criadas nas últimas 24 horas para o mesmo item
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      
+      const existing = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.tipo, tipo),
+            eq(notifications.itemId, itemId),
+            eq(notifications.lida, false),
+            gte(notifications.criadoEm, oneDayAgo)
+          )
+        )
+        .limit(1);
+      
+      return existing.length > 0;
+    } catch (error) {
+      console.error('Erro ao verificar notificação existente:', error);
+      return false;
+    }
+  }
+  
+  // Cria uma nova notificação no sistema (com verificação de duplicata)
   async createNotification(data: NotificationData): Promise<void> {
     try {
+      // Verificar se já existe notificação similar para evitar duplicatas
+      const exists = await this.checkExistingNotification(data.tipo, data.itemId, data.titulo);
+      
+      if (exists) {
+        console.log(`Notificação duplicada ignorada: ${data.titulo} para item ${data.itemId}`);
+        return;
+      }
+      
       const notification: InsertNotification = {
         tipo: data.tipo,
         titulo: data.titulo,
@@ -30,6 +70,87 @@ export class NotificationService {
       console.log(`Notificação criada: ${data.titulo}`);
     } catch (error) {
       console.error('Erro ao criar notificação:', error);
+    }
+  }
+
+  // Limpa notificações duplicadas mantendo apenas a mais recente por item
+  async cleanupDuplicateNotifications(): Promise<number> {
+    try {
+      // Encontrar todas as notificações não lidas
+      const allNotifications = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.lida, false));
+      
+      // Agrupar por tipo + itemId, manter apenas a mais recente
+      const seen = new Map<string, { id: number; criadoEm: Date }>();
+      const toDelete: number[] = [];
+      
+      for (const notif of allNotifications) {
+        const key = `${notif.tipo}-${notif.itemId || 'system'}`;
+        const existing = seen.get(key);
+        
+        if (existing) {
+          // Comparar datas e deletar a mais antiga
+          if (notif.criadoEm && existing.criadoEm && notif.criadoEm > existing.criadoEm) {
+            toDelete.push(existing.id);
+            seen.set(key, { id: notif.id, criadoEm: notif.criadoEm });
+          } else {
+            toDelete.push(notif.id);
+          }
+        } else {
+          seen.set(key, { id: notif.id, criadoEm: notif.criadoEm || new Date() });
+        }
+      }
+      
+      // Deletar notificações duplicadas
+      for (const id of toDelete) {
+        await db.delete(notifications).where(eq(notifications.id, id));
+      }
+      
+      console.log(`${toDelete.length} notificações duplicadas removidas`);
+      return toDelete.length;
+    } catch (error) {
+      console.error('Erro ao limpar notificações duplicadas:', error);
+      return 0;
+    }
+  }
+
+  // Limpa todas as notificações antigas (mais de 30 dias)
+  async cleanupOldNotifications(): Promise<number> {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const result = await db
+        .delete(notifications)
+        .where(
+          and(
+            eq(notifications.lida, true),
+            sql`${notifications.criadoEm} < ${thirtyDaysAgo}`
+          )
+        );
+      
+      console.log('Notificações antigas limpas');
+      return 0;
+    } catch (error) {
+      console.error('Erro ao limpar notificações antigas:', error);
+      return 0;
+    }
+  }
+
+  // Limpa todas as notificações não lidas (para reset)
+  async clearAllPendingNotifications(): Promise<number> {
+    try {
+      const result = await db
+        .delete(notifications)
+        .where(eq(notifications.lida, false));
+      
+      console.log('Todas as notificações pendentes foram limpas');
+      return 0;
+    } catch (error) {
+      console.error('Erro ao limpar notificações pendentes:', error);
+      return 0;
     }
   }
 
