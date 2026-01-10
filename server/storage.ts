@@ -101,6 +101,27 @@ import {
   type InsertPedidoReembolso,
   type HistoricoReembolso,
   type InsertHistoricoReembolso,
+  propostasComerciais,
+  propostaItens,
+  type PropostaComercial,
+  type InsertPropostaComercial,
+  type PropostaItem,
+  type InsertPropostaItem,
+  amostras,
+  type Amostra,
+  type InsertAmostra,
+  fornecedores,
+  type Fornecedor,
+  type InsertFornecedor,
+  treinamentos,
+  treinamentoParticipantes,
+  type Treinamento,
+  type InsertTreinamento,
+  type TreinamentoParticipante,
+  type InsertTreinamentoParticipante,
+  baseConhecimento,
+  type BaseConhecimento,
+  type InsertBaseConhecimento,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
@@ -460,6 +481,54 @@ export interface IStorage {
     valorPago: number;
     valorPendente: number;
   }>;
+
+  // ========== PROPOSTAS COMERCIAIS ==========
+  getPropostasComerciais(filters?: { unidade?: string; status?: string; empreendimentoId?: number }): Promise<PropostaComercial[]>;
+  getPropostaComercialById(id: number, unidade: string): Promise<PropostaComercial | undefined>;
+  createPropostaComercial(proposta: InsertPropostaComercial): Promise<PropostaComercial>;
+  updatePropostaComercial(id: number, updates: Partial<InsertPropostaComercial>, unidade: string): Promise<PropostaComercial | undefined>;
+  deletePropostaComercial(id: number, unidade: string): Promise<boolean>;
+  
+  // Proposta Itens (with parent unidade verification)
+  getPropostaItens(propostaId: number, unidade: string): Promise<PropostaItem[]>;
+  createPropostaItem(item: InsertPropostaItem, unidade: string): Promise<PropostaItem | null>;
+  deletePropostaItem(id: number, propostaId: number, unidade: string): Promise<boolean>;
+
+  // ========== AMOSTRAS ==========
+  getAmostras(filters?: { unidade?: string; status?: string; empreendimentoId?: number; tipo?: string }): Promise<Amostra[]>;
+  getAmostraById(id: number, unidade: string): Promise<Amostra | undefined>;
+  createAmostra(amostra: InsertAmostra): Promise<Amostra>;
+  updateAmostra(id: number, updates: Partial<InsertAmostra>, unidade: string): Promise<Amostra | undefined>;
+  deleteAmostra(id: number, unidade: string): Promise<boolean>;
+
+  // ========== FORNECEDORES ==========
+  getFornecedores(filters?: { unidade?: string; status?: string; tipo?: string }): Promise<Fornecedor[]>;
+  getFornecedorById(id: number, unidade: string): Promise<Fornecedor | undefined>;
+  createFornecedor(fornecedor: InsertFornecedor): Promise<Fornecedor>;
+  updateFornecedor(id: number, updates: Partial<InsertFornecedor>, unidade: string): Promise<Fornecedor | undefined>;
+  deleteFornecedor(id: number, unidade: string): Promise<boolean>;
+
+  // ========== TREINAMENTOS ==========
+  getTreinamentos(filters?: { unidade?: string; status?: string; tipo?: string }): Promise<Treinamento[]>;
+  getTreinamentoById(id: number, unidade: string): Promise<Treinamento | undefined>;
+  createTreinamento(treinamento: InsertTreinamento): Promise<Treinamento>;
+  updateTreinamento(id: number, updates: Partial<InsertTreinamento>, unidade: string): Promise<Treinamento | undefined>;
+  deleteTreinamento(id: number, unidade: string): Promise<boolean>;
+
+  // Treinamento Participantes (with parent unidade verification)
+  getTreinamentoParticipantes(treinamentoId: number, unidade: string): Promise<TreinamentoParticipante[]>;
+  createTreinamentoParticipante(participante: InsertTreinamentoParticipante, unidade: string): Promise<TreinamentoParticipante | null>;
+  updateTreinamentoParticipante(id: number, updates: Partial<InsertTreinamentoParticipante>, treinamentoId: number, unidade: string): Promise<TreinamentoParticipante | null>;
+  deleteTreinamentoParticipante(id: number, treinamentoId: number, unidade: string): Promise<boolean>;
+
+  // ========== BASE DE CONHECIMENTO ==========
+  getBaseConhecimento(filters?: { unidade?: string; status?: string; tipo?: string; categoria?: string }): Promise<BaseConhecimento[]>;
+  getBaseConhecimentoById(id: number, unidade: string): Promise<BaseConhecimento | undefined>;
+  createBaseConhecimento(item: InsertBaseConhecimento): Promise<BaseConhecimento>;
+  updateBaseConhecimento(id: number, updates: Partial<InsertBaseConhecimento>, unidade: string): Promise<BaseConhecimento | undefined>;
+  deleteBaseConhecimento(id: number, unidade: string): Promise<boolean>;
+  incrementBaseConhecimentoViews(id: number, unidade: string): Promise<void>;
+  incrementBaseConhecimentoDownloads(id: number, unidade: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3318,6 +3387,371 @@ export class DatabaseStorage implements IStorage {
       valorPago,
       valorPendente,
     };
+  }
+
+  // ========== PROPOSTAS COMERCIAIS ==========
+  async getPropostasComerciais(filters?: { unidade?: string; status?: string; empreendimentoId?: number }): Promise<PropostaComercial[]> {
+    const conditions: any[] = [isNull(propostasComerciais.deletedAt)];
+    
+    if (filters?.unidade) {
+      conditions.push(eq(propostasComerciais.unidade, filters.unidade));
+    }
+    if (filters?.status) {
+      conditions.push(eq(propostasComerciais.status, filters.status));
+    }
+    if (filters?.empreendimentoId) {
+      conditions.push(eq(propostasComerciais.empreendimentoId, filters.empreendimentoId));
+    }
+    
+    return db.select().from(propostasComerciais)
+      .where(and(...conditions))
+      .orderBy(desc(propostasComerciais.criadoEm));
+  }
+
+  async getPropostaComercialById(id: number, unidade: string): Promise<PropostaComercial | undefined> {
+    const [proposta] = await db.select().from(propostasComerciais)
+      .where(and(
+        eq(propostasComerciais.id, id), 
+        eq(propostasComerciais.unidade, unidade),
+        isNull(propostasComerciais.deletedAt)
+      ));
+    return proposta || undefined;
+  }
+
+  async createPropostaComercial(proposta: InsertPropostaComercial): Promise<PropostaComercial> {
+    const [newProposta] = await db.insert(propostasComerciais).values(proposta).returning();
+    return newProposta;
+  }
+
+  async updatePropostaComercial(id: number, updates: Partial<InsertPropostaComercial>, unidade: string): Promise<PropostaComercial | undefined> {
+    const [updated] = await db.update(propostasComerciais)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(and(
+        eq(propostasComerciais.id, id), 
+        eq(propostasComerciais.unidade, unidade),
+        isNull(propostasComerciais.deletedAt)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePropostaComercial(id: number, unidade: string): Promise<boolean> {
+    const [deleted] = await db.update(propostasComerciais)
+      .set({ deletedAt: new Date() })
+      .where(and(
+        eq(propostasComerciais.id, id),
+        eq(propostasComerciais.unidade, unidade)
+      ))
+      .returning();
+    return !!deleted;
+  }
+
+  // Proposta Itens - verify parent unidade before operations
+  async getPropostaItens(propostaId: number, unidade: string): Promise<PropostaItem[]> {
+    const proposta = await this.getPropostaComercialById(propostaId, unidade);
+    if (!proposta) return [];
+    return db.select().from(propostaItens)
+      .where(eq(propostaItens.propostaId, propostaId))
+      .orderBy(asc(propostaItens.id));
+  }
+
+  async createPropostaItem(item: InsertPropostaItem, unidade: string): Promise<PropostaItem | null> {
+    const proposta = await this.getPropostaComercialById(item.propostaId, unidade);
+    if (!proposta) return null;
+    const [newItem] = await db.insert(propostaItens).values(item).returning();
+    return newItem;
+  }
+
+  async deletePropostaItem(id: number, propostaId: number, unidade: string): Promise<boolean> {
+    const proposta = await this.getPropostaComercialById(propostaId, unidade);
+    if (!proposta) return false;
+    await db.delete(propostaItens).where(and(eq(propostaItens.id, id), eq(propostaItens.propostaId, propostaId)));
+    return true;
+  }
+
+  // ========== AMOSTRAS ==========
+  async getAmostras(filters?: { unidade?: string; status?: string; empreendimentoId?: number; tipo?: string }): Promise<Amostra[]> {
+    const conditions: any[] = [isNull(amostras.deletedAt)];
+    
+    if (filters?.unidade) {
+      conditions.push(eq(amostras.unidade, filters.unidade));
+    }
+    if (filters?.status) {
+      conditions.push(eq(amostras.status, filters.status));
+    }
+    if (filters?.empreendimentoId) {
+      conditions.push(eq(amostras.empreendimentoId, filters.empreendimentoId));
+    }
+    if (filters?.tipo) {
+      conditions.push(eq(amostras.tipo, filters.tipo));
+    }
+    
+    return db.select().from(amostras)
+      .where(and(...conditions))
+      .orderBy(desc(amostras.criadoEm));
+  }
+
+  async getAmostraById(id: number, unidade: string): Promise<Amostra | undefined> {
+    const [amostra] = await db.select().from(amostras)
+      .where(and(
+        eq(amostras.id, id), 
+        eq(amostras.unidade, unidade),
+        isNull(amostras.deletedAt)
+      ));
+    return amostra || undefined;
+  }
+
+  async createAmostra(amostra: InsertAmostra): Promise<Amostra> {
+    const [newAmostra] = await db.insert(amostras).values(amostra).returning();
+    return newAmostra;
+  }
+
+  async updateAmostra(id: number, updates: Partial<InsertAmostra>, unidade: string): Promise<Amostra | undefined> {
+    const [updated] = await db.update(amostras)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(and(
+        eq(amostras.id, id), 
+        eq(amostras.unidade, unidade),
+        isNull(amostras.deletedAt)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAmostra(id: number, unidade: string): Promise<boolean> {
+    const [deleted] = await db.update(amostras)
+      .set({ deletedAt: new Date() })
+      .where(and(
+        eq(amostras.id, id),
+        eq(amostras.unidade, unidade)
+      ))
+      .returning();
+    return !!deleted;
+  }
+
+  // ========== FORNECEDORES ==========
+  async getFornecedores(filters?: { unidade?: string; status?: string; tipo?: string }): Promise<Fornecedor[]> {
+    const conditions: any[] = [isNull(fornecedores.deletedAt)];
+    
+    if (filters?.unidade) {
+      conditions.push(eq(fornecedores.unidade, filters.unidade));
+    }
+    if (filters?.status) {
+      conditions.push(eq(fornecedores.status, filters.status));
+    }
+    if (filters?.tipo) {
+      conditions.push(eq(fornecedores.tipo, filters.tipo));
+    }
+    
+    return db.select().from(fornecedores)
+      .where(and(...conditions))
+      .orderBy(desc(fornecedores.criadoEm));
+  }
+
+  async getFornecedorById(id: number, unidade: string): Promise<Fornecedor | undefined> {
+    const [fornecedor] = await db.select().from(fornecedores)
+      .where(and(
+        eq(fornecedores.id, id), 
+        eq(fornecedores.unidade, unidade),
+        isNull(fornecedores.deletedAt)
+      ));
+    return fornecedor || undefined;
+  }
+
+  async createFornecedor(fornecedor: InsertFornecedor): Promise<Fornecedor> {
+    const [newFornecedor] = await db.insert(fornecedores).values(fornecedor).returning();
+    return newFornecedor;
+  }
+
+  async updateFornecedor(id: number, updates: Partial<InsertFornecedor>, unidade: string): Promise<Fornecedor | undefined> {
+    const [updated] = await db.update(fornecedores)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(and(
+        eq(fornecedores.id, id), 
+        eq(fornecedores.unidade, unidade),
+        isNull(fornecedores.deletedAt)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteFornecedor(id: number, unidade: string): Promise<boolean> {
+    const [deleted] = await db.update(fornecedores)
+      .set({ deletedAt: new Date() })
+      .where(and(
+        eq(fornecedores.id, id),
+        eq(fornecedores.unidade, unidade)
+      ))
+      .returning();
+    return !!deleted;
+  }
+
+  // ========== TREINAMENTOS ==========
+  async getTreinamentos(filters?: { unidade?: string; status?: string; tipo?: string }): Promise<Treinamento[]> {
+    const conditions: any[] = [isNull(treinamentos.deletedAt)];
+    
+    if (filters?.unidade) {
+      conditions.push(eq(treinamentos.unidade, filters.unidade));
+    }
+    if (filters?.status) {
+      conditions.push(eq(treinamentos.status, filters.status));
+    }
+    if (filters?.tipo) {
+      conditions.push(eq(treinamentos.tipo, filters.tipo));
+    }
+    
+    return db.select().from(treinamentos)
+      .where(and(...conditions))
+      .orderBy(desc(treinamentos.criadoEm));
+  }
+
+  async getTreinamentoById(id: number, unidade: string): Promise<Treinamento | undefined> {
+    const [treinamento] = await db.select().from(treinamentos)
+      .where(and(
+        eq(treinamentos.id, id), 
+        eq(treinamentos.unidade, unidade),
+        isNull(treinamentos.deletedAt)
+      ));
+    return treinamento || undefined;
+  }
+
+  async createTreinamento(treinamento: InsertTreinamento): Promise<Treinamento> {
+    const [newTreinamento] = await db.insert(treinamentos).values(treinamento).returning();
+    return newTreinamento;
+  }
+
+  async updateTreinamento(id: number, updates: Partial<InsertTreinamento>, unidade: string): Promise<Treinamento | undefined> {
+    const [updated] = await db.update(treinamentos)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(and(
+        eq(treinamentos.id, id), 
+        eq(treinamentos.unidade, unidade),
+        isNull(treinamentos.deletedAt)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTreinamento(id: number, unidade: string): Promise<boolean> {
+    const [deleted] = await db.update(treinamentos)
+      .set({ deletedAt: new Date() })
+      .where(and(
+        eq(treinamentos.id, id),
+        eq(treinamentos.unidade, unidade)
+      ))
+      .returning();
+    return !!deleted;
+  }
+
+  // Treinamento Participantes - verify parent unidade before operations
+  async getTreinamentoParticipantes(treinamentoId: number, unidade: string): Promise<TreinamentoParticipante[]> {
+    const treinamento = await this.getTreinamentoById(treinamentoId, unidade);
+    if (!treinamento) return [];
+    return db.select().from(treinamentoParticipantes)
+      .where(eq(treinamentoParticipantes.treinamentoId, treinamentoId))
+      .orderBy(asc(treinamentoParticipantes.nome));
+  }
+
+  async createTreinamentoParticipante(participante: InsertTreinamentoParticipante, unidade: string): Promise<TreinamentoParticipante | null> {
+    const treinamento = await this.getTreinamentoById(participante.treinamentoId, unidade);
+    if (!treinamento) return null;
+    const [newParticipante] = await db.insert(treinamentoParticipantes).values(participante).returning();
+    return newParticipante;
+  }
+
+  async updateTreinamentoParticipante(id: number, updates: Partial<InsertTreinamentoParticipante>, treinamentoId: number, unidade: string): Promise<TreinamentoParticipante | null> {
+    const treinamento = await this.getTreinamentoById(treinamentoId, unidade);
+    if (!treinamento) return null;
+    const [updated] = await db.update(treinamentoParticipantes)
+      .set(updates)
+      .where(and(eq(treinamentoParticipantes.id, id), eq(treinamentoParticipantes.treinamentoId, treinamentoId)))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteTreinamentoParticipante(id: number, treinamentoId: number, unidade: string): Promise<boolean> {
+    const treinamento = await this.getTreinamentoById(treinamentoId, unidade);
+    if (!treinamento) return false;
+    await db.delete(treinamentoParticipantes).where(and(eq(treinamentoParticipantes.id, id), eq(treinamentoParticipantes.treinamentoId, treinamentoId)));
+    return true;
+  }
+
+  // ========== BASE DE CONHECIMENTO ==========
+  async getBaseConhecimento(filters?: { unidade?: string; status?: string; tipo?: string; categoria?: string }): Promise<BaseConhecimento[]> {
+    const conditions: any[] = [isNull(baseConhecimento.deletedAt)];
+    
+    if (filters?.unidade) {
+      conditions.push(eq(baseConhecimento.unidade, filters.unidade));
+    }
+    if (filters?.status) {
+      conditions.push(eq(baseConhecimento.status, filters.status));
+    }
+    if (filters?.tipo) {
+      conditions.push(eq(baseConhecimento.tipo, filters.tipo));
+    }
+    if (filters?.categoria) {
+      conditions.push(eq(baseConhecimento.categoria, filters.categoria));
+    }
+    
+    return db.select().from(baseConhecimento)
+      .where(and(...conditions))
+      .orderBy(desc(baseConhecimento.criadoEm));
+  }
+
+  async getBaseConhecimentoById(id: number, unidade: string): Promise<BaseConhecimento | undefined> {
+    const [item] = await db.select().from(baseConhecimento)
+      .where(and(
+        eq(baseConhecimento.id, id), 
+        eq(baseConhecimento.unidade, unidade),
+        isNull(baseConhecimento.deletedAt)
+      ));
+    return item || undefined;
+  }
+
+  async createBaseConhecimento(item: InsertBaseConhecimento): Promise<BaseConhecimento> {
+    const [newItem] = await db.insert(baseConhecimento).values(item).returning();
+    return newItem;
+  }
+
+  async updateBaseConhecimento(id: number, updates: Partial<InsertBaseConhecimento>, unidade: string): Promise<BaseConhecimento | undefined> {
+    const [updated] = await db.update(baseConhecimento)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(and(
+        eq(baseConhecimento.id, id), 
+        eq(baseConhecimento.unidade, unidade),
+        isNull(baseConhecimento.deletedAt)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteBaseConhecimento(id: number, unidade: string): Promise<boolean> {
+    const [deleted] = await db.update(baseConhecimento)
+      .set({ deletedAt: new Date() })
+      .where(and(
+        eq(baseConhecimento.id, id),
+        eq(baseConhecimento.unidade, unidade)
+      ))
+      .returning();
+    return !!deleted;
+  }
+
+  async incrementBaseConhecimentoViews(id: number, unidade: string): Promise<void> {
+    await db.update(baseConhecimento)
+      .set({ visualizacoes: sql`COALESCE(${baseConhecimento.visualizacoes}, 0) + 1` })
+      .where(and(
+        eq(baseConhecimento.id, id),
+        eq(baseConhecimento.unidade, unidade)
+      ));
+  }
+
+  async incrementBaseConhecimentoDownloads(id: number, unidade: string): Promise<void> {
+    await db.update(baseConhecimento)
+      .set({ downloads: sql`COALESCE(${baseConhecimento.downloads}, 0) + 1` })
+      .where(and(
+        eq(baseConhecimento.id, id),
+        eq(baseConhecimento.unidade, unidade)
+      ));
   }
 }
 

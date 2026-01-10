@@ -15,6 +15,13 @@ import {
   insertClienteSchema,
   insertClienteUsuarioSchema,
   insertClienteDocumentoSchema,
+  insertPropostaComercialSchema,
+  insertPropostaItemSchema,
+  insertAmostraSchema,
+  insertFornecedorSchema,
+  insertTreinamentoSchema,
+  insertTreinamentoParticipanteSchema,
+  insertBaseConhecimentoSchema,
   campanhas,
   cronogramaItens,
   rhRegistros,
@@ -6569,6 +6576,554 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: 'Conquistas padrão criadas' });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== PROPOSTAS COMERCIAIS ====================
+  
+  app.get('/api/propostas-comerciais', requireAuth, async (req, res) => {
+    try {
+      const filters = {
+        unidade: req.user.unidade,
+        status: req.query.status as string | undefined,
+        empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
+      };
+      const propostas = await storage.getPropostasComerciais(filters);
+      res.json(propostas);
+    } catch (error: any) {
+      console.error('Error fetching propostas comerciais:', error);
+      res.status(500).json({ error: 'Erro ao buscar propostas comerciais' });
+    }
+  });
+
+  app.get('/api/propostas-comerciais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const proposta = await storage.getPropostaComercialById(id, req.user.unidade);
+      if (!proposta) {
+        return res.status(404).json({ error: 'Proposta não encontrada' });
+      }
+      res.json(proposta);
+    } catch (error: any) {
+      console.error('Error fetching proposta:', error);
+      res.status(500).json({ error: 'Erro ao buscar proposta' });
+    }
+  });
+
+  app.post('/api/propostas-comerciais', requireAuth, async (req, res) => {
+    try {
+      const data = insertPropostaComercialSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.user.id,
+      });
+      const proposta = await storage.createPropostaComercial(data);
+      res.status(201).json(proposta);
+    } catch (error: any) {
+      console.error('Error creating proposta:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar proposta' });
+    }
+  });
+
+  app.put('/api/propostas-comerciais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const proposta = await storage.updatePropostaComercial(id, req.body, req.user.unidade);
+      if (!proposta) {
+        return res.status(404).json({ error: 'Proposta não encontrada' });
+      }
+      res.json(proposta);
+    } catch (error: any) {
+      console.error('Error updating proposta:', error);
+      res.status(500).json({ error: 'Erro ao atualizar proposta' });
+    }
+  });
+
+  app.delete('/api/propostas-comerciais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const success = await storage.deletePropostaComercial(id, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Proposta não encontrada' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting proposta:', error);
+      res.status(500).json({ error: 'Erro ao excluir proposta' });
+    }
+  });
+
+  // Proposta Itens - verify parent unidade
+  app.get('/api/proposta-itens', requireAuth, async (req, res) => {
+    try {
+      const propostaId = parseInt(req.query.propostaId as string);
+      if (isNaN(propostaId)) {
+        return res.status(400).json({ error: 'propostaId é obrigatório' });
+      }
+      const itens = await storage.getPropostaItens(propostaId, req.user.unidade);
+      res.json(itens);
+    } catch (error: any) {
+      console.error('Error fetching proposta itens:', error);
+      res.status(500).json({ error: 'Erro ao buscar itens da proposta' });
+    }
+  });
+
+  app.post('/api/proposta-itens', requireAuth, async (req, res) => {
+    try {
+      const data = insertPropostaItemSchema.parse(req.body);
+      const item = await storage.createPropostaItem(data, req.user.unidade);
+      if (!item) {
+        return res.status(404).json({ error: 'Proposta não encontrada' });
+      }
+      res.status(201).json(item);
+    } catch (error: any) {
+      console.error('Error creating proposta item:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar item' });
+    }
+  });
+
+  app.delete('/api/proposta-itens/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const propostaId = parseInt(req.query.propostaId as string);
+      if (isNaN(id) || isNaN(propostaId)) {
+        return res.status(400).json({ error: 'ID e propostaId são obrigatórios' });
+      }
+      const success = await storage.deletePropostaItem(id, propostaId, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Item não encontrado' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting proposta item:', error);
+      res.status(500).json({ error: 'Erro ao excluir item' });
+    }
+  });
+
+  // ==================== AMOSTRAS ====================
+  
+  app.get('/api/amostras', requireAuth, async (req, res) => {
+    try {
+      const filters = {
+        unidade: req.user.unidade,
+        status: req.query.status as string | undefined,
+        tipo: req.query.tipo as string | undefined,
+        empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
+      };
+      const amostras = await storage.getAmostras(filters);
+      res.json(amostras);
+    } catch (error: any) {
+      console.error('Error fetching amostras:', error);
+      res.status(500).json({ error: 'Erro ao buscar amostras' });
+    }
+  });
+
+  app.get('/api/amostras/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const amostra = await storage.getAmostraById(id, req.user.unidade);
+      if (!amostra) {
+        return res.status(404).json({ error: 'Amostra não encontrada' });
+      }
+      res.json(amostra);
+    } catch (error: any) {
+      console.error('Error fetching amostra:', error);
+      res.status(500).json({ error: 'Erro ao buscar amostra' });
+    }
+  });
+
+  app.post('/api/amostras', requireAuth, async (req, res) => {
+    try {
+      const data = insertAmostraSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.user.id,
+      });
+      const amostra = await storage.createAmostra(data);
+      res.status(201).json(amostra);
+    } catch (error: any) {
+      console.error('Error creating amostra:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar amostra' });
+    }
+  });
+
+  app.put('/api/amostras/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const amostra = await storage.updateAmostra(id, req.body, req.user.unidade);
+      if (!amostra) {
+        return res.status(404).json({ error: 'Amostra não encontrada' });
+      }
+      res.json(amostra);
+    } catch (error: any) {
+      console.error('Error updating amostra:', error);
+      res.status(500).json({ error: 'Erro ao atualizar amostra' });
+    }
+  });
+
+  app.delete('/api/amostras/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const success = await storage.deleteAmostra(id, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Amostra não encontrada' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting amostra:', error);
+      res.status(500).json({ error: 'Erro ao excluir amostra' });
+    }
+  });
+
+  // ==================== FORNECEDORES ====================
+  
+  app.get('/api/fornecedores', requireAuth, async (req, res) => {
+    try {
+      const filters = {
+        unidade: req.user.unidade,
+        status: req.query.status as string | undefined,
+        tipo: req.query.tipo as string | undefined,
+      };
+      const fornecedores = await storage.getFornecedores(filters);
+      res.json(fornecedores);
+    } catch (error: any) {
+      console.error('Error fetching fornecedores:', error);
+      res.status(500).json({ error: 'Erro ao buscar fornecedores' });
+    }
+  });
+
+  app.get('/api/fornecedores/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const fornecedor = await storage.getFornecedorById(id, req.user.unidade);
+      if (!fornecedor) {
+        return res.status(404).json({ error: 'Fornecedor não encontrado' });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      console.error('Error fetching fornecedor:', error);
+      res.status(500).json({ error: 'Erro ao buscar fornecedor' });
+    }
+  });
+
+  app.post('/api/fornecedores', requireAuth, async (req, res) => {
+    try {
+      const data = insertFornecedorSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.user.id,
+      });
+      const fornecedor = await storage.createFornecedor(data);
+      res.status(201).json(fornecedor);
+    } catch (error: any) {
+      console.error('Error creating fornecedor:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar fornecedor' });
+    }
+  });
+
+  app.put('/api/fornecedores/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const fornecedor = await storage.updateFornecedor(id, req.body, req.user.unidade);
+      if (!fornecedor) {
+        return res.status(404).json({ error: 'Fornecedor não encontrado' });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      console.error('Error updating fornecedor:', error);
+      res.status(500).json({ error: 'Erro ao atualizar fornecedor' });
+    }
+  });
+
+  app.delete('/api/fornecedores/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const success = await storage.deleteFornecedor(id, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Fornecedor não encontrado' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting fornecedor:', error);
+      res.status(500).json({ error: 'Erro ao excluir fornecedor' });
+    }
+  });
+
+  // ==================== TREINAMENTOS ====================
+  
+  app.get('/api/treinamentos', requireAuth, async (req, res) => {
+    try {
+      const filters = {
+        unidade: req.user.unidade,
+        status: req.query.status as string | undefined,
+        tipo: req.query.tipo as string | undefined,
+      };
+      const treinamentos = await storage.getTreinamentos(filters);
+      res.json(treinamentos);
+    } catch (error: any) {
+      console.error('Error fetching treinamentos:', error);
+      res.status(500).json({ error: 'Erro ao buscar treinamentos' });
+    }
+  });
+
+  app.get('/api/treinamentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const treinamento = await storage.getTreinamentoById(id, req.user.unidade);
+      if (!treinamento) {
+        return res.status(404).json({ error: 'Treinamento não encontrado' });
+      }
+      res.json(treinamento);
+    } catch (error: any) {
+      console.error('Error fetching treinamento:', error);
+      res.status(500).json({ error: 'Erro ao buscar treinamento' });
+    }
+  });
+
+  app.post('/api/treinamentos', requireAuth, async (req, res) => {
+    try {
+      const data = insertTreinamentoSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.user.id,
+      });
+      const treinamento = await storage.createTreinamento(data);
+      res.status(201).json(treinamento);
+    } catch (error: any) {
+      console.error('Error creating treinamento:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar treinamento' });
+    }
+  });
+
+  app.put('/api/treinamentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const treinamento = await storage.updateTreinamento(id, req.body, req.user.unidade);
+      if (!treinamento) {
+        return res.status(404).json({ error: 'Treinamento não encontrado' });
+      }
+      res.json(treinamento);
+    } catch (error: any) {
+      console.error('Error updating treinamento:', error);
+      res.status(500).json({ error: 'Erro ao atualizar treinamento' });
+    }
+  });
+
+  app.delete('/api/treinamentos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const success = await storage.deleteTreinamento(id, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Treinamento não encontrado' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting treinamento:', error);
+      res.status(500).json({ error: 'Erro ao excluir treinamento' });
+    }
+  });
+
+  // Treinamento Participantes - verify parent unidade
+  app.get('/api/treinamento-participantes', requireAuth, async (req, res) => {
+    try {
+      const treinamentoId = parseInt(req.query.treinamentoId as string);
+      if (isNaN(treinamentoId)) {
+        return res.status(400).json({ error: 'treinamentoId é obrigatório' });
+      }
+      const participantes = await storage.getTreinamentoParticipantes(treinamentoId, req.user.unidade);
+      res.json(participantes);
+    } catch (error: any) {
+      console.error('Error fetching participantes:', error);
+      res.status(500).json({ error: 'Erro ao buscar participantes' });
+    }
+  });
+
+  app.post('/api/treinamento-participantes', requireAuth, async (req, res) => {
+    try {
+      const data = insertTreinamentoParticipanteSchema.parse(req.body);
+      const participante = await storage.createTreinamentoParticipante(data, req.user.unidade);
+      if (!participante) {
+        return res.status(404).json({ error: 'Treinamento não encontrado' });
+      }
+      res.status(201).json(participante);
+    } catch (error: any) {
+      console.error('Error creating participante:', error);
+      res.status(500).json({ error: error.message || 'Erro ao adicionar participante' });
+    }
+  });
+
+  app.put('/api/treinamento-participantes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const treinamentoId = parseInt(req.query.treinamentoId as string);
+      if (isNaN(id) || isNaN(treinamentoId)) {
+        return res.status(400).json({ error: 'ID e treinamentoId são obrigatórios' });
+      }
+      const participante = await storage.updateTreinamentoParticipante(id, req.body, treinamentoId, req.user.unidade);
+      if (!participante) {
+        return res.status(404).json({ error: 'Participante não encontrado' });
+      }
+      res.json(participante);
+    } catch (error: any) {
+      console.error('Error updating participante:', error);
+      res.status(500).json({ error: 'Erro ao atualizar participante' });
+    }
+  });
+
+  app.delete('/api/treinamento-participantes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const treinamentoId = parseInt(req.query.treinamentoId as string);
+      if (isNaN(id) || isNaN(treinamentoId)) {
+        return res.status(400).json({ error: 'ID e treinamentoId são obrigatórios' });
+      }
+      const success = await storage.deleteTreinamentoParticipante(id, treinamentoId, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Participante não encontrado' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting participante:', error);
+      res.status(500).json({ error: 'Erro ao remover participante' });
+    }
+  });
+
+  // ==================== BASE DE CONHECIMENTO ====================
+  
+  app.get('/api/base-conhecimento', requireAuth, async (req, res) => {
+    try {
+      const filters = {
+        unidade: req.user.unidade,
+        status: req.query.status as string | undefined,
+        tipo: req.query.tipo as string | undefined,
+        categoria: req.query.categoria as string | undefined,
+      };
+      const items = await storage.getBaseConhecimento(filters);
+      res.json(items);
+    } catch (error: any) {
+      console.error('Error fetching base conhecimento:', error);
+      res.status(500).json({ error: 'Erro ao buscar itens da base de conhecimento' });
+    }
+  });
+
+  app.get('/api/base-conhecimento/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const item = await storage.getBaseConhecimentoById(id, req.user.unidade);
+      if (!item) {
+        return res.status(404).json({ error: 'Item não encontrado' });
+      }
+      await storage.incrementBaseConhecimentoViews(id, req.user.unidade);
+      res.json(item);
+    } catch (error: any) {
+      console.error('Error fetching base conhecimento item:', error);
+      res.status(500).json({ error: 'Erro ao buscar item' });
+    }
+  });
+
+  app.post('/api/base-conhecimento', requireAuth, async (req, res) => {
+    try {
+      const data = insertBaseConhecimentoSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.user.id,
+      });
+      const item = await storage.createBaseConhecimento(data);
+      res.status(201).json(item);
+    } catch (error: any) {
+      console.error('Error creating base conhecimento:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar item' });
+    }
+  });
+
+  app.put('/api/base-conhecimento/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const item = await storage.updateBaseConhecimento(id, req.body, req.user.unidade);
+      if (!item) {
+        return res.status(404).json({ error: 'Item não encontrado' });
+      }
+      res.json(item);
+    } catch (error: any) {
+      console.error('Error updating base conhecimento:', error);
+      res.status(500).json({ error: 'Erro ao atualizar item' });
+    }
+  });
+
+  app.delete('/api/base-conhecimento/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const success = await storage.deleteBaseConhecimento(id, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Item não encontrado' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting base conhecimento:', error);
+      res.status(500).json({ error: 'Erro ao excluir item' });
+    }
+  });
+
+  app.post('/api/base-conhecimento/:id/download', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const item = await storage.getBaseConhecimentoById(id, req.user.unidade);
+      if (!item) {
+        return res.status(404).json({ error: 'Item não encontrado' });
+      }
+      await storage.incrementBaseConhecimentoDownloads(id, req.user.unidade);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error tracking download:', error);
+      res.status(500).json({ error: 'Erro ao registrar download' });
     }
   });
 

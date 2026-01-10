@@ -35,7 +35,12 @@ import {
   FileText,
   Settings,
   Briefcase,
-  FolderOpen
+  FolderOpen,
+  FileSpreadsheet,
+  FlaskConical,
+  Truck,
+  GraduationCap,
+  BookOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -132,6 +137,7 @@ export default function Sidebar() {
       icon: DollarSign,
       items: [
         { href: "/financeiro", label: "Lançamentos", icon: DollarSign, testid: "nav-financeiro" },
+        { href: "/propostas-comerciais", label: "Propostas Comerciais", icon: FileSpreadsheet, testid: "nav-propostas" },
       ]
     },
     {
@@ -140,6 +146,21 @@ export default function Sidebar() {
       items: [
         { href: "/frota", label: "Frota", icon: Car, testid: "nav-frota" },
         { href: "/equipamentos", label: "Equipamentos", icon: Wrench, testid: "nav-equipamentos" },
+        { href: "/fornecedores", label: "Fornecedores", icon: Truck, testid: "nav-fornecedores" },
+      ]
+    },
+    {
+      label: "Amostras",
+      icon: FlaskConical,
+      items: [
+        { href: "/amostras", label: "Gestão de Amostras", icon: FlaskConical, testid: "nav-amostras" },
+      ]
+    },
+    {
+      label: "Capacitação",
+      icon: GraduationCap,
+      items: [
+        { href: "/treinamentos", label: "Treinamentos", icon: GraduationCap, testid: "nav-treinamentos" },
       ]
     },
     {
@@ -147,6 +168,7 @@ export default function Sidebar() {
       icon: FolderOpen,
       items: [
         { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
+        { href: "/base-conhecimento", label: "Base de Conhecimento", icon: BookOpen, testid: "nav-base-conhecimento" },
       ]
     },
     {
