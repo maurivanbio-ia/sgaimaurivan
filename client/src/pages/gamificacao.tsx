@@ -20,7 +20,11 @@ import {
   Crown,
   Loader2,
   Info,
-  HelpCircle
+  HelpCircle,
+  Wallet,
+  Calculator,
+  Building2,
+  Percent
 } from "lucide-react";
 import {
   Accordion,
@@ -86,6 +90,29 @@ interface Estatisticas {
   totalUsuarios: number;
 }
 
+interface EconomiaItem {
+  id: number;
+  empreendimentoNome: string;
+  coordenadorNome: string;
+  orcamentoBase: string;
+  ajusteCampanha: string;
+  orcamentoAjustado: string;
+  gastoReal: string;
+  economia: string;
+  percentualEconomia: string;
+  pontosAtribuidos: number;
+  campanhasAtivas: number;
+  status: string;
+}
+
+interface EconomiaRankingItem {
+  coordenadorId: number;
+  coordenadorNome: string;
+  totalPontos: number;
+  totalProjetos: number;
+  mediaPercentual: number;
+}
+
 export default function GamificacaoPage() {
   const { toast } = useToast();
   const periodoAtual = new Date().toISOString().substring(0, 7);
@@ -104,6 +131,33 @@ export default function GamificacaoPage() {
 
   const { data: estatisticas } = useQuery<Estatisticas>({
     queryKey: ["/api/gamificacao/estatisticas"],
+  });
+
+  const { data: economiaData = [], isLoading: loadingEconomia } = useQuery<EconomiaItem[]>({
+    queryKey: ["/api/gamificacao/economia", periodoAtual],
+  });
+
+  const { data: economiaRanking = [] } = useQuery<EconomiaRankingItem[]>({
+    queryKey: ["/api/gamificacao/economia/ranking", periodoAtual],
+  });
+
+  const calcularEconomiaMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/gamificacao/calcular-economia", {
+      periodo: periodoAtual,
+      unidade: "salvador"
+    }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia/ranking"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/ranking"] });
+      toast({ 
+        title: "Economia calculada!", 
+        description: `${data.resultados?.length || 0} projetos analisados, ${data.totalPontos || 0} pontos distribuídos` 
+      });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message, variant: "destructive" });
+    }
   });
 
   const seedMutation = useMutation({
@@ -285,10 +339,14 @@ export default function GamificacaoPage() {
       </Card>
 
       <Tabs defaultValue="ranking" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="ranking">
             <Crown className="h-4 w-4 mr-2" />
             Ranking
+          </TabsTrigger>
+          <TabsTrigger value="economia">
+            <Wallet className="h-4 w-4 mr-2" />
+            Economia
           </TabsTrigger>
           <TabsTrigger value="conquistas">
             <Trophy className="h-4 w-4 mr-2" />
@@ -356,6 +414,178 @@ export default function GamificacaoPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="economia" className="mt-4">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-green-500" />
+                  Economia em Projetos
+                </CardTitle>
+                <Button 
+                  onClick={() => calcularEconomiaMutation.mutate()} 
+                  disabled={calcularEconomiaMutation.isPending}
+                  size="sm"
+                >
+                  {calcularEconomiaMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Calculator className="h-4 w-4 mr-2" />
+                  )}
+                  Calcular Economia
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="single" collapsible className="w-full mb-4">
+                  <AccordionItem value="como-funciona-economia" className="border rounded-lg px-4">
+                    <AccordionTrigger className="hover:no-underline py-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Info className="h-4 w-4 text-primary" />
+                        <span>Como funciona a pontuação por economia?</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 text-sm">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold flex items-center gap-2">
+                            <Percent className="h-4 w-4 text-green-500" />
+                            Faixas de Pontuação
+                          </h4>
+                          <ul className="space-y-1 text-muted-foreground">
+                            <li className="flex justify-between">
+                              <span>≥ 20% economia</span>
+                              <Badge className="bg-green-500">+50 pts</Badge>
+                            </li>
+                            <li className="flex justify-between">
+                              <span>≥ 10% economia</span>
+                              <Badge className="bg-green-400">+30 pts</Badge>
+                            </li>
+                            <li className="flex justify-between">
+                              <span>Dentro do orçamento</span>
+                              <Badge variant="secondary">+10 pts</Badge>
+                            </li>
+                            <li className="flex justify-between">
+                              <span>Leve estouro (até 10%)</span>
+                              <Badge variant="outline">0 pts</Badge>
+                            </li>
+                            <li className="flex justify-between">
+                              <span>Estouro &gt; 10%</span>
+                              <Badge variant="destructive">-10 pts</Badge>
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="space-y-2">
+                          <h4 className="font-semibold flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-blue-500" />
+                            Ajuste por Campanhas
+                          </h4>
+                          <ul className="space-y-1 text-muted-foreground text-xs">
+                            <li>O orçamento é ajustado conforme campanhas ativas</li>
+                            <li>Cada campanha ativa aumenta o orçamento em 25%</li>
+                            <li>Isso considera que períodos de campanha têm custos maiores</li>
+                            <li>A economia é calculada sobre o orçamento ajustado</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
+                {loadingEconomia ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : economiaData.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum cálculo de economia ainda.</p>
+                    <p className="text-sm">Clique em "Calcular Economia" para analisar os projetos.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {economiaData.map((item) => {
+                      const percentual = parseFloat(item.percentualEconomia || "0");
+                      const isPositive = percentual >= 0;
+                      return (
+                        <div 
+                          key={item.id}
+                          className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
+                            isPositive ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'
+                          }`}
+                        >
+                          <div className={`p-2 rounded-lg ${isPositive ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                            <Building2 className={`h-5 w-5 ${isPositive ? 'text-green-500' : 'text-red-500'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold">{item.empreendimentoNome}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Coordenador: {item.coordenadorNome} 
+                              {item.campanhasAtivas > 0 && (
+                                <span className="ml-2 text-blue-500">
+                                  ({item.campanhasAtivas} campanha{item.campanhasAtivas > 1 ? 's' : ''} ativa{item.campanhasAtivas > 1 ? 's' : ''})
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-right text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <span>Orçamento: R$ {parseFloat(item.orcamentoAjustado || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className={`font-semibold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                              {isPositive ? 'Economia' : 'Estouro'}: R$ {Math.abs(parseFloat(item.economia || "0")).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({percentual.toFixed(1)}%)
+                            </div>
+                          </div>
+                          <Badge variant={item.pontosAtribuidos >= 0 ? 'default' : 'destructive'}>
+                            {item.pontosAtribuidos >= 0 ? '+' : ''}{item.pontosAtribuidos} pts
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {economiaRanking.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Crown className="h-5 w-5 text-yellow-500" />
+                    Ranking de Economia
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {economiaRanking.map((item, index) => (
+                      <div 
+                        key={item.coordenadorId}
+                        className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
+                          index < 3 
+                            ? 'bg-gradient-to-r from-green-500/10 to-transparent border border-green-500/20' 
+                            : 'bg-muted/30 hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="w-10 flex justify-center">
+                          {getMedalIcon(index + 1)}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold capitalize">{item.coordenadorNome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.totalProjetos} projeto{item.totalProjetos > 1 ? 's' : ''} | Média: {item.mediaPercentual?.toFixed(1) || 0}% economia
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-green-500 border-green-500">
+                          {item.totalPontos >= 0 ? '+' : ''}{item.totalPontos} pts
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="conquistas" className="mt-4">
