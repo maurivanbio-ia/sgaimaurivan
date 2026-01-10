@@ -150,11 +150,16 @@ export default function Sidebar() {
       ]
     },
     {
+      label: "Segurança do Trabalho",
+      icon: ShieldCheck,
+      items: [
+        { href: "/seguranca-trabalho", label: "SST", icon: ShieldCheck, testid: "nav-seguranca-trabalho" },
+      ]
+    },
+    {
       label: "Sistema",
       icon: Settings,
       items: [
-        { href: "/seguranca-trabalho", label: "SST", icon: ShieldCheck, testid: "nav-seguranca-trabalho" },
-        { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, testid: "nav-whatsapp" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
       ]
     },
