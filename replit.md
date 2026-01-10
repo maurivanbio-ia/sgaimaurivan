@@ -67,6 +67,16 @@ A comprehensive permission system with roles (admin, diretor, coordenador, finan
 ### Advanced Document Management (Gestão de Dados)
 A comprehensive document management system with standardized file coding (e.g., `ECOBRASIL-[CLIENTE]-[UF]-[PROJ]...`), institutional and project-specific folder structures, automatic file routing, document versioning, and a complete audit trail. It includes metadata fields, an abbreviation dictionary, and a normative footer with compliance references.
 
+### Institutional Folder Structure
+Automatic folder structure creation when empreendimentos are created:
+- **Root**: ECOBRASIL_CONSULTORIA_AMBIENTAL
+- **Level 1 Folders**: 01_ADMINISTRATIVO_E_JURIDICO, 02_COMERCIAL_E_CLIENTES, 03_PROJETOS, 04_BASE_TECNICA_E_REFERENCIAS, 05_MODELOS_E_PADROES, 06_SISTEMAS_E_AUTOMACOES, 07_ARQUIVO_MORTO
+- **Project Naming**: [CLIENTE]_[UF]_[CODIGO_PROJETO] inside 03_PROJETOS
+- **Project Subfolders**: 01_GESTAO_E_CONTRATOS, 02_PLANEJAMENTO_E_CRONOGRAMA, 03_BANCOS_DE_DADOS, 04_RELATORIOS_E_PARECERES, 05_MAPAS_E_GEOSPATIAL, 06_COMUNICACOES, 07_ENTREGAS_E_PROTOCOLOS
+- **Automatic Creation**: Folders are created automatically when new empreendimentos are added
+- **Sync Endpoint**: POST /api/datasets/estrutura/macro syncs all existing empreendimentos
+- **Service**: server/services/folderStructureService.ts
+
 ### n8n Webhook Integration (Automação)
 A comprehensive webhook API for n8n automation workflows with API key authentication. It provides endpoints for licenses, condicionantes, contracts, finance, RH, SST, frota, equipamentos, demands, tasks, coordinator summaries, and utility functions (e.g., health check, notifications). This includes fields for vehicle insurance, IPVA, licensing, next maintenance mileage, and CNH details for RH records.
 
