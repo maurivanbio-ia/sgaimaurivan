@@ -2596,4 +2596,36 @@ export const insertLinkUtilSchema = createInsertSchema(linksUteis).omit({
 export type InsertLinkUtil = z.infer<typeof insertLinkUtilSchema>;
 export type LinkUtil = typeof linksUteis.$inferSelect;
 
+// ============================================
+// CAMADAS GEOESPACIAIS (KMZ/KML/GeoJSON)
+// ============================================
+export const camadasGeoespaciais = pgTable("camadas_geoespaciais", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  categoria: text("categoria").notNull(), // uc, terras_indigenas, uso_solo, hidrografia, municipios, vegetacao, outro
+  cor: text("cor").default("#3b82f6"),
+  opacidade: real("opacidade").default(0.5),
+  geojsonUrl: text("geojson_url"), // URL do arquivo GeoJSON no Object Storage
+  geojsonData: json("geojson_data"), // GeoJSON inline para camadas menores
+  fonte: text("fonte"), // Fonte dos dados (ex: IBGE, ICMBio, FUNAI)
+  ano: integer("ano"), // Ano de referência dos dados
+  ativo: boolean("ativo").default(true),
+  visivel: boolean("visivel").default(true), // Visível por padrão no mapa
+  ordem: integer("ordem").default(0), // Ordem de renderização
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertCamadaGeoespacialSchema = createInsertSchema(camadasGeoespaciais).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertCamadaGeoespacial = z.infer<typeof insertCamadaGeoespacialSchema>;
+export type CamadaGeoespacial = typeof camadasGeoespaciais.$inferSelect;
+
 
