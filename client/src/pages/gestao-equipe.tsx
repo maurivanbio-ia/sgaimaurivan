@@ -747,64 +747,68 @@ export default function GestaoEquipePage() {
             </div>
           ) : (
             <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Responsável</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Prioridade</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Prazo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTarefas.length === 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        Nenhuma tarefa encontrada
-                      </TableCell>
+                      <TableHead className="sticky left-0 bg-background z-10">Título</TableHead>
+                      <TableHead className="hidden md:table-cell">Responsável</TableHead>
+                      <TableHead className="hidden lg:table-cell">Categoria</TableHead>
+                      <TableHead>Prioridade</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden sm:table-cell">Prazo</TableHead>
+                      <TableHead className="text-right sticky right-0 bg-background z-10">Ações</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredTarefas.map((tarefa) => (
-                      <TableRow key={tarefa.id} data-testid={`row-tarefa-${tarefa.id}`}>
-                        <TableCell className="font-medium max-w-xs truncate">{tarefa.titulo}</TableCell>
-                        <TableCell>{getMembroNome(tarefa.responsavelId)}</TableCell>
-                        <TableCell>
-                          {CATEGORIA_OPTIONS.find(c => c.value === tarefa.categoria)?.label || tarefa.categoria}
-                        </TableCell>
-                        <TableCell>{getPrioridadeBadge(tarefa.prioridade)}</TableCell>
-                        <TableCell>{getStatusBadge(tarefa.status)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {tarefa.dataFim}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditTarefa(tarefa)}
-                            data-testid={`button-edit-tarefa-${tarefa.id}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteTarefa(tarefa.id!)}
-                            data-testid={`button-delete-tarefa-${tarefa.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTarefas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          Nenhuma tarefa encontrada
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      filteredTarefas.map((tarefa) => (
+                        <TableRow key={tarefa.id} data-testid={`row-tarefa-${tarefa.id}`}>
+                          <TableCell className="font-medium max-w-[150px] truncate sticky left-0 bg-background z-10">{tarefa.titulo}</TableCell>
+                          <TableCell className="hidden md:table-cell">{getMembroNome(tarefa.responsavelId)}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {CATEGORIA_OPTIONS.find(c => c.value === tarefa.categoria)?.label || tarefa.categoria}
+                          </TableCell>
+                          <TableCell>{getPrioridadeBadge(tarefa.prioridade)}</TableCell>
+                          <TableCell>{getStatusBadge(tarefa.status)}</TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              {tarefa.dataFim}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right sticky right-0 bg-background z-10">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditTarefa(tarefa)}
+                                data-testid={`button-edit-tarefa-${tarefa.id}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteTarefa(tarefa.id!)}
+                                data-testid={`button-delete-tarefa-${tarefa.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           )}
         </TabsContent>
