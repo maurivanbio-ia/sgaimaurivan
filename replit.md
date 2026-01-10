@@ -124,6 +124,17 @@ Document and template library:
 - **Route**: /base-conhecimento
 - **Database Table**: baseConhecimento
 
+### Automatic Backup System
+Daily automatic database backup scheduled at 00:00 (Brasília timezone):
+- **Backup Content**: All major tables exported to JSON (users, empreendimentos, licencas, demandas, contracts, finances, RH, fleet, equipment, projects, proposals, samples, suppliers, trainings, knowledge base, tasks, datasets)
+- **Storage**: Backups saved to Object Storage in `.private/backups/` directory
+- **Retention**: Last 30 backups retained, older files automatically cleaned up
+- **API Endpoints**:
+  - `GET /api/backups` - List all backups (admin/director only)
+  - `POST /api/backups/trigger` - Trigger manual backup (admin/director only)
+  - `GET /api/backups/:fileName` - Download specific backup (admin/director only)
+- **Initialization**: `initBackupService()` in server/services/backupService.ts
+
 ### Database and Data Handling
 The PostgreSQL database uses Drizzle ORM. Key tables are enhanced with fields supporting multi-tenancy, project management, and AI features. Foreign key constraints are enforced, soft deletion is implemented, and file uploads include metadata tracking and checksums.
 
