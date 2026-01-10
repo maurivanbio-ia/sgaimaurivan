@@ -131,7 +131,26 @@ export async function getDesempenhoUsuario(usuarioId: number, periodo?: string) 
   };
 }
 
+async function verificarPontuacaoDuplicada(referenciaId: number, referenciaTipo: string): Promise<boolean> {
+  const [existente] = await db
+    .select()
+    .from(historicosPontuacao)
+    .where(and(
+      eq(historicosPontuacao.referenciaId, referenciaId),
+      eq(historicosPontuacao.referenciaTipo, referenciaTipo)
+    ))
+    .limit(1);
+  
+  return !!existente;
+}
+
 export async function registrarPontosTarefa(tarefaId: number, usuarioId: number, pontos: number, tipo: string) {
+  const jaPontuada = await verificarPontuacaoDuplicada(tarefaId, 'tarefa');
+  if (jaPontuada) {
+    console.log(`[Gamificação] Tarefa ${tarefaId} já foi pontuada anteriormente, ignorando`);
+    return;
+  }
+
   const periodoAtual = new Date().toISOString().substring(0, 7);
   
   const [existente] = await db
@@ -177,13 +196,21 @@ export async function registrarPontosTarefa(tarefaId: number, usuarioId: number,
     usuarioId,
     pontos,
     tipo,
-    descricao: `Pontos por ${tipo.replace('_', ' ')}`,
+    descricao: `Pontos por ${tipo.replace(/_/g, ' ')}`,
     referenciaId: tarefaId,
     referenciaTipo: 'tarefa',
   });
+  
+  console.log(`[Gamificação] Tarefa ${tarefaId}: +${pontos} pontos para usuário ${usuarioId}`);
 }
 
 export async function registrarPontosDemanda(demandaId: number, usuarioId: number, pontos: number, tipo: string) {
+  const jaPontuada = await verificarPontuacaoDuplicada(demandaId, 'demanda');
+  if (jaPontuada) {
+    console.log(`[Gamificação] Demanda ${demandaId} já foi pontuada anteriormente, ignorando`);
+    return;
+  }
+
   const periodoAtual = new Date().toISOString().substring(0, 7);
   
   const [existente] = await db
@@ -229,10 +256,40 @@ export async function registrarPontosDemanda(demandaId: number, usuarioId: numbe
     usuarioId,
     pontos,
     tipo,
-    descricao: `Pontos por ${tipo.replace('_', ' ')}`,
+    descricao: `Pontos por ${tipo.replace(/_/g, ' ')}`,
     referenciaId: demandaId,
     referenciaTipo: 'demanda',
   });
+  
+  console.log(`[Gamificação] Demanda ${demandaId}: +${pontos} pontos para usuário ${usuarioId}`);
+}
+
+export async function processarConclusaoTarefa(tarefa: any, usuarioId: number) {
+  try {
+    const pontos = await calcularPontuacaoTarefa({
+      ...tarefa,
+      concluidaEm: new Date()
+    });
+    await registrarPontosTarefa(tarefa.id, usuarioId, pontos, 'tarefa_concluida');
+    return pontos;
+  } catch (error) {
+    console.error('[Gamificação] Erro ao processar conclusão de tarefa:', error);
+    return 0;
+  }
+}
+
+export async function processarConclusaoDemanda(demanda: any, usuarioId: number) {
+  try {
+    const pontos = await calcularPontuacaoDemanda({
+      ...demanda,
+      dataConclusao: new Date()
+    });
+    await registrarPontosDemanda(demanda.id, usuarioId, pontos, 'demanda_concluida');
+    return pontos;
+  } catch (error) {
+    console.error('[Gamificação] Erro ao processar conclusão de demanda:', error);
+    return 0;
+  }
 }
 
 export async function getConquistasDisponiveis() {
