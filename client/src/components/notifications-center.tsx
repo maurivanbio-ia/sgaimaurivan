@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Check, X, Clock, Mail, MessageSquare } from "lucide-react";
+import { Bell, Check, X, Clock, Mail, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Notification {
   id: number;
@@ -66,6 +67,28 @@ export function NotificationsCenter() {
       toast({
         title: "Notificações marcadas como lidas",
         description: "Todas as notificações foram marcadas como lidas.",
+      });
+    },
+  });
+
+  // Limpar todas as notificações pendentes
+  const clearAllNotifications = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/notifications/clear-all');
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      toast({
+        title: "Notificações limpas",
+        description: "Todas as notificações foram removidas.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível limpar as notificações.",
+        variant: "destructive",
       });
     },
   });
@@ -209,15 +232,26 @@ export function NotificationsCenter() {
         {notifications.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <div className="p-2">
+            <div className="p-2 flex gap-2">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="w-full text-xs"
+                className="flex-1 text-xs"
                 onClick={() => setOpen(false)}
                 data-testid="close-notifications"
               >
                 Ver todas as notificações
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => clearAllNotifications.mutate()}
+                disabled={clearAllNotifications.isPending}
+                data-testid="clear-all-notifications"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Limpar
               </Button>
             </div>
           </>
