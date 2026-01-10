@@ -16,11 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Save, ArrowLeft, ChevronsUpDown, Check, User, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface RhRegistro {
+interface Colaborador {
   id: number;
-  nomeColaborador: string;
-  contatoEmail: string | null;
-  contatoTelefone: string | null;
+  nome: string;
+  email: string | null;
+  tipo: string;
 }
 
 const tipologiaOptions = [
@@ -75,8 +75,8 @@ export default function NewProject() {
   const { unidadeSelecionada } = useUnidade();
   const [openResponsavel, setOpenResponsavel] = useState(false);
 
-  const { data: rhRegistros = [] } = useQuery<RhRegistro[]>({
-    queryKey: ['/api/rh', unidadeSelecionada],
+  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
+    queryKey: ['/api/colaboradores', unidadeSelecionada],
   });
 
   const { data: existingProjects = [] } = useQuery<{ id: number; codigo: string | null }[]>({
@@ -403,26 +403,26 @@ export default function NewProject() {
                           <CommandList>
                             <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
                             <CommandGroup>
-                              {rhRegistros.map((rh) => (
+                              {colaboradores.map((colab) => (
                                 <CommandItem
-                                  key={rh.id}
-                                  value={rh.nomeColaborador}
+                                  key={`${colab.tipo}-${colab.id}`}
+                                  value={colab.nome}
                                   onSelect={() => {
-                                    field.onChange(rh.nomeColaborador);
+                                    field.onChange(colab.nome);
                                     setOpenResponsavel(false);
                                   }}
                                 >
                                   <User className="mr-2 h-4 w-4" />
                                   <div className="flex flex-col">
-                                    <span>{rh.nomeColaborador}</span>
-                                    {rh.contatoEmail && (
-                                      <span className="text-xs text-muted-foreground">{rh.contatoEmail}</span>
+                                    <span>{colab.nome}</span>
+                                    {colab.email && (
+                                      <span className="text-xs text-muted-foreground">{colab.email}</span>
                                     )}
                                   </div>
                                   <Check
                                     className={cn(
                                       "ml-auto h-4 w-4",
-                                      field.value === rh.nomeColaborador ? "opacity-100" : "opacity-0"
+                                      field.value === colab.nome ? "opacity-100" : "opacity-0"
                                     )}
                                   />
                                 </CommandItem>
