@@ -136,7 +136,7 @@ export default function RhPage() {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.search = debouncedSearch;
     if (fornecedorFilter !== "all") params.fornecedor = fornecedorFilter;
-    if (empreendimentoFilter !== "all") params.empreendimentoId = empreendimentoFilter;
+    if (empreendimentoFilter !== "all") params.empreendimento = empreendimentoFilter;
     return params;
   }, [debouncedSearch, fornecedorFilter, empreendimentoFilter]);
 
