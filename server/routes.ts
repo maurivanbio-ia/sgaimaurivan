@@ -7881,11 +7881,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Comunicados - Criar
   app.post('/api/comunicados', requireAuth, async (req, res) => {
     try {
+      const { dataExpiracao, ...rest } = req.body;
       const data = insertComunicadoSchema.parse({
-        ...req.body,
+        ...rest,
         unidade: req.user.unidade,
         autorId: req.session.userId,
-        dataPublicacao: req.body.dataPublicacao ? new Date(req.body.dataPublicacao) : new Date(),
+        dataPublicacao: rest.dataPublicacao && rest.dataPublicacao !== '' ? new Date(rest.dataPublicacao) : new Date(),
+        dataExpiracao: dataExpiracao && dataExpiracao !== '' ? new Date(dataExpiracao) : null,
       });
       const [comunicado] = await db.insert(comunicados).values(data).returning();
       
@@ -7949,7 +7951,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(comunicado);
     } catch (error: any) {
       console.error('Error creating comunicado:', error);
-      res.status(500).json({ error: 'Erro ao criar comunicado' });
+      if (error.name === 'ZodError') {
+        console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
+        return res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      }
+      res.status(500).json({ error: 'Erro ao criar comunicado', details: error.message });
     }
   });
 
