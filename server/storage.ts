@@ -68,8 +68,11 @@ import {
   datasets,
   datasetVersoes,
   datasetAuditTrail,
+  datasetPastas,
   type Dataset,
   type InsertDataset,
+  type DatasetPasta,
+  type InsertDatasetPasta,
   colaboradores,
   segDocumentosColaboradores,
   type Colaborador,
@@ -331,10 +334,22 @@ export interface IStorage {
   getDatasets(filters?: {
     empreendimentoId?: number;
     tipo?: string;
+    unidade?: string;
+    pastaId?: number;
   }): Promise<Array<Dataset & { empreendimentoNome?: string }>>;
   getDatasetById(id: number): Promise<Dataset | undefined>;
   createDataset(dataset: InsertDataset): Promise<Dataset>;
+  updateDataset(id: number, updates: Partial<InsertDataset>): Promise<Dataset>;
   deleteDataset(id: number): Promise<boolean>;
+  getDatasetsByPasta(pastaId: number, unidade: string): Promise<Dataset[]>;
+
+  // DatasetPastas operations (folder management)
+  getDatasetPastas(unidade: string): Promise<DatasetPasta[]>;
+  getDatasetPastaById(id: number): Promise<DatasetPasta | undefined>;
+  createDatasetPasta(pasta: InsertDatasetPasta): Promise<DatasetPasta>;
+  updateDatasetPasta(id: number, updates: Partial<InsertDatasetPasta>): Promise<DatasetPasta>;
+  deleteDatasetPasta(id: number): Promise<boolean>;
+  getSubpastas(paiId: number): Promise<DatasetPasta[]>;
 
   // Segurança do Trabalho operations
   getColaboradores(filters?: {
@@ -2418,6 +2433,72 @@ export class DatabaseStorage implements IStorage {
     // Depois excluir o dataset
     const result = await db.delete(datasets).where(eq(datasets.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async updateDataset(id: number, updates: Partial<InsertDataset>): Promise<Dataset> {
+    const [updated] = await db
+      .update(datasets)
+      .set(updates)
+      .where(eq(datasets.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getDatasetsByPasta(pastaId: number, unidade: string): Promise<Dataset[]> {
+    return db.select()
+      .from(datasets)
+      .where(and(
+        eq(datasets.pastaId, pastaId),
+        eq(datasets.unidade, unidade)
+      ))
+      .orderBy(desc(datasets.dataUpload));
+  }
+
+  // DatasetPastas operations (folder management)
+  async getDatasetPastas(unidade: string): Promise<DatasetPasta[]> {
+    return db.select()
+      .from(datasetPastas)
+      .where(eq(datasetPastas.unidade, unidade))
+      .orderBy(asc(datasetPastas.caminho));
+  }
+
+  async getDatasetPastaById(id: number): Promise<DatasetPasta | undefined> {
+    const [pasta] = await db.select()
+      .from(datasetPastas)
+      .where(eq(datasetPastas.id, id));
+    return pasta || undefined;
+  }
+
+  async createDatasetPasta(pasta: InsertDatasetPasta): Promise<DatasetPasta> {
+    const [newPasta] = await db.insert(datasetPastas)
+      .values(pasta)
+      .returning();
+    return newPasta;
+  }
+
+  async updateDatasetPasta(id: number, updates: Partial<InsertDatasetPasta>): Promise<DatasetPasta> {
+    const [updated] = await db.update(datasetPastas)
+      .set(updates)
+      .where(eq(datasetPastas.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDatasetPasta(id: number): Promise<boolean> {
+    // First delete all files in this folder
+    await db.delete(datasets).where(eq(datasets.pastaId, id));
+    // Then delete subfolders
+    await db.delete(datasetPastas).where(eq(datasetPastas.paiId, id));
+    // Finally delete the folder itself
+    const result = await db.delete(datasetPastas).where(eq(datasetPastas.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getSubpastas(paiId: number): Promise<DatasetPasta[]> {
+    return db.select()
+      .from(datasetPastas)
+      .where(eq(datasetPastas.paiId, paiId))
+      .orderBy(asc(datasetPastas.nome));
   }
 
   // Segurança do Trabalho operations

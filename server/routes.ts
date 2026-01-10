@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { 
   insertEmpreendimentoSchema, 
   insertLicencaAmbientalSchema,
@@ -140,6 +141,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     }
   }));
+
+  // Register Object Storage routes
+  registerObjectStorageRoutes(app);
 
   // Authentication middleware - also attaches user info to request
   const requireAuth = async (req: any, res: any, next: any) => {
@@ -3207,6 +3211,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching audit trail:', error);
       res.status(500).json({ error: 'Failed to fetch audit trail' });
+    }
+  });
+
+  // =============================================
+  // FOLDER/FILE MANAGEMENT API (Gestão de Dados Module)
+  // =============================================
+  
+  // GET /api/pastas - List all folders for the current unidade
+  app.get('/api/pastas', requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const unidade = user?.unidade || 'salvador';
+      const { empreendimentoId } = req.query;
+      
+      let pastas = await storage.getDatasetPastas(unidade);
+      
+      // Filter by empreendimentoId if provided
+      if (empreendimentoId) {
+        const empId = parseInt(empreendimentoId as string);
+        pastas = pastas.filter(p => p.empreendimentoId === empId || p.tipo === 'macro');
+      }
+      
+      res.json(pastas);
+    } catch (error) {
+      console.error('Error fetching pastas:', error);
+      res.status(500).json({ error: 'Failed to fetch pastas' });
+    }
+  });
+  
+  // GET /api/pastas/:id - Get single folder details
+  app.get('/api/pastas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid folder ID' });
+      }
+      
+      const pasta = await storage.getDatasetPastaById(id);
+      if (!pasta) {
+        return res.status(404).json({ error: 'Folder not found' });
+      }
+      
+      res.json(pasta);
+    } catch (error) {
+      console.error('Error fetching pasta:', error);
+      res.status(500).json({ error: 'Failed to fetch pasta' });
+    }
+  });
+  
+  // POST /api/pastas - Create new folder
+  app.post('/api/pastas', requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const unidade = user?.unidade || 'salvador';
+      const { nome, paiId, empreendimentoId } = req.body;
+      
+      if (!nome) {
+        return res.status(400).json({ error: 'Nome is required' });
+      }
+      
+      // Get parent folder to build path
+      let caminho = `/${nome}`;
+      let pai: string | null = null;
+      
+      if (paiId) {
+        const pastaFilho = await storage.getDatasetPastaById(paiId);
+        if (pastaFilho) {
+          caminho = `${pastaFilho.caminho}/${nome}`;
+          pai = pastaFilho.caminho;
+        }
+      }
+      
+      const newPasta = await storage.createDatasetPasta({
+        nome,
+        caminho,
+        pai,
+        paiId: paiId || null,
+        tipo: paiId ? 'subpasta' : 'macro',
+        empreendimentoId: empreendimentoId || null,
+        unidade,
+      });
+      
+      res.status(201).json(newPasta);
+    } catch (error) {
+      console.error('Error creating pasta:', error);
+      res.status(500).json({ error: 'Failed to create pasta' });
+    }
+  });
+  
+  // PUT /api/pastas/:id - Update folder
+  app.put('/api/pastas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid folder ID' });
+      }
+      
+      const { nome } = req.body;
+      const updated = await storage.updateDatasetPasta(id, { nome });
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating pasta:', error);
+      res.status(500).json({ error: 'Failed to update pasta' });
+    }
+  });
+  
+  // DELETE /api/pastas/:id - Delete folder and all contents
+  app.delete('/api/pastas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid folder ID' });
+      }
+      
+      const deleted = await storage.deleteDatasetPasta(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Folder not found' });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting pasta:', error);
+      res.status(500).json({ error: 'Failed to delete pasta' });
+    }
+  });
+  
+  // GET /api/pastas/:id/arquivos - List files in folder
+  app.get('/api/pastas/:id/arquivos', requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const unidade = user?.unidade || 'salvador';
+      const pastaId = parseInt(req.params.id);
+      
+      if (isNaN(pastaId)) {
+        return res.status(400).json({ error: 'Invalid folder ID' });
+      }
+      
+      const arquivos = await storage.getDatasetsByPasta(pastaId, unidade);
+      res.json(arquivos);
+    } catch (error) {
+      console.error('Error fetching arquivos:', error);
+      res.status(500).json({ error: 'Failed to fetch arquivos' });
+    }
+  });
+  
+  // POST /api/pastas/:id/arquivos - Create file reference in folder after upload
+  app.post('/api/pastas/:id/arquivos', requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const unidade = user?.unidade || 'salvador';
+      const pastaId = parseInt(req.params.id);
+      
+      if (isNaN(pastaId)) {
+        return res.status(400).json({ error: 'Invalid folder ID' });
+      }
+      
+      const {
+        nome,
+        descricao,
+        tipo,
+        tamanho,
+        objectPath,
+        empreendimentoId,
+        url,
+      } = req.body;
+      
+      if (!nome || !empreendimentoId) {
+        return res.status(400).json({ error: 'Nome and empreendimentoId are required' });
+      }
+      
+      const arquivo = await storage.createDataset({
+        nome,
+        descricao: descricao || '',
+        tipo: tipo || 'outro',
+        tamanho: tamanho || 0,
+        url: url || objectPath || '',
+        objectPath,
+        pastaId,
+        empreendimentoId: parseInt(empreendimentoId),
+        usuario: user?.email || 'Sistema',
+        unidade,
+      });
+      
+      // Create audit trail
+      await db.insert(datasetAuditTrail).values({
+        datasetId: arquivo.id,
+        acao: 'upload',
+        userId: user?.id,
+        usuario: user?.email || 'Sistema',
+        detalhes: { pastaId, objectPath },
+      });
+      
+      res.status(201).json(arquivo);
+    } catch (error) {
+      console.error('Error creating arquivo:', error);
+      res.status(500).json({ error: 'Failed to create arquivo' });
+    }
+  });
+  
+  // DELETE /api/arquivos/:id - Delete file
+  app.delete('/api/arquivos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid file ID' });
+      }
+      
+      const deleted = await storage.deleteDataset(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting arquivo:', error);
+      res.status(500).json({ error: 'Failed to delete arquivo' });
+    }
+  });
+
+  // GET /api/pastas/:id/subpastas - Get subfolders of a folder
+  app.get('/api/pastas/:id/subpastas', requireAuth, async (req, res) => {
+    try {
+      const paiId = parseInt(req.params.id);
+      if (isNaN(paiId)) {
+        return res.status(400).json({ error: 'Invalid folder ID' });
+      }
+      
+      const subpastas = await storage.getSubpastas(paiId);
+      res.json(subpastas);
+    } catch (error) {
+      console.error('Error fetching subpastas:', error);
+      res.status(500).json({ error: 'Failed to fetch subpastas' });
     }
   });
 

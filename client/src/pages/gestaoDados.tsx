@@ -47,10 +47,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
   Upload, Download, Trash2, FileText, Database, XCircle, Eye, Edit, X, Loader2,
-  FolderTree, ChevronDown, ChevronRight, BookOpen, Search, Shield, History, FolderOpen
+  FolderTree, ChevronDown, ChevronRight, BookOpen, Search, Shield, History, FolderOpen,
+  FolderPlus, Plus, File
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Dataset, Empreendimento, User } from "@shared/schema";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { Dataset, Empreendimento, User, DatasetPasta } from "@shared/schema";
 
 // Dicionário de siglas
 const DICIONARIO_SIGLAS = {
@@ -157,6 +159,15 @@ export default function GestaoDados() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyDataset, setHistoryDataset] = useState<Dataset | null>(null);
+  
+  // Estados para gerenciamento de pastas
+  const [selectedPasta, setSelectedPasta] = useState<DatasetPasta | null>(null);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [parentFolderId, setParentFolderId] = useState<number | null>(null);
+  const [isUploadingToFolder, setIsUploadingToFolder] = useState(false);
+  const [folderFiles, setFolderFiles] = useState<Dataset[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
 
   // Formulário básico
   const [nome, setNome] = useState("");
@@ -212,13 +223,112 @@ export default function GestaoDados() {
     },
   });
 
-  // Buscar pastas
-  const { data: pastas = [], isLoading: pastasLoading } = useQuery<any[]>({
-    queryKey: ["/api/datasets/pastas"],
+  // Buscar pastas (using new API endpoint)
+  const { data: pastas = [], isLoading: pastasLoading, refetch: refetchPastas } = useQuery<DatasetPasta[]>({
+    queryKey: ["/api/pastas"],
     queryFn: async () => {
-      const res = await fetch("/api/datasets/pastas", { credentials: "include" });
+      const res = await fetch("/api/pastas", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
+    },
+  });
+
+  // Buscar arquivos da pasta selecionada
+  const { data: selectedFolderFiles = [], refetch: refetchFolderFiles } = useQuery<Dataset[]>({
+    queryKey: ["/api/pastas", selectedPasta?.id, "arquivos"],
+    queryFn: async () => {
+      if (!selectedPasta?.id) return [];
+      const res = await fetch(`/api/pastas/${selectedPasta.id}/arquivos`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedPasta?.id,
+  });
+
+  // Mutation para criar pasta
+  const createFolderMutation = useMutation({
+    mutationFn: async (data: { nome: string; paiId?: number | null; empreendimentoId?: number }) => {
+      const res = await fetch("/api/pastas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Erro ao criar pasta");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pastas"] });
+      refetchPastas();
+      toast({ title: "Sucesso", description: "Pasta criada com sucesso!" });
+      setIsCreateFolderOpen(false);
+      setNewFolderName("");
+      setParentFolderId(null);
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao criar pasta.", variant: "destructive" });
+    },
+  });
+
+  // Mutation para excluir pasta
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/pastas/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Erro ao excluir pasta");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pastas"] });
+      refetchPastas();
+      if (selectedPasta) setSelectedPasta(null);
+      toast({ title: "Sucesso", description: "Pasta excluída com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao excluir pasta.", variant: "destructive" });
+    },
+  });
+
+  // Mutation para criar arquivo na pasta
+  const createFileInFolderMutation = useMutation({
+    mutationFn: async (data: { pastaId: number; nome: string; objectPath: string; tipo?: string; tamanho?: number; empreendimentoId: number }) => {
+      const res = await fetch(`/api/pastas/${data.pastaId}/arquivos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Erro ao registrar arquivo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pastas", selectedPasta?.id, "arquivos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/datasets"] });
+      refetchFolderFiles();
+      refetch();
+      toast({ title: "Sucesso", description: "Arquivo enviado e registrado com sucesso!" });
+      setIsUploadingToFolder(false);
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao registrar arquivo.", variant: "destructive" });
+    },
+  });
+
+  // Mutation para excluir arquivo
+  const deleteFileMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/arquivos/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Erro ao excluir arquivo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pastas", selectedPasta?.id, "arquivos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/datasets"] });
+      refetchFolderFiles();
+      refetch();
+      toast({ title: "Sucesso", description: "Arquivo excluído com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao excluir arquivo.", variant: "destructive" });
     },
   });
 
@@ -541,6 +651,79 @@ export default function GestaoDados() {
       LGPD: "bg-red-100 text-red-700",
     };
     return classColors[classificacao || ""] || "bg-gray-100 text-gray-600";
+  };
+
+  // Helper: Toggle folder expansion
+  const toggleFolderExpanded = (folderId: number) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
+      return next;
+    });
+  };
+
+  // Helper: Build folder tree from flat list
+  const buildFolderTree = (allPastas: DatasetPasta[]) => {
+    const rootFolders = allPastas.filter(p => !p.paiId);
+    return rootFolders;
+  };
+
+  // Helper: Get subfolders of a folder
+  const getSubfolders = (folderId: number) => {
+    return pastas.filter(p => p.paiId === folderId);
+  };
+
+  // Helper: Handle folder selection
+  const handleSelectFolder = (pasta: DatasetPasta) => {
+    setSelectedPasta(pasta);
+  };
+
+  // Helper: Create new subfolder
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) {
+      toast({ title: "Erro", description: "Nome da pasta é obrigatório.", variant: "destructive" });
+      return;
+    }
+    createFolderMutation.mutate({
+      nome: newFolderName.trim(),
+      paiId: parentFolderId,
+      empreendimentoId: selectedEmpreendimento ? parseInt(selectedEmpreendimento) : undefined,
+    });
+  };
+
+  // Helper: Get upload parameters for Object Storage
+  const getUploadParameters = async () => {
+    const res = await fetch("/api/object-storage/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        fileName: `folder_${selectedPasta?.id}_${Date.now()}`,
+        directory: ".private",
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to get upload URL");
+    const data = await res.json();
+    return { method: "PUT" as const, url: data.uploadUrl, filePath: data.filePath };
+  };
+
+  // Helper: Handle file upload complete
+  const handleFileUploadComplete = (result: { uploadURL: string; filePath?: string }, fileName: string, fileSize: number) => {
+    if (!selectedPasta || !selectedEmpreendimento) {
+      toast({ title: "Erro", description: "Selecione uma pasta e empreendimento primeiro.", variant: "destructive" });
+      return;
+    }
+    createFileInFolderMutation.mutate({
+      pastaId: selectedPasta.id,
+      nome: fileName,
+      objectPath: result.filePath || "",
+      tamanho: fileSize,
+      empreendimentoId: parseInt(selectedEmpreendimento),
+    });
   };
 
   // Filtrar dicionário
@@ -1022,125 +1205,316 @@ export default function GestaoDados() {
         </TabsContent>
 
         <TabsContent value="estrutura">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FolderTree className="h-5 w-5 text-primary" />
-                Estrutura de Pastas Institucional
-              </CardTitle>
-              <CardDescription>
-                Hierarquia de pastas para organizacao dos documentos do projeto. Clique em uma pasta para ver seus arquivos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pastasLoading || (pastas.length === 0 && !autoInitialized) ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FolderTree className="h-12 w-12 mx-auto mb-2 opacity-50 animate-pulse" />
-                  <p>Carregando estrutura de pastas...</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Sidebar: Folder Tree */}
+            <Card className="lg:col-span-1">
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <FolderTree className="h-5 w-5 text-primary" />
+                    Pastas
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => { setParentFolderId(null); setIsCreateFolderOpen(true); }}>
+                    <FolderPlus className="h-4 w-4 mr-1" />
+                    Nova
+                  </Button>
                 </div>
-              ) : pastas.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FolderTree className="h-12 w-12 mx-auto mb-2 opacity-50 animate-pulse" />
-                  <p>Inicializando estrutura de pastas...</p>
-                </div>
-              ) : (
-                <ScrollArea className="h-[500px]">
-                  <div className="space-y-1">
-                    {pastas.filter(p => !p.pai || p.pai === "/ECOBRASIL_GESTAO_DADOS").map((pasta) => {
-                      const subpastas = pastas.filter(p => p.pai === pasta.caminho);
-                      const arquivosDaPasta = datasets.filter(d => d.pastaDestino === pasta.caminho);
-                      
-                      return (
-                        <Collapsible key={pasta.id}>
-                          <CollapsibleTrigger className="w-full">
-                            <div className="flex items-center gap-2 py-2 px-2 hover:bg-muted rounded cursor-pointer">
-                              <ChevronRight className="h-4 w-4 text-muted-foreground collapsible-chevron" />
-                              <FolderOpen className="h-4 w-4 text-amber-500" />
-                              <span className="font-mono text-sm font-medium">{pasta.nome}</span>
-                              <Badge variant="outline" className="text-xs ml-auto">
-                                {arquivosDaPasta.length} {arquivosDaPasta.length === 1 ? "arquivo" : "arquivos"}
-                              </Badge>
-                            </div>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="ml-6 pl-4 border-l-2 border-muted">
-                              {subpastas.map((subpasta) => {
-                                const arquivosSubpasta = datasets.filter(d => d.pastaDestino === subpasta.caminho);
-                                const subsubpastas = pastas.filter(p => p.pai === subpasta.caminho);
-                                
-                                return (
-                                  <Collapsible key={subpasta.id}>
-                                    <CollapsibleTrigger className="w-full">
-                                      <div className="flex items-center gap-2 py-1 px-2 hover:bg-muted rounded cursor-pointer">
-                                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                                        <FolderOpen className="h-3 w-3 text-amber-400" />
-                                        <span className="font-mono text-xs">{subpasta.nome}</span>
-                                        {arquivosSubpasta.length > 0 && (
-                                          <Badge variant="secondary" className="text-xs ml-auto">{arquivosSubpasta.length}</Badge>
-                                        )}
-                                      </div>
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent>
-                                      <div className="ml-4 pl-2 border-l border-muted">
-                                        {subsubpastas.map((ssp) => {
-                                          const arquivosSsp = datasets.filter(d => d.pastaDestino === ssp.caminho);
-                                          return (
-                                            <div key={ssp.id} className="flex items-center gap-2 py-1 px-2 hover:bg-muted/50 rounded">
-                                              <FolderOpen className="h-3 w-3 text-amber-300" />
-                                              <span className="font-mono text-xs text-muted-foreground">{ssp.nome}</span>
-                                              {arquivosSsp.length > 0 && (
-                                                <Badge variant="secondary" className="text-xs ml-auto">{arquivosSsp.length}</Badge>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                        {arquivosSubpasta.map((arq) => (
-                                          <div key={arq.id} className="flex items-center gap-2 py-1 px-2 hover:bg-blue-50 dark:hover:bg-blue-950 rounded">
-                                            <FileText className="h-3 w-3 text-blue-500" />
-                                            <span className="text-xs truncate flex-1">{arq.codigoArquivo || arq.nome}</span>
-                                            <div className="flex gap-1">
-                                              <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handlePreview(arq)}>
-                                                <Eye className="h-3 w-3" />
-                                              </Button>
-                                              <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handleDownload(arq)}>
-                                                <Download className="h-3 w-3" />
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </CollapsibleContent>
-                                  </Collapsible>
-                                );
-                              })}
-                              {arquivosDaPasta.map((arq) => (
-                                <div key={arq.id} className="flex items-center gap-2 py-1 px-2 hover:bg-blue-50 dark:hover:bg-blue-950 rounded">
-                                  <FileText className="h-4 w-4 text-blue-500" />
-                                  <span className="text-sm truncate flex-1">{arq.codigoArquivo || arq.nome}</span>
-                                  <Badge className={getStatusBadge(arq.status)} variant="outline">{arq.status || "N/A"}</Badge>
-                                  <div className="flex gap-1">
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handlePreview(arq)}>
-                                      <Eye className="h-3 w-3" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownload(arq)}>
-                                      <Download className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                              {subpastas.length === 0 && arquivosDaPasta.length === 0 && (
-                                <p className="text-xs text-muted-foreground py-2 px-2 italic">Pasta vazia</p>
-                              )}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      );
-                    })}
+              </CardHeader>
+              <CardContent className="p-0">
+                {pastasLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm">Carregando...</p>
                   </div>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
+                ) : pastas.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground px-4">
+                    <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Nenhuma pasta encontrada.</p>
+                    <Button size="sm" className="mt-3" onClick={() => initMacroMutation.mutate()}>
+                      <FolderPlus className="h-4 w-4 mr-1" />
+                      Criar Estrutura Inicial
+                    </Button>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[450px] px-2 pb-2">
+                    <div className="space-y-0.5">
+                      {buildFolderTree(pastas).map((pasta) => {
+                        const isExpanded = expandedFolders.has(pasta.id);
+                        const subfolders = getSubfolders(pasta.id);
+                        const isSelected = selectedPasta?.id === pasta.id;
+                        
+                        return (
+                          <div key={pasta.id}>
+                            <div 
+                              className={`flex items-center gap-1 py-1.5 px-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                            >
+                              <button
+                                onClick={() => toggleFolderExpanded(pasta.id)}
+                                className="p-0.5 hover:bg-muted-foreground/10 rounded"
+                              >
+                                {subfolders.length > 0 ? (
+                                  isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+                                ) : <span className="w-3" />}
+                              </button>
+                              <FolderOpen className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-amber-500'}`} />
+                              <span 
+                                className="font-mono text-xs flex-1 truncate" 
+                                onClick={() => handleSelectFolder(pasta)}
+                                title={pasta.nome}
+                              >
+                                {pasta.nome}
+                              </span>
+                              <button
+                                onClick={() => { setParentFolderId(pasta.id); setIsCreateFolderOpen(true); }}
+                                className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted rounded"
+                                title="Criar subpasta"
+                              >
+                                <Plus className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </div>
+                            
+                            {/* Subfolders */}
+                            {isExpanded && subfolders.length > 0 && (
+                              <div className="ml-4 pl-2 border-l border-muted">
+                                {subfolders.map((sub) => {
+                                  const subIsExpanded = expandedFolders.has(sub.id);
+                                  const subSubfolders = getSubfolders(sub.id);
+                                  const subIsSelected = selectedPasta?.id === sub.id;
+                                  
+                                  return (
+                                    <div key={sub.id}>
+                                      <div 
+                                        className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${subIsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                                      >
+                                        <button
+                                          onClick={() => toggleFolderExpanded(sub.id)}
+                                          className="p-0.5"
+                                        >
+                                          {subSubfolders.length > 0 ? (
+                                            subIsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+                                          ) : <span className="w-3" />}
+                                        </button>
+                                        <FolderOpen className={`h-3 w-3 ${subIsSelected ? 'text-primary' : 'text-amber-400'}`} />
+                                        <span 
+                                          className="font-mono text-xs flex-1 truncate"
+                                          onClick={() => handleSelectFolder(sub)}
+                                          title={sub.nome}
+                                        >
+                                          {sub.nome}
+                                        </span>
+                                      </div>
+                                      
+                                      {/* Third level */}
+                                      {subIsExpanded && subSubfolders.length > 0 && (
+                                        <div className="ml-4 pl-2 border-l border-muted">
+                                          {subSubfolders.map((ssub) => {
+                                            const ssubIsSelected = selectedPasta?.id === ssub.id;
+                                            return (
+                                              <div 
+                                                key={ssub.id}
+                                                className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${ssubIsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                                                onClick={() => handleSelectFolder(ssub)}
+                                              >
+                                                <span className="w-3" />
+                                                <FolderOpen className={`h-3 w-3 ${ssubIsSelected ? 'text-primary' : 'text-amber-300'}`} />
+                                                <span className="font-mono text-xs truncate" title={ssub.nome}>{ssub.nome}</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Main Content: Selected Folder Files */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <FileText className="h-5 w-5 text-primary" />
+                      {selectedPasta ? selectedPasta.nome : "Selecione uma pasta"}
+                    </CardTitle>
+                    {selectedPasta && (
+                      <CardDescription className="text-xs mt-1">
+                        Caminho: {selectedPasta.caminho}
+                      </CardDescription>
+                    )}
+                  </div>
+                  {selectedPasta && (
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="destructive" 
+                        onClick={() => {
+                          if (confirm("Tem certeza que deseja excluir esta pasta e todos os arquivos?")) {
+                            deleteFolderMutation.mutate(selectedPasta.id);
+                          }
+                        }}
+                        disabled={deleteFolderMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Excluir Pasta
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!selectedPasta ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FolderOpen className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                    <p>Selecione uma pasta na arvore para ver seus arquivos.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* File Upload Section */}
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Upload className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Enviar arquivo para esta pasta</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <Label className="text-xs">Empreendimento</Label>
+                          <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {empreendimentos.map((e) => (
+                                <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      {selectedEmpreendimento ? (
+                        <div className="border-2 border-dashed rounded-md p-4 text-center hover:border-primary/50 transition-colors">
+                          <input 
+                            type="file" 
+                            id="folder-file-upload"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              setIsUploadingToFolder(true);
+                              try {
+                                const params = await getUploadParameters();
+                                const response = await fetch(params.url, {
+                                  method: params.method,
+                                  body: file,
+                                  headers: { 'Content-Type': file.type },
+                                });
+                                if (!response.ok) throw new Error("Upload failed");
+                                
+                                handleFileUploadComplete({ uploadURL: params.url, filePath: params.filePath }, file.name, file.size);
+                              } catch (error) {
+                                console.error("Upload error:", error);
+                                toast({ title: "Erro", description: "Falha no upload do arquivo.", variant: "destructive" });
+                              } finally {
+                                setIsUploadingToFolder(false);
+                              }
+                            }}
+                          />
+                          <label htmlFor="folder-file-upload" className="cursor-pointer">
+                            {isUploadingToFolder ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span className="text-sm">Enviando...</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <Upload className="h-8 w-8 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">Clique para selecionar ou arraste um arquivo</span>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Selecione um empreendimento para habilitar o upload.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Files List */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-sm">Arquivos ({selectedFolderFiles.length})</span>
+                      </div>
+                      {selectedFolderFiles.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                          <File className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">Nenhum arquivo nesta pasta.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedFolderFiles.map((arquivo) => (
+                            <div 
+                              key={arquivo.id} 
+                              className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                            >
+                              <FileText className="h-8 w-8 text-blue-500 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate" title={arquivo.nome}>
+                                  {arquivo.codigoArquivo || arquivo.nome}
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{formatFileSize(arquivo.tamanho)}</span>
+                                  <span>•</span>
+                                  <span>{new Intl.DateTimeFormat("pt-BR").format(new Date(arquivo.dataUpload))}</span>
+                                  {arquivo.status && (
+                                    <>
+                                      <span>•</span>
+                                      <Badge className={getStatusBadge(arquivo.status)} variant="outline">{arquivo.status}</Badge>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handlePreview(arquivo)} title="Visualizar">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleDownload(arquivo)} title="Baixar">
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-8 w-8 text-destructive" 
+                                  onClick={() => {
+                                    if (confirm("Excluir este arquivo?")) {
+                                      deleteFileMutation.mutate(arquivo.id);
+                                    }
+                                  }}
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -1244,6 +1618,49 @@ export default function GestaoDados() {
             <p className="text-sm text-muted-foreground text-center py-4">
               Historico de versoes anteriores sera exibido aqui quando disponivel.
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Criar Pasta */}
+      <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderPlus className="h-5 w-5" />
+              Criar Nova Pasta
+            </DialogTitle>
+            <DialogDescription>
+              {parentFolderId ? "Criar subpasta dentro da pasta selecionada." : "Criar nova pasta raiz."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nome da Pasta *</Label>
+              <Input 
+                value={newFolderName} 
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Nome da pasta"
+              />
+            </div>
+            {parentFolderId && (
+              <div className="bg-muted p-3 rounded-lg text-sm">
+                <p className="text-muted-foreground">
+                  Pasta pai: <span className="font-medium text-foreground">
+                    {pastas.find(p => p.id === parentFolderId)?.nome || ""}
+                  </span>
+                </p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setIsCreateFolderOpen(false); setNewFolderName(""); setParentFolderId(null); }}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateFolder} disabled={createFolderMutation.isPending}>
+                {createFolderMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Criar Pasta
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
