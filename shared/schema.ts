@@ -360,6 +360,7 @@ export const demandas = pgTable("demandas", {
   setor: text("setor").notNull(), // Ex: Fauna, RH, Licenciamento, Engenharia
   status: text("status").notNull().default("a_fazer"), // a_fazer, em_andamento, em_revisao, concluido, cancelado
   prioridade: text("prioridade").notNull().default("media"), // baixa, media, alta
+  complexidade: text("complexidade").notNull().default("media"), // baixa, media, alta - para gamificação
   dataEntrega: date("data_entrega").notNull(),
   dataConclusao: date("data_conclusao"),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
@@ -1557,7 +1558,7 @@ export const membrosProjetos = pgTable("membros_projetos", {
   id: serial("id").primaryKey(),
   membroEquipeId: integer("membro_equipe_id").references(() => membrosEquipe.id).notNull(),
   projetoId: integer("projeto_id").references(() => projetos.id).notNull(),
-  unidade: text("unidade").notNull().default("goiania"),
+  unidade: text("unidade").notNull().default("salvador"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
@@ -1586,12 +1587,13 @@ export const tarefas = pgTable("tarefas", {
   dataInicio: date("data_inicio").notNull(),
   dataFim: date("data_fim").notNull(),
   prioridade: text("prioridade").notNull().default("media"), // baixa, media, alta, urgente
+  complexidade: text("complexidade").notNull().default("media"), // baixa, media, alta - para gamificação
   status: text("status").notNull().default("pendente"), // pendente, em_andamento, concluida, cancelada, atrasada
   categoria: text("categoria").notNull().default("geral"), // campo, escritorio, relatorio, reuniao, vistoria, geral
   responsavelId: integer("responsavel_id").references(() => users.id).notNull(), // colaborador responsável
   criadoPor: integer("criado_por").references(() => users.id).notNull(), // coordenador que criou
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id), // projeto relacionado (opcional)
-  unidade: text("unidade").notNull().default("goiania"),
+  unidade: text("unidade").notNull().default("salvador"),
   recorrente: boolean("recorrente").notNull().default(false),
   frequenciaRecorrencia: text("frequencia_recorrencia"), // diaria, semanal, mensal
   horasEstimadas: decimal("horas_estimadas", { precision: 5, scale: 2 }),
@@ -1913,4 +1915,94 @@ export type InsertWhatsappContactGroup = z.infer<typeof insertWhatsappContactGro
 export type WhatsappContactGroup = typeof whatsappContactGroups.$inferSelect;
 export type InsertWhatsappContactGroupMember = z.infer<typeof insertWhatsappContactGroupMemberSchema>;
 export type WhatsappContactGroupMember = typeof whatsappContactGroupMembers.$inferSelect;
+
+// ==================== GAMIFICAÇÃO ====================
+
+// Tabela de pontuações de gamificação
+export const pontuacoesGamificacao = pgTable("pontuacoes_gamificacao", {
+  id: serial("id").primaryKey(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  pontos: integer("pontos").notNull().default(0),
+  pontosComplexidade: integer("pontos_complexidade").notNull().default(0), // pontos por complexidade das tarefas
+  pontosPrazo: integer("pontos_prazo").notNull().default(0), // pontos por cumprimento de prazos
+  pontosEconomia: integer("pontos_economia").notNull().default(0), // pontos por economia em projetos
+  pontosVolume: integer("pontos_volume").notNull().default(0), // pontos por volume de entregas
+  tarefasConcluidas: integer("tarefas_concluidas").notNull().default(0),
+  demandasConcluidas: integer("demandas_concluidas").notNull().default(0),
+  tarefasAtrasadas: integer("tarefas_atrasadas").notNull().default(0),
+  demandasAtrasadas: integer("demandas_atrasadas").notNull().default(0),
+  tarefasAntecipadas: integer("tarefas_antecipadas").notNull().default(0),
+  demandasAntecipadas: integer("demandas_antecipadas").notNull().default(0),
+  periodo: text("periodo").notNull(), // formato: YYYY-MM (mês/ano)
+  unidade: text("unidade").notNull().default("salvador"),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertPontuacaoGamificacaoSchema = createInsertSchema(pontuacoesGamificacao).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertPontuacaoGamificacao = z.infer<typeof insertPontuacaoGamificacaoSchema>;
+export type PontuacaoGamificacao = typeof pontuacoesGamificacao.$inferSelect;
+
+// Tabela de conquistas/badges
+export const conquistasGamificacao = pgTable("conquistas_gamificacao", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao").notNull(),
+  icone: text("icone").notNull(), // emoji ou nome do ícone
+  cor: text("cor").notNull().default("#228B22"), // cor do badge
+  criterio: text("criterio").notNull(), // tipo do critério: tarefas_concluidas, economia, prazo, etc
+  valorMinimo: integer("valor_minimo").notNull(), // valor mínimo para desbloquear
+  pontosBonus: integer("pontos_bonus").notNull().default(0), // pontos extras ao conquistar
+  ativo: boolean("ativo").notNull().default(true),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertConquistaGamificacaoSchema = createInsertSchema(conquistasGamificacao).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertConquistaGamificacao = z.infer<typeof insertConquistaGamificacaoSchema>;
+export type ConquistaGamificacao = typeof conquistasGamificacao.$inferSelect;
+
+// Tabela de conquistas do usuário (many-to-many)
+export const usuarioConquistas = pgTable("usuario_conquistas", {
+  id: serial("id").primaryKey(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  conquistaId: integer("conquista_id").references(() => conquistasGamificacao.id).notNull(),
+  conquistadoEm: timestamp("conquistado_em").defaultNow().notNull(),
+});
+
+export const insertUsuarioConquistaSchema = createInsertSchema(usuarioConquistas).omit({
+  id: true,
+  conquistadoEm: true,
+});
+
+export type InsertUsuarioConquista = z.infer<typeof insertUsuarioConquistaSchema>;
+export type UsuarioConquista = typeof usuarioConquistas.$inferSelect;
+
+// Histórico de pontos (para gráficos de evolução)
+export const historicosPontuacao = pgTable("historicos_pontuacao", {
+  id: serial("id").primaryKey(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  pontos: integer("pontos").notNull(),
+  tipo: text("tipo").notNull(), // tarefa_concluida, demanda_concluida, conquista, bonus, penalidade
+  descricao: text("descricao"),
+  referenciaId: integer("referencia_id"), // id da tarefa/demanda/conquista
+  referenciaTipo: text("referencia_tipo"), // tarefa, demanda, conquista
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertHistoricoPontuacaoSchema = createInsertSchema(historicosPontuacao).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertHistoricoPontuacao = z.infer<typeof insertHistoricoPontuacaoSchema>;
+export type HistoricoPontuacao = typeof historicosPontuacao.$inferSelect;
 

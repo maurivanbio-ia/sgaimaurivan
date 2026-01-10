@@ -6472,6 +6472,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== GAMIFICAÇÃO ====================
+  
+  app.get('/api/gamificacao/ranking', requireAuth, async (req, res) => {
+    try {
+      const { getRankingGeral } = await import('./services/gamificacaoService');
+      const periodo = req.query.periodo as string | undefined;
+      const ranking = await getRankingGeral(periodo);
+      res.json(ranking);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/gamificacao/meu-desempenho', requireAuth, async (req, res) => {
+    try {
+      const { getDesempenhoUsuario } = await import('./services/gamificacaoService');
+      const periodo = req.query.periodo as string | undefined;
+      const desempenho = await getDesempenhoUsuario(req.user.id, periodo);
+      res.json(desempenho);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/gamificacao/conquistas', requireAuth, async (req, res) => {
+    try {
+      const { getConquistasDisponiveis } = await import('./services/gamificacaoService');
+      const conquistas = await getConquistasDisponiveis();
+      res.json(conquistas);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/gamificacao/estatisticas', requireAuth, async (req, res) => {
+    try {
+      const { getEstatisticasGerais } = await import('./services/gamificacaoService');
+      const stats = await getEstatisticasGerais();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/gamificacao/seed-conquistas', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      const { seedConquistas } = await import('./services/gamificacaoService');
+      await seedConquistas();
+      res.json({ success: true, message: 'Conquistas padrão criadas' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Register n8n webhooks (before creating HTTP server)
   registerN8nWebhooks(app);
   

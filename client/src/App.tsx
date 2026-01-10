@@ -40,6 +40,7 @@ import MapaEmpreendimentos from "./pages/mapa";
 import Calendario from "./pages/calendario";
 import Cronograma from "./pages/cronograma";
 import GestaoEquipe from "./pages/gestao-equipe";
+import Gamificacao from "./pages/gamificacao";
 import PortalColaborador from "./pages/portal-colaborador";
 import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
 import Sidebar from "./components/layout/sidebar";
@@ -161,6 +162,7 @@ function Router() {
                     <Route path="/seguranca-trabalho" component={SegurancaTrabalho} />
                     <Route path="/relatorios-automaticos" component={RelatoriosAutomaticos} />
                     <Route path="/gestao-equipe" component={GestaoEquipe} />
+                    <Route path="/gamificacao" component={Gamificacao} />
                     <Route path="/minhas-tarefas" component={PortalColaborador} />
                     <Route component={NotFound} />
                   </Switch>
