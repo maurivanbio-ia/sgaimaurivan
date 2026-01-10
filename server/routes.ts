@@ -31,6 +31,14 @@ import {
   insertMuralSchema,
   insertComunicadoSchema,
   insertComunicadoComentarioSchema,
+  comunicadoTemplates, insertComunicadoTemplateSchema,
+  comunicadoCategorias, insertComunicadoCategoriaSchema,
+  comunicadoEnquetes, insertComunicadoEnqueteSchema,
+  comunicadoEnqueteVotos,
+  comunicadoReacoes,
+  comunicadoMencoes,
+  comunicadoLeituraObrigatoria,
+  comunicadoEventos, insertComunicadoEventoSchema,
   users,
   campanhas,
   cronogramaItens,
@@ -7559,9 +7567,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         unidade: req.user.unidade,
         autorId: req.session.userId,
-        dataPublicacao: new Date(),
+        dataPublicacao: req.body.dataPublicacao ? new Date(req.body.dataPublicacao) : new Date(),
       });
       const [comunicado] = await db.insert(comunicados).values(data).returning();
+      
+      // Enviar notificações para comunicados urgentes ou de leitura obrigatória
+      if (data.tipo === 'urgente' || data.prioridade === 'urgente' || data.leituraObrigatoria) {
+        try {
+          // Buscar todos os usuários da mesma unidade
+          const usersToNotify = await db
+            .select({ email: users.email, id: users.id })
+            .from(users)
+            .where(eq(users.unidade, req.user.unidade));
+          
+          // Criar notificações internas
+          for (const userToNotify of usersToNotify) {
+            if (userToNotify.id !== req.session.userId) {
+              await db.insert(notifications).values({
+                userId: userToNotify.id,
+                tipo: 'comunicado_urgente',
+                titulo: data.leituraObrigatoria ? 'Novo comunicado de leitura obrigatória' : 'Novo comunicado urgente',
+                mensagem: `${data.titulo}`,
+                itemId: comunicado.id,
+                itemTipo: 'comunicado',
+                unidade: req.user.unidade,
+              });
+            }
+          }
+          
+          // Enviar emails para comunicados urgentes (importar sendEmail do emailService)
+          const { sendEmail } = await import('./emailService');
+          for (const userToNotify of usersToNotify) {
+            if (userToNotify.email && userToNotify.id !== req.session.userId) {
+              sendEmail({
+                to: userToNotify.email,
+                subject: `[URGENTE] ${data.titulo}`,
+                text: `Um novo comunicado urgente foi publicado:\n\n${data.titulo}\n\n${data.resumo || data.conteudo?.substring(0, 300)}...\n\nAcesse o EcoGestor para ver o comunicado completo.`,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 20px; text-align: center;">
+                      <h1 style="color: white; margin: 0;">⚠️ Comunicado Urgente</h1>
+                    </div>
+                    <div style="padding: 20px; background: #fff;">
+                      <h2 style="color: #1f2937;">${data.titulo}</h2>
+                      <p style="color: #6b7280;">${data.resumo || data.conteudo?.substring(0, 300)}...</p>
+                      ${data.leituraObrigatoria ? '<p style="color: #ef4444; font-weight: bold;">📋 Este comunicado requer confirmação de leitura.</p>' : ''}
+                      <a href="#" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Acessar EcoGestor</a>
+                    </div>
+                    <div style="background: #f3f4f6; padding: 15px; text-align: center; color: #6b7280; font-size: 12px;">
+                      EcoBrasil - Sistema de Gestão Ambiental
+                    </div>
+                  </div>
+                `,
+              }).catch(err => console.log('[Email] Falha ao enviar notificação:', err.message));
+            }
+          }
+          console.log(`[Comunicado] Notificações enviadas para ${usersToNotify.length} usuários`);
+        } catch (notifyError: any) {
+          console.log('[Comunicado] Erro ao enviar notificações:', notifyError.message);
+        }
+      }
+      
       res.json(comunicado);
     } catch (error: any) {
       console.error('Error creating comunicado:', error);
@@ -7760,6 +7826,696 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Erro ao processar curtida' });
     }
   });
+
+  // =============================================
+  // COMUNICADO TEMPLATES ROUTES
+  // =============================================
+  
+  app.get('/api/comunicado-templates', requireAuth, async (req, res) => {
+    try {
+      const templates = await db
+        .select()
+        .from(comunicadoTemplates)
+        .where(eq(comunicadoTemplates.unidade, req.user.unidade))
+        .orderBy(comunicadoTemplates.nome);
+      res.json(templates);
+    } catch (error: any) {
+      console.error('Error fetching templates:', error);
+      res.status(500).json({ error: 'Erro ao buscar templates' });
+    }
+  });
+
+  app.post('/api/comunicado-templates', requireAuth, async (req, res) => {
+    try {
+      const data = insertComunicadoTemplateSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.session.userId,
+      });
+      const [template] = await db.insert(comunicadoTemplates).values(data).returning();
+      res.json(template);
+    } catch (error: any) {
+      console.error('Error creating template:', error);
+      res.status(500).json({ error: 'Erro ao criar template' });
+    }
+  });
+
+  app.put('/api/comunicado-templates/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [template] = await db
+        .update(comunicadoTemplates)
+        .set(req.body)
+        .where(and(
+          eq(comunicadoTemplates.id, id),
+          eq(comunicadoTemplates.unidade, req.user.unidade)
+        ))
+        .returning();
+      
+      if (!template) return res.status(404).json({ error: 'Template não encontrado' });
+      res.json(template);
+    } catch (error: any) {
+      console.error('Error updating template:', error);
+      res.status(500).json({ error: 'Erro ao atualizar template' });
+    }
+  });
+
+  app.delete('/api/comunicado-templates/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      await db
+        .delete(comunicadoTemplates)
+        .where(and(
+          eq(comunicadoTemplates.id, id),
+          eq(comunicadoTemplates.unidade, req.user.unidade)
+        ));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting template:', error);
+      res.status(500).json({ error: 'Erro ao deletar template' });
+    }
+  });
+
+  // =============================================
+  // COMUNICADO CATEGORIAS ROUTES
+  // =============================================
+  
+  app.get('/api/comunicado-categorias', requireAuth, async (req, res) => {
+    try {
+      const categorias = await db
+        .select()
+        .from(comunicadoCategorias)
+        .where(eq(comunicadoCategorias.unidade, req.user.unidade))
+        .orderBy(comunicadoCategorias.ordem);
+      res.json(categorias);
+    } catch (error: any) {
+      console.error('Error fetching categorias:', error);
+      res.status(500).json({ error: 'Erro ao buscar categorias' });
+    }
+  });
+
+  app.post('/api/comunicado-categorias', requireAuth, async (req, res) => {
+    try {
+      const data = insertComunicadoCategoriaSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+      });
+      const [categoria] = await db.insert(comunicadoCategorias).values(data).returning();
+      res.json(categoria);
+    } catch (error: any) {
+      console.error('Error creating categoria:', error);
+      res.status(500).json({ error: 'Erro ao criar categoria' });
+    }
+  });
+
+  app.put('/api/comunicado-categorias/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [categoria] = await db
+        .update(comunicadoCategorias)
+        .set(req.body)
+        .where(and(
+          eq(comunicadoCategorias.id, id),
+          eq(comunicadoCategorias.unidade, req.user.unidade)
+        ))
+        .returning();
+      
+      if (!categoria) return res.status(404).json({ error: 'Categoria não encontrada' });
+      res.json(categoria);
+    } catch (error: any) {
+      console.error('Error updating categoria:', error);
+      res.status(500).json({ error: 'Erro ao atualizar categoria' });
+    }
+  });
+
+  app.delete('/api/comunicado-categorias/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      await db
+        .delete(comunicadoCategorias)
+        .where(and(
+          eq(comunicadoCategorias.id, id),
+          eq(comunicadoCategorias.unidade, req.user.unidade)
+        ));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting categoria:', error);
+      res.status(500).json({ error: 'Erro ao deletar categoria' });
+    }
+  });
+
+  // =============================================
+  // ENQUETES (POLLS) ROUTES
+  // =============================================
+  
+  app.get('/api/comunicados/:id/enquete', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [enquete] = await db
+        .select()
+        .from(comunicadoEnquetes)
+        .where(eq(comunicadoEnquetes.comunicadoId, comunicadoId))
+        .limit(1);
+      
+      if (!enquete) return res.json(null);
+      
+      const [userVote] = await db
+        .select()
+        .from(comunicadoEnqueteVotos)
+        .where(and(
+          eq(comunicadoEnqueteVotos.enqueteId, enquete.id),
+          eq(comunicadoEnqueteVotos.usuarioId, req.session.userId!)
+        ))
+        .limit(1);
+      
+      res.json({ ...enquete, userVote: userVote?.opcaoId || null });
+    } catch (error: any) {
+      console.error('Error fetching enquete:', error);
+      res.status(500).json({ error: 'Erro ao buscar enquete' });
+    }
+  });
+
+  app.post('/api/comunicados/:id/enquete', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const data = insertComunicadoEnqueteSchema.parse({
+        ...req.body,
+        comunicadoId,
+      });
+      const [enquete] = await db.insert(comunicadoEnquetes).values(data).returning();
+      res.json(enquete);
+    } catch (error: any) {
+      console.error('Error creating enquete:', error);
+      res.status(500).json({ error: 'Erro ao criar enquete' });
+    }
+  });
+
+  app.post('/api/enquetes/:id/votar', requireAuth, async (req, res) => {
+    try {
+      const enqueteId = parseInt(req.params.id);
+      if (isNaN(enqueteId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const { opcaoId } = req.body;
+      if (!opcaoId) return res.status(400).json({ error: 'opcaoId é obrigatório' });
+      
+      const [enquete] = await db
+        .select()
+        .from(comunicadoEnquetes)
+        .where(eq(comunicadoEnquetes.id, enqueteId))
+        .limit(1);
+      
+      if (!enquete) return res.status(404).json({ error: 'Enquete não encontrada' });
+      
+      if (enquete.dataFim && new Date(enquete.dataFim) < new Date()) {
+        return res.status(400).json({ error: 'Votação encerrada' });
+      }
+      
+      const [existingVote] = await db
+        .select()
+        .from(comunicadoEnqueteVotos)
+        .where(and(
+          eq(comunicadoEnqueteVotos.enqueteId, enqueteId),
+          eq(comunicadoEnqueteVotos.usuarioId, req.session.userId!)
+        ))
+        .limit(1);
+      
+      if (existingVote && !enquete.multipla) {
+        return res.status(400).json({ error: 'Você já votou nesta enquete' });
+      }
+      
+      await db.insert(comunicadoEnqueteVotos).values({
+        enqueteId,
+        usuarioId: req.session.userId!,
+        opcaoId,
+      });
+      
+      const opcoes = enquete.opcoes as { id: string; texto: string; votos: number }[];
+      const updatedOpcoes = opcoes.map(o => 
+        o.id === opcaoId ? { ...o, votos: (o.votos || 0) + 1 } : o
+      );
+      
+      await db
+        .update(comunicadoEnquetes)
+        .set({ opcoes: updatedOpcoes })
+        .where(eq(comunicadoEnquetes.id, enqueteId));
+      
+      res.json({ success: true, opcoes: updatedOpcoes });
+    } catch (error: any) {
+      console.error('Error voting:', error);
+      res.status(500).json({ error: 'Erro ao registrar voto' });
+    }
+  });
+
+  app.get('/api/enquetes/:id/resultados', requireAuth, async (req, res) => {
+    try {
+      const enqueteId = parseInt(req.params.id);
+      if (isNaN(enqueteId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [enquete] = await db
+        .select()
+        .from(comunicadoEnquetes)
+        .where(eq(comunicadoEnquetes.id, enqueteId))
+        .limit(1);
+      
+      if (!enquete) return res.status(404).json({ error: 'Enquete não encontrada' });
+      
+      const votos = await db
+        .select()
+        .from(comunicadoEnqueteVotos)
+        .where(eq(comunicadoEnqueteVotos.enqueteId, enqueteId));
+      
+      res.json({
+        enquete,
+        totalVotos: votos.length,
+        votos: enquete.anonima ? undefined : votos,
+      });
+    } catch (error: any) {
+      console.error('Error fetching resultados:', error);
+      res.status(500).json({ error: 'Erro ao buscar resultados' });
+    }
+  });
+
+  // =============================================
+  // REACTIONS ROUTES
+  // =============================================
+  
+  app.get('/api/comunicados/:id/reacoes', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const reacoes = await db
+        .select({
+          emoji: comunicadoReacoes.emoji,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(comunicadoReacoes)
+        .where(eq(comunicadoReacoes.comunicadoId, comunicadoId))
+        .groupBy(comunicadoReacoes.emoji);
+      
+      const [userReaction] = await db
+        .select()
+        .from(comunicadoReacoes)
+        .where(and(
+          eq(comunicadoReacoes.comunicadoId, comunicadoId),
+          eq(comunicadoReacoes.usuarioId, req.session.userId!)
+        ))
+        .limit(1);
+      
+      res.json({ reacoes, userReaction: userReaction?.emoji || null });
+    } catch (error: any) {
+      console.error('Error fetching reacoes:', error);
+      res.status(500).json({ error: 'Erro ao buscar reações' });
+    }
+  });
+
+  app.post('/api/comunicados/:id/reagir', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const { emoji } = req.body;
+      if (!emoji) return res.status(400).json({ error: 'emoji é obrigatório' });
+      
+      const [existing] = await db
+        .select()
+        .from(comunicadoReacoes)
+        .where(and(
+          eq(comunicadoReacoes.comunicadoId, comunicadoId),
+          eq(comunicadoReacoes.usuarioId, req.session.userId!)
+        ))
+        .limit(1);
+      
+      if (existing) {
+        if (existing.emoji === emoji) {
+          await db
+            .delete(comunicadoReacoes)
+            .where(eq(comunicadoReacoes.id, existing.id));
+          res.json({ action: 'removed' });
+        } else {
+          await db
+            .update(comunicadoReacoes)
+            .set({ emoji })
+            .where(eq(comunicadoReacoes.id, existing.id));
+          res.json({ action: 'updated', emoji });
+        }
+      } else {
+        await db.insert(comunicadoReacoes).values({
+          comunicadoId,
+          usuarioId: req.session.userId!,
+          emoji,
+        });
+        res.json({ action: 'added', emoji });
+      }
+    } catch (error: any) {
+      console.error('Error toggling reaction:', error);
+      res.status(500).json({ error: 'Erro ao processar reação' });
+    }
+  });
+
+  // =============================================
+  // MENTIONS ROUTES
+  // =============================================
+  
+  app.get('/api/mencoes', requireAuth, async (req, res) => {
+    try {
+      const mencoes = await db
+        .select({
+          mencao: comunicadoMencoes,
+          comentario: comunicadoComentarios,
+        })
+        .from(comunicadoMencoes)
+        .leftJoin(comunicadoComentarios, eq(comunicadoMencoes.comentarioId, comunicadoComentarios.id))
+        .where(and(
+          eq(comunicadoMencoes.usuarioMencionadoId, req.session.userId!),
+          eq(comunicadoMencoes.lida, false)
+        ))
+        .orderBy(sql`${comunicadoMencoes.criadoEm} DESC`);
+      
+      res.json(mencoes);
+    } catch (error: any) {
+      console.error('Error fetching mencoes:', error);
+      res.status(500).json({ error: 'Erro ao buscar menções' });
+    }
+  });
+
+  app.put('/api/mencoes/:id/lida', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [mencao] = await db
+        .update(comunicadoMencoes)
+        .set({ lida: true })
+        .where(and(
+          eq(comunicadoMencoes.id, id),
+          eq(comunicadoMencoes.usuarioMencionadoId, req.session.userId!)
+        ))
+        .returning();
+      
+      if (!mencao) return res.status(404).json({ error: 'Menção não encontrada' });
+      res.json(mencao);
+    } catch (error: any) {
+      console.error('Error marking mencao as read:', error);
+      res.status(500).json({ error: 'Erro ao marcar menção como lida' });
+    }
+  });
+
+  // =============================================
+  // MANDATORY READING ROUTES
+  // =============================================
+  
+  app.post('/api/comunicados/:id/leitura-obrigatoria', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const { usuarioIds, prazoLeitura } = req.body;
+      if (!usuarioIds || !Array.isArray(usuarioIds)) {
+        return res.status(400).json({ error: 'usuarioIds é obrigatório' });
+      }
+      
+      const values = usuarioIds.map((usuarioId: number) => ({
+        comunicadoId,
+        usuarioId,
+        obrigatorio: true,
+        prazoLeitura: prazoLeitura ? new Date(prazoLeitura) : null,
+      }));
+      
+      await db.insert(comunicadoLeituraObrigatoria).values(values);
+      res.json({ success: true, count: values.length });
+    } catch (error: any) {
+      console.error('Error assigning mandatory reading:', error);
+      res.status(500).json({ error: 'Erro ao atribuir leitura obrigatória' });
+    }
+  });
+
+  app.get('/api/comunicados/:id/status-leitura', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const leituras = await db
+        .select({
+          leitura: comunicadoLeituraObrigatoria,
+          usuario: {
+            id: users.id,
+            email: users.email,
+          },
+        })
+        .from(comunicadoLeituraObrigatoria)
+        .leftJoin(users, eq(comunicadoLeituraObrigatoria.usuarioId, users.id))
+        .where(eq(comunicadoLeituraObrigatoria.comunicadoId, comunicadoId));
+      
+      const lidos = leituras.filter(l => l.leitura.lidoEm);
+      const pendentes = leituras.filter(l => !l.leitura.lidoEm);
+      
+      res.json({ lidos, pendentes, total: leituras.length });
+    } catch (error: any) {
+      console.error('Error fetching reading status:', error);
+      res.status(500).json({ error: 'Erro ao buscar status de leitura' });
+    }
+  });
+
+  app.post('/api/comunicados/:id/confirmar-leitura', requireAuth, async (req, res) => {
+    try {
+      const comunicadoId = parseInt(req.params.id);
+      if (isNaN(comunicadoId)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [leitura] = await db
+        .update(comunicadoLeituraObrigatoria)
+        .set({ lidoEm: new Date() })
+        .where(and(
+          eq(comunicadoLeituraObrigatoria.comunicadoId, comunicadoId),
+          eq(comunicadoLeituraObrigatoria.usuarioId, req.session.userId!)
+        ))
+        .returning();
+      
+      if (!leitura) {
+        return res.status(404).json({ error: 'Leitura obrigatória não encontrada para este usuário' });
+      }
+      
+      res.json(leitura);
+    } catch (error: any) {
+      console.error('Error confirming reading:', error);
+      res.status(500).json({ error: 'Erro ao confirmar leitura' });
+    }
+  });
+
+  app.get('/api/leituras-pendentes', requireAuth, async (req, res) => {
+    try {
+      const pendentes = await db
+        .select({
+          leitura: comunicadoLeituraObrigatoria,
+          comunicado: comunicados,
+        })
+        .from(comunicadoLeituraObrigatoria)
+        .leftJoin(comunicados, eq(comunicadoLeituraObrigatoria.comunicadoId, comunicados.id))
+        .where(and(
+          eq(comunicadoLeituraObrigatoria.usuarioId, req.session.userId!),
+          eq(comunicadoLeituraObrigatoria.obrigatorio, true),
+          isNull(comunicadoLeituraObrigatoria.lidoEm)
+        ))
+        .orderBy(sql`${comunicadoLeituraObrigatoria.prazoLeitura} ASC NULLS LAST`);
+      
+      res.json(pendentes);
+    } catch (error: any) {
+      console.error('Error fetching pending readings:', error);
+      res.status(500).json({ error: 'Erro ao buscar leituras pendentes' });
+    }
+  });
+
+  // =============================================
+  // CALENDAR EVENTS ROUTES
+  // =============================================
+  
+  app.get('/api/comunicado-eventos', requireAuth, async (req, res) => {
+    try {
+      const { dataInicio, dataFim } = req.query;
+      
+      let whereConditions = [eq(comunicadoEventos.unidade, req.user.unidade)];
+      
+      if (dataInicio) {
+        whereConditions.push(sql`${comunicadoEventos.dataInicio} >= ${new Date(dataInicio as string)}`);
+      }
+      if (dataFim) {
+        whereConditions.push(sql`${comunicadoEventos.dataInicio} <= ${new Date(dataFim as string)}`);
+      }
+      
+      const eventos = await db
+        .select()
+        .from(comunicadoEventos)
+        .where(and(...whereConditions))
+        .orderBy(comunicadoEventos.dataInicio);
+      
+      res.json(eventos);
+    } catch (error: any) {
+      console.error('Error fetching eventos:', error);
+      res.status(500).json({ error: 'Erro ao buscar eventos' });
+    }
+  });
+
+  app.post('/api/comunicado-eventos', requireAuth, async (req, res) => {
+    try {
+      const data = insertComunicadoEventoSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.session.userId,
+      });
+      const [evento] = await db.insert(comunicadoEventos).values(data).returning();
+      res.json(evento);
+    } catch (error: any) {
+      console.error('Error creating evento:', error);
+      res.status(500).json({ error: 'Erro ao criar evento' });
+    }
+  });
+
+  app.put('/api/comunicado-eventos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [evento] = await db
+        .update(comunicadoEventos)
+        .set(req.body)
+        .where(and(
+          eq(comunicadoEventos.id, id),
+          eq(comunicadoEventos.unidade, req.user.unidade)
+        ))
+        .returning();
+      
+      if (!evento) return res.status(404).json({ error: 'Evento não encontrado' });
+      res.json(evento);
+    } catch (error: any) {
+      console.error('Error updating evento:', error);
+      res.status(500).json({ error: 'Erro ao atualizar evento' });
+    }
+  });
+
+  app.delete('/api/comunicado-eventos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      await db
+        .delete(comunicadoEventos)
+        .where(and(
+          eq(comunicadoEventos.id, id),
+          eq(comunicadoEventos.unidade, req.user.unidade)
+        ));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting evento:', error);
+      res.status(500).json({ error: 'Erro ao deletar evento' });
+    }
+  });
+
+  // =============================================
+  // ENGAGEMENT DASHBOARD ROUTE
+  // =============================================
+  
+  app.get('/api/comunicados/engajamento/stats', requireAuth, async (req, res) => {
+    try {
+      const { periodo } = req.query;
+      let dateFilter = sql`1=1`;
+      
+      if (periodo === '7d') {
+        dateFilter = sql`${comunicados.criadoEm} >= NOW() - INTERVAL '7 days'`;
+      } else if (periodo === '30d') {
+        dateFilter = sql`${comunicados.criadoEm} >= NOW() - INTERVAL '30 days'`;
+      } else if (periodo === '90d') {
+        dateFilter = sql`${comunicados.criadoEm} >= NOW() - INTERVAL '90 days'`;
+      }
+      
+      const [stats] = await db
+        .select({
+          totalComunicados: sql<number>`count(DISTINCT ${comunicados.id})::int`,
+          totalVisualizacoes: sql<number>`COALESCE(sum(${comunicados.visualizacoes}), 0)::int`,
+        })
+        .from(comunicados)
+        .where(and(
+          eq(comunicados.unidade, req.user.unidade),
+          isNull(comunicados.deletedAt),
+          dateFilter
+        ));
+      
+      const [reactionStats] = await db
+        .select({
+          totalReacoes: sql<number>`count(*)::int`,
+        })
+        .from(comunicadoReacoes)
+        .innerJoin(comunicados, eq(comunicadoReacoes.comunicadoId, comunicados.id))
+        .where(and(
+          eq(comunicados.unidade, req.user.unidade),
+          dateFilter
+        ));
+      
+      const [commentStats] = await db
+        .select({
+          totalComentarios: sql<number>`count(*)::int`,
+        })
+        .from(comunicadoComentarios)
+        .innerJoin(comunicados, eq(comunicadoComentarios.comunicadoId, comunicados.id))
+        .where(and(
+          eq(comunicados.unidade, req.user.unidade),
+          isNull(comunicadoComentarios.deletedAt),
+          dateFilter
+        ));
+      
+      res.json({
+        ...stats,
+        totalReacoes: reactionStats?.totalReacoes || 0,
+        totalComentarios: commentStats?.totalComentarios || 0,
+        periodo: periodo || 'all',
+      });
+    } catch (error: any) {
+      console.error('Error fetching engagement stats:', error);
+      res.status(500).json({ error: 'Erro ao buscar estatísticas de engajamento' });
+    }
+  });
+
+  // =============================================
+  // AUTO-ARCHIVE CRON JOB
+  // =============================================
+  
+  const archiveExpiredComunicados = async () => {
+    try {
+      const result = await db
+        .update(comunicados)
+        .set({ status: 'arquivado' })
+        .where(and(
+          eq(comunicados.status, 'publicado'),
+          sql`${comunicados.dataExpiracao} < NOW()`,
+          sql`${comunicados.dataExpiracao} IS NOT NULL`
+        ))
+        .returning({ id: comunicados.id });
+      
+      if (result.length > 0) {
+        console.log(`[CRON] Archived ${result.length} expired comunicados`);
+      }
+    } catch (error) {
+      console.error('[CRON] Error archiving expired comunicados:', error);
+    }
+  };
+
+  const cron = await import('node-cron');
+  cron.schedule('0 0 * * *', archiveExpiredComunicados);
+  console.log('[CRON] Auto-archive comunicados job scheduled (daily at midnight)');
 
   // Register n8n webhooks (before creating HTTP server)
   registerN8nWebhooks(app);

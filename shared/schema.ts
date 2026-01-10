@@ -2314,7 +2314,11 @@ export const comunicados = pgTable("comunicados", {
   dataPublicacao: timestamp("data_publicacao").defaultNow().notNull(),
   dataExpiracao: timestamp("data_expiracao"), // quando o comunicado expira
   visibilidade: text("visibilidade").notNull().default("todos"), // todos, coordenadores, diretores, colaboradores
-  status: text("status").notNull().default("publicado"), // rascunho, publicado, arquivado
+  status: text("status").notNull().default("publicado"), // rascunho, publicado, arquivado, agendado
+  categoriaId: integer("categoria_id"), // referência à categoria
+  tags: text("tags"), // tags separadas por vírgula
+  leituraObrigatoria: boolean("leitura_obrigatoria").default(false), // exige confirmação de leitura
+  temEnquete: boolean("tem_enquete").default(false), // indica se tem enquete anexada
   visualizacoes: integer("visualizacoes").default(0),
   unidade: text("unidade").notNull().default("salvador"),
   autorId: integer("autor_id").references(() => users.id).notNull(),
@@ -2373,4 +2377,128 @@ export const comunicadoCurtidas = pgTable("comunicado_curtidas", {
   usuarioId: integer("usuario_id").references(() => users.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
+
+// Templates de comunicados
+export const comunicadoTemplates = pgTable("comunicado_templates", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  tipo: text("tipo").notNull().default("aviso"),
+  conteudoModelo: text("conteudo_modelo").notNull(),
+  icone: text("icone").default("file-text"),
+  cor: text("cor").default("#3b82f6"),
+  ativo: boolean("ativo").default(true),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertComunicadoTemplateSchema = createInsertSchema(comunicadoTemplates).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertComunicadoTemplate = z.infer<typeof insertComunicadoTemplateSchema>;
+export type ComunicadoTemplate = typeof comunicadoTemplates.$inferSelect;
+
+// Categorias de comunicados
+export const comunicadoCategorias = pgTable("comunicado_categorias", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  cor: text("cor").default("#6b7280"),
+  icone: text("icone").default("tag"),
+  ordem: integer("ordem").default(0),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertComunicadoCategoriaSchema = createInsertSchema(comunicadoCategorias).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertComunicadoCategoria = z.infer<typeof insertComunicadoCategoriaSchema>;
+export type ComunicadoCategoria = typeof comunicadoCategorias.$inferSelect;
+
+// Enquetes em comunicados
+export const comunicadoEnquetes = pgTable("comunicado_enquetes", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id).notNull(),
+  pergunta: text("pergunta").notNull(),
+  opcoes: json("opcoes").$type<{ id: string; texto: string; votos: number }[]>().notNull(),
+  multipla: boolean("multipla").default(false), // permite múltipla escolha
+  anonima: boolean("anonima").default(false),
+  dataFim: timestamp("data_fim"), // quando a votação encerra
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertComunicadoEnqueteSchema = createInsertSchema(comunicadoEnquetes).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertComunicadoEnquete = z.infer<typeof insertComunicadoEnqueteSchema>;
+export type ComunicadoEnquete = typeof comunicadoEnquetes.$inferSelect;
+
+// Votos em enquetes
+export const comunicadoEnqueteVotos = pgTable("comunicado_enquete_votos", {
+  id: serial("id").primaryKey(),
+  enqueteId: integer("enquete_id").references(() => comunicadoEnquetes.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  opcaoId: text("opcao_id").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Reações com emoji em comunicados
+export const comunicadoReacoes = pgTable("comunicado_reacoes", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  emoji: text("emoji").notNull(), // 👍 ❤️ 😂 😮 😢 🎉
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Menções em comentários
+export const comunicadoMencoes = pgTable("comunicado_mencoes", {
+  id: serial("id").primaryKey(),
+  comentarioId: integer("comentario_id").references(() => comunicadoComentarios.id).notNull(),
+  usuarioMencionadoId: integer("usuario_mencionado_id").references(() => users.id).notNull(),
+  lida: boolean("lida").default(false),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+// Leitura obrigatória
+export const comunicadoLeituraObrigatoria = pgTable("comunicado_leitura_obrigatoria", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id).notNull(),
+  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
+  obrigatorio: boolean("obrigatorio").default(true),
+  lidoEm: timestamp("lido_em"),
+  prazoLeitura: timestamp("prazo_leitura"),
+});
+
+// Eventos de calendário de comunicados
+export const comunicadoEventos = pgTable("comunicado_eventos", {
+  id: serial("id").primaryKey(),
+  comunicadoId: integer("comunicado_id").references(() => comunicados.id),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  dataInicio: timestamp("data_inicio").notNull(),
+  dataFim: timestamp("data_fim"),
+  local: text("local"),
+  cor: text("cor").default("#3b82f6"),
+  lembrete: boolean("lembrete").default(true),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id).notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertComunicadoEventoSchema = createInsertSchema(comunicadoEventos).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertComunicadoEvento = z.infer<typeof insertComunicadoEventoSchema>;
+export type ComunicadoEvento = typeof comunicadoEventos.$inferSelect;
+
 
