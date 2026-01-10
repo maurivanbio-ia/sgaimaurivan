@@ -50,7 +50,8 @@ import {
   setRelatorioFinanceiroEmails,
   triggerRelatorio360Now,
   triggerRelatorioFinanceiroNow,
-  sendResumoSemanalTest
+  sendResumoSemanalTest,
+  triggerRelatorioAnualNow
 } from "./services/scheduledReportSender";
 import { 
   auditLogs,
@@ -1388,6 +1389,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             statusNovo,
             descricao: changes.join('; '),
           });
+        }
+
+        // Gamificação: processar pontuação quando demanda for concluída
+        if (req.body.status === 'concluido' && currentDemanda.status !== 'concluido') {
+          try {
+            const { processarConclusaoDemanda } = await import('./services/gamificacaoService');
+            await processarConclusaoDemanda(demanda, demanda.responsavelId);
+            console.log(`[Gamificação] Demanda ${id} concluída - pontos registrados para usuário ${demanda.responsavelId}`);
+          } catch (gamErr) {
+            console.error('[Gamificação] Erro ao processar pontuação de demanda:', gamErr);
+          }
         }
       }
       
@@ -5828,6 +5840,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             statusAnterior: existing.status,
             statusNovo: req.body.status
           });
+
+          // Gamificação: processar pontuação quando tarefa for concluída
+          if (req.body.status === 'concluida' && existing.status !== 'concluida') {
+            try {
+              const { processarConclusaoTarefa } = await import('./services/gamificacaoService');
+              await processarConclusaoTarefa(tarefa, tarefa.responsavelId);
+              console.log(`[Gamificação] Tarefa ${id} concluída - pontos registrados para usuário ${tarefa.responsavelId}`);
+            } catch (gamErr) {
+              console.error('[Gamificação] Erro ao processar pontuação de tarefa:', gamErr);
+            }
+          }
         }
         
         await auditLogService.logUpdate('tarefas', id, existing, tarefa, req.session.userId, req.user?.email, req);
@@ -5848,6 +5871,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           statusAnterior: existing.status,
           statusNovo: req.body.status
         });
+
+        // Gamificação: processar pontuação quando tarefa for concluída
+        if (req.body.status === 'concluida' && existing.status !== 'concluida') {
+          try {
+            const { processarConclusaoTarefa } = await import('./services/gamificacaoService');
+            await processarConclusaoTarefa(tarefa, tarefa.responsavelId);
+            console.log(`[Gamificação] Tarefa ${id} concluída - pontos registrados para usuário ${tarefa.responsavelId}`);
+          } catch (gamErr) {
+            console.error('[Gamificação] Erro ao processar pontuação de tarefa:', gamErr);
+          }
+        }
       }
       
       await auditLogService.logUpdate('tarefas', id, existing, tarefa, req.session.userId, req.user?.email, req);
@@ -6467,6 +6501,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       await sendResumoSemanalTest(emails);
       res.json({ success: true, message: 'Resumo semanal de teste enviado com sucesso' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/relatorios-automaticos/enviar/anual', requireAuth, async (req, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.cargo !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+      await triggerRelatorioAnualNow();
+      res.json({ success: true, message: 'Relatório Anual de Retrospectiva enviado com sucesso' });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

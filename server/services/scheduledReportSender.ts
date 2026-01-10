@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { generatePlatformReportPDF, generateFinanceReportPDF, sendReportByEmail } from './reportPdfService';
 import { db } from '../db';
 import { users, demandas, tarefas } from '@shared/schema';
-import { eq, or, and, inArray, lt } from 'drizzle-orm';
+import { eq, or, and, inArray, lt, sql } from 'drizzle-orm';
 import nodemailer from 'nodemailer';
 
 interface ReportScheduleConfig {
@@ -732,6 +732,9 @@ export function initScheduledReportSender() {
     console.log(`[Scheduled Reports] Resumo Semanal de Demandas agendado: ${resumoDemandasConfig.cronExpression} (toda segunda às 9h)`);
   }
   
+  // Inicializar relatório anual de fim de ano
+  initRelatorioAnual();
+  
   console.log('[Scheduled Reports] Serviço iniciado com sucesso');
 }
 
@@ -780,4 +783,380 @@ export function setRelatorio360Emails(emails: string[]) {
 
 export function setRelatorioFinanceiroEmails(emails: string[]) {
   config.relatorioFinanceiro.emails = emails;
+}
+
+// ============================================
+// RELATÓRIO ANUAL DE FIM DE ANO
+// ============================================
+
+let relatorioAnualJob: cron.ScheduledTask | null = null;
+
+interface EstatisticasAnuaisUsuario {
+  usuarioId: number;
+  email: string;
+  nome: string;
+  demandasConcluidas: number;
+  demandasAtrasadas: number;
+  tarefasConcluidas: number;
+  tarefasAtrasadas: number;
+  pontosTotais: number;
+  categoriasPorDemanda: Record<string, number>;
+  categoriasPorTarefa: Record<string, number>;
+}
+
+async function getEstatisticasAnuaisUsuario(usuarioId: number, ano: number): Promise<EstatisticasAnuaisUsuario | null> {
+  try {
+    const usuario = await db.select().from(users).where(eq(users.id, usuarioId)).limit(1);
+    if (usuario.length === 0) return null;
+
+    const inicioAno = `${ano}-01-01`;
+    const fimAno = `${ano}-12-31`;
+    const fimAnoDate = new Date(ano, 11, 31, 23, 59, 59);
+
+    // Buscar demandas concluídas durante o ano (usando dataConclusao se disponível, senão atualizadoEm)
+    const demandasConcluidas = await db
+      .select()
+      .from(demandas)
+      .where(and(
+        eq(demandas.responsavelId, usuarioId),
+        eq(demandas.status, 'concluido'),
+        sql`(${demandas.dataConclusao} >= ${inicioAno} AND ${demandas.dataConclusao} <= ${fimAno}) OR 
+            (${demandas.dataConclusao} IS NULL AND ${demandas.atualizadoEm} >= ${inicioAno} AND ${demandas.atualizadoEm} <= ${fimAno + ' 23:59:59'})`
+      ));
+
+    // Buscar tarefas concluídas durante o ano (usando concluidaEm se disponível, senão atualizadoEm)
+    const tarefasConcluidas = await db
+      .select()
+      .from(tarefas)
+      .where(and(
+        eq(tarefas.responsavelId, usuarioId),
+        eq(tarefas.status, 'concluida'),
+        sql`(${tarefas.concluidaEm} >= ${inicioAno} AND ${tarefas.concluidaEm} <= ${fimAno + ' 23:59:59'}) OR 
+            (${tarefas.concluidaEm} IS NULL AND ${tarefas.atualizadoEm} >= ${inicioAno} AND ${tarefas.atualizadoEm} <= ${fimAno + ' 23:59:59'})`
+      ));
+
+    // Buscar demandas pendentes que ficaram atrasadas durante o ano (excluindo canceladas)
+    const demandasAtrasadas = await db
+      .select()
+      .from(demandas)
+      .where(and(
+        eq(demandas.responsavelId, usuarioId),
+        sql`${demandas.dataEntrega} < ${fimAno}`,
+        sql`${demandas.status} NOT IN ('concluido', 'cancelado')`
+      ));
+
+    // Buscar tarefas pendentes que ficaram atrasadas durante o ano (excluindo canceladas)
+    const tarefasAtrasadas = await db
+      .select()
+      .from(tarefas)
+      .where(and(
+        eq(tarefas.responsavelId, usuarioId),
+        sql`${tarefas.dataFim} < ${fimAno}`,
+        sql`${tarefas.status} NOT IN ('concluida', 'cancelada')`
+      ));
+
+    // Categorias por demanda concluída
+    const categoriasPorDemanda: Record<string, number> = {};
+    demandasConcluidas.forEach(d => {
+      const cat = (d as any).categoria || 'geral';
+      categoriasPorDemanda[cat] = (categoriasPorDemanda[cat] || 0) + 1;
+    });
+
+    // Categorias por tarefa concluída
+    const categoriasPorTarefa: Record<string, number> = {};
+    tarefasConcluidas.forEach(t => {
+      const cat = t.categoria || 'geral';
+      categoriasPorTarefa[cat] = (categoriasPorTarefa[cat] || 0) + 1;
+    });
+
+    // Buscar pontos totais do ano
+    const { pontuacoesGamificacao } = await import('@shared/schema');
+    const pontuacoes = await db
+      .select()
+      .from(pontuacoesGamificacao)
+      .where(and(
+        eq(pontuacoesGamificacao.usuarioId, usuarioId),
+        sql`${pontuacoesGamificacao.periodo} LIKE ${ano + '-%'}`
+      ));
+    
+    const pontosTotais = pontuacoes.reduce((acc, p) => acc + (p.pontos || 0), 0);
+
+    return {
+      usuarioId,
+      email: usuario[0].email,
+      nome: usuario[0].email?.split('@')[0] || 'Usuário',
+      demandasConcluidas: demandasConcluidas.length,
+      demandasAtrasadas: demandasAtrasadas.length,
+      tarefasConcluidas: tarefasConcluidas.length,
+      tarefasAtrasadas: tarefasAtrasadas.length,
+      pontosTotais,
+      categoriasPorDemanda,
+      categoriasPorTarefa
+    };
+  } catch (error) {
+    console.error(`[Relatório Anual] Erro ao buscar estatísticas do usuário ${usuarioId}:`, error);
+    return null;
+  }
+}
+
+function formatarCategoria(categoria: string): string {
+  const mapa: Record<string, string> = {
+    reuniao: 'Reunião',
+    relatorio_tecnico: 'Relatório Técnico',
+    documento: 'Documento',
+    campo: 'Trabalho de Campo',
+    vistoria: 'Vistoria',
+    licenciamento: 'Licenciamento',
+    analise: 'Análise',
+    outro: 'Outro',
+    geral: 'Geral',
+    escritorio: 'Escritório'
+  };
+  return mapa[categoria] || categoria;
+}
+
+function generateCategoriasHtml(categorias: Record<string, number>, titulo: string): string {
+  const entries = Object.entries(categorias).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return '';
+
+  const rows = entries.map(([cat, count]) => `
+    <tr>
+      <td style="padding: 8px; border-bottom: 1px solid #eee;">${formatarCategoria(cat)}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold;">${count}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #228B22;">
+      <h4 style="margin: 0 0 10px 0; color: #228B22;">${titulo}</h4>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f8f9fa;">
+            <th style="padding: 8px; text-align: left;">Categoria</th>
+            <th style="padding: 8px; text-align: center;">Quantidade</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function sendRelatorioAnualFimDeAno() {
+  const hoje = new Date();
+  const diaMes = hoje.getDate();
+  const mes = hoje.getMonth() + 1;
+
+  // Só envia em 30 e 31 de dezembro
+  if (mes !== 12 || (diaMes !== 30 && diaMes !== 31)) {
+    console.log('[Relatório Anual] Não é período de envio (30-31 de dezembro)');
+    return;
+  }
+
+  console.log('[Relatório Anual] Iniciando envio de relatórios anuais de fim de ano...');
+
+  const ano = hoje.getFullYear();
+
+  try {
+    // Buscar todos os usuários
+    const usuariosAtivos = await db
+      .select()
+      .from(users);
+
+    for (const usuario of usuariosAtivos) {
+      if (!usuario.email) continue;
+
+      try {
+        const stats = await getEstatisticasAnuaisUsuario(usuario.id, ano);
+        if (!stats) continue;
+
+        const totalDemandas = stats.demandasConcluidas + stats.demandasAtrasadas;
+        const totalTarefas = stats.tarefasConcluidas + stats.tarefasAtrasadas;
+
+        if (totalDemandas === 0 && totalTarefas === 0) {
+          console.log(`[Relatório Anual] ${usuario.email} não tem atividades no ano ${ano}, pulando...`);
+          continue;
+        }
+
+        const categoriasDemandasHtml = generateCategoriasHtml(stats.categoriasPorDemanda, '📊 Demandas por Categoria');
+        const categoriasTarefasHtml = generateCategoriasHtml(stats.categoriasPorTarefa, '✅ Tarefas por Categoria');
+
+        const htmlBody = `
+          <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #1a5c1a 0%, #228B22 50%, #FFD700 100%); padding: 25px; border-radius: 10px 10px 0 0; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 28px;">🎄 Retrospectiva ${ano} 🎄</h1>
+              <p style="color: #90EE90; margin: 10px 0 0 0; font-size: 16px;">Seu resumo anual no EcoGestor</p>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 25px; border: 1px solid #e9ecef;">
+              <p style="margin: 0 0 20px 0; font-size: 16px;">Olá <strong>${stats.nome}</strong>,</p>
+              
+              <p style="margin: 0 0 25px 0;">Este foi um ano de muito trabalho e conquistas! Veja abaixo o seu desempenho ao longo de ${ano}.</p>
+              
+              <!-- Cards resumo anual -->
+              <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 25px;">
+                <tr>
+                  <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #228B22; width: 25%; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #228B22;">${stats.demandasConcluidas}</div>
+                    <div style="color: #666; font-size: 12px;">Demandas Concluídas</div>
+                  </td>
+                  <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #007bff; width: 25%; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #007bff;">${stats.tarefasConcluidas}</div>
+                    <div style="color: #666; font-size: 12px;">Tarefas Concluídas</div>
+                  </td>
+                  <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #FFD700; width: 25%; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #FFD700;">${stats.pontosTotais}</div>
+                    <div style="color: #666; font-size: 12px;">Pontos Conquistados</div>
+                  </td>
+                  <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #6c757d; width: 25%; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold; color: #6c757d;">${totalDemandas + totalTarefas}</div>
+                    <div style="color: #666; font-size: 12px;">Total de Atividades</div>
+                  </td>
+                </tr>
+              </table>
+              
+              ${categoriasDemandasHtml}
+              ${categoriasTarefasHtml}
+              
+              <div style="background: linear-gradient(135deg, #e8f5e9 0%, #fff8e1 100%); border-radius: 8px; padding: 20px; margin-top: 20px; text-align: center;">
+                <p style="margin: 0; font-size: 18px; color: #2e7d32;">
+                  🌟 <strong>Parabéns pelo seu empenho em ${ano}!</strong> 🌟
+                </p>
+                <p style="margin: 10px 0 0 0; color: #666;">
+                  Continue assim e faça de ${ano + 1} um ano ainda melhor!
+                </p>
+              </div>
+              
+              <div style="margin-top: 25px; text-align: center;">
+                <a href="${PLATFORM_URL}/gamificacao" style="display: inline-block; background: #228B22; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+                  🏆 Ver Ranking de Gamificação
+                </a>
+              </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #228B22 0%, #1a5c1a 100%); padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
+              <p style="margin: 0; color: white; font-size: 12px;">
+                🎊 Feliz Ano Novo! 🎊<br>
+                <strong>EcoBrasil - Consultoria Ambiental</strong>
+              </p>
+            </div>
+          </div>
+        `;
+
+        await sendResumoDemandasEmail(
+          usuario.email,
+          `🎄 Sua Retrospectiva ${ano} - EcoGestor | ${stats.demandasConcluidas + stats.tarefasConcluidas} entregas!`,
+          htmlBody
+        );
+
+        console.log(`[Relatório Anual] Enviado para ${usuario.email}`);
+      } catch (error) {
+        console.error(`[Relatório Anual] Erro ao enviar para ${usuario.email}:`, error);
+      }
+    }
+
+    console.log('[Relatório Anual] Envio concluído');
+  } catch (error) {
+    console.error('[Relatório Anual] Erro geral:', error);
+  }
+}
+
+export async function triggerRelatorioAnualNow() {
+  console.log('[Relatório Anual] Trigger manual iniciado...');
+  
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+
+  try {
+    const usuariosAtivos = await db
+      .select()
+      .from(users);
+
+    for (const usuario of usuariosAtivos) {
+      if (!usuario.email) continue;
+
+      const stats = await getEstatisticasAnuaisUsuario(usuario.id, ano);
+      if (!stats) continue;
+
+      const totalDemandas = stats.demandasConcluidas + stats.demandasAtrasadas;
+      const totalTarefas = stats.tarefasConcluidas + stats.tarefasAtrasadas;
+
+      if (totalDemandas === 0 && totalTarefas === 0) continue;
+
+      const categoriasDemandasHtml = generateCategoriasHtml(stats.categoriasPorDemanda, '📊 Demandas por Categoria');
+      const categoriasTarefasHtml = generateCategoriasHtml(stats.categoriasPorTarefa, '✅ Tarefas por Categoria');
+
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #1a5c1a 0%, #228B22 50%, #FFD700 100%); padding: 25px; border-radius: 10px 10px 0 0; text-align: center;">
+            <p style="color: #fff3cd; margin: 0 0 5px 0; font-size: 12px; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 4px; display: inline-block;">TESTE MANUAL</p>
+            <h1 style="color: white; margin: 0; font-size: 28px;">🎄 Retrospectiva ${ano} 🎄</h1>
+            <p style="color: #90EE90; margin: 10px 0 0 0; font-size: 16px;">Seu resumo anual no EcoGestor</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 25px; border: 1px solid #e9ecef;">
+            <p style="margin: 0 0 20px 0; font-size: 16px;">Olá <strong>${stats.nome}</strong>,</p>
+            
+            <p style="margin: 0 0 25px 0;">Este foi um ano de muito trabalho e conquistas! Veja abaixo o seu desempenho ao longo de ${ano}.</p>
+            
+            <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 25px;">
+              <tr>
+                <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #228B22; width: 25%; text-align: center;">
+                  <div style="font-size: 32px; font-weight: bold; color: #228B22;">${stats.demandasConcluidas}</div>
+                  <div style="color: #666; font-size: 12px;">Demandas Concluídas</div>
+                </td>
+                <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #007bff; width: 25%; text-align: center;">
+                  <div style="font-size: 32px; font-weight: bold; color: #007bff;">${stats.tarefasConcluidas}</div>
+                  <div style="color: #666; font-size: 12px;">Tarefas Concluídas</div>
+                </td>
+                <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #FFD700; width: 25%; text-align: center;">
+                  <div style="font-size: 32px; font-weight: bold; color: #FFD700;">${stats.pontosTotais}</div>
+                  <div style="color: #666; font-size: 12px;">Pontos Conquistados</div>
+                </td>
+                <td style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #6c757d; width: 25%; text-align: center;">
+                  <div style="font-size: 32px; font-weight: bold; color: #6c757d;">${totalDemandas + totalTarefas}</div>
+                  <div style="color: #666; font-size: 12px;">Total de Atividades</div>
+                </td>
+              </tr>
+            </table>
+            
+            ${categoriasDemandasHtml}
+            ${categoriasTarefasHtml}
+            
+            <div style="background: linear-gradient(135deg, #e8f5e9 0%, #fff8e1 100%); border-radius: 8px; padding: 20px; margin-top: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 18px; color: #2e7d32;">
+                🌟 <strong>Parabéns pelo seu empenho em ${ano}!</strong> 🌟
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #228B22 0%, #1a5c1a 100%); padding: 15px; border-radius: 0 0 10px 10px; text-align: center;">
+            <p style="margin: 0; color: white; font-size: 12px;">
+              <strong>EcoBrasil - Consultoria Ambiental</strong>
+            </p>
+          </div>
+        </div>
+      `;
+
+      await sendResumoDemandasEmail(
+        usuario.email,
+        `[TESTE] 🎄 Sua Retrospectiva ${ano} - EcoGestor`,
+        htmlBody
+      );
+
+      console.log(`[Relatório Anual] Teste enviado para ${usuario.email}`);
+    }
+  } catch (error) {
+    console.error('[Relatório Anual] Erro no trigger manual:', error);
+  }
+}
+
+export function initRelatorioAnual() {
+  // Agendar para rodar às 9h em 30 e 31 de dezembro
+  relatorioAnualJob = cron.schedule('0 9 30,31 12 *', sendRelatorioAnualFimDeAno, {
+    timezone: 'America/Sao_Paulo'
+  });
+  console.log('[Relatório Anual] Agendado para 30 e 31 de dezembro às 9h');
 }
