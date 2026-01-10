@@ -82,6 +82,7 @@ type Status =
   | "cancelado";
 type Prioridade = "baixa" | "media" | "alta";
 type Complexidade = "baixa" | "media" | "alta";
+type Categoria = "reuniao" | "relatorio_tecnico" | "documento" | "campo" | "vistoria" | "licenciamento" | "analise" | "outro" | "geral";
 
 type Demanda = {
   id: number;
@@ -90,10 +91,24 @@ type Demanda = {
   setor: string;
   prioridade: Prioridade;
   complexidade: Complexidade;
+  categoria: Categoria;
   responsavel: string;
   dataEntrega: string;
   status: Status;
+  empreendimentoId?: number;
 };
+
+const CATEGORIAS: { value: Categoria; label: string }[] = [
+  { value: "reuniao", label: "Reunião" },
+  { value: "relatorio_tecnico", label: "Relatório Técnico" },
+  { value: "documento", label: "Documento" },
+  { value: "campo", label: "Trabalho de Campo" },
+  { value: "vistoria", label: "Vistoria" },
+  { value: "licenciamento", label: "Licenciamento" },
+  { value: "analise", label: "Análise" },
+  { value: "outro", label: "Outro" },
+  { value: "geral", label: "Geral" },
+];
 
 const STATUS_LABEL: Record<Status, string> = {
   a_fazer: "A Fazer",
@@ -201,6 +216,7 @@ function DemandaForm({
     setor: initial?.setor ?? SETORES[0],
     prioridade: (initial?.prioridade ?? "media") as Prioridade,
     complexidade: (initial?.complexidade ?? "media") as Complexidade,
+    categoria: (initial?.categoria ?? "geral") as Categoria,
     responsavel: initial?.responsavel ?? "",
     dataEntrega: initial?.dataEntrega 
       ? new Date(initial.dataEntrega).toISOString().split('T')[0]
@@ -217,6 +233,7 @@ function DemandaForm({
         setor: form.setor,
         prioridade: form.prioridade,
         complexidade: form.complexidade,
+        categoria: form.categoria,
         responsavel: form.responsavel.trim(),
         dataEntrega: form.dataEntrega,
         status: form.status,
@@ -347,6 +364,25 @@ function DemandaForm({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div>
+        <Label>Categoria *</Label>
+        <Select
+          value={form.categoria}
+          onValueChange={(v: Categoria) => setForm({ ...form, categoria: v })}
+        >
+          <SelectTrigger data-testid="select-categoria">
+            <SelectValue placeholder="Selecione a categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            {CATEGORIAS.map((cat) => (
+              <SelectItem key={cat.value} value={cat.value}>
+                {cat.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

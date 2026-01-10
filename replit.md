@@ -37,12 +37,26 @@ A comprehensive system for team and task management with role-based access contr
 ### Gamification System
 A comprehensive gamification system to motivate team performance through points and achievements:
 - **Point System**: Tasks and demands award points based on complexity (Baixa=5pts, Média=15pts, Alta=30pts) and deadline compliance (Antecipado=+10pts, No prazo=+5pts, Atrasado=-5pts)
+- **Automatic Integration**: Points are automatically awarded when tasks/demands are marked as completed
 - **Monthly Ranking**: Top 20 performers displayed with medal icons for top 3
 - **Achievements/Badges**: Unlockable achievements like "Iniciante", "Trabalhador", "Produtivo", "Pontual", "Mestre", "Demandador", "Expert"
 - **Points History**: Complete log of earned points with timestamps
 - **Statistics**: General monthly statistics including total participants, tasks, demands, and points
 - **Navigation**: Accessible via sidebar under "Equipe" category at /gamificacao route
 - **Database Tables**: pontuacoesGamificacao, conquistasGamificacao, usuarioConquistas, historicosPontuacao
+
+### Categories for Tasks and Demands
+Tasks and demands now include a `categoria` field for better organization and reporting:
+- **Available Categories**: Reunião, Relatório Técnico, Documento, Trabalho de Campo, Vistoria, Licenciamento, Análise, Outro, Geral
+- **Category Selector**: Integrated into task and demand creation/edit forms
+- **Annual Statistics**: Year-end reports include category breakdowns
+
+### Annual Retrospective Report (Relatório Anual)
+Automatic year-end email reports sent on December 30-31:
+- **Individual Statistics**: Each user receives their personal annual performance summary
+- **Metrics Included**: Completed demands/tasks, total points earned, activity breakdown by category
+- **Visual Design**: Festive HTML email template with EcoBrasil branding
+- **Manual Trigger**: API endpoint available for testing: POST /api/relatorios-automaticos/enviar/anual
 
 ### Resource Management
 Vehicles can be classified as owned or rented, with conditional validation for rental-specific fields. Vehicles, RH records, and equipment can be optionally assigned to specific `empreendimentos` with proper filtering.
