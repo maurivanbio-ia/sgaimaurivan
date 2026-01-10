@@ -16,6 +16,7 @@ export const users = pgTable("users", {
 
 export const empreendimentos = pgTable("empreendimentos", {
   id: serial("id").primaryKey(),
+  codigo: text("codigo"), // Código único do projeto para estrutura de pastas (ex: PROJ001)
   nome: text("nome").notNull(),
   cliente: text("cliente").notNull(),
   clienteId: integer("cliente_id"),

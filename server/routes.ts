@@ -459,9 +459,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           empreendimento.id,
           empreendimento.cliente || empreendimento.nome,
           empreendimento.uf || 'BR',
-          empreendimento.nome
+          empreendimento.nome,
+          empreendimento.codigo
         );
-        console.log(`[Folder Structure] Pastas criadas automaticamente para empreendimento: ${empreendimento.nome}`);
+        console.log(`[Folder Structure] Pastas criadas automaticamente para empreendimento: ${empreendimento.codigo || empreendimento.nome}`);
       } catch (folderError) {
         console.error('[Folder Structure] Erro ao criar pastas para empreendimento:', folderError);
       }

@@ -219,9 +219,12 @@ export async function criarPastasParaEmpreendimento(
   empreendimentoId: number,
   cliente: string,
   uf: string,
-  nome: string
+  nome: string,
+  codigo?: string | null
 ): Promise<{ success: boolean; path: string }> {
-  const result = await criarEstruturaProjeto(cliente, uf, nome, empreendimentoId);
+  // Usar código do projeto se disponível, senão usar nome normalizado
+  const codigoProjeto = codigo || nome;
+  const result = await criarEstruturaProjeto(cliente, uf, codigoProjeto, empreendimentoId);
   return {
     success: result.success,
     path: result.path
@@ -243,11 +246,12 @@ export async function sincronizarPastasExistentes(): Promise<{ synced: number; e
           emp.id,
           emp.cliente || emp.nome,
           emp.uf || 'BR',
-          emp.nome
+          emp.nome,
+          emp.codigo
         );
         synced++;
       } catch (error) {
-        console.error(`[Folder Structure] Erro ao sincronizar empreendimento ${emp.nome}:`, error);
+        console.error(`[Folder Structure] Erro ao sincronizar empreendimento ${emp.codigo || emp.nome}:`, error);
         errors++;
       }
     }

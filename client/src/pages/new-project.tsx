@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RhRegistro {
@@ -45,6 +45,7 @@ const statusOptions = [
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const projectSchema = z.object({
+  codigo: z.string().min(1, "Código é obrigatório").regex(/^[A-Z0-9_-]+$/, "Código deve conter apenas letras maiúsculas, números, _ e -"),
   nome: z.string().min(1, "Nome é obrigatório"),
   cliente: z.string().min(1, "Cliente é obrigatório"),
   clienteEmail: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -78,9 +79,25 @@ export default function NewProject() {
     queryKey: ['/api/rh', unidadeSelecionada],
   });
 
+  const { data: existingProjects = [] } = useQuery<{ id: number; codigo: string | null }[]>({
+    queryKey: ['/api/empreendimentos', unidadeSelecionada],
+  });
+
+  const generateCode = () => {
+    const existingCodes = existingProjects
+      .map(p => p.codigo)
+      .filter((c): c is string => c !== null && c.startsWith('PROJ'))
+      .map(c => parseInt(c.replace('PROJ', ''), 10))
+      .filter(n => !isNaN(n));
+    
+    const nextNumber = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    return `PROJ${String(nextNumber).padStart(3, '0')}`;
+  };
+
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
+      codigo: "",
       nome: "",
       cliente: "",
       clienteEmail: "",
@@ -93,6 +110,11 @@ export default function NewProject() {
       status: "ativo",
     },
   });
+
+  const handleGenerateCode = () => {
+    const newCode = generateCode();
+    form.setValue('codigo', newCode);
+  };
 
   const createProject = useMutation({
     mutationFn: async (data: ProjectFormData) => {
@@ -134,6 +156,40 @@ export default function NewProject() {
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="codigo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código do Projeto *</FormLabel>
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="Ex: PROJ001"
+                          className="uppercase"
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          data-testid="input-project-code"
+                        />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGenerateCode}
+                        className="shrink-0"
+                      >
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Gerar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Código único para identificação nas pastas. Use letras maiúsculas, números, _ ou -
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="nome"
