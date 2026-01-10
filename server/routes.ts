@@ -4351,6 +4351,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/rh/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      const [deleted] = await db.update(rhRegistros)
+        .set({ deletedAt: new Date() })
+        .where(eq(rhRegistros.id, id))
+        .returning();
+      if (!deleted) {
+        return res.status(404).json({ message: "Registro não encontrado" });
+      }
+      res.json({ message: "Registro excluído com sucesso" });
+    } catch (error: any) {
+      console.error("Erro ao excluir registro RH:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post('/api/rh/upload-contrato', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
