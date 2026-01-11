@@ -79,6 +79,16 @@ An automatic ISO compliance monitoring system supporting standards like ISO 1400
 ### Camadas Geoespaciais (Geospatial Layers)
 Manages interactive geospatial layers for the `empreendimentos` map, supporting KMZ, KML, and GeoJSON uploads. Layers are categorized, integrated into Leaflet-based rendering with customization options, tooltips, popups, and layer controls. Data is multi-tenant isolated.
 
+### Monitoramento de Processos Ambientais (SEIA/INEMA)
+An automated system for tracking environmental license processes in government portals (INEMA/SEIA, IBAMA, etc.). Features include:
+- Database tables for monitored processes (processosMonitorados) and consultation history (consultasProcessos)
+- SeiaService for querying the SEIA portal (currently placeholder, ready for real credentials)
+- Full CRUD API endpoints with unit-based data isolation
+- Frontend page for managing monitored processes, manual consultation, and viewing history
+- Automatic cron job running every 6 hours to check all active processes
+- Configurable alert frequency and notification emails per process
+- Link to associated empreendimentos and licenses
+
 ### Automatic Backup System
 Daily automatic database backups scheduled at 00:00 (Brasília timezone), exporting major tables to JSON, storing them in Object Storage, and maintaining a 30-day retention policy.
 
