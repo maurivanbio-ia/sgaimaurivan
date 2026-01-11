@@ -8024,38 +8024,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         if (kmlFiles.length === 0) {
-          return res.status(400).json({ error: 'Arquivo KML não encontrado dentro do KMZ' });
-        }
-        
-        // Combine multiple KML files if present, or just use the first one
-        const features: any[] = [];
-        for (const kmlFile of kmlFiles) {
-          const kmlContent = await zip.files[kmlFile].async('string');
-          const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
-          const converted = toGeoJSON.kml(dom);
-          
-          if (converted) {
-            if (converted.type === 'FeatureCollection' && converted.features) {
-              features.push(...converted.features);
-            } else if (converted.type === 'Feature') {
-              features.push(converted);
-            } else if (converted.type === 'GeometryCollection' && converted.geometries) {
-              // Handle geometry collections by wrapping them in features
-              converted.geometries.forEach((geom: any) => {
-                features.push({
-                  type: 'Feature',
-                  properties: {},
-                  geometry: geom
-                });
-              });
+          // Check if it's a direct KML but with KMZ extension (rare but happens)
+          try {
+            const dom = new (await import('xmldom')).DOMParser().parseFromString(fileBuffer.toString('utf-8'), 'text/xml');
+            geojsonData = toGeoJSON.kml(dom);
+          } catch (e) {
+            return res.status(400).json({ error: 'Arquivo KML não encontrado dentro do KMZ' });
+          }
+        } else {
+          // Combine multiple KML files if present, or just use the first one
+          const features: any[] = [];
+          for (const kmlFile of kmlFiles) {
+            try {
+              const kmlContent = await zip.files[kmlFile].async('string');
+              const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
+              const converted = toGeoJSON.kml(dom);
+              
+              if (converted) {
+                if (converted.type === 'FeatureCollection' && Array.isArray(converted.features)) {
+                  features.push(...converted.features);
+                } else if (converted.type === 'Feature') {
+                  features.push(converted);
+                } else if (converted.type === 'GeometryCollection' && Array.isArray(converted.geometries)) {
+                  converted.geometries.forEach((geom: any) => {
+                    features.push({
+                      type: 'Feature',
+                      properties: { sourceFile: kmlFile },
+                      geometry: geom
+                    });
+                  });
+                } else if (converted.geometry) {
+                   features.push({
+                      type: 'Feature',
+                      properties: { sourceFile: kmlFile },
+                      geometry: converted.geometry
+                   });
+                }
+              }
+            } catch (err) {
+              console.error(`Error processing KML file ${kmlFile}:`, err);
             }
           }
-        }
 
-        geojsonData = {
-          type: 'FeatureCollection',
-          features: features
-        };
+          if (features.length === 0) {
+            return res.status(400).json({ error: 'Nenhum dado geográfico válido encontrado no arquivo' });
+          }
+
+          geojsonData = {
+            type: 'FeatureCollection',
+            features: features
+          };
+        }
       } else if (fileName.endsWith('.kml')) {
         const toGeoJSON = await import('@mapbox/togeojson');
         const kmlContent = fileBuffer.toString('utf-8');
