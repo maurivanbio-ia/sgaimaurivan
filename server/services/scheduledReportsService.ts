@@ -211,33 +211,88 @@ class ScheduledReportsService {
   }
 
   formatReportAsHtml(data: any): string {
+    const formatCurrency = (value: number) => 
+      value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    const labelMap: Record<string, string> = {
+      totalReceitas: 'Total de Receitas',
+      totalDespesas: 'Total de Despesas',
+      saldoAtual: 'Saldo Atual',
+      totalPendente: 'Total Pendente',
+    };
+
     let html = `
-      <h1 style="color: #2563eb;">${data.tipo}</h1>
-      <p>Data: ${data.data}</p>
-      <hr/>
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #2563eb, #1e40af); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0;">${data.tipo}</h1>
+          <p style="margin: 8px 0 0 0; opacity: 0.9;">Gerado em: ${data.data}</p>
+        </div>
+        <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0;">
     `;
 
     if (data.resumo) {
-      html += `<h2>Resumo</h2><ul>`;
+      html += `<h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 8px;">Resumo Financeiro</h2>`;
+      html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">`;
       for (const [key, value] of Object.entries(data.resumo)) {
-        html += `<li><strong>${key}:</strong> ${typeof value === 'number' ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : value}</li>`;
+        const label = labelMap[key] || key;
+        const color = key === 'totalReceitas' ? '#16a34a' : key === 'totalDespesas' ? '#dc2626' : key === 'saldoAtual' ? '#2563eb' : '#64748b';
+        html += `
+          <div style="background: white; padding: 16px; border-radius: 8px; border-left: 4px solid ${color};">
+            <p style="margin: 0; font-size: 12px; color: #64748b;">${label}</p>
+            <p style="margin: 4px 0 0 0; font-size: 20px; font-weight: bold; color: ${color};">
+              ${typeof value === 'number' ? formatCurrency(value) : value}
+            </p>
+          </div>
+        `;
       }
-      html += `</ul>`;
+      html += `</div>`;
+    }
+
+    if (data.porCategoria && data.porCategoria.length > 0) {
+      html += `<h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 8px;">Por Categoria</h2>`;
+      html += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">`;
+      html += `<tr style="background: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Categoria</th><th style="padding: 12px; text-align: left;">Tipo</th><th style="padding: 12px; text-align: right;">Valor</th></tr>`;
+      for (const cat of data.porCategoria) {
+        const tipoColor = cat.tipo === 'receita' ? '#16a34a' : '#dc2626';
+        html += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 12px;">${cat.categoria}</td><td style="padding: 12px; color: ${tipoColor}; text-transform: capitalize;">${cat.tipo}</td><td style="padding: 12px; text-align: right; font-weight: 500;">${formatCurrency(cat.valor)}</td></tr>`;
+      }
+      html += `</table>`;
+    }
+
+    if (data.porEmpreendimento && data.porEmpreendimento.length > 0) {
+      html += `<h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 8px;">Por Empreendimento</h2>`;
+      html += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">`;
+      html += `<tr style="background: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Empreendimento</th><th style="padding: 12px; text-align: right;">Receitas</th><th style="padding: 12px; text-align: right;">Despesas</th><th style="padding: 12px; text-align: right;">Lucro</th></tr>`;
+      for (const emp of data.porEmpreendimento) {
+        const lucroColor = emp.lucro >= 0 ? '#16a34a' : '#dc2626';
+        html += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 12px;">${emp.empreendimento}</td><td style="padding: 12px; text-align: right; color: #16a34a;">${formatCurrency(emp.receitas)}</td><td style="padding: 12px; text-align: right; color: #dc2626;">${formatCurrency(emp.despesas)}</td><td style="padding: 12px; text-align: right; font-weight: bold; color: ${lucroColor};">${formatCurrency(emp.lucro)}</td></tr>`;
+      }
+      html += `</table>`;
     }
 
     if (data.alertas && data.alertas.length > 0) {
-      html += `<h2>Alertas</h2><table border="1" cellpadding="8"><tr><th>Número</th><th>Tipo</th><th>Validade</th></tr>`;
+      html += `<h2 style="color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 8px;">⚠️ Alertas</h2>`;
+      html += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">`;
+      html += `<tr style="background: #fef2f2; color: #991b1b;"><th style="padding: 12px; text-align: left;">Número</th><th style="padding: 12px; text-align: left;">Tipo</th><th style="padding: 12px; text-align: left;">Validade</th></tr>`;
       for (const alerta of data.alertas) {
-        html += `<tr><td>${alerta.numero}</td><td>${alerta.tipo}</td><td>${alerta.validade}</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #fecaca;"><td style="padding: 12px;">${alerta.numero}</td><td style="padding: 12px;">${alerta.tipo}</td><td style="padding: 12px; color: #dc2626; font-weight: 500;">${alerta.validade}</td></tr>`;
       }
       html += `</table>`;
     }
 
     if (data.estatisticas) {
-      html += `<h2>Estatísticas</h2><pre>${JSON.stringify(data.estatisticas, null, 2)}</pre>`;
+      html += `<h2 style="color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 8px;">Estatísticas</h2>`;
+      html += `<div style="background: white; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 12px; overflow-x: auto;">${JSON.stringify(data.estatisticas, null, 2).replace(/\n/g, '<br/>').replace(/ /g, '&nbsp;')}</div>`;
     }
 
-    html += `<hr/><p style="color: #666; font-size: 12px;">Este é um relatório automático gerado pelo sistema EcoBrasil.</p>`;
+    html += `
+        </div>
+        <div style="background: #1e293b; color: #94a3b8; padding: 16px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px;">
+          <p style="margin: 0;">Este é um relatório automático gerado pelo sistema EcoBrasil.</p>
+          <p style="margin: 8px 0 0 0;">© ${new Date().getFullYear()} EcoBrasil - Gestão Ambiental</p>
+        </div>
+      </div>
+    `;
     
     return html;
   }
