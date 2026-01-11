@@ -2628,4 +2628,67 @@ export const insertCamadaGeoespacialSchema = createInsertSchema(camadasGeoespaci
 export type InsertCamadaGeoespacial = z.infer<typeof insertCamadaGeoespacialSchema>;
 export type CamadaGeoespacial = typeof camadasGeoespaciais.$inferSelect;
 
+// ============================================
+// MONITORAMENTO DE PROCESSOS AMBIENTAIS
+// ============================================
+export const processosMonitorados = pgTable("processos_monitorados", {
+  id: serial("id").primaryKey(),
+  numeroProcesso: text("numero_processo").notNull(), // Número do processo no órgão
+  orgao: text("orgao").notNull().default("INEMA"), // INEMA, IBAMA, etc.
+  tipoProcesso: text("tipo_processo"), // Licenciamento, Autorização, etc.
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  licencaId: integer("licenca_id").references(() => licencasAmbientais.id),
+  nomeEmpreendimento: text("nome_empreendimento"), // Nome para referência se não tiver vínculo
+  interessado: text("interessado"), // Nome do interessado/requerente
+  municipio: text("municipio"),
+  uf: text("uf").default("BA"),
+  statusAtual: text("status_atual"), // Último status conhecido
+  ultimaMovimentacao: text("ultima_movimentacao"), // Descrição da última movimentação
+  dataUltimaMovimentacao: timestamp("data_ultima_movimentacao"),
+  dataUltimaConsulta: timestamp("data_ultima_consulta"),
+  proximaConsulta: timestamp("proxima_consulta"),
+  frequenciaConsulta: integer("frequencia_consulta").default(24), // Frequência em horas
+  ativo: boolean("ativo").default(true),
+  alertasAtivos: boolean("alertas_ativos").default(true),
+  emailsNotificacao: text("emails_notificacao"), // Emails separados por vírgula
+  historicoMovimentacoes: json("historico_movimentacoes").default([]), // Array de movimentações
+  metadados: json("metadados").default({}), // Dados extras retornados pelo órgão
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoPor: integer("criado_por").references(() => users.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertProcessoMonitoradoSchema = createInsertSchema(processosMonitorados).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  dataUltimaConsulta: true,
+  historicoMovimentacoes: true,
+});
+
+export type InsertProcessoMonitorado = z.infer<typeof insertProcessoMonitoradoSchema>;
+export type ProcessoMonitorado = typeof processosMonitorados.$inferSelect;
+
+// Histórico de consultas aos órgãos
+export const consultasProcessos = pgTable("consultas_processos", {
+  id: serial("id").primaryKey(),
+  processoId: integer("processo_id").references(() => processosMonitorados.id).notNull(),
+  dataConsulta: timestamp("data_consulta").defaultNow().notNull(),
+  sucesso: boolean("sucesso").default(false),
+  statusEncontrado: text("status_encontrado"),
+  movimentacaoEncontrada: text("movimentacao_encontrada"),
+  houveMudanca: boolean("houve_mudanca").default(false),
+  dadosRetornados: json("dados_retornados").default({}),
+  erro: text("erro"),
+  tempoResposta: integer("tempo_resposta"), // em milissegundos
+});
+
+export const insertConsultaProcessoSchema = createInsertSchema(consultasProcessos).omit({
+  id: true,
+  dataConsulta: true,
+});
+
+export type InsertConsultaProcesso = z.infer<typeof insertConsultaProcessoSchema>;
+export type ConsultaProcesso = typeof consultasProcessos.$inferSelect;
 
