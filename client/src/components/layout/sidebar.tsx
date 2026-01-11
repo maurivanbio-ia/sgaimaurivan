@@ -44,7 +44,8 @@ import {
   Megaphone,
   Phone,
   Link2,
-  Shield
+  Shield,
+  FileSearch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -190,6 +191,7 @@ export default function Sidebar() {
       icon: Settings,
       items: [
         { href: "/conformidade-iso", label: "Conformidade ISO", icon: Shield, testid: "nav-conformidade-iso" },
+        { href: "/processos-monitorados", label: "Processos SEIA", icon: FileSearch, testid: "nav-processos-monitorados" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
       ]
     },
