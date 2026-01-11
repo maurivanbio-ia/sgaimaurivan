@@ -24,6 +24,10 @@ import {
   insertTreinamentoParticipanteSchema,
   insertBaseConhecimentoSchema,
   insertCamadaGeoespacialSchema,
+  insertProcessoMonitoradoSchema,
+  insertConsultaProcessoSchema,
+  processosMonitorados,
+  consultasProcessos,
   murais,
   comunicados,
   comunicadoComentarios,
@@ -87,6 +91,7 @@ import {
   triggerRelatorioAnualNow
 } from "./services/scheduledReportSender";
 import { initBackupService, performBackup, listBackups, downloadBackup } from "./services/backupService";
+import { seiaService } from "./services/seiaService";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
@@ -9422,6 +9427,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error accessing link-util:', error);
       res.status(500).json({ error: 'Erro ao acessar link' });
+    }
+  });
+
+  // =============================================
+  // PROCESSOS MONITORADOS (SEIA/INEMA)
+  // =============================================
+  
+  // Get all monitored processes for user's unit
+  app.get('/api/processos-monitorados', requireAuth, async (req, res) => {
+    try {
+      const result = await db
+        .select()
+        .from(processosMonitorados)
+        .where(and(
+          eq(processosMonitorados.unidade, req.user.unidade),
+          eq(processosMonitorados.ativo, true)
+        ))
+        .orderBy(desc(processosMonitorados.criadoEm));
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching processos monitorados:', error);
+      res.status(500).json({ error: 'Erro ao buscar processos monitorados' });
+    }
+  });
+
+  // Get a single monitored process
+  app.get('/api/processos-monitorados/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [processo] = await db
+        .select()
+        .from(processosMonitorados)
+        .where(and(
+          eq(processosMonitorados.id, id),
+          eq(processosMonitorados.unidade, req.user.unidade)
+        ));
+      
+      if (!processo) return res.status(404).json({ error: 'Processo não encontrado' });
+      res.json(processo);
+    } catch (error: any) {
+      console.error('Error fetching processo monitorado:', error);
+      res.status(500).json({ error: 'Erro ao buscar processo monitorado' });
+    }
+  });
+
+  // Create a new monitored process
+  app.post('/api/processos-monitorados', requireAuth, async (req, res) => {
+    try {
+      const parsed = insertProcessoMonitoradoSchema.safeParse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.user.id,
+      });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.errors });
+      }
+      
+      const [processo] = await db
+        .insert(processosMonitorados)
+        .values(parsed.data)
+        .returning();
+      
+      res.status(201).json(processo);
+    } catch (error: any) {
+      console.error('Error creating processo monitorado:', error);
+      res.status(500).json({ error: 'Erro ao criar processo monitorado' });
+    }
+  });
+
+  // Update a monitored process
+  app.patch('/api/processos-monitorados/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      const [processo] = await db
+        .update(processosMonitorados)
+        .set({
+          ...req.body,
+          atualizadoEm: new Date(),
+        })
+        .where(and(
+          eq(processosMonitorados.id, id),
+          eq(processosMonitorados.unidade, req.user.unidade)
+        ))
+        .returning();
+      
+      if (!processo) return res.status(404).json({ error: 'Processo não encontrado' });
+      res.json(processo);
+    } catch (error: any) {
+      console.error('Error updating processo monitorado:', error);
+      res.status(500).json({ error: 'Erro ao atualizar processo monitorado' });
+    }
+  });
+
+  // Delete (deactivate) a monitored process
+  app.delete('/api/processos-monitorados/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      await db
+        .update(processosMonitorados)
+        .set({ ativo: false, atualizadoEm: new Date() })
+        .where(and(
+          eq(processosMonitorados.id, id),
+          eq(processosMonitorados.unidade, req.user.unidade)
+        ));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting processo monitorado:', error);
+      res.status(500).json({ error: 'Erro ao deletar processo monitorado' });
+    }
+  });
+
+  // Manually trigger a consultation for a process
+  app.post('/api/processos-monitorados/:id/consultar', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      // Get the process
+      const [processo] = await db
+        .select()
+        .from(processosMonitorados)
+        .where(and(
+          eq(processosMonitorados.id, id),
+          eq(processosMonitorados.unidade, req.user.unidade)
+        ));
+      
+      if (!processo) return res.status(404).json({ error: 'Processo não encontrado' });
+      
+      // Consult SEIA
+      const resultado = await seiaService.consultarProcesso(processo.numeroProcesso);
+      
+      // Record the consultation
+      const [consulta] = await db
+        .insert(consultasProcessos)
+        .values({
+          processoId: id,
+          sucesso: resultado.sucesso,
+          statusEncontrado: resultado.statusAtual,
+          movimentacaoEncontrada: resultado.ultimaMovimentacao,
+          houveMudanca: resultado.statusAtual !== processo.statusAtual,
+          dadosRetornados: resultado.dadosCompletos || {},
+          erro: resultado.erro,
+          tempoResposta: resultado.tempoResposta,
+        })
+        .returning();
+      
+      // Update the process with new data
+      if (resultado.sucesso) {
+        const historicoAtual = (processo.historicoMovimentacoes as any[]) || [];
+        const novoHistorico = resultado.ultimaMovimentacao 
+          ? [...historicoAtual, {
+              data: new Date().toISOString(),
+              descricao: resultado.ultimaMovimentacao,
+              status: resultado.statusAtual,
+            }].slice(-50) // Keep last 50 entries
+          : historicoAtual;
+        
+        await db
+          .update(processosMonitorados)
+          .set({
+            statusAtual: resultado.statusAtual || processo.statusAtual,
+            ultimaMovimentacao: resultado.ultimaMovimentacao || processo.ultimaMovimentacao,
+            dataUltimaMovimentacao: resultado.dataUltimaMovimentacao || new Date(),
+            dataUltimaConsulta: new Date(),
+            proximaConsulta: new Date(Date.now() + (processo.frequenciaConsulta || 24) * 60 * 60 * 1000),
+            historicoMovimentacoes: novoHistorico,
+            metadados: resultado.dadosCompletos || processo.metadados,
+            atualizadoEm: new Date(),
+          })
+          .where(eq(processosMonitorados.id, id));
+      }
+      
+      res.json({
+        consulta,
+        resultado,
+      });
+    } catch (error: any) {
+      console.error('Error consulting processo:', error);
+      res.status(500).json({ error: 'Erro ao consultar processo' });
+    }
+  });
+
+  // Get consultation history for a process
+  app.get('/api/processos-monitorados/:id/consultas', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      
+      // Verify process belongs to user's unit
+      const [processo] = await db
+        .select()
+        .from(processosMonitorados)
+        .where(and(
+          eq(processosMonitorados.id, id),
+          eq(processosMonitorados.unidade, req.user.unidade)
+        ));
+      
+      if (!processo) return res.status(404).json({ error: 'Processo não encontrado' });
+      
+      const consultas = await db
+        .select()
+        .from(consultasProcessos)
+        .where(eq(consultasProcessos.processoId, id))
+        .orderBy(desc(consultasProcessos.dataConsulta))
+        .limit(100);
+      
+      res.json(consultas);
+    } catch (error: any) {
+      console.error('Error fetching consultas:', error);
+      res.status(500).json({ error: 'Erro ao buscar histórico de consultas' });
+    }
+  });
+
+  // Check SEIA service availability
+  app.get('/api/processos-monitorados/servico/status', requireAuth, async (req, res) => {
+    try {
+      const status = await seiaService.verificarDisponibilidade();
+      res.json(status);
+    } catch (error: any) {
+      console.error('Error checking SEIA status:', error);
+      res.status(500).json({ error: 'Erro ao verificar status do SEIA' });
     }
   });
 
