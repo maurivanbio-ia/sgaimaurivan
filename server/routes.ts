@@ -9688,6 +9688,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   cron.schedule('0 0 * * *', archiveExpiredComunicados);
   console.log('[CRON] Auto-archive comunicados job scheduled (daily at midnight)');
 
+  // =============================================
+  // PROCESSOS MONITORADOS CRON JOB
+  // =============================================
+  
+  const verificarProcessosMonitorados = async () => {
+    try {
+      console.log('[CRON] Starting automatic process monitoring check...');
+      
+      // Get all active processes that need checking
+      const processosParaVerificar = await db
+        .select()
+        .from(processosMonitorados)
+        .where(and(
+          eq(processosMonitorados.ativo, true),
+          or(
+            isNull(processosMonitorados.proximaConsulta),
+            lte(processosMonitorados.proximaConsulta, new Date())
+          )
+        ));
+      
+      console.log(`[CRON] Found ${processosParaVerificar.length} processes to check`);
+      
+      for (const processo of processosParaVerificar) {
+        try {
+          const resultado = await seiaService.consultarProcesso(processo.numeroProcesso);
+          
+          // Record the consultation
+          await db.insert(consultasProcessos).values({
+            processoId: processo.id,
+            sucesso: resultado.sucesso,
+            statusEncontrado: resultado.statusAtual,
+            movimentacaoEncontrada: resultado.ultimaMovimentacao,
+            houveMudanca: resultado.statusAtual !== processo.statusAtual,
+            dadosRetornados: resultado.dadosCompletos || {},
+            erro: resultado.erro,
+            tempoResposta: resultado.tempoResposta,
+          });
+          
+          // Update the process
+          if (resultado.sucesso) {
+            const historicoAtual = (processo.historicoMovimentacoes as any[]) || [];
+            const novoHistorico = resultado.ultimaMovimentacao 
+              ? [...historicoAtual, {
+                  data: new Date().toISOString(),
+                  descricao: resultado.ultimaMovimentacao,
+                  status: resultado.statusAtual,
+                }].slice(-50)
+              : historicoAtual;
+            
+            await db
+              .update(processosMonitorados)
+              .set({
+                statusAtual: resultado.statusAtual || processo.statusAtual,
+                ultimaMovimentacao: resultado.ultimaMovimentacao || processo.ultimaMovimentacao,
+                dataUltimaMovimentacao: resultado.dataUltimaMovimentacao || new Date(),
+                dataUltimaConsulta: new Date(),
+                proximaConsulta: new Date(Date.now() + (processo.frequenciaConsulta || 24) * 60 * 60 * 1000),
+                historicoMovimentacoes: novoHistorico,
+                metadados: resultado.dadosCompletos || processo.metadados,
+                atualizadoEm: new Date(),
+              })
+              .where(eq(processosMonitorados.id, processo.id));
+            
+            // Send notification if there was a change and alerts are active
+            if (resultado.statusAtual !== processo.statusAtual && processo.alertasAtivos) {
+              console.log(`[CRON] Status change detected for process ${processo.numeroProcesso}`);
+              // TODO: Implement email notification using notificationService
+            }
+          }
+        } catch (err) {
+          console.error(`[CRON] Error checking process ${processo.numeroProcesso}:`, err);
+        }
+      }
+      
+      console.log('[CRON] Process monitoring check completed');
+    } catch (error) {
+      console.error('[CRON] Error in process monitoring job:', error);
+    }
+  };
+
+  // Run every 6 hours
+  cron.schedule('0 */6 * * *', verificarProcessosMonitorados);
+  console.log('[CRON] Process monitoring job scheduled (every 6 hours)');
+
   // Register n8n webhooks (before creating HTTP server)
   registerN8nWebhooks(app);
   

@@ -349,7 +349,7 @@ export default function ProcessosMonitorados() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <RefreshButton queryKeys={[["/api/processos-monitorados"]]} />
+          <RefreshButton />
           <Button onClick={() => {
             setSelectedProcesso(null);
             form.reset({
