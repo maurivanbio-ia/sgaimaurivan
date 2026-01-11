@@ -31,8 +31,15 @@ import {
   Edit,
   Eye,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  FileText,
+  X,
+  Download,
+  Shield,
+  FileCheck
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshButton } from "@/components/RefreshButton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -596,6 +603,267 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
   );
 }
 
+// Document interface
+interface Documento {
+  id: number;
+  nome: string;
+  descricao?: string;
+  arquivoUrl: string;
+  arquivoNome: string;
+  arquivoTipo: string;
+  arquivoTamanho: number;
+  categoria: string;
+  criadoEm: string;
+}
+
+// Document categories for vehicles
+const DOCUMENTO_CATEGORIAS = [
+  { value: "apolice_seguro", label: "Apólice de Seguro", icon: Shield },
+  { value: "crlv", label: "CRLV (Licenciamento Anual)", icon: FileCheck },
+  { value: "ipva", label: "Comprovante IPVA", icon: FileText },
+  { value: "contrato_aluguel", label: "Contrato de Aluguel", icon: FileText },
+  { value: "termo_vistoria", label: "Termo de Vistoria", icon: FileText },
+  { value: "laudo_tecnico", label: "Laudo Técnico", icon: FileText },
+  { value: "outro", label: "Outro Documento", icon: FileText },
+];
+
+// Vehicle Documents Component
+interface VeiculoDocumentosProps {
+  veiculoId: number;
+}
+
+function VeiculoDocumentos({ veiculoId }: VeiculoDocumentosProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [docNome, setDocNome] = useState("");
+  const [docCategoria, setDocCategoria] = useState("");
+  const [docDescricao, setDocDescricao] = useState("");
+
+  const { data: documentos = [], isLoading } = useQuery<Documento[]>({
+    queryKey: ["/api/frota", veiculoId, "documentos"],
+    queryFn: async () => {
+      const res = await fetch(`/api/frota/${veiculoId}/documentos`, { credentials: "include" });
+      if (!res.ok) throw new Error("Erro ao carregar documentos");
+      return res.json();
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const res = await fetch(`/api/frota/${veiculoId}/documentos`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao fazer upload");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frota", veiculoId, "documentos"] });
+      toast({ title: "Documento enviado", description: "Documento foi salvo com sucesso!" });
+      setSelectedFile(null);
+      setDocNome("");
+      setDocCategoria("");
+      setDocDescricao("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (docId: number) => {
+      const res = await fetch(`/api/frota/${veiculoId}/documentos/${docId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Erro ao excluir documento");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frota", veiculoId, "documentos"] });
+      toast({ title: "Documento excluído", description: "Documento foi removido com sucesso!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      if (!docNome) {
+        setDocNome(file.name.replace(/\.[^/.]+$/, ""));
+      }
+    }
+  };
+
+  const handleUpload = () => {
+    if (!selectedFile || !docNome || !docCategoria) {
+      toast({ title: "Atenção", description: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("arquivo", selectedFile);
+    formData.append("nome", docNome);
+    formData.append("categoria", docCategoria);
+    formData.append("descricao", docDescricao);
+
+    uploadMutation.mutate(formData);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getCategoriaLabel = (categoria: string) => {
+    return DOCUMENTO_CATEGORIAS.find(c => c.value === categoria)?.label || categoria;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="border rounded-lg p-4 space-y-4">
+        <h4 className="font-medium flex items-center gap-2">
+          <Upload className="h-4 w-4" />
+          Enviar Novo Documento
+        </h4>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Arquivo *</Label>
+            <Input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              onChange={handleFileSelect}
+              className="cursor-pointer"
+            />
+            {selectedFile && (
+              <p className="text-sm text-muted-foreground">
+                Selecionado: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categoria *</Label>
+            <Select value={docCategoria} onValueChange={setDocCategoria}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {DOCUMENTO_CATEGORIAS.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    <div className="flex items-center gap-2">
+                      <cat.icon className="h-4 w-4" />
+                      {cat.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Nome do Documento *</Label>
+            <Input
+              value={docNome}
+              onChange={(e) => setDocNome(e.target.value)}
+              placeholder="Ex: Apólice Seguro 2026"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrição (opcional)</Label>
+            <Input
+              value={docDescricao}
+              onChange={(e) => setDocDescricao(e.target.value)}
+              placeholder="Informações adicionais..."
+            />
+          </div>
+        </div>
+
+        <Button
+          onClick={handleUpload}
+          disabled={uploadMutation.isPending || !selectedFile || !docNome || !docCategoria}
+          className="w-full"
+        >
+          {uploadMutation.isPending ? (
+            <>
+              <Settings className="h-4 w-4 mr-2 animate-spin" />
+              Enviando...
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4 mr-2" />
+              Enviar Documento
+            </>
+          )}
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="font-medium flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Documentos do Veículo ({documentos.length})
+        </h4>
+
+        {isLoading ? (
+          <div className="text-center py-4">
+            <Settings className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+          </div>
+        ) : documentos.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground border rounded-lg">
+            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>Nenhum documento cadastrado</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {documentos.map((doc) => (
+              <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">{doc.nome}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline">{getCategoriaLabel(doc.categoria)}</Badge>
+                      <span>{formatFileSize(doc.arquivoTamanho)}</span>
+                      <span>{format(new Date(doc.criadoEm), "dd/MM/yyyy", { locale: ptBR })}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" asChild>
+                    <a href={doc.arquivoUrl} target="_blank" rel="noopener noreferrer" title="Abrir documento">
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate(doc.id)}
+                    disabled={deleteMutation.isPending}
+                    title="Excluir documento"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Vehicle Card Component
 interface VehicleCardProps {
   veiculo: Veiculo;
@@ -704,6 +972,7 @@ export default function FrotaPage() {
   const [selectedVeiculo, setSelectedVeiculo] = useState<Veiculo | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [veiculoToDelete, setVeiculoToDelete] = useState<Veiculo | null>(null);
 
   // Fetch veículos from API
@@ -758,7 +1027,7 @@ export default function FrotaPage() {
 
   const handleViewVeiculo = (veiculo: Veiculo) => {
     setSelectedVeiculo(veiculo);
-    console.log("View veiculo:", veiculo);
+    setIsViewOpen(true);
   };
 
   const handleDeleteVeiculo = (veiculo: Veiculo) => {
@@ -997,6 +1266,107 @@ export default function FrotaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Vehicle Dialog with Documents */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              {selectedVeiculo?.placa} - {selectedVeiculo?.marca} {selectedVeiculo?.modelo}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedVeiculo && (
+            <Tabs defaultValue="dados" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="dados">Dados do Veículo</TabsTrigger>
+                <TabsTrigger value="documentos">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Documentos
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="dados" className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Placa</Label>
+                    <p className="font-medium">{selectedVeiculo.placa}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Marca/Modelo</Label>
+                    <p className="font-medium">{selectedVeiculo.marca} {selectedVeiculo.modelo}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Ano</Label>
+                    <p className="font-medium">{selectedVeiculo.ano}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Tipo</Label>
+                    <p className="font-medium capitalize">{TIPO_CONFIG[selectedVeiculo.tipo as keyof typeof TIPO_CONFIG]?.label || selectedVeiculo.tipo}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Combustível</Label>
+                    <p className="font-medium capitalize">{selectedVeiculo.combustivel}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Status</Label>
+                    <Badge className={`${STATUS_CONFIG[selectedVeiculo.status]?.color} text-white`}>
+                      {STATUS_CONFIG[selectedVeiculo.status]?.label}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Quilometragem</Label>
+                    <p className="font-medium">{selectedVeiculo.kmAtual.toLocaleString('pt-BR')} km</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Localização</Label>
+                    <p className="font-medium">{selectedVeiculo.localizacaoAtual}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Próxima Revisão</Label>
+                    <p className="font-medium">{format(new Date(selectedVeiculo.proximaRevisao), "dd/MM/yyyy")}</p>
+                  </div>
+                  <div className="space-y-1 col-span-2 md:col-span-3">
+                    <Label className="text-muted-foreground">Seguro</Label>
+                    <p className="font-medium">{selectedVeiculo.seguro}</p>
+                  </div>
+                  {selectedVeiculo.tipoPropriedade === "alugado" && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground">Tipo de Propriedade</Label>
+                        <Badge variant="secondary">Alugado</Badge>
+                      </div>
+                      {selectedVeiculo.dataAluguel && (
+                        <div className="space-y-1">
+                          <Label className="text-muted-foreground">Data de Aluguel</Label>
+                          <p className="font-medium">{format(new Date(selectedVeiculo.dataAluguel), "dd/MM/yyyy")}</p>
+                        </div>
+                      )}
+                      {selectedVeiculo.dataEntrega && (
+                        <div className="space-y-1">
+                          <Label className="text-muted-foreground">Data de Entrega</Label>
+                          <p className="font-medium">{format(new Date(selectedVeiculo.dataEntrega), "dd/MM/yyyy")}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {selectedVeiculo.observacoes && (
+                    <div className="space-y-1 col-span-2 md:col-span-3">
+                      <Label className="text-muted-foreground">Observações</Label>
+                      <p className="text-sm">{selectedVeiculo.observacoes}</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="documentos" className="mt-4">
+                <VeiculoDocumentos veiculoId={selectedVeiculo.id} />
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
