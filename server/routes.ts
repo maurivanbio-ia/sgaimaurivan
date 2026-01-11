@@ -9564,8 +9564,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!processo) return res.status(404).json({ error: 'Processo não encontrado' });
       
-      // Consult SEIA
-      const resultado = await seiaService.consultarProcesso(processo.numeroProcesso);
+      // Consult SEIA using the process's UF and orgao
+      const resultado = await seiaService.consultarProcesso(
+        processo.numeroProcesso,
+        processo.uf || 'BA',
+        processo.orgao
+      );
       
       // Record the consultation
       const [consulta] = await db
@@ -9652,11 +9656,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check SEIA service availability
   app.get('/api/processos-monitorados/servico/status', requireAuth, async (req, res) => {
     try {
-      const status = await seiaService.verificarDisponibilidade();
+      const uf = req.query.uf as string || 'BA';
+      const status = await seiaService.verificarDisponibilidade(uf);
       res.json(status);
     } catch (error: any) {
       console.error('Error checking SEIA status:', error);
       res.status(500).json({ error: 'Erro ao verificar status do SEIA' });
+    }
+  });
+
+  // List available SEIA portals
+  app.get('/api/processos-monitorados/portais', requireAuth, async (req, res) => {
+    try {
+      const portais = seiaService.listarPortais();
+      res.json(portais);
+    } catch (error: any) {
+      console.error('Error listing portais:', error);
+      res.status(500).json({ error: 'Erro ao listar portais' });
     }
   });
 
@@ -9712,7 +9728,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const processo of processosParaVerificar) {
         try {
-          const resultado = await seiaService.consultarProcesso(processo.numeroProcesso);
+          const resultado = await seiaService.consultarProcesso(
+            processo.numeroProcesso,
+            processo.uf || 'BA',
+            processo.orgao
+          );
           
           // Record the consultation
           await db.insert(consultasProcessos).values({

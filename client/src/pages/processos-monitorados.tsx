@@ -163,6 +163,53 @@ const UF_OPTIONS = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
+const PORTAIS_SEIA: Record<string, { nome: string; url: string; orgao: string }> = {
+  BA: { nome: "SEIA Bahia", url: "https://sistema.seia.ba.gov.br", orgao: "INEMA" },
+  GO: { nome: "SEIA Goiás", url: "https://seia.go.gov.br", orgao: "SEMAD-GO" },
+  MT: { nome: "SIMLAM Mato Grosso", url: "https://monitoramento.sema.mt.gov.br/simlam", orgao: "SEMA-MT" },
+  MS: { nome: "IMASUL", url: "https://imasul.ms.gov.br", orgao: "IMASUL" },
+  MG: { nome: "SIAM Minas Gerais", url: "http://www.siam.mg.gov.br/siam/login.jsp", orgao: "SEMAD-MG" },
+  ES: { nome: "IEMA Espírito Santo", url: "https://iema.es.gov.br", orgao: "IEMA-ES" },
+  PR: { nome: "IAT Paraná", url: "https://www.iat.pr.gov.br", orgao: "IAT-PR" },
+  SC: { nome: "IMA Santa Catarina", url: "https://www.ima.sc.gov.br", orgao: "IMA-SC" },
+  RS: { nome: "FEPAM", url: "https://www.fepam.rs.gov.br", orgao: "FEPAM" },
+  RJ: { nome: "INEA Rio de Janeiro", url: "https://www.inea.rj.gov.br", orgao: "INEA" },
+  SP: { nome: "CETESB", url: "https://cetesb.sp.gov.br", orgao: "CETESB" },
+  PE: { nome: "CPRH Pernambuco", url: "https://www.cprh.pe.gov.br", orgao: "CPRH" },
+  CE: { nome: "SEMACE Ceará", url: "https://www.semace.ce.gov.br", orgao: "SEMACE" },
+  PA: { nome: "SEMAS Pará", url: "https://www.semas.pa.gov.br", orgao: "SEMAS-PA" },
+  AM: { nome: "IPAAM Amazonas", url: "http://www.ipaam.am.gov.br", orgao: "IPAAM" },
+  TO: { nome: "NATURATINS", url: "https://naturatins.to.gov.br", orgao: "NATURATINS" },
+  PI: { nome: "SEMAR Piauí", url: "https://www.semar.pi.gov.br", orgao: "SEMAR-PI" },
+  MA: { nome: "SEMA Maranhão", url: "https://www.sema.ma.gov.br", orgao: "SEMA-MA" },
+  RN: { nome: "IDEMA", url: "https://www.idema.rn.gov.br", orgao: "IDEMA" },
+  PB: { nome: "SUDEMA", url: "https://www.sudema.pb.gov.br", orgao: "SUDEMA" },
+  AL: { nome: "IMA Alagoas", url: "https://www.ima.al.gov.br", orgao: "IMA-AL" },
+  SE: { nome: "ADEMA", url: "https://www.adema.se.gov.br", orgao: "ADEMA" },
+  RO: { nome: "SEDAM Rondônia", url: "https://www.sedam.ro.gov.br", orgao: "SEDAM" },
+  AC: { nome: "IMAC Acre", url: "https://www.imac.ac.gov.br", orgao: "IMAC" },
+  AP: { nome: "SEMA Amapá", url: "https://www.sema.ap.gov.br", orgao: "SEMA-AP" },
+  RR: { nome: "FEMARH Roraima", url: "https://www.femarh.rr.gov.br", orgao: "FEMARH" },
+  DF: { nome: "IBRAM DF", url: "https://www.ibram.df.gov.br", orgao: "IBRAM-DF" },
+  IBAMA: { nome: "IBAMA Federal", url: "https://servicos.ibama.gov.br/ctf", orgao: "IBAMA" },
+  ICMBio: { nome: "ICMBio Federal", url: "https://www.icmbio.gov.br", orgao: "ICMBio" },
+  ANA: { nome: "ANA Federal", url: "https://www.gov.br/ana", orgao: "ANA" },
+};
+
+const getPortalUrl = (uf?: string, orgao?: string): string => {
+  if (orgao === "IBAMA" || orgao === "ICMBio" || orgao === "ANA") {
+    return PORTAIS_SEIA[orgao]?.url || "";
+  }
+  return PORTAIS_SEIA[uf || "BA"]?.url || "https://sistema.seia.ba.gov.br";
+};
+
+const getPortalNome = (uf?: string, orgao?: string): string => {
+  if (orgao === "IBAMA" || orgao === "ICMBio" || orgao === "ANA") {
+    return PORTAIS_SEIA[orgao]?.nome || orgao;
+  }
+  return PORTAIS_SEIA[uf || "BA"]?.nome || "Portal SEIA";
+};
+
 export default function ProcessosMonitorados() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -566,10 +613,10 @@ export default function ProcessosMonitorados() {
                             variant="ghost"
                             size="icon"
                             asChild
-                            title="Abrir portal SEIA"
+                            title={`Abrir ${getPortalNome(processo.uf, processo.orgao)}`}
                           >
                             <a
-                              href="https://sistema.seia.ba.gov.br/"
+                              href={getPortalUrl(processo.uf, processo.orgao)}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
