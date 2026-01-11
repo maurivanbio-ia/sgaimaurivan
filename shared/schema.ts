@@ -1316,6 +1316,157 @@ export type InsertSegDocumento = z.infer<typeof insertSegDocumentoSchema>;
 export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSelect;
 
 // =============================================
+// SST AVANÇADO - Programas, ASO, CAT, DDS, Investigações
+// =============================================
+
+export const programasSst = pgTable("programas_sst", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  tipo: text("tipo").notNull(), // ppra, pcmso, pgr, ltcat, outro
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  responsavelTecnico: text("responsavel_tecnico"),
+  registroProfissional: text("registro_profissional"),
+  dataElaboracao: date("data_elaboracao"),
+  dataValidade: date("data_validade"),
+  status: text("status").notNull().default("vigente"), // vigente, vencido, em_revisao
+  arquivoPath: text("arquivo_path"),
+  observacoes: text("observacoes"),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const asosOcupacionais = pgTable("asos_ocupacionais", {
+  id: serial("id").primaryKey(),
+  colaboradorId: integer("colaborador_id").references(() => colaboradores.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  tipo: text("tipo").notNull(), // admissional, periodico, demissional, retorno, mudanca_funcao
+  dataExame: date("data_exame").notNull(),
+  dataValidade: date("data_validade"),
+  resultado: text("resultado").notNull().default("apto"), // apto, apto_com_restricao, inapto
+  restricoes: text("restricoes"),
+  medicoResponsavel: text("medico_responsavel"),
+  crm: text("crm"),
+  clinica: text("clinica"),
+  examesRealizados: text("exames_realizados").array(),
+  arquivoPath: text("arquivo_path"),
+  observacoes: text("observacoes"),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const catAcidentes = pgTable("cat_acidentes", {
+  id: serial("id").primaryKey(),
+  colaboradorId: integer("colaborador_id").references(() => colaboradores.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  numeroCat: text("numero_cat"),
+  dataAcidente: timestamp("data_acidente").notNull(),
+  horaAcidente: text("hora_acidente"),
+  tipoAcidente: text("tipo_acidente").notNull(), // tipico, trajeto, doenca_ocupacional
+  localAcidente: text("local_acidente"),
+  descricao: text("descricao").notNull(),
+  parteCorpoAtingida: text("parte_corpo_atingida"),
+  agenteCausador: text("agente_causador"),
+  naturezaLesao: text("natureza_lesao"),
+  houveAfastamento: boolean("houve_afastamento").notNull().default(false),
+  diasAfastamento: integer("dias_afastamento"),
+  dataRetorno: date("data_retorno"),
+  testemunhas: text("testemunhas"),
+  medidasImediatas: text("medidas_imediatas"),
+  status: text("status").notNull().default("registrado"), // registrado, em_investigacao, encerrado
+  arquivoPath: text("arquivo_path"),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const ddsRegistros = pgTable("dds_registros", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  data: date("data").notNull(),
+  horario: text("horario"),
+  duracao: integer("duracao"), // em minutos
+  tema: text("tema").notNull(),
+  conteudo: text("conteudo"),
+  responsavelId: integer("responsavel_id").references(() => users.id),
+  responsavelNome: text("responsavel_nome"),
+  participantes: text("participantes").array(),
+  totalParticipantes: integer("total_participantes"),
+  observacoes: text("observacoes"),
+  arquivoPath: text("arquivo_path"),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const investigacoesIncidentes = pgTable("investigacoes_incidentes", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  catId: integer("cat_id").references(() => catAcidentes.id),
+  titulo: text("titulo").notNull(),
+  dataIncidente: timestamp("data_incidente").notNull(),
+  localIncidente: text("local_incidente"),
+  descricao: text("descricao").notNull(),
+  gravidade: text("gravidade").notNull().default("media"), // baixa, media, alta, critica
+  tipo: text("tipo").notNull(), // acidente, quase_acidente, incidente, desvio
+  metodologia: text("metodologia"), // 5_porques, ishikawa, arvore_falhas
+  analise: text("analise"),
+  causaRaiz: text("causa_raiz"),
+  equipeInvestigadora: text("equipe_investigadora").array(),
+  acoesCorretivas: text("acoes_corretivas"),
+  prazoAcoes: date("prazo_acoes"),
+  responsavelAcoes: text("responsavel_acoes"),
+  statusAcoes: text("status_acoes").default("pendente"), // pendente, em_andamento, concluido
+  licoesAprendidas: text("licoes_aprendidas"),
+  status: text("status").notNull().default("em_investigacao"), // em_investigacao, concluida, arquivada
+  arquivosPath: text("arquivos_path").array(),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertProgramaSstSchema = createInsertSchema(programasSst).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertAsoOcupacionalSchema = createInsertSchema(asosOcupacionais).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertCatAcidenteSchema = createInsertSchema(catAcidentes).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export const insertDdsRegistroSchema = createInsertSchema(ddsRegistros).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export const insertInvestigacaoIncidenteSchema = createInsertSchema(investigacoesIncidentes).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertProgramaSst = z.infer<typeof insertProgramaSstSchema>;
+export type ProgramaSst = typeof programasSst.$inferSelect;
+export type InsertAsoOcupacional = z.infer<typeof insertAsoOcupacionalSchema>;
+export type AsoOcupacional = typeof asosOcupacionais.$inferSelect;
+export type InsertCatAcidente = z.infer<typeof insertCatAcidenteSchema>;
+export type CatAcidente = typeof catAcidentes.$inferSelect;
+export type InsertDdsRegistro = z.infer<typeof insertDdsRegistroSchema>;
+export type DdsRegistro = typeof ddsRegistros.$inferSelect;
+export type InsertInvestigacaoIncidente = z.infer<typeof insertInvestigacaoIncidenteSchema>;
+export type InvestigacaoIncidente = typeof investigacoesIncidentes.$inferSelect;
+
+// =============================================
 // PORTAL DO CLIENTE - Clientes e Usuários de Cliente
 // =============================================
 
