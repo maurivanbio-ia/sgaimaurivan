@@ -1994,6 +1994,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
   });
 
+  // Document upload for vehicles and general documents
+  const documentUpload = multer.default({
+    storage: multer.memoryStorage(),
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(pdf|jpg|jpeg|png|doc|docx)$/i)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas arquivos PDF, imagens (JPG/PNG) ou documentos Word são permitidos'));
+      }
+    },
+    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+  });
+
   app.post('/api/financeiro/import-excel', requireAuth, excelUpload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -2597,6 +2618,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting veiculo:', error);
       res.status(500).json({ error: 'Failed to delete veiculo' });
+    }
+  });
+
+  // Get vehicle documents
+  app.get('/api/frota/:id/documentos', requireAuth, async (req, res) => {
+    try {
+      const veiculoId = parseInt(req.params.id);
+      if (isNaN(veiculoId)) {
+        return res.status(400).json({ error: 'Invalid veiculo ID' });
+      }
+      
+      const docs = await db
+        .select()
+        .from(documentos)
+        .where(eq(documentos.veiculoId, veiculoId))
+        .orderBy(desc(documentos.criadoEm));
+      
+      res.json(docs);
+    } catch (error) {
+      console.error('Error fetching vehicle documents:', error);
+      res.status(500).json({ error: 'Failed to fetch vehicle documents' });
+    }
+  });
+
+  // Upload document for vehicle
+  app.post('/api/frota/:id/documentos', requireAuth, documentUpload.single('arquivo'), async (req, res) => {
+    try {
+      const veiculoId = parseInt(req.params.id);
+      if (isNaN(veiculoId)) {
+        return res.status(400).json({ error: 'Invalid veiculo ID' });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo é obrigatório' });
+      }
+      
+      const { nome, descricao, categoria } = req.body;
+      
+      if (!nome || !categoria) {
+        return res.status(400).json({ error: 'Nome e categoria são obrigatórios' });
+      }
+      
+      // Upload to object storage
+      const fileName = `veiculos/${veiculoId}/${Date.now()}_${req.file.originalname}`;
+      const { uploadFile } = await import('./services/objectStorage');
+      const uploadResult = await uploadFile(req.file.buffer, fileName, req.file.mimetype);
+      
+      // Save document record
+      const [documento] = await db
+        .insert(documentos)
+        .values({
+          nome,
+          descricao: descricao || null,
+          arquivoUrl: uploadResult.publicUrl || uploadResult.url,
+          arquivoNome: req.file.originalname,
+          arquivoTipo: req.file.mimetype,
+          arquivoTamanho: req.file.size,
+          categoria,
+          veiculoId,
+          uploadedBy: req.user.id,
+          uploadedByNome: req.user.email,
+        })
+        .returning();
+      
+      res.status(201).json(documento);
+    } catch (error) {
+      console.error('Error uploading vehicle document:', error);
+      res.status(500).json({ error: 'Failed to upload vehicle document' });
+    }
+  });
+
+  // Delete vehicle document
+  app.delete('/api/frota/:veiculoId/documentos/:docId', requireAuth, async (req, res) => {
+    try {
+      const docId = parseInt(req.params.docId);
+      if (isNaN(docId)) {
+        return res.status(400).json({ error: 'Invalid document ID' });
+      }
+      
+      const [deleted] = await db
+        .delete(documentos)
+        .where(eq(documentos.id, docId))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting vehicle document:', error);
+      res.status(500).json({ error: 'Failed to delete vehicle document' });
     }
   });
 
