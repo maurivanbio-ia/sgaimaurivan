@@ -225,6 +225,35 @@ export const contratoPagamentos = pgTable("contrato_pagamentos", {
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
 
+export const contratoDocumentos = pgTable("contrato_documentos", {
+  id: serial("id").primaryKey(),
+  contratoId: integer("contrato_id").references(() => contratos.id).notNull(),
+  aditivoId: integer("aditivo_id").references(() => contratoAditivos.id),
+  tipo: text("tipo").notNull().default("contrato"), // contrato, aditivo, anexo, comprovante, outro
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  objectPath: text("object_path").notNull(),
+  tamanho: integer("tamanho"),
+  mime: text("mime"),
+  uploaderId: integer("uploader_id").references(() => users.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const contratoDocumentosRelations = relations(contratoDocumentos, ({ one }) => ({
+  contrato: one(contratos, {
+    fields: [contratoDocumentos.contratoId],
+    references: [contratos.id],
+  }),
+  aditivo: one(contratoAditivos, {
+    fields: [contratoDocumentos.aditivoId],
+    references: [contratoAditivos.id],
+  }),
+  uploader: one(users, {
+    fields: [contratoDocumentos.uploaderId],
+    references: [users.id],
+  }),
+}));
+
 // =============================================
 // CRONOGRAMA MODULE
 // =============================================
@@ -666,6 +695,11 @@ export const insertContratoPagamentoSchema = createInsertSchema(contratoPagament
   atualizadoEm: true,
 });
 
+export const insertContratoDocumentoSchema = createInsertSchema(contratoDocumentos).omit({
+  id: true,
+  criadoEm: true,
+});
+
 export const insertCronogramaItemSchema = createInsertSchema(cronogramaItens).omit({
   id: true,
   criadoEm: true,
@@ -1072,6 +1106,8 @@ export type InsertContratoAditivo = z.infer<typeof insertContratoAditivoSchema>;
 export type ContratoAditivo = typeof contratoAditivos.$inferSelect;
 export type InsertContratoPagamento = z.infer<typeof insertContratoPagamentoSchema>;
 export type ContratoPagamento = typeof contratoPagamentos.$inferSelect;
+export type InsertContratoDocumento = z.infer<typeof insertContratoDocumentoSchema>;
+export type ContratoDocumento = typeof contratoDocumentos.$inferSelect;
 export type InsertCronogramaItem = z.infer<typeof insertCronogramaItemSchema>;
 export type CronogramaItem = typeof cronogramaItens.$inferSelect;
 export type InsertRhRegistro = z.infer<typeof insertRhRegistroSchema>;
