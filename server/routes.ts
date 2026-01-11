@@ -158,6 +158,7 @@ declare module 'express-session' {
     clienteUsuarioId?: number;
     clienteId?: number;
     painelUnlocked?: boolean;
+    sensitiveUnlocked?: boolean;
   }
 }
 
@@ -165,6 +166,17 @@ declare module 'express-session' {
 const PAINEL_UNLOCK_PASSWORD = process.env.PAINEL_UNLOCK_PASSWORD || "";
 // Admin unlock password for restricted modules
 const ADMIN_UNLOCK_PASSWORD = process.env.ADMIN_UNLOCK_PASSWORD || "";
+// Sensitive areas unlock password
+const SENSITIVE_UNLOCK_PASSWORD = process.env.SENSITIVE_UNLOCK_PASSWORD || "";
+
+// List of sensitive modules that require password protection
+const SENSITIVE_MODULES = [
+  "financeiro",
+  "propostas",
+  "gestao-dados",
+  "pastas",
+  "documentos-institucionais"
+];
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Trust proxy for secure cookies behind reverse proxy
@@ -211,6 +223,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = await storage.getUser(req.session.userId);
     if (!user || user.role !== "admin") {
       return res.status(403).json({ message: "Acesso negado. Apenas administradores podem realizar esta ação." });
+    }
+    
+    next();
+  };
+
+  // Sensitive areas access middleware
+  const requireSensitiveUnlock = async (req: any, res: any, next: any) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    if (!req.session.sensitiveUnlocked) {
+      return res.status(403).json({ 
+        message: "Acesso restrito. Digite a senha para acessar esta área.",
+        requiresUnlock: true,
+        unlockType: "sensitive"
+      });
     }
     
     next();
@@ -425,6 +454,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Module unlock error:", error);
       res.status(500).json({ success: false, message: "Internal server error" });
+    }
+  });
+
+  // Sensitive areas unlock endpoint
+  app.post("/api/auth/unlock-sensitive", requireAuth, async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password || typeof password !== 'string') {
+        return res.status(400).json({ success: false, message: "Senha é obrigatória" });
+      }
+
+      if (!SENSITIVE_UNLOCK_PASSWORD) {
+        return res.status(500).json({ success: false, message: "Configuração de desbloqueio não disponível" });
+      }
+
+      if (password === SENSITIVE_UNLOCK_PASSWORD) {
+        req.session.sensitiveUnlocked = true;
+        console.log(`Áreas sensíveis desbloqueadas por usuário ${req.session.userId}`);
+        return res.json({ success: true, message: "Acesso liberado com sucesso" });
+      } else {
+        console.log(`Tentativa de desbloqueio de áreas sensíveis falhou para usuário ${req.session.userId}`);
+        return res.status(401).json({ success: false, message: "Senha incorreta" });
+      }
+    } catch (error) {
+      console.error("Sensitive unlock error:", error);
+      res.status(500).json({ success: false, message: "Erro ao desbloquear acesso" });
+    }
+  });
+
+  // Sensitive areas unlock status endpoint
+  app.get("/api/auth/sensitive-status", requireAuth, async (req, res) => {
+    try {
+      res.json({ 
+        unlocked: req.session.sensitiveUnlocked === true,
+        modules: SENSITIVE_MODULES
+      });
+    } catch (error) {
+      console.error("Get sensitive status error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
@@ -1726,7 +1795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Lançamentos Financeiros routes
-  app.get('/api/financeiro/lancamentos', requireAuth, async (req, res) => {
+  app.get('/api/financeiro/lancamentos', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const userUnidade = req.user?.unidade || '';
       const userCargo = req.user?.cargo || '';
@@ -1752,7 +1821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/financeiro/lancamentos', async (req, res) => {
+  app.post('/api/financeiro/lancamentos', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       // Helper para extrair data no formato YYYY-MM-DD
       const extractDateString = (value: any): string | null => {
@@ -1784,7 +1853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/financeiro/lancamentos/:id', async (req, res) => {
+  app.put('/api/financeiro/lancamentos/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1825,7 +1894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/financeiro/lancamentos/:id', async (req, res) => {
+  app.delete('/api/financeiro/lancamentos/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1964,7 +2033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Financial Statistics route
-  app.get('/api/financeiro/stats', async (req, res) => {
+  app.get('/api/financeiro/stats', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const { empreendimentoId, startDate, endDate } = req.query;
       const empId = empreendimentoId ? parseInt(String(empreendimentoId)) : undefined;
@@ -1978,7 +2047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/financeiro/expense-evolution', async (req, res) => {
+  app.get('/api/financeiro/expense-evolution', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const { empreendimentoId, categoriaId } = req.query;
       const empId = empreendimentoId ? parseInt(String(empreendimentoId)) : undefined;
@@ -2033,7 +2102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
   });
 
-  app.post('/api/financeiro/import-excel', requireAuth, excelUpload.single('file'), async (req, res) => {
+  app.post('/api/financeiro/import-excel', requireAuth, requireSensitiveUnlock, excelUpload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
@@ -2182,7 +2251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export financial data to Excel
-  app.get('/api/financeiro/export-excel', requireAuth, async (req, res) => {
+  app.get('/api/financeiro/export-excel', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const XLSX = await import('xlsx');
       
@@ -3477,7 +3546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =============================================
   
   // GET /api/pastas - List all folders for the current unidade
-  app.get('/api/pastas', requireAuth, async (req, res) => {
+  app.get('/api/pastas', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -3499,7 +3568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/pastas/:id - Get single folder details
-  app.get('/api/pastas/:id', requireAuth, async (req, res) => {
+  app.get('/api/pastas/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3519,7 +3588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // POST /api/pastas - Create new folder
-  app.post('/api/pastas', requireAuth, async (req, res) => {
+  app.post('/api/pastas', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -3559,7 +3628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // PUT /api/pastas/:id - Update folder
-  app.put('/api/pastas/:id', requireAuth, async (req, res) => {
+  app.put('/api/pastas/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3576,7 +3645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // DELETE /api/pastas/:id - Delete folder and all contents
-  app.delete('/api/pastas/:id', requireAuth, async (req, res) => {
+  app.delete('/api/pastas/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3596,7 +3665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/pastas/:id/arquivos - List files in folder
-  app.get('/api/pastas/:id/arquivos', requireAuth, async (req, res) => {
+  app.get('/api/pastas/:id/arquivos', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -3615,7 +3684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // POST /api/pastas/:id/arquivos - Create file reference in folder after upload
-  app.post('/api/pastas/:id/arquivos', requireAuth, async (req, res) => {
+  app.post('/api/pastas/:id/arquivos', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -3689,7 +3758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/pastas/:id/subpastas - Get subfolders of a folder
-  app.get('/api/pastas/:id/subpastas', requireAuth, async (req, res) => {
+  app.get('/api/pastas/:id/subpastas', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const paiId = parseInt(req.params.id);
       if (isNaN(paiId)) {
@@ -7544,7 +7613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== PROPOSTAS COMERCIAIS ====================
   
-  app.get('/api/propostas-comerciais', requireAuth, async (req, res) => {
+  app.get('/api/propostas-comerciais', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const filters = {
         unidade: req.user.unidade,
@@ -7559,7 +7628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/propostas-comerciais/:id', requireAuth, async (req, res) => {
+  app.get('/api/propostas-comerciais/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7576,7 +7645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/propostas-comerciais', requireAuth, async (req, res) => {
+  app.post('/api/propostas-comerciais', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const data = insertPropostaComercialSchema.parse({
         ...req.body,
@@ -7591,7 +7660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/propostas-comerciais/:id', requireAuth, async (req, res) => {
+  app.put('/api/propostas-comerciais/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7608,7 +7677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/propostas-comerciais/:id', requireAuth, async (req, res) => {
+  app.delete('/api/propostas-comerciais/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {

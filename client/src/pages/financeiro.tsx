@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { SensitivePageWrapper } from "@/components/SensitivePageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1196,6 +1197,7 @@ export default function FinanceiroPage() {
   }
 
   return (
+    <SensitivePageWrapper moduleName="Módulo Financeiro">
     <div className="container mx-auto py-8 space-y-6" data-testid="page-financeiro">
       {/* Header */}
       <div className="flex flex-col gap-4">
@@ -2252,5 +2254,6 @@ export default function FinanceiroPage() {
       </Dialog>
 
     </div>
+    </SensitivePageWrapper>
   );
 }

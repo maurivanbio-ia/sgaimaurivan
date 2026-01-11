@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Search, Edit, Trash2, FileText, Loader2 } from "lucide-react";
+import { SensitivePageWrapper } from "@/components/SensitivePageWrapper";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -306,6 +307,7 @@ export default function PropostasComerciais() {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
+    <SensitivePageWrapper moduleName="Propostas Comerciais">
     <div className="container mx-auto p-6 space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -674,5 +676,6 @@ export default function PropostasComerciais() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </SensitivePageWrapper>
   );
 }
