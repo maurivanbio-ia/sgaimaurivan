@@ -495,7 +495,7 @@ export default function MapaEmpreendimentos() {
                 Carregar Camada
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md !z-[10001]">
+            <DialogContent className="sm:max-w-md !z-[10001] fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Layers className="h-5 w-5" />
@@ -524,7 +524,7 @@ export default function MapaEmpreendimentos() {
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="!z-[10002]">
                       {Object.entries(categoriaConfig).map(([value, config]) => (
                         <SelectItem key={value} value={value}>
                           {config.icon} {config.label}
