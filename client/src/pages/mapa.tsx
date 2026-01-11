@@ -400,6 +400,31 @@ export default function MapaEmpreendimentos() {
     }
   };
 
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .toaster { 
+        z-index: 99999 !important; 
+      }
+      [role="status"] {
+        z-index: 99999 !important;
+      }
+      .leaflet-container {
+        z-index: 1 !important;
+      }
+      .leaflet-pane {
+        z-index: 400 !important;
+      }
+      .leaflet-top, .leaflet-bottom {
+        z-index: 1000 !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
