@@ -8018,14 +8018,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const toGeoJSON = await import('@mapbox/togeojson');
         const zip = await JSZip.loadAsync(fileBuffer);
         
-        const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
-        if (!kmlFile) {
+        // Find all KML files in the zip, ignoring those in __MACOSX or similar
+        const kmlFiles = Object.keys(zip.files).filter(name => 
+          name.toLowerCase().endsWith('.kml') && !name.includes('__MACOSX')
+        );
+
+        if (kmlFiles.length === 0) {
           return res.status(400).json({ error: 'Arquivo KML não encontrado dentro do KMZ' });
         }
         
-        const kmlContent = await zip.files[kmlFile].async('string');
-        const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
-        geojsonData = toGeoJSON.kml(dom);
+        // Combine multiple KML files if present, or just use the first one
+        const features: any[] = [];
+        for (const kmlFile of kmlFiles) {
+          const kmlContent = await zip.files[kmlFile].async('string');
+          const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
+          const converted = toGeoJSON.kml(dom);
+          if (converted && converted.features) {
+            features.push(...converted.features);
+          }
+        }
+
+        geojsonData = {
+          type: 'FeatureCollection',
+          features: features
+        };
       } else if (fileName.endsWith('.kml')) {
         const toGeoJSON = await import('@mapbox/togeojson');
         const kmlContent = fileBuffer.toString('utf-8');
