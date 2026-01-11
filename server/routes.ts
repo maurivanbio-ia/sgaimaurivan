@@ -8041,24 +8041,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const converted = toGeoJSON.kml(dom);
               
               if (converted) {
-                if (converted.type === 'FeatureCollection' && Array.isArray(converted.features)) {
-                  features.push(...converted.features);
-                } else if (converted.type === 'Feature') {
-                  features.push(converted);
-                } else if (converted.type === 'GeometryCollection' && Array.isArray(converted.geometries)) {
-                  converted.geometries.forEach((geom: any) => {
-                    features.push({
-                      type: 'Feature',
-                      properties: { sourceFile: kmlFile },
-                      geometry: geom
-                    });
-                  });
+                // Ensure features list is extracted correctly regardless of type
+                const extractedFeatures = converted.features || 
+                                       (converted.type === 'Feature' ? [converted] : []) ||
+                                       (converted.type === 'GeometryCollection' ? converted.geometries.map((g: any) => ({ type: 'Feature', geometry: g, properties: {} })) : []);
+                
+                if (extractedFeatures.length > 0) {
+                  features.push(...extractedFeatures);
                 } else if (converted.geometry) {
-                   features.push({
-                      type: 'Feature',
-                      properties: { sourceFile: kmlFile },
-                      geometry: converted.geometry
-                   });
+                  // Last resort for single geometries
+                  features.push({
+                    type: 'Feature',
+                    properties: { sourceFile: kmlFile },
+                    geometry: converted.geometry
+                  });
                 }
               }
             } catch (err) {
