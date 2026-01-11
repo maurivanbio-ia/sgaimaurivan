@@ -58,6 +58,7 @@ import {
   demandas,
   arquivos,
   contratos,
+  contratoDocumentos,
   datasets,
   datasetPastas,
   datasetVersoes,
@@ -4249,6 +4250,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/contratos/:id/pagamentos', requireAuth, contratoController.getPagamentosByContrato);
   app.post('/api/contratos/:id/pagamentos', requireAuth, contratoController.createPagamento);
   app.patch('/api/pagamentos/:id', requireAuth, contratoController.updatePagamento);
+
+  // Deletar PDF do contrato (limpar referência)
+  app.delete('/api/contratos/:id/pdf', requireAuth, async (req, res) => {
+    try {
+      const contratoId = parseInt(req.params.id);
+      if (isNaN(contratoId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      const [contrato] = await db.select().from(contratos).where(eq(contratos.id, contratoId)).limit(1);
+      if (!contrato) {
+        return res.status(404).json({ message: "Contrato não encontrado" });
+      }
+      
+      // Limpar referência ao PDF
+      await db.update(contratos).set({ arquivoPdfId: null }).where(eq(contratos.id, contratoId));
+      
+      res.json({ message: "PDF removido com sucesso" });
+    } catch (error: any) {
+      console.error("Erro ao remover PDF do contrato:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==== CONTRATO DOCUMENTOS (Múltiplos documentos) ====
+  // Listar documentos de um contrato
+  app.get('/api/contratos/:id/documentos', requireAuth, async (req, res) => {
+    try {
+      const contratoId = parseInt(req.params.id);
+      if (isNaN(contratoId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      const docs = await db.select().from(contratoDocumentos).where(eq(contratoDocumentos.contratoId, contratoId));
+      res.json(docs);
+    } catch (error: any) {
+      console.error("Erro ao buscar documentos do contrato:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Upload de documento para contrato (múltiplos)
+  app.post('/api/contratos/:id/documentos', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
+    try {
+      const contratoId = parseInt(req.params.id);
+      if (isNaN(contratoId) || !req.file) {
+        return res.status(400).json({ message: "Dados inválidos" });
+      }
+      
+      const userId = (req.session as any).userId;
+      const tipo = req.body.tipo || 'contrato';
+      const descricao = req.body.descricao || null;
+      const aditivoId = req.body.aditivoId ? parseInt(req.body.aditivoId) : null;
+      
+      // Usar Object Storage se disponível, senão arquivo local
+      let objectPath = req.file.path;
+      
+      const [doc] = await db.insert(contratoDocumentos).values({
+        contratoId,
+        aditivoId,
+        tipo,
+        nome: req.file.originalname,
+        descricao,
+        objectPath,
+        tamanho: req.file.size,
+        mime: req.file.mimetype,
+        uploaderId: userId,
+      }).returning();
+      
+      res.json(doc);
+    } catch (error: any) {
+      console.error("Erro ao fazer upload de documento:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Download de documento específico
+  app.get('/api/contrato-documentos/:id/download', requireAuth, async (req, res) => {
+    try {
+      const docId = parseInt(req.params.id);
+      const [doc] = await db.select().from(contratoDocumentos).where(eq(contratoDocumentos.id, docId)).limit(1);
+      
+      if (!doc) {
+        return res.status(404).json({ message: "Documento não encontrado" });
+      }
+      
+      const fs = await import("fs");
+      if (!fs.existsSync(doc.objectPath)) {
+        return res.status(404).json({ message: "Arquivo não existe no servidor" });
+      }
+      
+      res.setHeader('Content-Type', doc.mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${doc.nome}"`);
+      fs.createReadStream(doc.objectPath).pipe(res);
+    } catch (error: any) {
+      console.error("Erro ao baixar documento:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Deletar documento específico
+  app.delete('/api/contrato-documentos/:id', requireAuth, async (req, res) => {
+    try {
+      const docId = parseInt(req.params.id);
+      
+      const [doc] = await db.select().from(contratoDocumentos).where(eq(contratoDocumentos.id, docId)).limit(1);
+      if (!doc) {
+        return res.status(404).json({ message: "Documento não encontrado" });
+      }
+      
+      // Remover arquivo físico se existir
+      const fs = await import("fs");
+      if (fs.existsSync(doc.objectPath)) {
+        fs.unlinkSync(doc.objectPath);
+      }
+      
+      // Remover do banco
+      await db.delete(contratoDocumentos).where(eq(contratoDocumentos.id, docId));
+      
+      res.json({ message: "Documento removido com sucesso" });
+    } catch (error: any) {
+      console.error("Erro ao remover documento:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   // ==== CAMPANHA ROUTES ====
   app.get('/api/empreendimentos/:empreendimentoId/campanhas', requireAuth, async (req, res) => {

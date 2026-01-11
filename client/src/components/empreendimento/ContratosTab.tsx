@@ -145,7 +145,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/empreendimentos/${empreendimentoId}/contratos/${id}`);
+      return apiRequest("DELETE", `/api/contratos/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
