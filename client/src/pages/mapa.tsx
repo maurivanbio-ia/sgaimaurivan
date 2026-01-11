@@ -6,8 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLocation } from "wouter";
-import { MapPin, Building, Filter, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { MapPin, Building, Filter, RefreshCw, Layers, Upload, Eye, EyeOff, Trash2, Info } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 
 const statusColors: Record<string, string> = {
@@ -37,6 +42,16 @@ const tipoConfig: Record<string, { color: string; icon: string; label: string }>
   outro: { color: '#6b7280', icon: '📍', label: 'Outro' },
 };
 
+const categoriaConfig: Record<string, { color: string; label: string; icon: string }> = {
+  uc: { color: '#22c55e', label: 'Unidades de Conservação', icon: '🌲' },
+  terras_indigenas: { color: '#f59e0b', label: 'Terras Indígenas', icon: '🏠' },
+  uso_solo: { color: '#8b5cf6', label: 'Uso do Solo', icon: '🗺️' },
+  hidrografia: { color: '#3b82f6', label: 'Hidrografia', icon: '💧' },
+  municipios: { color: '#6b7280', label: 'Municípios', icon: '🏙️' },
+  vegetacao: { color: '#10b981', label: 'Vegetação', icon: '🌿' },
+  outro: { color: '#ef4444', label: 'Outros', icon: '📍' },
+};
+
 interface Empreendimento {
   id: number;
   nome: string;
@@ -51,16 +66,40 @@ interface Empreendimento {
   responsavelInterno: string;
 }
 
+interface CamadaGeoespacial {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  categoria: string;
+  cor: string | null;
+  opacidade: number | null;
+  geojsonUrl: string | null;
+  geojsonData: any;
+  fonte: string | null;
+  ano: number | null;
+  ativo: boolean | null;
+  visivel: boolean | null;
+  ordem: number | null;
+}
+
 export default function MapaEmpreendimentos() {
-  const [, navigate] = useLocation();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const layersRef = useRef<Map<number, L.GeoJSON>>(new Map());
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [tipoFilter, setTipoFilter] = useState<string>("todos");
+  const [visibleLayers, setVisibleLayers] = useState<Set<number>>(new Set());
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
 
   const { data: empreendimentos = [], isLoading, refetch } = useQuery<Empreendimento[]>({
     queryKey: ['/api/empreendimentos'],
+  });
+
+  const { data: camadas = [], isLoading: loadingCamadas, refetch: refetchCamadas } = useQuery<CamadaGeoespacial[]>({
+    queryKey: ['/api/camadas-geoespaciais'],
   });
 
   const empreendimentosComCoordenadas = useMemo(() => {
@@ -89,6 +128,17 @@ export default function MapaEmpreendimentos() {
       return acc;
     }, {} as Record<string, number>);
   }, [empreendimentosComCoordenadas]);
+
+  const camadasPorCategoria = useMemo(() => {
+    const grouped: Record<string, CamadaGeoespacial[]> = {};
+    camadas.forEach(camada => {
+      if (!grouped[camada.categoria]) {
+        grouped[camada.categoria] = [];
+      }
+      grouped[camada.categoria].push(camada);
+    });
+    return grouped;
+  }, [camadas]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -192,6 +242,179 @@ export default function MapaEmpreendimentos() {
     }
   }, [empreendimentosFiltrados]);
 
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    camadas.forEach(camada => {
+      const existingLayer = layersRef.current.get(camada.id);
+      const shouldBeVisible = visibleLayers.has(camada.id);
+
+      if (shouldBeVisible && !existingLayer && camada.geojsonData) {
+        const geojsonLayer = L.geoJSON(camada.geojsonData, {
+          style: (feature) => ({
+            color: camada.cor || '#3b82f6',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: camada.opacidade || 0.3,
+            fillColor: camada.cor || '#3b82f6',
+          }),
+          onEachFeature: (feature, layer) => {
+            const props = feature.properties || {};
+            let tooltipContent = `<strong>${props.name || props.Name || props.NOME || camada.nome}</strong>`;
+            
+            if (props.description || props.Description || props.DESCRICAO) {
+              tooltipContent += `<br/>${props.description || props.Description || props.DESCRICAO}`;
+            }
+            if (props.area || props.AREA) {
+              tooltipContent += `<br/>Área: ${props.area || props.AREA}`;
+            }
+            if (props.categoria || props.CATEGORIA) {
+              tooltipContent += `<br/>Categoria: ${props.categoria || props.CATEGORIA}`;
+            }
+            if (camada.fonte) {
+              tooltipContent += `<br/><small>Fonte: ${camada.fonte}</small>`;
+            }
+            if (camada.ano) {
+              tooltipContent += `<br/><small>Ano: ${camada.ano}</small>`;
+            }
+
+            layer.bindTooltip(tooltipContent, {
+              sticky: true,
+              direction: 'top',
+              offset: [0, -10],
+            });
+
+            layer.on('mouseover', function() {
+              if ((layer as any).setStyle) {
+                (layer as any).setStyle({
+                  weight: 3,
+                  fillOpacity: (camada.opacidade || 0.3) + 0.2,
+                });
+              }
+            });
+
+            layer.on('mouseout', function() {
+              if ((layer as any).setStyle) {
+                (layer as any).setStyle({
+                  weight: 2,
+                  fillOpacity: camada.opacidade || 0.3,
+                });
+              }
+            });
+
+            const popupContent = `
+              <div style="min-width: 250px;">
+                <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">
+                  ${categoriaConfig[camada.categoria]?.icon || '📍'} ${props.name || props.Name || props.NOME || camada.nome}
+                </h3>
+                <div style="font-size: 13px;">
+                  ${props.description || props.Description || props.DESCRICAO ? `<p>${props.description || props.Description || props.DESCRICAO}</p>` : ''}
+                  <p><strong>Camada:</strong> ${camada.nome}</p>
+                  <p><strong>Categoria:</strong> ${categoriaConfig[camada.categoria]?.label || camada.categoria}</p>
+                  ${props.area || props.AREA ? `<p><strong>Área:</strong> ${props.area || props.AREA}</p>` : ''}
+                  ${camada.fonte ? `<p><strong>Fonte:</strong> ${camada.fonte}</p>` : ''}
+                  ${camada.ano ? `<p><strong>Ano:</strong> ${camada.ano}</p>` : ''}
+                </div>
+              </div>
+            `;
+            layer.bindPopup(popupContent);
+          },
+        }).addTo(mapInstanceRef.current!);
+
+        layersRef.current.set(camada.id, geojsonLayer);
+      } else if (!shouldBeVisible && existingLayer) {
+        existingLayer.remove();
+        layersRef.current.delete(camada.id);
+      }
+    });
+  }, [camadas, visibleLayers]);
+
+  const toggleLayer = (camadaId: number) => {
+    setVisibleLayers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(camadaId)) {
+        newSet.delete(camadaId);
+      } else {
+        newSet.add(camadaId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleCategoryLayers = (categoria: string, enabled: boolean) => {
+    const categoryLayers = camadasPorCategoria[categoria] || [];
+    setVisibleLayers(prev => {
+      const newSet = new Set(prev);
+      categoryLayers.forEach(camada => {
+        if (enabled) {
+          newSet.add(camada.id);
+        } else {
+          newSet.delete(camada.id);
+        }
+      });
+      return newSet;
+    });
+  };
+
+  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setUploading(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const response = await fetch('/api/camadas-geoespaciais/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao fazer upload');
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Camada carregada com sucesso!",
+      });
+      setUploadDialogOpen(false);
+      refetchCamadas();
+      queryClient.invalidateQueries({ queryKey: ['/api/camadas-geoespaciais'] });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao fazer upload do arquivo",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteCamada = async (id: number) => {
+    if (!confirm('Tem certeza que deseja excluir esta camada?')) return;
+
+    try {
+      await apiRequest('DELETE', `/api/camadas-geoespaciais/${id}`);
+      toast({
+        title: "Sucesso",
+        description: "Camada excluída com sucesso!",
+      });
+      setVisibleLayers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+      refetchCamadas();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir camada",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
@@ -210,13 +433,88 @@ export default function MapaEmpreendimentos() {
             Mapa de Empreendimentos
           </h1>
           <p className="text-muted-foreground">
-            Visualize a localização de todos os empreendimentos
+            Visualize a localização de todos os empreendimentos e camadas geoespaciais
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-upload-layer">
+                <Upload className="h-4 w-4 mr-2" />
+                Carregar Camada
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  Carregar Camada Geoespacial
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleUpload} className="space-y-4">
+                <div>
+                  <Label htmlFor="file">Arquivo (KMZ, KML ou GeoJSON)</Label>
+                  <Input 
+                    id="file" 
+                    name="file" 
+                    type="file" 
+                    accept=".kmz,.kml,.geojson,.json"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="nome">Nome da Camada</Label>
+                  <Input id="nome" name="nome" placeholder="Ex: Unidades de Conservação BA" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="categoria">Categoria</Label>
+                  <Select name="categoria" defaultValue="outro">
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categoriaConfig).map(([value, config]) => (
+                        <SelectItem key={value} value={value}>
+                          {config.icon} {config.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="cor">Cor</Label>
+                    <Input id="cor" name="cor" type="color" defaultValue="#3b82f6" className="mt-1 h-10" />
+                  </div>
+                  <div>
+                    <Label htmlFor="ano">Ano</Label>
+                    <Input id="ano" name="ano" type="number" placeholder="2024" className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="fonte">Fonte dos Dados</Label>
+                  <Input id="fonte" name="fonte" placeholder="Ex: ICMBio, FUNAI, IBGE" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Input id="descricao" name="descricao" placeholder="Descrição da camada" className="mt-1" />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="visivel" name="visivel" defaultChecked />
+                  <Label htmlFor="visivel">Visível por padrão</Label>
+                </div>
+                <Button type="submit" className="w-full" disabled={uploading}>
+                  {uploading ? 'Carregando...' : 'Carregar Camada'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline" onClick={() => { refetch(); refetchCamadas(); }} data-testid="button-refresh">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -241,53 +539,152 @@ export default function MapaEmpreendimentos() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filtros
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Layers className="h-5 w-5" />
+              Camadas Geoespaciais
             </CardTitle>
-            <div className="flex gap-4">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-status">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os Status</SelectItem>
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={tipoFilter} onValueChange={setTipoFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-tipo">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os Tipos</SelectItem>
-                  {tipos.map(tipo => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {tipo.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          </CardHeader>
+          <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
+            {loadingCamadas ? (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : camadas.length === 0 ? (
+              <div className="text-center text-muted-foreground py-4">
+                <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Nenhuma camada cadastrada</p>
+                <p className="text-xs">Clique em "Carregar Camada" para adicionar</p>
+              </div>
+            ) : (
+              Object.entries(camadasPorCategoria).map(([categoria, camadasCategoria]) => {
+                const config = categoriaConfig[categoria] || categoriaConfig.outro;
+                const allVisible = camadasCategoria.every(c => visibleLayers.has(c.id));
+                const someVisible = camadasCategoria.some(c => visibleLayers.has(c.id));
+
+                return (
+                  <div key={categoria} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>{config.icon}</span>
+                        <span className="font-medium text-sm">{config.label}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {camadasCategoria.length}
+                        </Badge>
+                      </div>
+                      <Switch
+                        checked={allVisible}
+                        onCheckedChange={(checked) => toggleCategoryLayers(categoria, checked)}
+                        className="scale-75"
+                      />
+                    </div>
+                    <div className="pl-6 space-y-1">
+                      {camadasCategoria.map(camada => (
+                        <div 
+                          key={camada.id} 
+                          className="flex items-center justify-between group hover:bg-muted/50 rounded px-2 py-1"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: camada.cor || config.color }}
+                            />
+                            <span className="text-sm truncate" title={camada.nome}>
+                              {camada.nome}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => toggleLayer(camada.id)}
+                            >
+                              {visibleLayers.has(camada.id) ? (
+                                <Eye className="h-3 w-3" />
+                              ) : (
+                                <EyeOff className="h-3 w-3" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-destructive"
+                              onClick={() => handleDeleteCamada(camada.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros de Empreendimentos
+              </CardTitle>
+              <div className="flex gap-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-status">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Status</SelectItem>
+                    {Object.entries(statusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={tipoFilter} onValueChange={setTipoFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-tipo">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os Tipos</SelectItem>
+                    {tipos.map(tipo => (
+                      <SelectItem key={tipo} value={tipo}>
+                        {tipo.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div 
-            ref={mapRef}
-            className="rounded-lg overflow-hidden border" 
-            style={{ height: "500px" }}
-            data-testid="map-container"
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Mostrando {empreendimentosFiltrados.length} de {empreendimentosComCoordenadas.length} empreendimentos com coordenadas
-          </p>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <div 
+              ref={mapRef}
+              className="rounded-lg overflow-hidden border" 
+              style={{ height: "500px" }}
+              data-testid="map-container"
+            />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {empreendimentosFiltrados.length} de {empreendimentosComCoordenadas.length} empreendimentos com coordenadas
+              </p>
+              {visibleLayers.size > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Layers className="h-3 w-3" />
+                  {visibleLayers.size} camada{visibleLayers.size !== 1 ? 's' : ''} visível{visibleLayers.size !== 1 ? 'is' : ''}
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {empreendimentos.length > 0 && empreendimentosComCoordenadas.length === 0 && (
         <Card className="border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
@@ -298,6 +695,24 @@ export default function MapaEmpreendimentos() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-800 dark:text-blue-200">
+              <p className="font-medium mb-1">Dicas de uso das Camadas Geoespaciais:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>Carregue arquivos KMZ, KML ou GeoJSON para visualizar áreas no mapa</li>
+                <li>Use as categorias para organizar camadas (UCs, Terras Indígenas, Uso do Solo, etc.)</li>
+                <li>Passe o mouse sobre as áreas para ver informações detalhadas</li>
+                <li>Clique nas áreas para abrir um popup com mais informações</li>
+                <li>Use os toggles para ligar/desligar camadas individualmente ou por categoria</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
