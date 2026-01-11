@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -23,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Link2,
   Globe,
@@ -44,6 +49,8 @@ import {
   Scale,
   Shield,
   BookOpen,
+  Folder,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,24 +62,35 @@ type LinkUtil = {
   icone?: string;
   cor?: string;
   categoria?: string;
+  tipo?: string;
   acessos?: number;
   ordem?: number;
 };
 
-const LINK_CATEGORIAS = [
-  { value: "all", label: "Todos" },
-  { value: "fauna", label: "Fauna" },
-  { value: "flora", label: "Flora" },
-  { value: "gestao", label: "Gestão" },
-  { value: "geoprocessamento", label: "Geoprocessamento" },
-  { value: "licenciamento", label: "Licenciamento" },
-  { value: "recursos_hidricos", label: "Recursos Hídricos" },
+const PASTAS = [
+  { value: "fauna", label: "Fauna", icon: Bug, cor: "#22c55e" },
+  { value: "flora", label: "Flora", icon: TreeDeciduous, cor: "#16a34a" },
+  { value: "geoprocessamento", label: "Geoprocessamento", icon: Map, cor: "#3b82f6" },
+  { value: "recursos_hidricos", label: "Recursos Hídricos", icon: Droplets, cor: "#0ea5e9" },
+  { value: "licenciamento", label: "Licenciamento", icon: Shield, cor: "#f59e0b" },
+  { value: "legislacao", label: "Legislação", icon: Scale, cor: "#8b5cf6" },
+  { value: "gestao", label: "Gestão Ambiental", icon: Layers, cor: "#10b981" },
+  { value: "documentos", label: "Documentos e Normas", icon: BookOpen, cor: "#6366f1" },
+  { value: "sistemas", label: "Sistemas", icon: Building2, cor: "#64748b" },
+  { value: "ferramentas", label: "Ferramentas", icon: Wrench, cor: "#78716c" },
+  { value: "outros", label: "Outros", icon: FolderOpen, cor: "#94a3b8" },
+];
+
+const TIPOS = [
+  { value: "portal", label: "Portal" },
+  { value: "sistema", label: "Sistema" },
+  { value: "ferramenta", label: "Ferramenta" },
+  { value: "documento", label: "Documento" },
   { value: "legislacao", label: "Legislação" },
-  { value: "sistemas", label: "Sistemas" },
-  { value: "portais", label: "Portais" },
-  { value: "ferramentas", label: "Ferramentas" },
-  { value: "documentos", label: "Documentos" },
-  { value: "outros", label: "Outros" },
+  { value: "mapa", label: "Mapa/GIS" },
+  { value: "banco_dados", label: "Banco de Dados" },
+  { value: "api", label: "API/Serviço" },
+  { value: "outro", label: "Outro" },
 ];
 
 const LINK_ICONS: { [key: string]: any } = {
@@ -95,7 +113,7 @@ const LINK_ICONS: { [key: string]: any } = {
 
 export default function LinksUteis() {
   const { toast } = useToast();
-  const [categoriaFilter, setCategoriaFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkUtil | null>(null);
   const [linkForm, setLinkForm] = useState({
@@ -104,14 +122,14 @@ export default function LinksUteis() {
     url: "",
     icone: "link",
     cor: "#3b82f6",
-    categoria: "gestao",
+    categoria: "fauna",
+    tipo: "portal",
   });
 
   const { data: links = [], isLoading } = useQuery<LinkUtil[]>({
-    queryKey: ["/api/links-uteis", categoriaFilter],
+    queryKey: ["/api/links-uteis"],
     queryFn: async () => {
-      const params = categoriaFilter !== "all" ? `?categoria=${categoriaFilter}` : "";
-      const res = await fetch(`/api/links-uteis${params}`);
+      const res = await fetch("/api/links-uteis");
       if (!res.ok) throw new Error("Erro ao buscar links");
       return res.json();
     },
@@ -178,7 +196,8 @@ export default function LinksUteis() {
       url: "",
       icone: "link",
       cor: "#3b82f6",
-      categoria: "gestao",
+      categoria: "fauna",
+      tipo: "portal",
     });
   };
 
@@ -190,7 +209,8 @@ export default function LinksUteis() {
       url: link.url,
       icone: link.icone || "link",
       cor: link.cor || "#3b82f6",
-      categoria: link.categoria || "sistemas",
+      categoria: link.categoria || "outros",
+      tipo: link.tipo || "portal",
     });
     setIsDialogOpen(true);
   };
@@ -209,6 +229,19 @@ export default function LinksUteis() {
     return LINK_ICONS[iconName] || Link2;
   };
 
+  const filteredLinks = links.filter(link => 
+    searchTerm === "" || 
+    link.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    link.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const getLinksByPasta = (pasta: string) => {
+    return filteredLinks.filter(link => link.categoria === pasta);
+  };
+
+  const pastasComLinks = PASTAS.filter(pasta => getLinksByPasta(pasta.value).length > 0);
+  const pastasVazias = PASTAS.filter(pasta => getLinksByPasta(pasta.value).length === 0);
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -218,7 +251,7 @@ export default function LinksUteis() {
             Links Úteis
           </h1>
           <p className="text-muted-foreground mt-2">
-            Acesse rapidamente sistemas, portais e ferramentas importantes
+            Biblioteca de links organizados por categoria ambiental
           </p>
         </div>
         <Button onClick={handleNew}>
@@ -227,15 +260,15 @@ export default function LinksUteis() {
         </Button>
       </div>
 
-      <Tabs value={categoriaFilter} onValueChange={setCategoriaFilter}>
-        <TabsList>
-          {LINK_CATEGORIAS.map((cat) => (
-            <TabsTrigger key={cat.value} value={cat.value}>
-              {cat.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar links..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -243,67 +276,117 @@ export default function LinksUteis() {
         </div>
       ) : links.length === 0 ? (
         <Card className="p-8 text-center">
-          <Link2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Nenhum link encontrado</p>
+          <Folder className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground mb-4">Nenhum link cadastrado ainda</p>
+          <Button onClick={handleNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar primeiro link
+          </Button>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {links.map((link) => {
-            const IconComponent = getIconComponent(link.icone || "link");
-            return (
-              <Card 
-                key={link.id} 
-                className="p-4 cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleOpenLink(link)}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div 
-                    className="p-3 rounded-lg"
-                    style={{ backgroundColor: (link.cor || "#3b82f6") + "20" }}
-                  >
-                    <IconComponent 
-                      className="h-6 w-6" 
-                      style={{ color: link.cor || "#3b82f6" }}
-                    />
-                  </div>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(link)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => deleteMutation.mutate(link.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+        <div className="space-y-4">
+          <Accordion type="multiple" defaultValue={pastasComLinks.map(p => p.value)} className="space-y-2">
+            {PASTAS.map((pasta) => {
+              const linksNaPasta = getLinksByPasta(pasta.value);
+              const PastaIcon = pasta.icon;
+              
+              if (linksNaPasta.length === 0 && searchTerm === "") return null;
+              if (linksNaPasta.length === 0) return null;
+              
+              return (
+                <AccordionItem 
+                  key={pasta.value} 
+                  value={pasta.value}
+                  className="border rounded-lg overflow-hidden"
+                >
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: pasta.cor + "20" }}
+                      >
+                        <PastaIcon className="h-5 w-5" style={{ color: pasta.cor }} />
+                      </div>
+                      <span className="font-semibold">{pasta.label}</span>
+                      <Badge variant="secondary" className="ml-2">
+                        {linksNaPasta.length} {linksNaPasta.length === 1 ? "link" : "links"}
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 pt-2">
+                      {linksNaPasta.map((link) => {
+                        const IconComponent = getIconComponent(link.icone || "link");
+                        const tipoInfo = TIPOS.find(t => t.value === link.tipo);
+                        
+                        return (
+                          <Card 
+                            key={link.id} 
+                            className="p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4"
+                            style={{ borderLeftColor: link.cor || pasta.cor }}
+                            onClick={() => handleOpenLink(link)}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div 
+                                className="p-2 rounded-lg"
+                                style={{ backgroundColor: (link.cor || pasta.cor) + "20" }}
+                              >
+                                <IconComponent 
+                                  className="h-5 w-5" 
+                                  style={{ color: link.cor || pasta.cor }}
+                                />
+                              </div>
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(link)}>
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => deleteMutation.mutate(link.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
 
-                <h4 className="font-semibold mb-1 flex items-center gap-2">
-                  {link.titulo}
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                </h4>
-                {link.descricao && (
-                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{link.descricao}</p>
-                )}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                  <Badge variant="secondary" className="text-xs">
-                    {LINK_CATEGORIAS.find(c => c.value === link.categoria)?.label || link.categoria}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {link.acessos || 0} acessos
-                  </span>
-                </div>
-              </Card>
-            );
-          })}
+                            <h4 className="font-medium text-sm mb-1 flex items-center gap-1">
+                              {link.titulo}
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            </h4>
+                            {link.descricao && (
+                              <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{link.descricao}</p>
+                            )}
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                              <Badge variant="outline" className="text-xs">
+                                {tipoInfo?.label || link.tipo || "Link"}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {link.acessos || 0} acessos
+                              </span>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+
+          {searchTerm && filteredLinks.length === 0 && (
+            <Card className="p-8 text-center">
+              <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">Nenhum link encontrado para "{searchTerm}"</p>
+            </Card>
+          )}
         </div>
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingLink ? "Editar Link" : "Novo Link"}</DialogTitle>
           </DialogHeader>
@@ -313,7 +396,7 @@ export default function LinksUteis() {
               <Input
                 value={linkForm.titulo}
                 onChange={(e) => setLinkForm({ ...linkForm, titulo: e.target.value })}
-                placeholder="Título do link"
+                placeholder="Ex: Portal SEIA Bahia"
               />
             </div>
             <div>
@@ -321,7 +404,7 @@ export default function LinksUteis() {
               <Input
                 value={linkForm.url}
                 onChange={(e) => setLinkForm({ ...linkForm, url: e.target.value })}
-                placeholder="https://exemplo.com"
+                placeholder="https://seia.inema.ba.gov.br"
               />
             </div>
             <div>
@@ -330,8 +413,46 @@ export default function LinksUteis() {
                 value={linkForm.descricao}
                 onChange={(e) => setLinkForm({ ...linkForm, descricao: e.target.value })}
                 placeholder="Breve descrição do link"
-                className="min-h-[80px]"
+                className="min-h-[60px]"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Pasta/Categoria *</label>
+                <Select value={linkForm.categoria} onValueChange={(v) => setLinkForm({ ...linkForm, categoria: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a pasta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PASTAS.map((pasta) => {
+                      const PastaIcon = pasta.icon;
+                      return (
+                        <SelectItem key={pasta.value} value={pasta.value}>
+                          <div className="flex items-center gap-2">
+                            <PastaIcon className="h-4 w-4" style={{ color: pasta.cor }} />
+                            {pasta.label}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tipo *</label>
+                <Select value={linkForm.tipo} onValueChange={(v) => setLinkForm({ ...linkForm, tipo: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS.map((tipo) => (
+                      <SelectItem key={tipo.value} value={tipo.value}>
+                        {tipo.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -345,58 +466,35 @@ export default function LinksUteis() {
                     <SelectItem value="globe">Globo</SelectItem>
                     <SelectItem value="bug">Fauna</SelectItem>
                     <SelectItem value="tree">Flora</SelectItem>
-                    <SelectItem value="map">Mapa/Geo</SelectItem>
+                    <SelectItem value="map">Mapa</SelectItem>
                     <SelectItem value="droplets">Água</SelectItem>
                     <SelectItem value="scale">Legislação</SelectItem>
                     <SelectItem value="shield">Licenciamento</SelectItem>
-                    <SelectItem value="book">Documentos</SelectItem>
+                    <SelectItem value="book">Documento</SelectItem>
                     <SelectItem value="wrench">Ferramenta</SelectItem>
                     <SelectItem value="folder">Pasta</SelectItem>
                     <SelectItem value="layers">Camadas</SelectItem>
                     <SelectItem value="file">Arquivo</SelectItem>
                     <SelectItem value="building">Prédio</SelectItem>
-                    <SelectItem value="users">Usuários</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium">Categoria</label>
-                <Select value={linkForm.categoria} onValueChange={(v) => setLinkForm({ ...linkForm, categoria: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fauna">Fauna</SelectItem>
-                    <SelectItem value="flora">Flora</SelectItem>
-                    <SelectItem value="gestao">Gestão</SelectItem>
-                    <SelectItem value="geoprocessamento">Geoprocessamento</SelectItem>
-                    <SelectItem value="licenciamento">Licenciamento</SelectItem>
-                    <SelectItem value="recursos_hidricos">Recursos Hídricos</SelectItem>
-                    <SelectItem value="legislacao">Legislação</SelectItem>
-                    <SelectItem value="sistemas">Sistemas</SelectItem>
-                    <SelectItem value="portais">Portais</SelectItem>
-                    <SelectItem value="ferramentas">Ferramentas</SelectItem>
-                    <SelectItem value="documentos">Documentos</SelectItem>
-                    <SelectItem value="outros">Outros</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Cor</label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={linkForm.cor}
-                  onChange={(e) => setLinkForm({ ...linkForm, cor: e.target.value })}
-                  className="w-12 h-10 p-1"
-                />
-                <Input
-                  value={linkForm.cor}
-                  onChange={(e) => setLinkForm({ ...linkForm, cor: e.target.value })}
-                  placeholder="#3b82f6"
-                  className="flex-1"
-                />
+                <label className="text-sm font-medium">Cor</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    value={linkForm.cor}
+                    onChange={(e) => setLinkForm({ ...linkForm, cor: e.target.value })}
+                    className="w-12 h-10 p-1"
+                  />
+                  <Input
+                    value={linkForm.cor}
+                    onChange={(e) => setLinkForm({ ...linkForm, cor: e.target.value })}
+                    placeholder="#3b82f6"
+                    className="flex-1"
+                  />
+                </div>
               </div>
             </div>
           </div>
