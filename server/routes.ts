@@ -26,6 +26,11 @@ import {
   insertCamadaGeoespacialSchema,
   insertProcessoMonitoradoSchema,
   insertConsultaProcessoSchema,
+  insertProgramaSstSchema,
+  insertAsoOcupacionalSchema,
+  insertCatAcidenteSchema,
+  insertDdsRegistroSchema,
+  insertInvestigacaoIncidenteSchema,
   processosMonitorados,
   consultasProcessos,
   murais,
@@ -3962,6 +3967,329 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching indicadores:', error);
       res.status(500).json({ error: 'Failed to fetch indicadores' });
+    }
+  });
+
+  // ========== SST AVANÇADO - Programas SST ==========
+  app.get('/api/programas-sst', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, tipo, status, unidade } = req.query;
+      const programas = await storage.getProgramasSst({
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        tipo: tipo as string,
+        status: status as string,
+        unidade: unidade as string,
+      });
+      res.json(programas);
+    } catch (error) {
+      console.error('Error fetching programas SST:', error);
+      res.status(500).json({ error: 'Failed to fetch programas SST' });
+    }
+  });
+
+  app.get('/api/programas-sst/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const programa = await storage.getProgramaSstById(id);
+      if (!programa) return res.status(404).json({ error: 'Programa not found' });
+      res.json(programa);
+    } catch (error) {
+      console.error('Error fetching programa SST:', error);
+      res.status(500).json({ error: 'Failed to fetch programa SST' });
+    }
+  });
+
+  app.post('/api/programas-sst', requireAuth, async (req, res) => {
+    try {
+      const data = insertProgramaSstSchema.parse(req.body);
+      const programa = await storage.createProgramaSst(data);
+      res.status(201).json(programa);
+    } catch (error) {
+      console.error('Error creating programa SST:', error);
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: 'Failed to create programa SST' });
+    }
+  });
+
+  app.patch('/api/programas-sst/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const programa = await storage.updateProgramaSst(id, req.body);
+      res.json(programa);
+    } catch (error) {
+      console.error('Error updating programa SST:', error);
+      res.status(500).json({ error: 'Failed to update programa SST' });
+    }
+  });
+
+  app.delete('/api/programas-sst/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteProgramaSst(id);
+      if (!deleted) return res.status(404).json({ error: 'Programa not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting programa SST:', error);
+      res.status(500).json({ error: 'Failed to delete programa SST' });
+    }
+  });
+
+  // ========== SST AVANÇADO - ASO Ocupacionais ==========
+  app.get('/api/asos-ocupacionais', requireAuth, async (req, res) => {
+    try {
+      const { colaboradorId, empreendimentoId, tipo, resultado, unidade } = req.query;
+      const asos = await storage.getAsosOcupacionais({
+        colaboradorId: colaboradorId ? parseInt(colaboradorId as string) : undefined,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        tipo: tipo as string,
+        resultado: resultado as string,
+        unidade: unidade as string,
+      });
+      res.json(asos);
+    } catch (error) {
+      console.error('Error fetching ASOs:', error);
+      res.status(500).json({ error: 'Failed to fetch ASOs' });
+    }
+  });
+
+  app.get('/api/asos-ocupacionais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const aso = await storage.getAsoOcupacionalById(id);
+      if (!aso) return res.status(404).json({ error: 'ASO not found' });
+      res.json(aso);
+    } catch (error) {
+      console.error('Error fetching ASO:', error);
+      res.status(500).json({ error: 'Failed to fetch ASO' });
+    }
+  });
+
+  app.post('/api/asos-ocupacionais', requireAuth, async (req, res) => {
+    try {
+      const data = insertAsoOcupacionalSchema.parse(req.body);
+      const aso = await storage.createAsoOcupacional(data);
+      res.status(201).json(aso);
+    } catch (error) {
+      console.error('Error creating ASO:', error);
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: 'Failed to create ASO' });
+    }
+  });
+
+  app.patch('/api/asos-ocupacionais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const aso = await storage.updateAsoOcupacional(id, req.body);
+      res.json(aso);
+    } catch (error) {
+      console.error('Error updating ASO:', error);
+      res.status(500).json({ error: 'Failed to update ASO' });
+    }
+  });
+
+  app.delete('/api/asos-ocupacionais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteAsoOcupacional(id);
+      if (!deleted) return res.status(404).json({ error: 'ASO not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting ASO:', error);
+      res.status(500).json({ error: 'Failed to delete ASO' });
+    }
+  });
+
+  // ========== SST AVANÇADO - CAT Acidentes ==========
+  app.get('/api/cat-acidentes', requireAuth, async (req, res) => {
+    try {
+      const { colaboradorId, empreendimentoId, tipoAcidente, status, unidade } = req.query;
+      const cats = await storage.getCatAcidentes({
+        colaboradorId: colaboradorId ? parseInt(colaboradorId as string) : undefined,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        tipoAcidente: tipoAcidente as string,
+        status: status as string,
+        unidade: unidade as string,
+      });
+      res.json(cats);
+    } catch (error) {
+      console.error('Error fetching CATs:', error);
+      res.status(500).json({ error: 'Failed to fetch CATs' });
+    }
+  });
+
+  app.get('/api/cat-acidentes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const cat = await storage.getCatAcidenteById(id);
+      if (!cat) return res.status(404).json({ error: 'CAT not found' });
+      res.json(cat);
+    } catch (error) {
+      console.error('Error fetching CAT:', error);
+      res.status(500).json({ error: 'Failed to fetch CAT' });
+    }
+  });
+
+  app.post('/api/cat-acidentes', requireAuth, async (req, res) => {
+    try {
+      const data = insertCatAcidenteSchema.parse(req.body);
+      const cat = await storage.createCatAcidente(data);
+      res.status(201).json(cat);
+    } catch (error) {
+      console.error('Error creating CAT:', error);
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: 'Failed to create CAT' });
+    }
+  });
+
+  app.patch('/api/cat-acidentes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const cat = await storage.updateCatAcidente(id, req.body);
+      res.json(cat);
+    } catch (error) {
+      console.error('Error updating CAT:', error);
+      res.status(500).json({ error: 'Failed to update CAT' });
+    }
+  });
+
+  app.delete('/api/cat-acidentes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteCatAcidente(id);
+      if (!deleted) return res.status(404).json({ error: 'CAT not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting CAT:', error);
+      res.status(500).json({ error: 'Failed to delete CAT' });
+    }
+  });
+
+  // ========== SST AVANÇADO - DDS Registros ==========
+  app.get('/api/dds-registros', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, data, unidade } = req.query;
+      const dds = await storage.getDdsRegistros({
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        data: data as string,
+        unidade: unidade as string,
+      });
+      res.json(dds);
+    } catch (error) {
+      console.error('Error fetching DDS:', error);
+      res.status(500).json({ error: 'Failed to fetch DDS' });
+    }
+  });
+
+  app.get('/api/dds-registros/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const dds = await storage.getDdsRegistroById(id);
+      if (!dds) return res.status(404).json({ error: 'DDS not found' });
+      res.json(dds);
+    } catch (error) {
+      console.error('Error fetching DDS:', error);
+      res.status(500).json({ error: 'Failed to fetch DDS' });
+    }
+  });
+
+  app.post('/api/dds-registros', requireAuth, async (req, res) => {
+    try {
+      const data = insertDdsRegistroSchema.parse(req.body);
+      const dds = await storage.createDdsRegistro(data);
+      res.status(201).json(dds);
+    } catch (error) {
+      console.error('Error creating DDS:', error);
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: 'Failed to create DDS' });
+    }
+  });
+
+  app.patch('/api/dds-registros/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const dds = await storage.updateDdsRegistro(id, req.body);
+      res.json(dds);
+    } catch (error) {
+      console.error('Error updating DDS:', error);
+      res.status(500).json({ error: 'Failed to update DDS' });
+    }
+  });
+
+  app.delete('/api/dds-registros/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteDdsRegistro(id);
+      if (!deleted) return res.status(404).json({ error: 'DDS not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting DDS:', error);
+      res.status(500).json({ error: 'Failed to delete DDS' });
+    }
+  });
+
+  // ========== SST AVANÇADO - Investigações de Incidentes ==========
+  app.get('/api/investigacoes-incidentes', requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, catId, tipo, status, gravidade, unidade } = req.query;
+      const investigacoes = await storage.getInvestigacoesIncidentes({
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        catId: catId ? parseInt(catId as string) : undefined,
+        tipo: tipo as string,
+        status: status as string,
+        gravidade: gravidade as string,
+        unidade: unidade as string,
+      });
+      res.json(investigacoes);
+    } catch (error) {
+      console.error('Error fetching investigacoes:', error);
+      res.status(500).json({ error: 'Failed to fetch investigacoes' });
+    }
+  });
+
+  app.get('/api/investigacoes-incidentes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const investigacao = await storage.getInvestigacaoIncidenteById(id);
+      if (!investigacao) return res.status(404).json({ error: 'Investigacao not found' });
+      res.json(investigacao);
+    } catch (error) {
+      console.error('Error fetching investigacao:', error);
+      res.status(500).json({ error: 'Failed to fetch investigacao' });
+    }
+  });
+
+  app.post('/api/investigacoes-incidentes', requireAuth, async (req, res) => {
+    try {
+      const data = insertInvestigacaoIncidenteSchema.parse(req.body);
+      const investigacao = await storage.createInvestigacaoIncidente(data);
+      res.status(201).json(investigacao);
+    } catch (error) {
+      console.error('Error creating investigacao:', error);
+      if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+      res.status(500).json({ error: 'Failed to create investigacao' });
+    }
+  });
+
+  app.patch('/api/investigacoes-incidentes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const investigacao = await storage.updateInvestigacaoIncidente(id, req.body);
+      res.json(investigacao);
+    } catch (error) {
+      console.error('Error updating investigacao:', error);
+      res.status(500).json({ error: 'Failed to update investigacao' });
+    }
+  });
+
+  app.delete('/api/investigacoes-incidentes/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteInvestigacaoIncidente(id);
+      if (!deleted) return res.status(404).json({ error: 'Investigacao not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting investigacao:', error);
+      res.status(500).json({ error: 'Failed to delete investigacao' });
     }
   });
 
