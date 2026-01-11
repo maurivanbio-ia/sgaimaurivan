@@ -128,6 +128,21 @@ import {
   camadasGeoespaciais,
   type CamadaGeoespacial,
   type InsertCamadaGeoespacial,
+  programasSst,
+  asosOcupacionais,
+  catAcidentes,
+  ddsRegistros,
+  investigacoesIncidentes,
+  type ProgramaSst,
+  type InsertProgramaSst,
+  type AsoOcupacional,
+  type InsertAsoOcupacional,
+  type CatAcidente,
+  type InsertCatAcidente,
+  type DdsRegistro,
+  type InsertDdsRegistro,
+  type InvestigacaoIncidente,
+  type InsertInvestigacaoIncidente,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
@@ -386,6 +401,69 @@ export interface IStorage {
     colaboradoresConformes: number;
     totalColaboradores: number;
   }>;
+
+  // SST Avançado - Programas SST
+  getProgramasSst(filters?: {
+    empreendimentoId?: number;
+    tipo?: string;
+    status?: string;
+    unidade?: string;
+  }): Promise<Array<ProgramaSst & { empreendimentoNome?: string }>>;
+  getProgramaSstById(id: number): Promise<ProgramaSst | undefined>;
+  createProgramaSst(programa: InsertProgramaSst): Promise<ProgramaSst>;
+  updateProgramaSst(id: number, updates: Partial<InsertProgramaSst>): Promise<ProgramaSst>;
+  deleteProgramaSst(id: number): Promise<boolean>;
+
+  // SST Avançado - ASO Ocupacionais
+  getAsosOcupacionais(filters?: {
+    colaboradorId?: number;
+    empreendimentoId?: number;
+    tipo?: string;
+    resultado?: string;
+    unidade?: string;
+  }): Promise<Array<AsoOcupacional & { colaboradorNome?: string; empreendimentoNome?: string }>>;
+  getAsoOcupacionalById(id: number): Promise<AsoOcupacional | undefined>;
+  createAsoOcupacional(aso: InsertAsoOcupacional): Promise<AsoOcupacional>;
+  updateAsoOcupacional(id: number, updates: Partial<InsertAsoOcupacional>): Promise<AsoOcupacional>;
+  deleteAsoOcupacional(id: number): Promise<boolean>;
+
+  // SST Avançado - CAT Acidentes
+  getCatAcidentes(filters?: {
+    colaboradorId?: number;
+    empreendimentoId?: number;
+    tipoAcidente?: string;
+    status?: string;
+    unidade?: string;
+  }): Promise<Array<CatAcidente & { colaboradorNome?: string; empreendimentoNome?: string }>>;
+  getCatAcidenteById(id: number): Promise<CatAcidente | undefined>;
+  createCatAcidente(cat: InsertCatAcidente): Promise<CatAcidente>;
+  updateCatAcidente(id: number, updates: Partial<InsertCatAcidente>): Promise<CatAcidente>;
+  deleteCatAcidente(id: number): Promise<boolean>;
+
+  // SST Avançado - DDS Registros
+  getDdsRegistros(filters?: {
+    empreendimentoId?: number;
+    data?: string;
+    unidade?: string;
+  }): Promise<Array<DdsRegistro & { empreendimentoNome?: string }>>;
+  getDdsRegistroById(id: number): Promise<DdsRegistro | undefined>;
+  createDdsRegistro(dds: InsertDdsRegistro): Promise<DdsRegistro>;
+  updateDdsRegistro(id: number, updates: Partial<InsertDdsRegistro>): Promise<DdsRegistro>;
+  deleteDdsRegistro(id: number): Promise<boolean>;
+
+  // SST Avançado - Investigações de Incidentes
+  getInvestigacoesIncidentes(filters?: {
+    empreendimentoId?: number;
+    catId?: number;
+    tipo?: string;
+    status?: string;
+    gravidade?: string;
+    unidade?: string;
+  }): Promise<Array<InvestigacaoIncidente & { empreendimentoNome?: string }>>;
+  getInvestigacaoIncidenteById(id: number): Promise<InvestigacaoIncidente | undefined>;
+  createInvestigacaoIncidente(investigacao: InsertInvestigacaoIncidente): Promise<InvestigacaoIncidente>;
+  updateInvestigacaoIncidente(id: number, updates: Partial<InsertInvestigacaoIncidente>): Promise<InvestigacaoIncidente>;
+  deleteInvestigacaoIncidente(id: number): Promise<boolean>;
 
   // Projetos operations
   getProjetos(empreendimentoId?: number): Promise<Projeto[]>;
@@ -2702,6 +2780,333 @@ export class DatabaseStorage implements IStorage {
       colaboradoresConformes,
       totalColaboradores: colaboradoresAtivos.length,
     };
+  }
+
+  // ========== SST AVANÇADO - Programas SST ==========
+  async getProgramasSst(filters?: {
+    empreendimentoId?: number;
+    tipo?: string;
+    status?: string;
+    unidade?: string;
+  }): Promise<Array<ProgramaSst & { empreendimentoNome?: string }>> {
+    const conditions = [];
+    if (filters?.empreendimentoId) conditions.push(eq(programasSst.empreendimentoId, filters.empreendimentoId));
+    if (filters?.tipo) conditions.push(eq(programasSst.tipo, filters.tipo));
+    if (filters?.status) conditions.push(eq(programasSst.status, filters.status));
+    if (filters?.unidade) conditions.push(eq(programasSst.unidade, filters.unidade));
+
+    const result = await db
+      .select({
+        id: programasSst.id,
+        empreendimentoId: programasSst.empreendimentoId,
+        tipo: programasSst.tipo,
+        nome: programasSst.nome,
+        descricao: programasSst.descricao,
+        responsavelTecnico: programasSst.responsavelTecnico,
+        registroProfissional: programasSst.registroProfissional,
+        dataElaboracao: programasSst.dataElaboracao,
+        dataValidade: programasSst.dataValidade,
+        status: programasSst.status,
+        arquivoPath: programasSst.arquivoPath,
+        observacoes: programasSst.observacoes,
+        unidade: programasSst.unidade,
+        criadoEm: programasSst.criadoEm,
+        atualizadoEm: programasSst.atualizadoEm,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(programasSst)
+      .leftJoin(empreendimentos, eq(programasSst.empreendimentoId, empreendimentos.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(programasSst.criadoEm));
+
+    return result;
+  }
+
+  async getProgramaSstById(id: number): Promise<ProgramaSst | undefined> {
+    const [programa] = await db.select().from(programasSst).where(eq(programasSst.id, id));
+    return programa || undefined;
+  }
+
+  async createProgramaSst(programa: InsertProgramaSst): Promise<ProgramaSst> {
+    const [newPrograma] = await db.insert(programasSst).values(programa).returning();
+    return newPrograma;
+  }
+
+  async updateProgramaSst(id: number, updates: Partial<InsertProgramaSst>): Promise<ProgramaSst> {
+    const [updated] = await db.update(programasSst).set({ ...updates, atualizadoEm: new Date() }).where(eq(programasSst.id, id)).returning();
+    return updated;
+  }
+
+  async deleteProgramaSst(id: number): Promise<boolean> {
+    const result = await db.delete(programasSst).where(eq(programasSst.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ========== SST AVANÇADO - ASO Ocupacionais ==========
+  async getAsosOcupacionais(filters?: {
+    colaboradorId?: number;
+    empreendimentoId?: number;
+    tipo?: string;
+    resultado?: string;
+    unidade?: string;
+  }): Promise<Array<AsoOcupacional & { colaboradorNome?: string; empreendimentoNome?: string }>> {
+    const conditions = [];
+    if (filters?.colaboradorId) conditions.push(eq(asosOcupacionais.colaboradorId, filters.colaboradorId));
+    if (filters?.empreendimentoId) conditions.push(eq(asosOcupacionais.empreendimentoId, filters.empreendimentoId));
+    if (filters?.tipo) conditions.push(eq(asosOcupacionais.tipo, filters.tipo));
+    if (filters?.resultado) conditions.push(eq(asosOcupacionais.resultado, filters.resultado));
+    if (filters?.unidade) conditions.push(eq(asosOcupacionais.unidade, filters.unidade));
+
+    const result = await db
+      .select({
+        id: asosOcupacionais.id,
+        colaboradorId: asosOcupacionais.colaboradorId,
+        empreendimentoId: asosOcupacionais.empreendimentoId,
+        tipo: asosOcupacionais.tipo,
+        dataExame: asosOcupacionais.dataExame,
+        dataValidade: asosOcupacionais.dataValidade,
+        resultado: asosOcupacionais.resultado,
+        restricoes: asosOcupacionais.restricoes,
+        medicoResponsavel: asosOcupacionais.medicoResponsavel,
+        crm: asosOcupacionais.crm,
+        clinica: asosOcupacionais.clinica,
+        examesRealizados: asosOcupacionais.examesRealizados,
+        arquivoPath: asosOcupacionais.arquivoPath,
+        observacoes: asosOcupacionais.observacoes,
+        unidade: asosOcupacionais.unidade,
+        criadoEm: asosOcupacionais.criadoEm,
+        atualizadoEm: asosOcupacionais.atualizadoEm,
+        colaboradorNome: colaboradores.nome,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(asosOcupacionais)
+      .leftJoin(colaboradores, eq(asosOcupacionais.colaboradorId, colaboradores.id))
+      .leftJoin(empreendimentos, eq(asosOcupacionais.empreendimentoId, empreendimentos.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(asosOcupacionais.dataExame));
+
+    return result;
+  }
+
+  async getAsoOcupacionalById(id: number): Promise<AsoOcupacional | undefined> {
+    const [aso] = await db.select().from(asosOcupacionais).where(eq(asosOcupacionais.id, id));
+    return aso || undefined;
+  }
+
+  async createAsoOcupacional(aso: InsertAsoOcupacional): Promise<AsoOcupacional> {
+    const [newAso] = await db.insert(asosOcupacionais).values(aso).returning();
+    return newAso;
+  }
+
+  async updateAsoOcupacional(id: number, updates: Partial<InsertAsoOcupacional>): Promise<AsoOcupacional> {
+    const [updated] = await db.update(asosOcupacionais).set({ ...updates, atualizadoEm: new Date() }).where(eq(asosOcupacionais.id, id)).returning();
+    return updated;
+  }
+
+  async deleteAsoOcupacional(id: number): Promise<boolean> {
+    const result = await db.delete(asosOcupacionais).where(eq(asosOcupacionais.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ========== SST AVANÇADO - CAT Acidentes ==========
+  async getCatAcidentes(filters?: {
+    colaboradorId?: number;
+    empreendimentoId?: number;
+    tipoAcidente?: string;
+    status?: string;
+    unidade?: string;
+  }): Promise<Array<CatAcidente & { colaboradorNome?: string; empreendimentoNome?: string }>> {
+    const conditions = [];
+    if (filters?.colaboradorId) conditions.push(eq(catAcidentes.colaboradorId, filters.colaboradorId));
+    if (filters?.empreendimentoId) conditions.push(eq(catAcidentes.empreendimentoId, filters.empreendimentoId));
+    if (filters?.tipoAcidente) conditions.push(eq(catAcidentes.tipoAcidente, filters.tipoAcidente));
+    if (filters?.status) conditions.push(eq(catAcidentes.status, filters.status));
+    if (filters?.unidade) conditions.push(eq(catAcidentes.unidade, filters.unidade));
+
+    const result = await db
+      .select({
+        id: catAcidentes.id,
+        colaboradorId: catAcidentes.colaboradorId,
+        empreendimentoId: catAcidentes.empreendimentoId,
+        numeroCat: catAcidentes.numeroCat,
+        dataAcidente: catAcidentes.dataAcidente,
+        horaAcidente: catAcidentes.horaAcidente,
+        tipoAcidente: catAcidentes.tipoAcidente,
+        localAcidente: catAcidentes.localAcidente,
+        descricao: catAcidentes.descricao,
+        parteCorpoAtingida: catAcidentes.parteCorpoAtingida,
+        agenteCausador: catAcidentes.agenteCausador,
+        naturezaLesao: catAcidentes.naturezaLesao,
+        houveAfastamento: catAcidentes.houveAfastamento,
+        diasAfastamento: catAcidentes.diasAfastamento,
+        dataRetorno: catAcidentes.dataRetorno,
+        testemunhas: catAcidentes.testemunhas,
+        medidasImediatas: catAcidentes.medidasImediatas,
+        status: catAcidentes.status,
+        arquivoPath: catAcidentes.arquivoPath,
+        unidade: catAcidentes.unidade,
+        criadoEm: catAcidentes.criadoEm,
+        atualizadoEm: catAcidentes.atualizadoEm,
+        colaboradorNome: colaboradores.nome,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(catAcidentes)
+      .leftJoin(colaboradores, eq(catAcidentes.colaboradorId, colaboradores.id))
+      .leftJoin(empreendimentos, eq(catAcidentes.empreendimentoId, empreendimentos.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(catAcidentes.dataAcidente));
+
+    return result;
+  }
+
+  async getCatAcidenteById(id: number): Promise<CatAcidente | undefined> {
+    const [cat] = await db.select().from(catAcidentes).where(eq(catAcidentes.id, id));
+    return cat || undefined;
+  }
+
+  async createCatAcidente(cat: InsertCatAcidente): Promise<CatAcidente> {
+    const [newCat] = await db.insert(catAcidentes).values(cat).returning();
+    return newCat;
+  }
+
+  async updateCatAcidente(id: number, updates: Partial<InsertCatAcidente>): Promise<CatAcidente> {
+    const [updated] = await db.update(catAcidentes).set({ ...updates, atualizadoEm: new Date() }).where(eq(catAcidentes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCatAcidente(id: number): Promise<boolean> {
+    const result = await db.delete(catAcidentes).where(eq(catAcidentes.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ========== SST AVANÇADO - DDS Registros ==========
+  async getDdsRegistros(filters?: {
+    empreendimentoId?: number;
+    data?: string;
+    unidade?: string;
+  }): Promise<Array<DdsRegistro & { empreendimentoNome?: string }>> {
+    const conditions = [];
+    if (filters?.empreendimentoId) conditions.push(eq(ddsRegistros.empreendimentoId, filters.empreendimentoId));
+    if (filters?.data) conditions.push(eq(ddsRegistros.data, filters.data));
+    if (filters?.unidade) conditions.push(eq(ddsRegistros.unidade, filters.unidade));
+
+    const result = await db
+      .select({
+        id: ddsRegistros.id,
+        empreendimentoId: ddsRegistros.empreendimentoId,
+        data: ddsRegistros.data,
+        horario: ddsRegistros.horario,
+        duracao: ddsRegistros.duracao,
+        tema: ddsRegistros.tema,
+        conteudo: ddsRegistros.conteudo,
+        responsavelId: ddsRegistros.responsavelId,
+        responsavelNome: ddsRegistros.responsavelNome,
+        participantes: ddsRegistros.participantes,
+        totalParticipantes: ddsRegistros.totalParticipantes,
+        observacoes: ddsRegistros.observacoes,
+        arquivoPath: ddsRegistros.arquivoPath,
+        unidade: ddsRegistros.unidade,
+        criadoEm: ddsRegistros.criadoEm,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(ddsRegistros)
+      .leftJoin(empreendimentos, eq(ddsRegistros.empreendimentoId, empreendimentos.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(ddsRegistros.data));
+
+    return result;
+  }
+
+  async getDdsRegistroById(id: number): Promise<DdsRegistro | undefined> {
+    const [dds] = await db.select().from(ddsRegistros).where(eq(ddsRegistros.id, id));
+    return dds || undefined;
+  }
+
+  async createDdsRegistro(dds: InsertDdsRegistro): Promise<DdsRegistro> {
+    const [newDds] = await db.insert(ddsRegistros).values(dds).returning();
+    return newDds;
+  }
+
+  async updateDdsRegistro(id: number, updates: Partial<InsertDdsRegistro>): Promise<DdsRegistro> {
+    const [updated] = await db.update(ddsRegistros).set({ ...updates }).where(eq(ddsRegistros.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDdsRegistro(id: number): Promise<boolean> {
+    const result = await db.delete(ddsRegistros).where(eq(ddsRegistros.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ========== SST AVANÇADO - Investigações de Incidentes ==========
+  async getInvestigacoesIncidentes(filters?: {
+    empreendimentoId?: number;
+    catId?: number;
+    tipo?: string;
+    status?: string;
+    gravidade?: string;
+    unidade?: string;
+  }): Promise<Array<InvestigacaoIncidente & { empreendimentoNome?: string }>> {
+    const conditions = [];
+    if (filters?.empreendimentoId) conditions.push(eq(investigacoesIncidentes.empreendimentoId, filters.empreendimentoId));
+    if (filters?.catId) conditions.push(eq(investigacoesIncidentes.catId, filters.catId));
+    if (filters?.tipo) conditions.push(eq(investigacoesIncidentes.tipo, filters.tipo));
+    if (filters?.status) conditions.push(eq(investigacoesIncidentes.status, filters.status));
+    if (filters?.gravidade) conditions.push(eq(investigacoesIncidentes.gravidade, filters.gravidade));
+    if (filters?.unidade) conditions.push(eq(investigacoesIncidentes.unidade, filters.unidade));
+
+    const result = await db
+      .select({
+        id: investigacoesIncidentes.id,
+        empreendimentoId: investigacoesIncidentes.empreendimentoId,
+        catId: investigacoesIncidentes.catId,
+        titulo: investigacoesIncidentes.titulo,
+        dataIncidente: investigacoesIncidentes.dataIncidente,
+        localIncidente: investigacoesIncidentes.localIncidente,
+        descricao: investigacoesIncidentes.descricao,
+        gravidade: investigacoesIncidentes.gravidade,
+        tipo: investigacoesIncidentes.tipo,
+        metodologia: investigacoesIncidentes.metodologia,
+        analise: investigacoesIncidentes.analise,
+        causaRaiz: investigacoesIncidentes.causaRaiz,
+        equipeInvestigadora: investigacoesIncidentes.equipeInvestigadora,
+        acoesCorretivas: investigacoesIncidentes.acoesCorretivas,
+        prazoAcoes: investigacoesIncidentes.prazoAcoes,
+        responsavelAcoes: investigacoesIncidentes.responsavelAcoes,
+        statusAcoes: investigacoesIncidentes.statusAcoes,
+        licoesAprendidas: investigacoesIncidentes.licoesAprendidas,
+        status: investigacoesIncidentes.status,
+        arquivosPath: investigacoesIncidentes.arquivosPath,
+        unidade: investigacoesIncidentes.unidade,
+        criadoEm: investigacoesIncidentes.criadoEm,
+        atualizadoEm: investigacoesIncidentes.atualizadoEm,
+        empreendimentoNome: empreendimentos.nome,
+      })
+      .from(investigacoesIncidentes)
+      .leftJoin(empreendimentos, eq(investigacoesIncidentes.empreendimentoId, empreendimentos.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(investigacoesIncidentes.dataIncidente));
+
+    return result;
+  }
+
+  async getInvestigacaoIncidenteById(id: number): Promise<InvestigacaoIncidente | undefined> {
+    const [investigacao] = await db.select().from(investigacoesIncidentes).where(eq(investigacoesIncidentes.id, id));
+    return investigacao || undefined;
+  }
+
+  async createInvestigacaoIncidente(investigacao: InsertInvestigacaoIncidente): Promise<InvestigacaoIncidente> {
+    const [newInvestigacao] = await db.insert(investigacoesIncidentes).values(investigacao).returning();
+    return newInvestigacao;
+  }
+
+  async updateInvestigacaoIncidente(id: number, updates: Partial<InsertInvestigacaoIncidente>): Promise<InvestigacaoIncidente> {
+    const [updated] = await db.update(investigacoesIncidentes).set({ ...updates, atualizadoEm: new Date() }).where(eq(investigacoesIncidentes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteInvestigacaoIncidente(id: number): Promise<boolean> {
+    const result = await db.delete(investigacoesIncidentes).where(eq(investigacoesIncidentes.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   // Projetos operations
