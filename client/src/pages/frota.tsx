@@ -43,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshButton } from "@/components/RefreshButton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, apiRequestFormData } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import * as z from "zod";
 
@@ -635,7 +635,6 @@ interface VeiculoDocumentosProps {
 function VeiculoDocumentos({ veiculoId }: VeiculoDocumentosProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [docNome, setDocNome] = useState("");
   const [docCategoria, setDocCategoria] = useState("");
@@ -643,24 +642,11 @@ function VeiculoDocumentos({ veiculoId }: VeiculoDocumentosProps) {
 
   const { data: documentos = [], isLoading } = useQuery<Documento[]>({
     queryKey: ["/api/frota", veiculoId, "documentos"],
-    queryFn: async () => {
-      const res = await fetch(`/api/frota/${veiculoId}/documentos`, { credentials: "include" });
-      if (!res.ok) throw new Error("Erro ao carregar documentos");
-      return res.json();
-    },
   });
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const res = await fetch(`/api/frota/${veiculoId}/documentos`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Erro ao fazer upload");
-      }
+      const res = await apiRequestFormData("POST", `/api/frota/${veiculoId}/documentos`, formData);
       return res.json();
     },
     onSuccess: () => {
@@ -671,24 +657,20 @@ function VeiculoDocumentos({ veiculoId }: VeiculoDocumentosProps) {
       setDocCategoria("");
       setDocDescricao("");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (docId: number) => {
-      const res = await fetch(`/api/frota/${veiculoId}/documentos/${docId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Erro ao excluir documento");
+      await apiRequest("DELETE", `/api/frota/${veiculoId}/documentos/${docId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/frota", veiculoId, "documentos"] });
       toast({ title: "Documento excluído", description: "Documento foi removido com sucesso!" });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
