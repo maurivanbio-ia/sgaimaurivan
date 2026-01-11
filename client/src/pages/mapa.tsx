@@ -260,12 +260,16 @@ export default function MapaEmpreendimentos() {
           }),
           onEachFeature: (feature, layer) => {
             const props = feature.properties || {};
-            let tooltipContent = `<strong>${props.name || props.Name || props.NOME || camada.nome}</strong>`;
+            // Prefer NOM_UC for conservation units, fallback to others
+            const ucName = props.NOM_UC || props.name || props.Name || props.NOME || camada.nome;
+            let tooltipContent = `<strong>${ucName}</strong>`;
             
-            if (props.description || props.Description || props.DESCRICAO) {
-              tooltipContent += `<br/>${props.description || props.Description || props.DESCRICAO}`;
+            if (props.MUN || props.municipio) {
+              tooltipContent += `<br/>Município: ${props.MUN || props.municipio}`;
             }
-            // ... (rest of the tooltip logic)
+            if (props.SIGLA_UF || props.uf) {
+              tooltipContent += ` - ${props.SIGLA_UF || props.uf}`;
+            }
 
             layer.bindTooltip(tooltipContent, {
               sticky: true,
@@ -273,21 +277,58 @@ export default function MapaEmpreendimentos() {
               offset: [0, -10],
             });
 
-            // (mouseover/mouseout handlers)
-            
+            layer.on('mouseover', function() {
+              if ((layer as any).setStyle) {
+                (layer as any).setStyle({
+                  weight: 3,
+                  fillOpacity: (camada.opacidade || 0.3) + 0.2,
+                });
+              }
+            });
+
+            layer.on('mouseout', function() {
+              if ((layer as any).setStyle) {
+                (layer as any).setStyle({
+                  weight: 2,
+                  fillOpacity: camada.opacidade || 0.3,
+                });
+              }
+            });
+
+            // Standardize property names for the popup
+            const displayProps: Record<string, string> = {
+              'Nome': props.NOM_UC || props.name || props.Name || props.NOME || camada.nome,
+              'Categoria': props.CATEG || props.categoria || categoriaConfig[camada.categoria]?.label,
+              'Gestão': props.GESTAO || props.gestao,
+              'Instância': props.INSTANC || props.instancia,
+              'Município': props.MUN || props.municipio,
+              'UF': props.SIGLA_UF || props.uf,
+              'Bioma': props.BIOMA || props.bioma,
+              'Bacia Hidrográfica': props.B_HIDRO || props.bacia_hidro,
+              'Área (ha)': props.AREA || props.area,
+              'Área (km²)': props.AREA_KM2 || props.area_km2,
+              'Ano de Criação': props.ANO || props.ano,
+              'Restrição': props.RESTR || props.restricao,
+              'Observação': props.OBS || props.observacao,
+            };
+
             const popupContent = `
-              <div style="min-width: 250px;">
-                <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">
-                  ${categoriaConfig[camada.categoria]?.icon || '📍'} ${props.name || props.Name || props.NOME || camada.nome}
+              <div style="min-width: 280px; max-height: 400px; overflow-y: auto;">
+                <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">
+                  ${categoriaConfig[camada.categoria]?.icon || '📍'} ${displayProps['Nome']}
                 </h3>
-                <div style="font-size: 13px;">
-                  ${props.description || props.Description || props.DESCRICAO ? `<p>${props.description || props.Description || props.DESCRICAO}</p>` : ''}
-                  <p><strong>Camada:</strong> ${camada.nome}</p>
-                  <p><strong>Categoria:</strong> ${categoriaConfig[camada.categoria]?.label || camada.categoria}</p>
-                  ${props.area || props.AREA ? `<p><strong>Área:</strong> ${props.area || props.AREA}</p>` : ''}
-                  ${camada.fonte ? `<p><strong>Fonte:</strong> ${camada.fonte}</p>` : ''}
-                  ${camada.ano ? `<p><strong>Ano:</strong> ${camada.ano}</p>` : ''}
-                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <tbody>
+                    ${Object.entries(displayProps)
+                      .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+                      .map(([key, value]) => `
+                        <tr>
+                          <td style="font-weight: bold; padding: 4px 0; width: 120px; vertical-align: top;">${key}:</td>
+                          <td style="padding: 4px 0;">${value}</td>
+                        </tr>
+                      `).join('')}
+                  </tbody>
+                </table>
               </div>
             `;
             layer.bindPopup(popupContent);
