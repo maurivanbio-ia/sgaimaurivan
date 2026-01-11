@@ -444,7 +444,7 @@ export default function MapaEmpreendimentos() {
                 Carregar Camada
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md !z-[9999]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Layers className="h-5 w-5" />
