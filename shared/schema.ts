@@ -2574,9 +2574,10 @@ export const linksUteis = pgTable("links_uteis", {
   titulo: text("titulo").notNull(),
   descricao: text("descricao"),
   url: text("url").notNull(),
-  icone: text("icone").default("link"), // nome do ícone lucide
+  icone: text("icone").default("link"),
   cor: text("cor").default("#3b82f6"),
-  categoria: text("categoria"), // fauna, flora, gestao, geoprocessamento, licenciamento, recursos_hidricos, legislacao, sistemas, portais, ferramentas, documentos, outros
+  categoria: text("categoria"), // pasta: fauna, flora, gestao, geoprocessamento, licenciamento, recursos_hidricos, legislacao, sistemas, ferramentas, documentos, outros
+  tipo: text("tipo").default("portal"), // tipo: portal, sistema, ferramenta, documento, legislacao, mapa, banco_dados, api, outro
   ordem: integer("ordem").default(0),
   acessos: integer("acessos").default(0),
   ativo: boolean("ativo").default(true),
