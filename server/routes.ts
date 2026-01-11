@@ -23,6 +23,7 @@ import {
   insertTreinamentoSchema,
   insertTreinamentoParticipanteSchema,
   insertBaseConhecimentoSchema,
+  insertCamadaGeoespacialSchema,
   murais,
   comunicados,
   comunicadoComentarios,
@@ -7950,6 +7951,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error tracking download:', error);
       res.status(500).json({ error: 'Erro ao registrar download' });
+    }
+  });
+
+  // ==================== CAMADAS GEOESPACIAIS (KMZ/KML/GeoJSON) ====================
+  
+  app.get('/api/camadas-geoespaciais', requireAuth, async (req, res) => {
+    try {
+      const camadas = await storage.getCamadasGeoespaciais(req.user.unidade);
+      res.json(camadas);
+    } catch (error: any) {
+      console.error('Error fetching camadas:', error);
+      res.status(500).json({ error: 'Erro ao buscar camadas' });
+    }
+  });
+
+  app.get('/api/camadas-geoespaciais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const camada = await storage.getCamadaGeoespacial(id, req.user.unidade);
+      if (!camada) {
+        return res.status(404).json({ error: 'Camada não encontrada' });
+      }
+      res.json(camada);
+    } catch (error: any) {
+      console.error('Error fetching camada:', error);
+      res.status(500).json({ error: 'Erro ao buscar camada' });
+    }
+  });
+
+  app.post('/api/camadas-geoespaciais', requireAuth, async (req, res) => {
+    try {
+      const data = insertCamadaGeoespacialSchema.parse({
+        ...req.body,
+        unidade: req.user.unidade,
+        criadoPor: req.session.userId,
+      });
+      const camada = await storage.createCamadaGeoespacial(data);
+      res.status(201).json(camada);
+    } catch (error: any) {
+      console.error('Error creating camada:', error);
+      res.status(500).json({ error: error.message || 'Erro ao criar camada' });
+    }
+  });
+
+  const multerGeo = (await import('multer')).default;
+  const geoUpload = multerGeo({ storage: multerGeo.memoryStorage() });
+
+  app.post('/api/camadas-geoespaciais/upload', requireAuth, geoUpload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo não enviado' });
+      }
+
+      const { nome, categoria, cor, descricao, fonte, ano, visivel } = req.body;
+      const fileBuffer = req.file.buffer;
+      const fileName = req.file.originalname.toLowerCase();
+      
+      let geojsonData: any;
+      
+      if (fileName.endsWith('.kmz')) {
+        const JSZip = (await import('jszip')).default;
+        const toGeoJSON = await import('@mapbox/togeojson');
+        const zip = await JSZip.loadAsync(fileBuffer);
+        
+        const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
+        if (!kmlFile) {
+          return res.status(400).json({ error: 'Arquivo KML não encontrado dentro do KMZ' });
+        }
+        
+        const kmlContent = await zip.files[kmlFile].async('string');
+        const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
+        geojsonData = toGeoJSON.kml(dom);
+      } else if (fileName.endsWith('.kml')) {
+        const toGeoJSON = await import('@mapbox/togeojson');
+        const kmlContent = fileBuffer.toString('utf-8');
+        const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
+        geojsonData = toGeoJSON.kml(dom);
+      } else if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+        geojsonData = JSON.parse(fileBuffer.toString('utf-8'));
+      } else {
+        return res.status(400).json({ error: 'Formato de arquivo não suportado. Use KMZ, KML ou GeoJSON.' });
+      }
+
+      if (!geojsonData || !geojsonData.type || !['FeatureCollection', 'Feature', 'GeometryCollection'].includes(geojsonData.type)) {
+        return res.status(400).json({ error: 'GeoJSON inválido ou formato não suportado' });
+      }
+
+      const camadaData = insertCamadaGeoespacialSchema.parse({
+        nome: nome || req.file.originalname.replace(/\.[^/.]+$/, ''),
+        categoria: categoria || 'outro',
+        cor: cor || '#3b82f6',
+        descricao: descricao || null,
+        fonte: fonte || null,
+        ano: ano ? parseInt(ano) : null,
+        visivel: visivel === 'true' || visivel === true,
+        geojsonData,
+        unidade: req.user.unidade,
+        criadoPor: req.session.userId,
+      });
+
+      const camada = await storage.createCamadaGeoespacial(camadaData);
+      res.status(201).json(camada);
+    } catch (error: any) {
+      console.error('Error uploading camada:', error);
+      res.status(500).json({ error: error.message || 'Erro ao processar arquivo' });
+    }
+  });
+
+  app.put('/api/camadas-geoespaciais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const camada = await storage.updateCamadaGeoespacial(id, req.body, req.user.unidade);
+      if (!camada) {
+        return res.status(404).json({ error: 'Camada não encontrada' });
+      }
+      res.json(camada);
+    } catch (error: any) {
+      console.error('Error updating camada:', error);
+      res.status(500).json({ error: 'Erro ao atualizar camada' });
+    }
+  });
+
+  app.delete('/api/camadas-geoespaciais/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const success = await storage.deleteCamadaGeoespacial(id, req.user.unidade);
+      if (!success) {
+        return res.status(404).json({ error: 'Camada não encontrada' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting camada:', error);
+      res.status(500).json({ error: 'Erro ao excluir camada' });
     }
   });
 

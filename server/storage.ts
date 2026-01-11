@@ -125,6 +125,9 @@ import {
   baseConhecimento,
   type BaseConhecimento,
   type InsertBaseConhecimento,
+  camadasGeoespaciais,
+  type CamadaGeoespacial,
+  type InsertCamadaGeoespacial,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
@@ -3837,6 +3840,56 @@ export class DatabaseStorage implements IStorage {
         eq(baseConhecimento.id, id),
         eq(baseConhecimento.unidade, unidade)
       ));
+  }
+
+  // =============================================
+  // CAMADAS GEOESPACIAIS
+  // =============================================
+  
+  async getCamadasGeoespaciais(unidade: string): Promise<CamadaGeoespacial[]> {
+    return await db.select()
+      .from(camadasGeoespaciais)
+      .where(and(
+        eq(camadasGeoespaciais.unidade, unidade),
+        eq(camadasGeoespaciais.ativo, true)
+      ))
+      .orderBy(asc(camadasGeoespaciais.ordem), asc(camadasGeoespaciais.nome));
+  }
+
+  async getCamadaGeoespacial(id: number, unidade: string): Promise<CamadaGeoespacial | undefined> {
+    const [camada] = await db.select()
+      .from(camadasGeoespaciais)
+      .where(and(
+        eq(camadasGeoespaciais.id, id),
+        eq(camadasGeoespaciais.unidade, unidade)
+      ));
+    return camada;
+  }
+
+  async createCamadaGeoespacial(camada: InsertCamadaGeoespacial): Promise<CamadaGeoespacial> {
+    const [newCamada] = await db.insert(camadasGeoespaciais).values(camada).returning();
+    return newCamada;
+  }
+
+  async updateCamadaGeoespacial(id: number, updates: Partial<InsertCamadaGeoespacial>, unidade: string): Promise<CamadaGeoespacial | undefined> {
+    const [updated] = await db.update(camadasGeoespaciais)
+      .set({ ...updates, atualizadoEm: new Date() })
+      .where(and(
+        eq(camadasGeoespaciais.id, id),
+        eq(camadasGeoespaciais.unidade, unidade)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCamadaGeoespacial(id: number, unidade: string): Promise<boolean> {
+    const [deleted] = await db.delete(camadasGeoespaciais)
+      .where(and(
+        eq(camadasGeoespaciais.id, id),
+        eq(camadasGeoespaciais.unidade, unidade)
+      ))
+      .returning();
+    return !!deleted;
   }
 }
 
