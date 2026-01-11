@@ -44,6 +44,27 @@ type Aditivo = {
   criadoEm: string;
 };
 
+type ContratoDocumento = {
+  id: number;
+  contratoId: number;
+  aditivoId?: number | null;
+  tipo: string;
+  nome: string;
+  descricao?: string | null;
+  objectPath: string;
+  tamanho?: number | null;
+  mime?: string | null;
+  criadoEm: string;
+};
+
+const TIPO_DOCUMENTO_CONFIG: Record<string, { label: string; color: string }> = {
+  contrato: { label: "Contrato", color: "bg-blue-100 text-blue-800" },
+  aditivo: { label: "Aditivo", color: "bg-purple-100 text-purple-800" },
+  anexo: { label: "Anexo", color: "bg-green-100 text-green-800" },
+  comprovante: { label: "Comprovante", color: "bg-yellow-100 text-yellow-800" },
+  outro: { label: "Outro", color: "bg-gray-100 text-gray-800" },
+};
+
 const SITUACAO_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
   vigente: { label: "Vigente", color: "bg-green-100 text-green-800", icon: CheckCircle },
   vencido: { label: "Vencido", color: "bg-red-100 text-red-800", icon: AlertCircle },
@@ -105,6 +126,9 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const [aditivoForm, setAditivoForm] = useState<AditivoForm>(emptyAditivoForm);
   const [activeContratoForAditivo, setActiveContratoForAditivo] = useState<number | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState<number | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docTipo, setDocTipo] = useState("contrato");
+  const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
 
   const { data: contratos = [], isLoading } = useQuery<Contrato[]>({
     queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"],
@@ -113,6 +137,66 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const { data: aditivos = [] } = useQuery<Aditivo[]>({
     queryKey: ["/api/contratos", expandedContratoId, "aditivos"],
     enabled: !!expandedContratoId,
+  });
+
+  const { data: documentos = [], refetch: refetchDocumentos } = useQuery<ContratoDocumento[]>({
+    queryKey: ["/api/contratos", expandedContratoId, "documentos"],
+    enabled: !!expandedContratoId,
+  });
+
+  const uploadDocMutation = useMutation({
+    mutationFn: async ({ contratoId, file, tipo }: { contratoId: number; file: File; tipo: string }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('tipo', tipo);
+      const response = await fetch(`/api/contratos/${contratoId}/documentos`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: 'Erro ao fazer upload' }));
+        throw new Error(err.message || 'Erro ao fazer upload');
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contratos", variables.contratoId, "documentos"] });
+      toast({ title: "Documento anexado", description: "O arquivo foi salvo com sucesso." });
+      setUploadingDoc(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro no upload", description: error.message, variant: "destructive" });
+      setUploadingDoc(false);
+    },
+  });
+
+  const deleteDocMutation = useMutation({
+    mutationFn: async ({ docId, contratoId }: { docId: number; contratoId: number }) => {
+      return apiRequest("DELETE", `/api/contrato-documentos/${docId}`);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contratos", variables.contratoId, "documentos"] });
+      toast({ title: "Documento removido", description: "O arquivo foi excluído com sucesso." });
+      setDeletingDocId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      setDeletingDocId(null);
+    },
+  });
+
+  const deletePdfMutation = useMutation({
+    mutationFn: async (contratoId: number) => {
+      return apiRequest("DELETE", `/api/contratos/${contratoId}/pdf`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
+      toast({ title: "PDF removido", description: "O documento foi removido com sucesso." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+    },
   });
 
   const createMutation = useMutation({
@@ -561,6 +645,117 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                             <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
                             <p className="text-sm">Nenhum aditivo cadastrado</p>
                             <p className="text-xs">Clique em "Novo Aditivo" para adicionar</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Seção de Documentos */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="font-semibold flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Documentos do Contrato
+                          </h5>
+                          <div className="flex items-center gap-2">
+                            <Select value={docTipo} onValueChange={setDocTipo}>
+                              <SelectTrigger className="w-[140px] h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="contrato">Contrato</SelectItem>
+                                <SelectItem value="aditivo">Aditivo</SelectItem>
+                                <SelectItem value="anexo">Anexo</SelectItem>
+                                <SelectItem value="comprovante">Comprovante</SelectItem>
+                                <SelectItem value="outro">Outro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <label>
+                              <input
+                                type="file"
+                                className="hidden"
+                                disabled={uploadingDoc}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setUploadingDoc(true);
+                                    uploadDocMutation.mutate({ contratoId: contrato.id, file, tipo: docTipo });
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="gap-1"
+                                asChild
+                                disabled={uploadingDoc}
+                              >
+                                <span>
+                                  <Upload className="h-3 w-3" />
+                                  {uploadingDoc ? "Enviando..." : "Anexar"}
+                                </span>
+                              </Button>
+                            </label>
+                          </div>
+                        </div>
+
+                        {documentos.length > 0 ? (
+                          <div className="space-y-2">
+                            {documentos.map((doc) => {
+                              const tipoConfig = TIPO_DOCUMENTO_CONFIG[doc.tipo] || TIPO_DOCUMENTO_CONFIG.outro;
+                              return (
+                                <div 
+                                  key={doc.id} 
+                                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"
+                                >
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <FileText className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-medium truncate">{doc.nome}</p>
+                                        <Badge className={`text-xs ${tipoConfig.color}`}>
+                                          {tipoConfig.label}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        {doc.tamanho ? `${(doc.tamanho / 1024).toFixed(1)} KB` : ''} 
+                                        {doc.criadoEm && ` • ${formatDate(doc.criadoEm)}`}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => window.open(`/api/contrato-documentos/${doc.id}/download`, '_blank')}
+                                      title="Baixar documento"
+                                    >
+                                      <FileDown className="h-4 w-4 text-blue-500" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => {
+                                        setDeletingDocId(doc.id);
+                                        deleteDocMutation.mutate({ docId: doc.id, contratoId: contrato.id });
+                                      }}
+                                      disabled={deletingDocId === doc.id}
+                                      title="Remover documento"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 text-muted-foreground bg-muted/20 rounded-lg border-2 border-dashed">
+                            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">Nenhum documento anexado</p>
+                            <p className="text-xs">Selecione o tipo e clique em "Anexar" para adicionar</p>
                           </div>
                         )}
                       </div>
