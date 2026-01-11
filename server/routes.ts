@@ -8033,8 +8033,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const kmlContent = await zip.files[kmlFile].async('string');
           const dom = new (await import('xmldom')).DOMParser().parseFromString(kmlContent, 'text/xml');
           const converted = toGeoJSON.kml(dom);
-          if (converted && converted.features) {
-            features.push(...converted.features);
+          
+          if (converted) {
+            if (converted.type === 'FeatureCollection' && converted.features) {
+              features.push(...converted.features);
+            } else if (converted.type === 'Feature') {
+              features.push(converted);
+            } else if (converted.type === 'GeometryCollection' && converted.geometries) {
+              // Handle geometry collections by wrapping them in features
+              converted.geometries.forEach((geom: any) => {
+                features.push({
+                  type: 'Feature',
+                  properties: {},
+                  geometry: geom
+                });
+              });
+            }
           }
         }
 
