@@ -2576,7 +2576,7 @@ export const linksUteis = pgTable("links_uteis", {
   url: text("url").notNull(),
   icone: text("icone").default("link"), // nome do ícone lucide
   cor: text("cor").default("#3b82f6"),
-  categoria: text("categoria"), // sistemas, portais, ferramentas, documentos
+  categoria: text("categoria"), // fauna, flora, gestao, geoprocessamento, licenciamento, recursos_hidricos, legislacao, sistemas, portais, ferramentas, documentos, outros
   ordem: integer("ordem").default(0),
   acessos: integer("acessos").default(0),
   ativo: boolean("ativo").default(true),

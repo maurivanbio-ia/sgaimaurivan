@@ -37,6 +37,13 @@ import {
   Trash2,
   ExternalLink,
   Loader2,
+  Bug,
+  TreeDeciduous,
+  Map,
+  Droplets,
+  Scale,
+  Shield,
+  BookOpen,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,10 +61,18 @@ type LinkUtil = {
 
 const LINK_CATEGORIAS = [
   { value: "all", label: "Todos" },
+  { value: "fauna", label: "Fauna" },
+  { value: "flora", label: "Flora" },
+  { value: "gestao", label: "Gestão" },
+  { value: "geoprocessamento", label: "Geoprocessamento" },
+  { value: "licenciamento", label: "Licenciamento" },
+  { value: "recursos_hidricos", label: "Recursos Hídricos" },
+  { value: "legislacao", label: "Legislação" },
   { value: "sistemas", label: "Sistemas" },
   { value: "portais", label: "Portais" },
   { value: "ferramentas", label: "Ferramentas" },
   { value: "documentos", label: "Documentos" },
+  { value: "outros", label: "Outros" },
 ];
 
 const LINK_ICONS: { [key: string]: any } = {
@@ -69,6 +84,13 @@ const LINK_ICONS: { [key: string]: any } = {
   link: Link2,
   building: Building2,
   users: Users,
+  bug: Bug,
+  tree: TreeDeciduous,
+  map: Map,
+  droplets: Droplets,
+  scale: Scale,
+  shield: Shield,
+  book: BookOpen,
 };
 
 export default function LinksUteis() {
@@ -82,7 +104,7 @@ export default function LinksUteis() {
     url: "",
     icone: "link",
     cor: "#3b82f6",
-    categoria: "sistemas",
+    categoria: "gestao",
   });
 
   const { data: links = [], isLoading } = useQuery<LinkUtil[]>({
@@ -156,7 +178,7 @@ export default function LinksUteis() {
       url: "",
       icone: "link",
       cor: "#3b82f6",
-      categoria: "sistemas",
+      categoria: "gestao",
     });
   };
 
@@ -321,6 +343,13 @@ export default function LinksUteis() {
                   <SelectContent>
                     <SelectItem value="link">Link</SelectItem>
                     <SelectItem value="globe">Globo</SelectItem>
+                    <SelectItem value="bug">Fauna</SelectItem>
+                    <SelectItem value="tree">Flora</SelectItem>
+                    <SelectItem value="map">Mapa/Geo</SelectItem>
+                    <SelectItem value="droplets">Água</SelectItem>
+                    <SelectItem value="scale">Legislação</SelectItem>
+                    <SelectItem value="shield">Licenciamento</SelectItem>
+                    <SelectItem value="book">Documentos</SelectItem>
                     <SelectItem value="wrench">Ferramenta</SelectItem>
                     <SelectItem value="folder">Pasta</SelectItem>
                     <SelectItem value="layers">Camadas</SelectItem>
@@ -337,10 +366,18 @@ export default function LinksUteis() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="fauna">Fauna</SelectItem>
+                    <SelectItem value="flora">Flora</SelectItem>
+                    <SelectItem value="gestao">Gestão</SelectItem>
+                    <SelectItem value="geoprocessamento">Geoprocessamento</SelectItem>
+                    <SelectItem value="licenciamento">Licenciamento</SelectItem>
+                    <SelectItem value="recursos_hidricos">Recursos Hídricos</SelectItem>
+                    <SelectItem value="legislacao">Legislação</SelectItem>
                     <SelectItem value="sistemas">Sistemas</SelectItem>
                     <SelectItem value="portais">Portais</SelectItem>
                     <SelectItem value="ferramentas">Ferramentas</SelectItem>
                     <SelectItem value="documentos">Documentos</SelectItem>
+                    <SelectItem value="outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
