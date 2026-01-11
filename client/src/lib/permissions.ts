@@ -36,7 +36,8 @@ export type ModuleName =
   | 'mapa'
   | 'configuracoes'
   | 'portal_colaborador'
-  | 'portal_cliente';
+  | 'portal_cliente'
+  | 'processos_monitorados';
 
 const fullAccess: ModuleAccess = { view: true, create: true, edit: true, approve: true, delete: true };
 const readOnly: ModuleAccess = { view: true, create: false, edit: false, approve: false, delete: false };
@@ -74,6 +75,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     configuracoes: fullAccess,
     portal_colaborador: fullAccess,
     portal_cliente: fullAccess,
+    processos_monitorados: fullAccess,
   },
   diretor: {
     dashboard: fullAccess,
@@ -104,6 +106,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     configuracoes: createEdit,
     portal_colaborador: createEdit,
     portal_cliente: readOnly,
+    processos_monitorados: createEdit,
   },
   coordenador: {
     dashboard: readOnly,
@@ -134,6 +137,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     configuracoes: readOnly,
     portal_colaborador: createEdit,
     portal_cliente: noAccess,
+    processos_monitorados: createEdit,
   },
   financeiro: {
     dashboard: readOnly,
@@ -164,6 +168,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     configuracoes: noAccess,
     portal_colaborador: createEdit,
     portal_cliente: noAccess,
+    processos_monitorados: readOnly,
   },
   rh: {
     dashboard: readOnly,
@@ -194,6 +199,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     configuracoes: noAccess,
     portal_colaborador: createEdit,
     portal_cliente: noAccess,
+    processos_monitorados: readOnly,
   },
   colaborador: {
     dashboard: readOnly,
@@ -224,6 +230,7 @@ export const PERMISSIONS: Record<UserRole, Record<ModuleName, ModuleAccess>> = {
     configuracoes: noAccess,
     portal_colaborador: createEdit,
     portal_cliente: noAccess,
+    processos_monitorados: readOnly,
   },
 };
 
@@ -268,6 +275,7 @@ export const MODULE_LABELS: Record<ModuleName, string> = {
   configuracoes: 'Configurações',
   portal_colaborador: 'Portal Colaborador',
   portal_cliente: 'Portal Cliente',
+  processos_monitorados: 'Processos Monitorados',
 };
 
 export const ROUTE_TO_MODULE: Record<string, ModuleName> = {
@@ -299,6 +307,7 @@ export const ROUTE_TO_MODULE: Record<string, ModuleName> = {
   '/mapa': 'mapa',
   '/alertas': 'configuracoes',
   '/cliente': 'portal_cliente',
+  '/processos-monitorados': 'processos_monitorados',
 };
 
 export function getModuleFromPath(path: string): ModuleName | null {
