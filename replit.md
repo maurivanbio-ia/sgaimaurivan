@@ -124,6 +124,12 @@ A comprehensive push notification system for deadline alerts, featuring:
 5. Fallback 4: Notify responsável directly if they have no unidade
 6. Fallback 5: Notify all admin users with "[DADOS INCOMPLETOS]" prefix for data hygiene issues
 
+### Automatic Data Cleanup
+The system includes automatic cleanup jobs:
+- **Histórico de Movimentações**: Daily cleanup at 1 AM removes records older than 30 days from the `historico_demandas_movimentacoes` table
+- **Comunicados Expirados**: Daily archival at midnight for expired announcements
+- **Database Backups**: 30-day retention policy for automatic backups
+
 ### Database and Data Handling
 The PostgreSQL database uses Drizzle ORM, with tables enhanced for multi-tenancy, project management, and AI features. It enforces foreign key constraints, implements soft deletion, and tracks file upload metadata and checksums.
 

@@ -73,9 +73,10 @@ import {
   financeiroLancamentos,
   pontuacoesGamificacao,
   historicosPontuacao,
+  historicoDemandasMovimentacoes,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql, eq, and, isNull, gte, lte, sum, desc, or, ilike, SQL } from "drizzle-orm";
+import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import bcrypt from "bcrypt";
@@ -10540,6 +10541,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const cron = await import('node-cron');
   cron.schedule('0 0 * * *', archiveExpiredComunicados);
   console.log('[CRON] Auto-archive comunicados job scheduled (daily at midnight)');
+
+  // =============================================
+  // CLEANUP HISTÓRICO DE MOVIMENTAÇÕES (30 DIAS)
+  // =============================================
+  
+  const cleanupHistoricoMovimentacoes = async () => {
+    try {
+      const dataLimite = new Date();
+      dataLimite.setDate(dataLimite.getDate() - 30);
+      
+      const result = await db
+        .delete(historicoDemandasMovimentacoes)
+        .where(lt(historicoDemandasMovimentacoes.criadoEm, dataLimite))
+        .returning({ id: historicoDemandasMovimentacoes.id });
+      
+      if (result.length > 0) {
+        console.log(`[CRON] Removed ${result.length} historical movement records older than 30 days`);
+      }
+    } catch (error) {
+      console.error('[CRON] Error cleaning up historical movements:', error);
+    }
+  };
+
+  cron.schedule('0 1 * * *', cleanupHistoricoMovimentacoes); // Runs daily at 1 AM
+  console.log('[CRON] Histórico de movimentações cleanup scheduled (daily at 1 AM, removes records older than 30 days)');
 
   // =============================================
   // PROCESSOS MONITORADOS CRON JOB
