@@ -4,12 +4,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, Users, Loader2, RefreshCw, Upload, FileText, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Users, Loader2, RefreshCw, Upload, FileText, Eye, EyeOff, Lock } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -130,6 +131,10 @@ export default function RhPage() {
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const [viewingRegistro, setViewingRegistro] = useState<any | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [valorRevealed, setValorRevealed] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [valorPassword, setValorPassword] = useState("");
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
 
   const filters = useMemo(() => {
     const params: Record<string, string> = {};
@@ -237,6 +242,43 @@ export default function RhPage() {
     } else {
       createMutation.mutate(data);
     }
+  };
+
+  const handleRevealValor = () => {
+    setValorPassword("");
+    setPasswordDialogOpen(true);
+  };
+
+  const verifyValorPassword = async () => {
+    if (!valorPassword.trim()) {
+      toast({ title: "Digite a senha", variant: "destructive" });
+      return;
+    }
+    setIsVerifyingPassword(true);
+    try {
+      const res = await fetch("/api/sensitive-unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: valorPassword }),
+      });
+      if (res.ok) {
+        setValorRevealed(true);
+        setPasswordDialogOpen(false);
+        toast({ title: "Valor revelado" });
+      } else {
+        toast({ title: "Senha incorreta", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Erro ao verificar senha", variant: "destructive" });
+    } finally {
+      setIsVerifyingPassword(false);
+      setValorPassword("");
+    }
+  };
+
+  const closeViewDialog = () => {
+    setIsViewDialogOpen(false);
+    setValorRevealed(false);
   };
 
   const handleNew = () => {
@@ -788,7 +830,7 @@ export default function RhPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+      <Dialog open={isViewDialogOpen} onOpenChange={closeViewDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes do Colaborador</DialogTitle>
@@ -842,7 +884,42 @@ export default function RhPage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">Valor</p>
-                    <p>{viewingRegistro.valor ? `R$ ${viewingRegistro.valor} (${viewingRegistro.valorTipo || 'mensal'})` : "-"}</p>
+                    {viewingRegistro.valor ? (
+                      <div className="flex items-center gap-2">
+                        {valorRevealed ? (
+                          <>
+                            <p className="text-primary font-medium">R$ {Number(viewingRegistro.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({viewingRegistro.valorTipo || 'mensal'})</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setValorRevealed(false)}
+                              className="h-6 w-6 p-0"
+                              title="Ocultar valor"
+                            >
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-muted-foreground flex items-center gap-1">
+                              <Lock className="h-3 w-3" />
+                              ••••••
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRevealValor}
+                              className="h-6 w-6 p-0"
+                              title="Revelar valor (requer senha)"
+                            >
+                              <Eye className="h-4 w-4 text-primary" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <p>-</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">Data Início</p>
@@ -916,6 +993,41 @@ export default function RhPage() {
             </Button>
             <Button onClick={() => { setIsViewDialogOpen(false); handleEdit(viewingRegistro); }}>
               <Edit className="h-4 w-4 mr-2" /> Editar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Acesso Restrito
+            </DialogTitle>
+            <DialogDescription>
+              O valor salarial é um dado sensível. Digite a senha de acesso para visualizar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="valor-password">Senha</Label>
+              <Input
+                id="valor-password"
+                type="password"
+                value={valorPassword}
+                onChange={(e) => setValorPassword(e.target.value)}
+                placeholder="Digite a senha de acesso"
+                onKeyDown={(e) => e.key === "Enter" && verifyValorPassword()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={verifyValorPassword} disabled={isVerifyingPassword}>
+              {isVerifyingPassword ? "Verificando..." : "Confirmar"}
             </Button>
           </DialogFooter>
         </DialogContent>
