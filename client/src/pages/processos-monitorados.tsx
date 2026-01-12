@@ -436,14 +436,18 @@ export default function ProcessosMonitorados() {
           </CardHeader>
           <CardContent>
             <div className="text-sm">
-              {processos.length > 0 && processos.some(p => p.dataUltimaConsulta)
-                ? formatDistanceToNow(
-                    new Date(
-                      Math.max(...processos.filter(p => p.dataUltimaConsulta).map(p => new Date(p.dataUltimaConsulta!).getTime()))
-                    ),
-                    { addSuffix: true, locale: ptBR }
-                  )
-                : "Nenhuma consulta"}
+              {(() => {
+                const processosComConsulta = processos.filter(p => p.dataUltimaConsulta);
+                if (processosComConsulta.length === 0) return "Nenhuma consulta";
+                try {
+                  const timestamps = processosComConsulta.map(p => new Date(p.dataUltimaConsulta!).getTime());
+                  const maxTimestamp = Math.max(...timestamps);
+                  if (!isFinite(maxTimestamp)) return "Nenhuma consulta";
+                  return formatDistanceToNow(new Date(maxTimestamp), { addSuffix: true, locale: ptBR });
+                } catch {
+                  return "Nenhuma consulta";
+                }
+              })()}
             </div>
           </CardContent>
         </Card>
