@@ -2579,6 +2579,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDatasetsByPasta(pastaId: number, unidade: string): Promise<Dataset[]> {
+    // Get empreendimento IDs belonging to this unidade for fallback matching
+    const emps = await db.select({ id: empreendimentos.id })
+      .from(empreendimentos)
+      .where(eq(empreendimentos.unidade, unidade));
+    const empIds = emps.map(e => e.id);
+    
+    if (empIds.length > 0) {
+      // Match datasets that either have the unidade field set OR belong to an empreendimento of this unidade
+      return db.select()
+        .from(datasets)
+        .where(and(
+          eq(datasets.pastaId, pastaId),
+          or(
+            eq(datasets.unidade, unidade),
+            inArray(datasets.empreendimentoId, empIds)
+          )
+        ))
+        .orderBy(desc(datasets.dataUpload));
+    }
+    
     return db.select()
       .from(datasets)
       .where(and(
@@ -2590,6 +2610,26 @@ export class DatabaseStorage implements IStorage {
 
   // DatasetPastas operations (folder management)
   async getDatasetPastas(unidade: string): Promise<DatasetPasta[]> {
+    // Get empreendimento IDs belonging to this unidade for fallback matching
+    const emps = await db.select({ id: empreendimentos.id })
+      .from(empreendimentos)
+      .where(eq(empreendimentos.unidade, unidade));
+    const empIds = emps.map(e => e.id);
+    
+    if (empIds.length > 0) {
+      // Match pastas that either have the unidade field set OR belong to an empreendimento of this unidade
+      return db.select()
+        .from(datasetPastas)
+        .where(
+          or(
+            eq(datasetPastas.unidade, unidade),
+            inArray(datasetPastas.empreendimentoId, empIds)
+          )
+        )
+        .orderBy(asc(datasetPastas.caminho));
+    }
+    
+    // No empreendimentos in this unidade, filter by unidade field only
     return db.select()
       .from(datasetPastas)
       .where(eq(datasetPastas.unidade, unidade))
