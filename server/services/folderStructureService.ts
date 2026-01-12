@@ -149,14 +149,34 @@ export async function criarEstruturaProjeto(
   try {
     const nomeProjeto = `${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(codigoProjeto)}`;
     const raizPath = `/${ESTRUTURA_INSTITUCIONAL.raiz}`;
-    const projetosPath = `${raizPath}/03_PROJETOS`;
-    const projetoPath = `${projetosPath}/${nomeProjeto}`;
     
-    const projetosPasta = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, projetosPath)).limit(1);
+    // Tentar encontrar pasta de projetos existente (pode ser 02_PROJETOS ou 03_PROJETOS)
+    const possiveisPastasProjetos = [
+      `${raizPath}/02_PROJETOS`,
+      `${raizPath}/03_PROJETOS`,
+      `${raizPath}/PROJETOS`
+    ];
     
-    if (projetosPasta.length === 0) {
-      await criarEstruturaInstitucional();
+    let projetosPath = `${raizPath}/03_PROJETOS`;
+    let projetosPasta = null;
+    
+    for (const path of possiveisPastasProjetos) {
+      const pasta = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, path)).limit(1);
+      if (pasta.length > 0) {
+        projetosPath = path;
+        projetosPasta = pasta[0];
+        break;
+      }
     }
+    
+    // Se não encontrou nenhuma pasta de projetos, criar estrutura institucional
+    if (!projetosPasta) {
+      console.log('[Folder Structure] Pasta de projetos não encontrada, criando estrutura institucional...');
+      await criarEstruturaInstitucional();
+      projetosPath = `${raizPath}/03_PROJETOS`;
+    }
+    
+    const projetoPath = `${projetosPath}/${nomeProjeto}`;
     
     const projetosPastaAtual = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, projetosPath)).limit(1);
     const projetosPaiId = projetosPastaAtual.length > 0 ? projetosPastaAtual[0].id : null;

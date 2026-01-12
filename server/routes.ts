@@ -3149,6 +3149,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint para sincronizar pastas de um empreendimento específico
+  app.post('/api/empreendimentos/:id/sincronizar-pastas', requireAuth, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+      
+      const empreendimento = await storage.getEmpreendimento(id, userUnidade);
+      if (!empreendimento) {
+        return res.status(404).json({ error: 'Empreendimento não encontrado' });
+      }
+      
+      const result = await criarPastasParaEmpreendimento(
+        empreendimento.id,
+        empreendimento.cliente || empreendimento.nome,
+        empreendimento.uf || 'BR',
+        empreendimento.nome,
+        empreendimento.codigo
+      );
+      
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          message: `Pastas criadas/sincronizadas para ${empreendimento.nome}`,
+          path: result.path
+        });
+      } else {
+        res.status(500).json({ error: 'Falha ao criar pastas para o empreendimento' });
+      }
+    } catch (error) {
+      console.error('Error syncing empreendimento folders:', error);
+      res.status(500).json({ error: 'Erro ao sincronizar pastas do empreendimento' });
+    }
+  });
+
   // Endpoint para reparar paiIds de pastas existentes
   app.post('/api/datasets/estrutura/reparar-paiids', requireAuth, async (req, res) => {
     try {
