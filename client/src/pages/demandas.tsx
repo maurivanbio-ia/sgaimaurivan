@@ -68,10 +68,12 @@ import {
 import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
 
-interface RhRegistro {
+interface Colaborador {
   id: number;
-  nomeColaborador: string;
-  contatoEmail: string | null;
+  nome: string;
+  cargo: string | null;
+  email: string | null;
+  tipo: 'rh' | 'user';
 }
 
 // ===================================================
@@ -210,8 +212,8 @@ function DemandaForm({
     },
   });
 
-  const { data: rhRegistros = [] } = useQuery<RhRegistro[]>({
-    queryKey: ["/api/rh"],
+  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
+    queryKey: ["/api/colaboradores"],
   });
 
   const [form, setForm] = useState({
@@ -222,6 +224,7 @@ function DemandaForm({
     complexidade: (initial?.complexidade ?? "media") as Complexidade,
     categoria: (initial?.categoria ?? "geral") as Categoria,
     responsavel: initial?.responsavel ?? "",
+    responsavelId: null as number | null,
     dataEntrega: initial?.dataEntrega 
       ? new Date(initial.dataEntrega).toISOString().split('T')[0]
       : "",
@@ -238,10 +241,13 @@ function DemandaForm({
         prioridade: form.prioridade,
         complexidade: form.complexidade,
         categoria: form.categoria,
-        responsavel: form.responsavel.trim(),
         dataEntrega: form.dataEntrega,
         status: form.status,
       };
+
+      if (form.responsavelId) {
+        payload.responsavelId = form.responsavelId;
+      }
 
       if (form.empreendimentoId) {
         payload.empreendimentoId = parseInt(form.empreendimentoId);
@@ -414,26 +420,30 @@ function DemandaForm({
                 <CommandList>
                   <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
                   <CommandGroup>
-                    {rhRegistros.map((rh) => (
+                    {colaboradores.filter(c => c.tipo === 'user').map((colab) => (
                       <CommandItem
-                        key={rh.id}
-                        value={rh.nomeColaborador}
+                        key={`${colab.tipo}-${colab.id}`}
+                        value={colab.nome}
                         onSelect={() => {
-                          setForm({ ...form, responsavel: rh.nomeColaborador });
+                          setForm({ 
+                            ...form, 
+                            responsavel: colab.nome,
+                            responsavelId: colab.id
+                          });
                           setOpenResponsavel(false);
                         }}
                       >
                         <User className="mr-2 h-4 w-4" />
                         <div className="flex flex-col">
-                          <span>{rh.nomeColaborador}</span>
-                          {rh.contatoEmail && (
-                            <span className="text-xs text-muted-foreground">{rh.contatoEmail}</span>
+                          <span>{colab.nome}</span>
+                          {colab.email && (
+                            <span className="text-xs text-muted-foreground">{colab.email}</span>
                           )}
                         </div>
                         <Check
                           className={cn(
                             "ml-auto h-4 w-4",
-                            form.responsavel === rh.nomeColaborador ? "opacity-100" : "opacity-0"
+                            form.responsavel === colab.nome ? "opacity-100" : "opacity-0"
                           )}
                         />
                       </CommandItem>
