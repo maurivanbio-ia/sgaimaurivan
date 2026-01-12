@@ -145,7 +145,7 @@ import {
   type InsertInvestigacaoIncidente,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, like, or, ilike, ne, sql, isNull, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -1188,28 +1188,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDemandasStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; pendentes: number; emAndamento: number; concluidas: number }> {
-    // Busca empreendimentos da unidade
-    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
-    const empIds = emps.map(e => e.id);
+    // Use the same filtering logic as getDemandas for consistency
+    // This ensures dashboard stats match the demandas page
+    const filters: {
+      unidade?: string;
+      empreendimento?: string;
+    } = { unidade };
     
-    if (empIds.length === 0) {
-      return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
+    if (empreendimentoId) {
+      filters.empreendimento = empreendimentoId.toString();
     }
     
-    const filters = empreendimentoId ? { empreendimento: empreendimentoId.toString() } : {};
     const allDemandas = await this.getDemandas(filters);
     
-    // Filtra apenas demandas de empreendimentos da unidade
-    const demandas = allDemandas.filter(d => {
-      const empId = parseInt(d.empreendimento || '0');
-      return empIds.includes(empId);
-    });
-    
     return {
-      total: demandas.length,
-      pendentes: demandas.filter(d => d.status === 'backlog' || d.status === 'a_fazer').length,
-      emAndamento: demandas.filter(d => d.status === 'em_andamento' || d.status === 'em_revisao').length,
-      concluidas: demandas.filter(d => d.status === 'concluida').length,
+      total: allDemandas.length,
+      pendentes: allDemandas.filter(d => d.status === 'backlog' || d.status === 'a_fazer').length,
+      emAndamento: allDemandas.filter(d => d.status === 'em_andamento' || d.status === 'em_revisao').length,
+      concluidas: allDemandas.filter(d => d.status === 'concluida').length,
     };
   }
 
@@ -1548,9 +1544,36 @@ export class DatabaseStorage implements IStorage {
   }): Promise<(Demanda & { responsavel?: string })[]> {
     const conditions = [];
     
-    // CRITICAL: Always filter by unidade for multi-tenant isolation
+    // CRITICAL: Multi-tenant isolation with fallback for legacy data
+    // Demandas can be filtered by:
+    // 1. Direct unidade field on demandas table
+    // 2. OR by empreendimentoId belonging to the user's unidade (for legacy data without unidade field)
     if (filters?.unidade) {
-      conditions.push(eq(demandas.unidade, filters.unidade));
+      // Get empreendimento IDs belonging to this unidade for fallback matching
+      const emps = await db.select({ id: empreendimentos.id })
+        .from(empreendimentos)
+        .where(eq(empreendimentos.unidade, filters.unidade));
+      const empIds = emps.map(e => e.id);
+      
+      if (empIds.length > 0) {
+        // Match demandas that either have the unidade field set OR belong to an empreendimento of this unidade
+        conditions.push(
+          or(
+            eq(demandas.unidade, filters.unidade),
+            inArray(demandas.empreendimentoId, empIds)
+          )
+        );
+      } else {
+        // No empreendimentos in this unidade, filter by unidade field only
+        conditions.push(eq(demandas.unidade, filters.unidade));
+      }
+    }
+    
+    if (filters?.empreendimento && filters.empreendimento !== "todos") {
+      const empId = parseInt(filters.empreendimento);
+      if (!isNaN(empId)) {
+        conditions.push(eq(demandas.empreendimentoId, empId));
+      }
     }
     
     if (filters?.setor && filters.setor !== "todos") {
