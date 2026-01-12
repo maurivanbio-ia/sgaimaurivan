@@ -98,6 +98,7 @@ import {
 } from "./services/scheduledReportSender";
 import { initBackupService, performBackup, listBackups, downloadBackup } from "./services/backupService";
 import { seiaService } from "./services/seiaService";
+import { newsletterService } from "./services/newsletterService";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
@@ -6059,6 +6060,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ======== NEWSLETTER AMBIENTAL ROUTES ========
+  
+  const requireNewsletterAdmin = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (req.user.role !== 'admin' && req.user.cargo !== 'diretor' && req.user.cargo !== 'coordenador') {
+      return res.status(403).json({ message: "Acesso restrito a administradores" });
+    }
+    next();
+  };
+
+  app.get('/api/newsletter/config', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const config = await newsletterService.getConfig();
+      res.json(config);
+    } catch (error) {
+      console.error('Error fetching newsletter config:', error);
+      res.status(500).json({ error: 'Erro ao buscar configurações da newsletter' });
+    }
+  });
+
+  app.put('/api/newsletter/config', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const { ativo, diaEnvio, horarioEnvio, assuntoTemplate, termosChave, maxNoticias } = req.body;
+      const config = await newsletterService.updateConfig({ 
+        ativo, diaEnvio, horarioEnvio, assuntoTemplate, termosChave, maxNoticias,
+        unidade: req.user.unidade 
+      });
+      res.json(config);
+    } catch (error) {
+      console.error('Error updating newsletter config:', error);
+      res.status(500).json({ error: 'Erro ao atualizar configurações da newsletter' });
+    }
+  });
+
+  app.get('/api/newsletter/assinantes', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const assinantes = await newsletterService.getAssinantes();
+      res.json(assinantes);
+    } catch (error) {
+      console.error('Error fetching newsletter subscribers:', error);
+      res.status(500).json({ error: 'Erro ao buscar assinantes' });
+    }
+  });
+
+  app.post('/api/newsletter/assinantes', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const { email, nome } = req.body;
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return res.status(400).json({ error: 'Email inválido' });
+      }
+      const assinante = await newsletterService.addAssinante(email, nome, req.user.unidade);
+      res.json(assinante);
+    } catch (error) {
+      console.error('Error adding newsletter subscriber:', error);
+      res.status(500).json({ error: 'Erro ao adicionar assinante' });
+    }
+  });
+
+  app.delete('/api/newsletter/assinantes/:id', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      await newsletterService.removeAssinante(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error removing newsletter subscriber:', error);
+      res.status(500).json({ error: 'Erro ao remover assinante' });
+    }
+  });
+
+  app.patch('/api/newsletter/assinantes/:id/toggle', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { ativo } = req.body;
+      if (isNaN(id) || typeof ativo !== 'boolean') {
+        return res.status(400).json({ error: 'Parâmetros inválidos' });
+      }
+      const assinante = await newsletterService.toggleAssinante(id, ativo);
+      res.json(assinante);
+    } catch (error) {
+      console.error('Error toggling newsletter subscriber:', error);
+      res.status(500).json({ error: 'Erro ao atualizar assinante' });
+    }
+  });
+
+  app.get('/api/newsletter/edicoes', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const edicoes = await newsletterService.getEdicoes();
+      res.json(edicoes);
+    } catch (error) {
+      console.error('Error fetching newsletter editions:', error);
+      res.status(500).json({ error: 'Erro ao buscar edições' });
+    }
+  });
+
+  app.get('/api/newsletter/edicoes/:id', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      const edicao = await newsletterService.getEdicao(id);
+      if (!edicao) {
+        return res.status(404).json({ error: 'Edição não encontrada' });
+      }
+      res.json(edicao);
+    } catch (error) {
+      console.error('Error fetching newsletter edition:', error);
+      res.status(500).json({ error: 'Erro ao buscar edição' });
+    }
+  });
+
+  app.post('/api/newsletter/send', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const result = await newsletterService.generateAndSendNewsletter();
+      res.json(result);
+    } catch (error) {
+      console.error('Error sending newsletter:', error);
+      res.status(500).json({ error: 'Erro ao enviar newsletter' });
+    }
+  });
+
+  app.post('/api/newsletter/test', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return res.status(400).json({ error: 'Email inválido' });
+      }
+      const result = await newsletterService.sendTestNewsletter(email);
+      res.json(result);
+    } catch (error) {
+      console.error('Error sending test newsletter:', error);
+      res.status(500).json({ error: 'Erro ao enviar newsletter de teste' });
+    }
+  });
+
   // ======== GESTÃO DE EQUIPE ROUTES ========
   
   // Middleware para verificar se é coordenador
@@ -10459,6 +10600,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize scheduled reports service
   scheduledReportsService.initialize();
+  
+  // Initialize newsletter service
+  newsletterService.init();
   
   // Initialize automated report sender (Relatório 360 e Financeiro)
   initScheduledReportSender();
