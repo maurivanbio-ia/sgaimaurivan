@@ -420,7 +420,7 @@ function DemandaForm({
                 <CommandList>
                   <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
                   <CommandGroup>
-                    {colaboradores.filter(c => c.tipo === 'user').map((colab) => (
+                    {colaboradores.filter(c => c.tipo === 'user' && c.id).map((colab) => (
                       <CommandItem
                         key={`${colab.tipo}-${colab.id}`}
                         value={colab.nome}

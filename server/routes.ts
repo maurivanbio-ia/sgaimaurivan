@@ -4908,12 +4908,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==== RH ROUTES ====
   
   // GET /api/colaboradores - Combined list of RH records and system users for selection fields
+  // IMPORTANT: For demands/tasks, 'id' should be the users.id to work with responsavelId FK
   app.get('/api/colaboradores', requireAuth, async (req, res) => {
     try {
       const { search } = req.query;
       const userUnidade = req.user?.unidade;
       
-      // Get RH collaborators (all from same unit, regardless of empreendimento)
+      // Get system users from same unit FIRST - these are the authoritative source for responsavelId
+      const userConditions: SQL[] = [];
+      if (userUnidade) {
+        userConditions.push(eq(users.unidade, userUnidade));
+      }
+      
+      let systemUsers = await db.select({
+        id: users.id,
+        email: users.email,
+        cargo: users.cargo,
+      }).from(users).where(userConditions.length > 0 ? and(...userConditions) : undefined);
+      
+      // Get RH collaborators to enhance user names
       const rhConditions: SQL[] = [isNull(rhRegistros.deletedAt)];
       if (userUnidade) {
         rhConditions.push(eq(rhRegistros.unidade, userUnidade));
@@ -4924,43 +4937,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nome: rhRegistros.nomeColaborador,
         cargo: rhRegistros.cargo,
         email: rhRegistros.contatoEmail,
-        tipo: sql<string>`'rh'`.as('tipo'),
       }).from(rhRegistros).where(and(...rhConditions));
       
-      // Get system users from same unit
-      const userConditions: SQL[] = [];
-      if (userUnidade) {
-        userConditions.push(eq(users.unidade, userUnidade));
-      }
-      
-      let systemUsers = await db.select({
-        id: users.id,
-        email: users.email,
-        cargo: users.cargo,
-        tipo: sql<string>`'user'`.as('tipo'),
-      }).from(users).where(userConditions.length > 0 ? and(...userConditions) : undefined);
-      
-      // Combine and dedupe by email
-      const combined: { id: number; nome: string; cargo: string | null; email: string | null; tipo: string }[] = [];
-      const seenEmails = new Set<string>();
-      
-      // Add RH collaborators first (they have priority)
+      // Create a map of email -> RH name for better display names
+      const rhNameByEmail = new Map<string, { nome: string; cargo: string | null }>();
       for (const rh of rhColaboradores) {
-        const key = rh.email?.toLowerCase() || `rh-${rh.id}`;
-        if (!seenEmails.has(key)) {
-          seenEmails.add(key);
-          combined.push({ id: rh.id, nome: rh.nome, cargo: rh.cargo, email: rh.email, tipo: rh.tipo });
+        if (rh.email) {
+          rhNameByEmail.set(rh.email.toLowerCase(), { nome: rh.nome, cargo: rh.cargo });
         }
       }
       
-      // Add system users - extract name from email
+      // Build combined list - prioritize system users (they have valid users.id for FK)
+      const combined: { id: number; nome: string; cargo: string | null; email: string | null; tipo: string; userId: number }[] = [];
+      const seenEmails = new Set<string>();
+      
+      // Add system users - use RH name if available, otherwise extract from email
       for (const user of systemUsers) {
         const key = user.email.toLowerCase();
         if (!seenEmails.has(key)) {
           seenEmails.add(key);
-          // Extract name from email (e.g., "maurivan@ecobrasil.bio.br" -> "Maurivan")
-          const displayName = user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          combined.push({ id: user.id, nome: displayName, cargo: user.cargo || null, email: user.email, tipo: user.tipo });
+          const rhInfo = rhNameByEmail.get(key);
+          const displayName = rhInfo?.nome || user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          combined.push({ 
+            id: user.id,  // This is the users.id - correct for responsavelId FK
+            nome: displayName, 
+            cargo: rhInfo?.cargo || user.cargo || null, 
+            email: user.email, 
+            tipo: 'user',
+            userId: user.id  // Explicit userId for clarity
+          });
         }
       }
       

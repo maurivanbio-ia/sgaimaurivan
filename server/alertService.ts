@@ -1,7 +1,10 @@
 import { storage } from './storage';
 import { sendEmail } from './emailService';
 import { sendWhatsApp } from './whatsappService';
-import { notificationService } from './notificationService';
+import { websocketService } from './services/websocketService';
+import { db } from './db';
+import { users } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import type { AlertConfig, AlertHistory, InsertAlertHistory } from '@shared/schema';
 
 export class AlertService {
@@ -294,7 +297,34 @@ Sistema LicençaFácil - EcoBrasil
     };
   }
 
-  // Cria notificação interna no sistema
+  // Busca usuários por unidade para scoping de notificações
+  private async getUsersByUnidade(unidade: string): Promise<number[]> {
+    try {
+      const result = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.unidade, unidade));
+      return result.map(u => u.id);
+    } catch (error) {
+      console.error('Erro ao buscar usuários por unidade:', error);
+      return [];
+    }
+  }
+
+  // Busca administradores para fallback de notificações sem unidade
+  private async getAdminUsers(): Promise<number[]> {
+    try {
+      const result = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.role, 'admin'));
+      return result.map(u => u.id);
+    } catch (error) {
+      console.error('Erro ao buscar administradores:', error);
+      return [];
+    }
+  }
+
+  // Cria notificação em tempo real via WebSocket (persistida em realTimeNotifications)
+  // Notificações são escopadas por unidade para respeitar isolamento multi-tenant
   private async createInternalNotification(
     item: any,
     tipo: string,
@@ -304,10 +334,23 @@ Sistema LicençaFácil - EcoBrasil
       const dateField = tipo === 'licenca' ? item.validade : item.prazo;
       const dataVencimento = new Date(dateField);
       
-      // Buscar dados do empreendimento relacionado
-      const empreendimento = item.empreendimentoId ? 
-        await storage.getEmpreendimento(item.empreendimentoId) : null;
+      // Buscar dados do empreendimento - para condicionante/entrega, buscar via licença
+      let empreendimento = null;
+      let empreendimentoId = item.empreendimentoId;
+      
+      if (empreendimentoId) {
+        empreendimento = await storage.getEmpreendimento(empreendimentoId);
+      } else if (item.licencaId) {
+        // Para condicionantes e entregas, buscar empreendimento via licença
+        const licenca = await storage.getLicenca(item.licencaId);
+        if (licenca?.empreendimentoId) {
+          empreendimentoId = licenca.empreendimentoId;
+          empreendimento = await storage.getEmpreendimento(empreendimentoId);
+        }
+      }
+      
       const nomeEmpreendimento = empreendimento?.nome || 'N/A';
+      const unidadeEmpreendimento = empreendimento?.unidade || null;
       
       // Buscar dados da licença se for condicionante ou entrega
       let tipoLicenca = 'N/A';
@@ -318,40 +361,161 @@ Sistema LicençaFácil - EcoBrasil
         tipoLicenca = licenca?.tipo || 'N/A';
       }
       
+      // Definir severidade e ícone baseado nos dias restantes
+      let notificationType = 'info';
+      let icone = 'Bell';
+      
+      if (diasRestantes <= 0) {
+        notificationType = 'erro';
+        icone = 'AlertTriangle';
+      } else if (diasRestantes <= 7) {
+        notificationType = 'alerta';
+        icone = 'AlertCircle';
+      } else if (diasRestantes <= 30) {
+        notificationType = 'alerta';
+        icone = 'Clock';
+      }
+      
+      // Preparar título e mensagem
+      let titulo = '';
+      let mensagem = '';
+      const tipoLabel = tipo === 'licenca' ? 'Licença' : tipo === 'condicionante' ? 'Condicionante' : 'Entrega';
+      
       switch (tipo) {
         case 'licenca':
-          await notificationService.createLicenseExpiryNotification(
-            item.id,
-            nomeEmpreendimento,
-            tipoLicenca,
-            dataVencimento,
-            diasRestantes
-          );
+          titulo = diasRestantes <= 0 ? 'Licença Vencida' : 'Licença Vencendo';
+          mensagem = `${tipoLicenca} - ${nomeEmpreendimento}: ${diasRestantes <= 0 ? 'VENCIDA' : `${diasRestantes} dias restantes`}`;
           break;
         case 'condicionante':
-          await notificationService.createCondicionanteExpiryNotification(
-            item.id,
-            item.descricao || 'Condicionante',
-            nomeEmpreendimento,
-            tipoLicenca,
-            dataVencimento,
-            diasRestantes
-          );
+          titulo = diasRestantes <= 0 ? 'Condicionante Vencida' : 'Condicionante Vencendo';
+          mensagem = `${item.descricao || 'Condicionante'} - ${nomeEmpreendimento}: ${diasRestantes <= 0 ? 'VENCIDA' : `${diasRestantes} dias restantes`}`;
           break;
         case 'entrega':
-          await notificationService.createEntregaExpiryNotification(
-            item.id,
-            item.titulo || item.descricao || 'Entrega',
-            nomeEmpreendimento,
-            tipoLicenca,
-            dataVencimento,
-            diasRestantes
-          );
+          titulo = diasRestantes <= 0 ? 'Entrega Vencida' : 'Entrega Vencendo';
+          mensagem = `${item.titulo || item.descricao || 'Entrega'} - ${nomeEmpreendimento}: ${diasRestantes <= 0 ? 'VENCIDA' : `${diasRestantes} dias restantes`}`;
           break;
       }
+      
+      // Usar o empreendimentoId resolvido (pode vir da licença)
+      const resolvedEmpreendimentoId = empreendimentoId || item.empreendimentoId;
+      
+      const notificationPayload = {
+        tipo: notificationType,
+        titulo,
+        mensagem,
+        link: resolvedEmpreendimentoId ? `/empreendimentos/${resolvedEmpreendimentoId}` : '/empreendimentos',
+        icone,
+        metadados: {
+          itemId: item.id,
+          tipoItem: tipo,
+          tipoLabel,
+          diasRestantes,
+          empreendimentoId: resolvedEmpreendimentoId || null,
+          nomeEmpreendimento,
+          dataVencimento: dataVencimento.toISOString()
+        }
+      };
+      
+      // Buscar usuários da mesma unidade para respeitar isolamento multi-tenant
+      if (unidadeEmpreendimento) {
+        const userIds = await this.getUsersByUnidade(unidadeEmpreendimento);
+        
+        // Enviar notificação para cada usuário da unidade
+        for (const userId of userIds) {
+          await websocketService.sendNotification({
+            ...notificationPayload,
+            usuarioId: userId
+          });
+        }
+        
+        console.log(`[Push] Notificação de ${tipo} enviada para ${userIds.length} usuários da unidade ${unidadeEmpreendimento}: ${titulo}`);
+      } else {
+        // Fallback 1: buscar unidade do item.unidade (alguns registros têm campo direto)
+        const itemUnidade = item.unidade;
+        if (itemUnidade) {
+          const userIds = await this.getUsersByUnidade(itemUnidade);
+          for (const userId of userIds) {
+            await websocketService.sendNotification({
+              ...notificationPayload,
+              usuarioId: userId
+            });
+          }
+          console.log(`[Push] Notificação de ${tipo} enviada (via item.unidade ${itemUnidade}): ${titulo}`);
+        } else if (item.responsavelId) {
+          // Fallback 2: buscar unidade do responsável e notificar todos os usuários dessa unidade
+          const responsavel = await storage.getUserById(item.responsavelId);
+          if (responsavel && responsavel.unidade) {
+            // Notificar todos os usuários da unidade do responsável
+            const userIds = await this.getUsersByUnidade(responsavel.unidade);
+            for (const userId of userIds) {
+              await websocketService.sendNotification({
+                ...notificationPayload,
+                usuarioId: userId
+              });
+            }
+            console.log(`[Push] Notificação de ${tipo} enviada para ${userIds.length} usuários (via responsável unidade ${responsavel.unidade}): ${titulo}`);
+          } else if (responsavel) {
+            // Responsável existe mas não tem unidade - notificar apenas ele
+            await websocketService.sendNotification({
+              ...notificationPayload,
+              usuarioId: responsavel.id
+            });
+            console.log(`[Push] Notificação de ${tipo} enviada apenas para responsável ${responsavel.id} (sem unidade): ${titulo}`);
+          } else {
+            console.warn(`[Push] Notificação de ${tipo} não pôde ser entregue: itemId=${item.id}, responsavelId inválido=${item.responsavelId}`);
+          }
+        } else {
+          // Fallback final: notificar todos os administradores sobre deadline sem unidade definida
+          const adminUsers = await this.getAdminUsers();
+          if (adminUsers.length > 0) {
+            for (const adminId of adminUsers) {
+              await websocketService.sendNotification({
+                ...notificationPayload,
+                usuarioId: adminId,
+                titulo: `[DADOS INCOMPLETOS] ${titulo}`,
+                mensagem: `${mensagem} - AÇÃO NECESSÁRIA: Verificar dados do registro`
+              });
+            }
+            console.warn(`[Push] Notificação de ${tipo} enviada para ${adminUsers.length} admins (dados incompletos): ${titulo}`);
+          }
+          
+          // Registrar problema de higiene de dados para monitoramento
+          await this.logDataHygieneIssue({
+            tipo,
+            itemId: item.id,
+            licencaId: item.licencaId || null,
+            empreendimentoId: resolvedEmpreendimentoId || null,
+            responsavelId: item.responsavelId || null,
+            titulo: titulo,
+            dataVencimento: dataVencimento.toISOString()
+          });
+        }
+      }
+      
     } catch (error) {
       console.error(`Erro ao criar notificação interna para ${tipo} ID ${item.id}:`, error);
     }
+  }
+
+  // Registra problema de higiene de dados para monitoramento
+  private async logDataHygieneIssue(issue: {
+    tipo: string;
+    itemId: number;
+    licencaId: number | null;
+    empreendimentoId: number | null;
+    responsavelId: number | null;
+    titulo: string;
+    dataVencimento: string;
+  }): Promise<void> {
+    console.error(`[HIGIENE DE DADOS] Notificação não pôde ser escopada por unidade:
+      - Tipo: ${issue.tipo}
+      - Item ID: ${issue.itemId}
+      - Licença ID: ${issue.licencaId || 'N/A'}
+      - Empreendimento ID: ${issue.empreendimentoId || 'N/A'}
+      - Responsável ID: ${issue.responsavelId || 'N/A'}
+      - Título: ${issue.titulo}
+      - Data Vencimento: ${issue.dataVencimento}
+      - Ação necessária: Verificar se o registro possui licença associada com empreendimento válido`);
   }
 
   // Salva histórico de alerta

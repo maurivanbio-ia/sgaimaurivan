@@ -17,6 +17,7 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
 
   const { data: unreadCount = 0, refetch: refetchUnreadCount } = useQuery<{ count: number }>({
@@ -39,7 +40,10 @@ export function useNotifications() {
       setIsConnected(true);
       ws.send(JSON.stringify({ type: 'auth', userId }));
       
-      setInterval(() => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+      pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
         }
@@ -67,6 +71,11 @@ export function useNotifications() {
       setIsConnected(false);
       wsRef.current = null;
       
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+      
       reconnectTimeoutRef.current = setTimeout(() => {
         connect(userId);
       }, 5000);
@@ -80,6 +89,11 @@ export function useNotifications() {
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
     if (wsRef.current) {
       wsRef.current.close();

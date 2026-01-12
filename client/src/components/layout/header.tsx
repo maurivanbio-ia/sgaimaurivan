@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch } from "@/components/global-search";
-import { NotificationsCenter } from "@/components/notifications-center";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -140,7 +140,7 @@ export default function Header() {
 
           {/* Ações (sempre visíveis) + Menu mobile */}
           <div className="flex items-center space-x-2">
-            <NotificationsCenter />
+            <NotificationBell />
             <ThemeToggle />
 
             <div className="md:hidden">
