@@ -3786,8 +3786,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SEGURANÇA DO TRABALHO MODULE
   // =============================================
 
-  // Get all colaboradores with optional filters
-  app.get('/api/colaboradores', requireAuth, async (req, res) => {
+  // Get all SST colaboradores with optional filters
+  app.get('/api/sst-colaboradores', requireAuth, async (req, res) => {
     try {
       const { empreendimentoId, status, search } = req.query;
       
@@ -3804,8 +3804,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single colaborador
-  app.get('/api/colaboradores/:id', requireAuth, async (req, res) => {
+  // Get single SST colaborador
+  app.get('/api/sst-colaboradores/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3824,8 +3824,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create colaborador
-  app.post('/api/colaboradores', requireAuth, async (req, res) => {
+  // Create SST colaborador
+  app.post('/api/sst-colaboradores', requireAuth, async (req, res) => {
     try {
       const colaborador = await storage.createColaborador(req.body);
       res.status(201).json(colaborador);
@@ -3835,8 +3835,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update colaborador
-  app.patch('/api/colaboradores/:id', requireAuth, async (req, res) => {
+  // Update SST colaborador
+  app.patch('/api/sst-colaboradores/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3851,8 +3851,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete colaborador
-  app.delete('/api/colaboradores/:id', requireAuth, async (req, res) => {
+  // Delete SST colaborador
+  app.delete('/api/sst-colaboradores/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
