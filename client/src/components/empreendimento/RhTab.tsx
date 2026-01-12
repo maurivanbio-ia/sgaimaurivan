@@ -1,10 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Mail, Phone, Calendar, Building, Briefcase, Users, ExternalLink } from "lucide-react";
+import { User, Mail, Phone, Calendar, Building, Briefcase, Users, ExternalLink, Eye, EyeOff, Lock } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export interface RhTabProps {
   empreendimentoId: number;
@@ -37,6 +42,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export function RhTab({ empreendimentoId }: RhTabProps) {
+  const { toast } = useToast();
+  const [revealedValues, setRevealedValues] = useState<Set<number>>(new Set());
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [pendingRevealId, setPendingRevealId] = useState<number | null>(null);
+  const [password, setPassword] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+
   // Buscar colaboradores vinculados a este empreendimento
   const { data: registros = [], isLoading } = useQuery<RhRegistro[]>({
     queryKey: ["/api/rh", { empreendimentoId }],
@@ -46,6 +58,49 @@ export function RhTab({ empreendimentoId }: RhTabProps) {
       return res.json();
     },
   });
+
+  const handleRevealValue = (id: number) => {
+    setPendingRevealId(id);
+    setPassword("");
+    setPasswordDialogOpen(true);
+  };
+
+  const verifyPassword = async () => {
+    if (!password.trim()) {
+      toast({ title: "Digite a senha", variant: "destructive" });
+      return;
+    }
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/sensitive-unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        if (pendingRevealId !== null) {
+          setRevealedValues(prev => new Set([...prev, pendingRevealId]));
+        }
+        setPasswordDialogOpen(false);
+        toast({ title: "Valor revelado" });
+      } else {
+        toast({ title: "Senha incorreta", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Erro ao verificar senha", variant: "destructive" });
+    } finally {
+      setIsVerifying(false);
+      setPassword("");
+    }
+  };
+
+  const hideValue = (id: number) => {
+    setRevealedValues(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
+  };
 
   if (isLoading) {
     return <div className="text-center py-8">Carregando colaboradores vinculados...</div>;
@@ -167,9 +222,40 @@ export function RhTab({ empreendimentoId }: RhTabProps) {
 
                   {reg.valor && reg.valorTipo && (
                     <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm font-medium text-primary" data-testid={`text-valor-${reg.id}`}>
-                        R$ {Number(reg.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / {reg.valorTipo}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        {revealedValues.has(reg.id) ? (
+                          <>
+                            <p className="text-sm font-medium text-primary" data-testid={`text-valor-${reg.id}`}>
+                              R$ {Number(reg.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / {reg.valorTipo}
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => hideValue(reg.id)}
+                              className="h-6 w-6 p-0"
+                              title="Ocultar valor"
+                            >
+                              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                              <Lock className="h-3 w-3" />
+                              Valor: ••••••
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRevealValue(reg.id)}
+                              className="h-6 w-6 p-0"
+                              title="Revelar valor (requer senha)"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -197,6 +283,41 @@ export function RhTab({ empreendimentoId }: RhTabProps) {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Acesso Restrito
+            </DialogTitle>
+            <DialogDescription>
+              O valor salarial é um dado sensível. Digite a senha de acesso para visualizar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Digite a senha de acesso"
+                onKeyDown={(e) => e.key === "Enter" && verifyPassword()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={verifyPassword} disabled={isVerifying}>
+              {isVerifying ? "Verificando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
