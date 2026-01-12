@@ -1375,6 +1375,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/demandas', requireAuth, async (req, res) => {
     try {
       const userUnidade = req.user?.unidade || '';
+      console.log('[DEBUG DEMANDAS] User:', req.user?.email, 'Unidade:', userUnidade, 'UserId:', req.session.userId);
+      
       const filters = {
         setor: req.query.setor as string,
         responsavel: req.query.responsavel as string,
@@ -1392,7 +1394,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      console.log('[DEBUG DEMANDAS] Filters:', JSON.stringify(filters));
       const demandas = await storage.getDemandas(filters);
+      console.log('[DEBUG DEMANDAS] Found:', demandas.length, 'demandas');
       res.json(demandas);
     } catch (error) {
       console.error('Error fetching demandas:', error);
