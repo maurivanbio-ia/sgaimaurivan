@@ -1455,6 +1455,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new demanda
   app.post('/api/demandas', requireAuth, async (req, res) => {
     try {
+      console.log('[DEBUG CREATE DEMANDA] User:', req.user?.email, 'Unidade:', req.user?.unidade, 'UserId:', req.session.userId);
+      console.log('[DEBUG CREATE DEMANDA] Body:', JSON.stringify(req.body));
+      
       // Ensure required fields are set and remove undefined/invalid empreendimentoId
       const demandaData: any = {
         titulo: req.body.titulo,
@@ -1484,7 +1487,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.body.campanhaId) demandaData.campanhaId = req.body.campanhaId;
       if (req.body.contratoId) demandaData.contratoId = req.body.contratoId;
       
+      console.log('[DEBUG CREATE DEMANDA] Data to save:', JSON.stringify(demandaData));
       const demanda = await storage.createDemanda(demandaData);
+      console.log('[DEBUG CREATE DEMANDA] Created:', JSON.stringify(demanda));
       res.status(201).json(demanda);
     } catch (error: any) {
       console.error('Error creating demanda:', error);
