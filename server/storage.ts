@@ -1544,8 +1544,14 @@ export class DatabaseStorage implements IStorage {
     prioridade?: string;
     status?: string;
     search?: string;
+    unidade?: string; // Add unidade filter for multi-tenant isolation
   }): Promise<(Demanda & { responsavel?: string })[]> {
     const conditions = [];
+    
+    // CRITICAL: Always filter by unidade for multi-tenant isolation
+    if (filters?.unidade) {
+      conditions.push(eq(demandas.unidade, filters.unidade));
+    }
     
     if (filters?.setor && filters.setor !== "todos") {
       conditions.push(eq(demandas.setor, filters.setor));
