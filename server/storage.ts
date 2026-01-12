@@ -1584,6 +1584,8 @@ export class DatabaseStorage implements IStorage {
     }
     
     let results;
+    console.log('[DEBUG getDemandas] Conditions count:', conditions.length);
+    
     if (conditions.length > 0) {
       results = await db
         .select({
@@ -1603,6 +1605,11 @@ export class DatabaseStorage implements IStorage {
         .from(demandas)
         .leftJoin(users, eq(demandas.responsavelId, users.id))
         .orderBy(desc(demandas.criadoEm));
+    }
+    
+    console.log('[DEBUG getDemandas] Results count:', results.length);
+    if (results.length > 0) {
+      console.log('[DEBUG getDemandas] First result:', JSON.stringify(results[0]));
     }
     
     return results.map(r => ({
