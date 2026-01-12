@@ -1544,8 +1544,7 @@ export class DatabaseStorage implements IStorage {
     prioridade?: string;
     status?: string;
     search?: string;
-  }): Promise<Demanda[]> {
-    let query = db.select().from(demandas);
+  }): Promise<(Demanda & { responsavel?: string })[]> {
     const conditions = [];
     
     if (filters?.setor && filters.setor !== "todos") {
@@ -1570,11 +1569,32 @@ export class DatabaseStorage implements IStorage {
       );
     }
     
+    let results;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      results = await db
+        .select({
+          demanda: demandas,
+          responsavelNome: users.nome,
+        })
+        .from(demandas)
+        .leftJoin(users, eq(demandas.responsavelId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(demandas.criadoEm));
+    } else {
+      results = await db
+        .select({
+          demanda: demandas,
+          responsavelNome: users.nome,
+        })
+        .from(demandas)
+        .leftJoin(users, eq(demandas.responsavelId, users.id))
+        .orderBy(desc(demandas.criadoEm));
     }
     
-    return await query.orderBy(desc(demandas.criadoEm));
+    return results.map(r => ({
+      ...r.demanda,
+      responsavel: r.responsavelNome || undefined,
+    }));
   }
 
   async getDemandaById(id: number): Promise<Demanda | undefined> {

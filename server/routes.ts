@@ -1455,12 +1455,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         titulo: req.body.titulo,
         descricao: req.body.descricao,
         setor: req.body.setor,
-        prioridade: req.body.prioridade,
+        prioridade: req.body.prioridade || 'media',
+        complexidade: req.body.complexidade || 'media',
+        categoria: req.body.categoria || 'geral',
         dataEntrega: req.body.dataEntrega,
         status: req.body.status || 'a_fazer',
-        responsavel: req.body.responsavel, // This is the name string field
         responsavelId: req.body.responsavelId || req.session.userId,
         criadoPor: req.session.userId,
+        unidade: req.user?.unidade || 'salvador',
       };
       
       // Only add empreendimentoId if it's a valid number
