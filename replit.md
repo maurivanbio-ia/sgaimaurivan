@@ -104,6 +104,26 @@ An automated weekly newsletter system featuring:
 ### Automatic Backup System
 Daily automatic database backups scheduled at 00:00 (Brasília timezone), exporting major tables to JSON, storing them in Object Storage, and maintaining a 30-day retention policy.
 
+### Real-Time Push Notifications
+A comprehensive push notification system for deadline alerts, featuring:
+- WebSocket server at `/ws/notifications` for real-time communication
+- NotificationBell component in header for instant visual feedback
+- Automatic alerts for license, condicionante, and entrega expirations
+- Severity-based notification types (info, warning, error)
+- Database table: realTimeNotifications for persistent storage
+- Integration with AlertService for automatic deadline monitoring
+- useNotifications hook for WebSocket connection management
+- Unread count badge with live updates
+- Mark as read/mark all read functionality
+
+**Multi-tenant Scoping**: Notifications are scoped by unidade (unit) with a comprehensive fallback chain:
+1. Primary: Resolve unidade via empreendimentoId directly
+2. Fallback 1: Resolve empreendimento via licençaId for condicionantes/entregas
+3. Fallback 2: Use item.unidade directly if available
+4. Fallback 3: Derive unidade from responsável and notify all users in that unit
+5. Fallback 4: Notify responsável directly if they have no unidade
+6. Fallback 5: Notify all admin users with "[DADOS INCOMPLETOS]" prefix for data hygiene issues
+
 ### Database and Data Handling
 The PostgreSQL database uses Drizzle ORM, with tables enhanced for multi-tenancy, project management, and AI features. It enforces foreign key constraints, implements soft deletion, and tracks file upload metadata and checksums.
 
