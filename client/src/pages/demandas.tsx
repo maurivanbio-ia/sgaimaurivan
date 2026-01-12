@@ -59,6 +59,11 @@ import {
   ChevronsUpDown,
   Check,
   User,
+  Eye,
+  Calendar,
+  Tag,
+  AlertCircle,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -495,6 +500,7 @@ function DemandaCard({
   onEdit: (d: Demanda) => void;
   onDelete: (id: number) => void;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
     useSortable({
       id: demanda.id,
@@ -512,82 +518,197 @@ function DemandaCard({
     alta: "bg-red-500",
   }[demanda.prioridade];
 
+  const statusLabel = {
+    a_fazer: "A Fazer",
+    em_andamento: "Em Andamento",
+    em_revisao: "Em Revisão",
+    concluido: "Concluído",
+    cancelado: "Cancelado",
+  }[demanda.status];
+
+  const categoriaLabel = {
+    reuniao: "Reunião",
+    relatorio_tecnico: "Relatório Técnico",
+    documento: "Documento",
+    campo: "Campo",
+    vistoria: "Vistoria",
+    licenciamento: "Licenciamento",
+    analise: "Análise",
+    outro: "Outro",
+    geral: "Geral",
+  }[demanda.categoria || "geral"];
+
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className="mb-2 hover:shadow-md transition-shadow"
-      data-testid={`demanda-card-${demanda.id}`}
-    >
-      <CardHeader className="pb-2 pt-3 px-3">
-        <div className="flex items-start justify-between gap-2">
-          {/* Área de arrasto */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing pt-1"
-            data-testid={`drag-handle-${demanda.id}`}
-          >
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
-          </div>
+    <>
+      <Card
+        ref={setNodeRef}
+        style={style}
+        className="mb-2 hover:shadow-md transition-shadow"
+        data-testid={`demanda-card-${demanda.id}`}
+      >
+        <CardHeader className="pb-2 pt-3 px-3">
+          <div className="flex items-start justify-between gap-2">
+            {/* Área de arrasto */}
+            <div
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing pt-1"
+              data-testid={`drag-handle-${demanda.id}`}
+            >
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
+            </div>
 
-          {/* Título */}
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-sm font-semibold line-clamp-2">
+            {/* Título */}
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-sm font-semibold line-clamp-2">
+                {demanda.titulo}
+              </CardTitle>
+            </div>
+
+            {/* Botões de ação */}
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowDetails(true);
+                }}
+                data-testid={`button-view-demanda-${demanda.id}`}
+                title="Visualizar detalhes"
+              >
+                <Eye className="h-4 w-4 text-blue-500 hover:text-blue-700" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onEdit(demanda);
+                }}
+                data-testid={`button-edit-demanda-${demanda.id}`}
+                title="Editar demanda"
+              >
+                <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDelete(demanda.id);
+                }}
+                data-testid={`button-delete-demanda-${demanda.id}`}
+                title="Excluir demanda"
+              >
+                <Trash2 className="h-4 w-4 text-destructive hover:text-destructive/70" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="text-xs text-muted-foreground px-3 pb-3">
+          <p className="line-clamp-2 mb-2">{demanda.descricao}</p>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="secondary" className="text-xs">{demanda.setor}</Badge>
+            <Badge className={`${prioridadeColor} text-white text-xs`}>
+              {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", {
+                locale: ptBR,
+              })}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {demanda.responsavel}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Modal de Visualização de Detalhes */}
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
               {demanda.titulo}
-            </CardTitle>
-          </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Status e Prioridade */}
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="text-sm">{statusLabel}</Badge>
+              <Badge className={`${prioridadeColor} text-white text-sm`}>
+                Prioridade: {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
+              </Badge>
+            </div>
 
-          {/* Botões de ação */}
-          <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 flex-shrink-0"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onEdit(demanda);
-              }}
-              data-testid={`button-edit-demanda-${demanda.id}`}
-            >
-              <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 flex-shrink-0"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDelete(demanda.id);
-              }}
-              data-testid={`button-delete-demanda-${demanda.id}`}
-            >
-              <Trash2 className="h-4 w-4 text-destructive hover:text-destructive/70" />
-            </Button>
+            {/* Descrição */}
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Descrição</Label>
+              <p className="mt-1 text-sm whitespace-pre-wrap">{demanda.descricao || "Sem descrição"}</p>
+            </div>
+
+            {/* Informações em Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <User className="h-3 w-3" /> Responsável
+                </Label>
+                <p className="mt-1 text-sm">{demanda.responsavel || "Não atribuído"}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <Tag className="h-3 w-3" /> Setor
+                </Label>
+                <p className="mt-1 text-sm">{demanda.setor}</p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3" /> Data de Entrega
+                </Label>
+                <p className="mt-1 text-sm">
+                  {formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Complexidade
+                </Label>
+                <p className="mt-1 text-sm capitalize">{demanda.complexidade || "Não definida"}</p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Categoria</Label>
+                <p className="mt-1 text-sm">{categoriaLabel}</p>
+              </div>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowDetails(false)}>
+                Fechar
+              </Button>
+              <Button onClick={() => { setShowDetails(false); onEdit(demanda); }}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="text-xs text-muted-foreground px-3 pb-3">
-        <p className="line-clamp-2 mb-2">{demanda.descricao}</p>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="secondary" className="text-xs">{demanda.setor}</Badge>
-          <Badge className={`${prioridadeColor} text-white text-xs`}>
-            {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", {
-              locale: ptBR,
-            })}
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          {demanda.responsavel}
-        </p>
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
