@@ -53,6 +53,7 @@ import ConformidadeISO from "./pages/conformidade-iso";
 import RamaisContatos from "./pages/ramais-contatos";
 import LinksUteis from "./pages/links-uteis";
 import ProcessosMonitorados from "./pages/processos-monitorados";
+import Newsletter from "./pages/newsletter";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -184,6 +185,7 @@ function Router() {
                     <Route path="/comunicacao" component={Comunicacao} />
                     <Route path="/conformidade-iso" component={ConformidadeISO} />
                     <Route path="/processos-monitorados" component={ProcessosMonitorados} />
+                    <Route path="/newsletter" component={Newsletter} />
                     <Route component={NotFound} />
                   </Switch>
                 </PermissionGate>

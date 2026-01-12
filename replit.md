@@ -89,6 +89,18 @@ An automated system for tracking environmental license processes in government p
 - Configurable alert frequency and notification emails per process
 - Link to associated empreendimentos and licenses
 
+### Newsletter Ambiental Semanal
+An automated weekly newsletter system featuring:
+- Weekly environmental news aggregation from multiple sources
+- AI-powered content summarization using GPT-4o-mini for professional environmental summaries
+- Beautiful HTML email template with EcoBrasil branding (green gradient theme)
+- Scheduled delivery every Sunday (configurable day and time)
+- Subscriber management with active/inactive status
+- Edition history with full HTML preview
+- Test email functionality for previewing before sending
+- Configurable search terms for news aggregation (meio ambiente, legislação ambiental, IBAMA, etc.)
+- Database tables: newsletterAssinantes, newsletterEdicoes, newsletterConfig
+
 ### Automatic Backup System
 Daily automatic database backups scheduled at 00:00 (Brasília timezone), exporting major tables to JSON, storing them in Object Storage, and maintaining a 30-day retention policy.
 

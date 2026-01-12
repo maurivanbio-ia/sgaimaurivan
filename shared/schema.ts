@@ -2880,3 +2880,75 @@ export const insertConsultaProcessoSchema = createInsertSchema(consultasProcesso
 export type InsertConsultaProcesso = z.infer<typeof insertConsultaProcessoSchema>;
 export type ConsultaProcesso = typeof consultasProcessos.$inferSelect;
 
+// ============================================
+// NEWSLETTER AMBIENTAL SEMANAL
+// ============================================
+export const newsletterAssinantes = pgTable("newsletter_assinantes", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  nome: text("nome"),
+  ativo: boolean("ativo").default(true),
+  confirmaAssinatura: boolean("confirma_assinatura").default(false),
+  tokenConfirmacao: text("token_confirmacao"),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertNewsletterAssinanteSchema = createInsertSchema(newsletterAssinantes).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  tokenConfirmacao: true,
+});
+
+export type InsertNewsletterAssinante = z.infer<typeof insertNewsletterAssinanteSchema>;
+export type NewsletterAssinante = typeof newsletterAssinantes.$inferSelect;
+
+export const newsletterEdicoes = pgTable("newsletter_edicoes", {
+  id: serial("id").primaryKey(),
+  numero: integer("numero").notNull(),
+  titulo: text("titulo").notNull(),
+  introducao: text("introducao"), // Texto introdutório gerado por IA
+  resumoGeral: text("resumo_geral"), // Resumo geral das notícias gerado por IA
+  noticias: json("noticias").default([]), // Array de notícias { titulo, resumo, link, fonte, dataPublicacao }
+  htmlContent: text("html_content"), // HTML completo renderizado
+  status: text("status").notNull().default("rascunho"), // rascunho, agendado, enviado
+  dataEnvio: timestamp("data_envio"),
+  totalDestinatarios: integer("total_destinatarios").default(0),
+  totalAberturas: integer("total_aberturas").default(0),
+  criadoPor: integer("criado_por").references(() => users.id),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertNewsletterEdicaoSchema = createInsertSchema(newsletterEdicoes).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  totalAberturas: true,
+});
+
+export type InsertNewsletterEdicao = z.infer<typeof insertNewsletterEdicaoSchema>;
+export type NewsletterEdicao = typeof newsletterEdicoes.$inferSelect;
+
+export const newsletterConfig = pgTable("newsletter_config", {
+  id: serial("id").primaryKey(),
+  ativo: boolean("ativo").default(true),
+  diaEnvio: integer("dia_envio").default(0), // 0 = Domingo
+  horarioEnvio: text("horario_envio").default("09:00"),
+  assuntoTemplate: text("assunto_template").default("Newsletter Ambiental EcoBrasil - Semana {{semana}}"),
+  termosChave: text("termos_chave").default("meio ambiente, legislação ambiental, licenciamento ambiental, IBAMA, INEMA, sustentabilidade"), // Termos para busca de notícias
+  maxNoticias: integer("max_noticias").default(10),
+  unidade: text("unidade").notNull().default("salvador"),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertNewsletterConfigSchema = createInsertSchema(newsletterConfig).omit({
+  id: true,
+  atualizadoEm: true,
+});
+
+export type InsertNewsletterConfig = z.infer<typeof insertNewsletterConfigSchema>;
+export type NewsletterConfig = typeof newsletterConfig.$inferSelect;
+
