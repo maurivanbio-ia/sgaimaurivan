@@ -1668,6 +1668,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(historicoDemandasMovimentacoes.criadoEm));
   }
 
+  async clearDemandasHistorico(): Promise<{ count: number }> {
+    const result = await db.delete(historicoDemandasMovimentacoes);
+    return { count: result.rowCount || 0 };
+  }
+
   async getDemandasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Demanda[]> {
     return await db
       .select()
