@@ -125,12 +125,15 @@ export default function DashboardCoordenador() {
   }
 
   const myProjects = projetos.filter(p => p.coordenadorId === user?.id);
+  const myEmpreendimentos = empreendimentos.filter(e => (e as any).coordenadorId === user?.id);
   const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e]));
   const categoriaMap = new Map(categorias.map(c => [c.id, c]));
   const myProjectEmprIds = new Set(myProjects.map(p => p.empreendimentoId));
+  const myEmpreendimentoIds = new Set(myEmpreendimentos.map(e => e.id));
+  const allMyEmprIds = new Set([...Array.from(myProjectEmprIds), ...Array.from(myEmpreendimentoIds)]);
   
-  // Filtra despesas: mostra APENAS dos projetos onde o usuário é coordenador
-  const myDespesas = lancamentos.filter(l => myProjectEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa');
+  // Filtra despesas: mostra dos projetos OU empreendimentos onde o usuário é coordenador
+  const myDespesas = lancamentos.filter(l => allMyEmprIds.has(l.empreendimentoId) && l.tipo === 'despesa');
   
   const totalGastos = myDespesas.reduce((sum, l) => sum + (parseFloat(l.valor) || 0), 0);
 
@@ -214,8 +217,8 @@ export default function DashboardCoordenador() {
               <FolderKanban className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{myProjects.length}</div>
-              <p className="text-xs text-muted-foreground">projetos sob sua coordenação</p>
+              <div className="text-2xl font-bold">{myProjects.length + myEmpreendimentos.length}</div>
+              <p className="text-xs text-muted-foreground">projetos/empreendimentos sob sua coordenação</p>
             </CardContent>
           </Card>
 
