@@ -62,6 +62,7 @@ const projectSchema = z.object({
     return !isNaN(num) && num >= -180 && num <= 180;
   }, "Longitude deve estar entre -180 e 180"),
   responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
+  coordenadorId: z.number().nullable().optional(),
   tipo: z.string().default("outro"),
   status: z.string().default("ativo"),
 });
@@ -75,6 +76,7 @@ export default function EditProject() {
   const { toast } = useToast();
   const { unidadeSelecionada } = useUnidade();
   const [openResponsavel, setOpenResponsavel] = useState(false);
+  const [openCoordenador, setOpenCoordenador] = useState(false);
 
   const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
     queryKey: ['/api/colaboradores'],
@@ -120,6 +122,7 @@ export default function EditProject() {
         latitude: project.latitude || "",
         longitude: project.longitude || "",
         responsavelInterno: project.responsavelInterno,
+        coordenadorId: project.coordenadorId || null,
         tipo: project.tipo || "outro",
         status: project.status || "ativo",
       });
@@ -412,6 +415,84 @@ export default function EditProject() {
                         </Command>
                       </PopoverContent>
                     </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="coordenadorId"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Coordenador do Projeto</FormLabel>
+                    <Popover open={openCoordenador} onOpenChange={setOpenCoordenador}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openCoordenador}
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="input-coordenador"
+                          >
+                            {field.value
+                              ? colaboradores.find((c) => c.tipo === 'user' && c.id === field.value)?.nome || "Selecione um coordenador"
+                              : "Selecione um coordenador"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar coordenador..." />
+                          <CommandList>
+                            {isLoadingColabs ? (
+                              <div className="p-4 text-center text-sm text-muted-foreground">Carregando...</div>
+                            ) : colaboradores.filter(c => c.tipo === 'user').length === 0 ? (
+                              <CommandEmpty>Nenhum usuário do sistema encontrado.</CommandEmpty>
+                            ) : (
+                              <CommandEmpty>Nenhum coordenador encontrado.</CommandEmpty>
+                            )}
+                            <CommandGroup>
+                              {colaboradores.filter(c => c.tipo === 'user').map((colab) => (
+                                <CommandItem
+                                  key={`coord-${colab.id}`}
+                                  value={colab.nome}
+                                  onSelect={() => {
+                                    field.onChange(colab.id);
+                                    setOpenCoordenador(false);
+                                  }}
+                                >
+                                  <User className="mr-2 h-4 w-4" />
+                                  <div className="flex flex-col">
+                                    <span>{colab.nome}</span>
+                                    {colab.cargo && (
+                                      <span className="text-xs text-primary font-medium">{colab.cargo}</span>
+                                    )}
+                                    {colab.email && (
+                                      <span className="text-xs text-muted-foreground">{colab.email}</span>
+                                    )}
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      "ml-auto h-4 w-4",
+                                      field.value === colab.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-xs text-muted-foreground">
+                      Selecione o coordenador responsável pelo projeto para que apareça no Dashboard do Coordenador
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
