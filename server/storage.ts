@@ -1548,6 +1548,7 @@ export class DatabaseStorage implements IStorage {
     // Demandas can be filtered by:
     // 1. Direct unidade field on demandas table
     // 2. OR by empreendimentoId belonging to the user's unidade (for legacy data without unidade field)
+    // 3. OR by responsavelId belonging to users of this unidade (for legacy data without unidade and empreendimentoId)
     if (filters?.unidade) {
       // Get empreendimento IDs belonging to this unidade for fallback matching
       const emps = await db.select({ id: empreendimentos.id })
@@ -1555,18 +1556,28 @@ export class DatabaseStorage implements IStorage {
         .where(eq(empreendimentos.unidade, filters.unidade));
       const empIds = emps.map(e => e.id);
       
+      // Get user IDs belonging to this unidade for fallback matching
+      const usersInUnidade = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.unidade, filters.unidade));
+      const userIds = usersInUnidade.map(u => u.id);
+      
+      // Build OR conditions for multi-tenant isolation
+      const orConditions = [
+        eq(demandas.unidade, filters.unidade)
+      ];
+      
       if (empIds.length > 0) {
-        // Match demandas that either have the unidade field set OR belong to an empreendimento of this unidade
-        conditions.push(
-          or(
-            eq(demandas.unidade, filters.unidade),
-            inArray(demandas.empreendimentoId, empIds)
-          )
-        );
-      } else {
-        // No empreendimentos in this unidade, filter by unidade field only
-        conditions.push(eq(demandas.unidade, filters.unidade));
+        orConditions.push(inArray(demandas.empreendimentoId, empIds));
       }
+      
+      if (userIds.length > 0) {
+        // Include demandas where responsável or criador is from this unidade
+        orConditions.push(inArray(demandas.responsavelId, userIds));
+        orConditions.push(inArray(demandas.criadoPor, userIds));
+      }
+      
+      conditions.push(or(...orConditions));
     }
     
     if (filters?.empreendimento && filters.empreendimento !== "todos") {
