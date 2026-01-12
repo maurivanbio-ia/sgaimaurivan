@@ -3,9 +3,9 @@ import { newsletterAssinantes, newsletterEdicoes, newsletterConfig, insertNewsle
 import { eq, and, desc } from "drizzle-orm";
 import { sendEmail } from "../emailService";
 import cron from "node-cron";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 10000): Promise<Response> {
   const controller = new AbortController();
@@ -220,9 +220,9 @@ class NewsletterService {
       };
     };
 
-    // Verificar se OpenAI está configurado
-    if (!process.env.OPENAI_API_KEY) {
-      console.log("OpenAI não configurado, usando resumo simplificado");
+    // Verificar se Gemini está configurado
+    if (!process.env.GEMINI_API_KEY) {
+      console.log("Gemini não configurado, usando resumo simplificado");
       return generateSimpleSummary();
     }
 
@@ -231,12 +231,9 @@ class NewsletterService {
     ).join("\n\n");
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `Você é um especialista em meio ambiente e legislação ambiental brasileira, responsável por criar resumos executivos para profissionais do setor ambiental.
+      const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+      
+      const prompt = `Você é um especialista em meio ambiente e legislação ambiental brasileira, responsável por criar resumos executivos para profissionais do setor ambiental.
 
 Seu tom deve ser:
 - Profissional e técnico
@@ -246,11 +243,9 @@ Seu tom deve ser:
 Ao resumir notícias:
 - Destaque implicações práticas para empresas e consultores ambientais
 - Mencione órgãos relevantes (IBAMA, INEMA, ICMBio, CONAMA)
-- Aponte impactos em licenciamento e conformidade ambiental`
-          },
-          {
-            role: "user",
-            content: `Com base nas seguintes notícias ambientais da última semana, crie:
+- Aponte impactos em licenciamento e conformidade ambiental
+
+Com base nas seguintes notícias ambientais da última semana, crie:
 
 1. Uma INTRODUÇÃO (2-3 frases) apresentando os destaques da semana de forma envolvente
 2. Um RESUMO GERAL (1 parágrafo) com os principais pontos e tendências
@@ -259,31 +254,31 @@ Ao resumir notícias:
 Notícias:
 ${newsContext}
 
-Responda no formato JSON:
+Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
 {
   "introducao": "texto da introdução",
   "resumoGeral": "texto do resumo geral",
   "noticias": [
     { "titulo": "título original", "resumo": "seu resumo", "link": "link original", "fonte": "fonte", "dataPublicacao": "data" }
   ]
-}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 2000,
-      });
+}`;
 
-      const content = completion.choices[0]?.message?.content;
+      const result = await model.generateContent(prompt);
+      const content = result.response.text();
+      
       if (content) {
-        const result = JSON.parse(content);
-        return {
-          introducao: result.introducao || "",
-          resumoGeral: result.resumoGeral || "",
-          noticias: result.noticias || [],
-        };
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            introducao: parsed.introducao || "",
+            resumoGeral: parsed.resumoGeral || "",
+            noticias: parsed.noticias || [],
+          };
+        }
       }
     } catch (error) {
-      console.error("Erro ao gerar resumo com IA, usando fallback:", error);
+      console.error("Erro ao gerar resumo com Gemini, usando fallback:", error);
     }
 
     // Fallback para resumo simples
