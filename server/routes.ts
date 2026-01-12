@@ -1371,9 +1371,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all demandas with filters
-  app.get('/api/demandas', async (req, res) => {
+  // Get all demandas with filters (filtered by user's unidade for multi-tenant isolation)
+  app.get('/api/demandas', requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade || '';
       const filters = {
         setor: req.query.setor as string,
         responsavel: req.query.responsavel as string,
@@ -1381,6 +1382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         prioridade: req.query.prioridade as string,
         status: req.query.status as string,
         search: req.query.search as string,
+        unidade: userUnidade, // Add unidade filter for multi-tenant isolation
       };
       
       // Clean undefined values
@@ -1449,8 +1451,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new demanda
   app.post('/api/demandas', requireAuth, async (req, res) => {
     try {
-      console.log('[DEBUG] Creating demanda - req.body:', JSON.stringify(req.body, null, 2));
-      
       // Ensure required fields are set and remove undefined/invalid empreendimentoId
       const demandaData: any = {
         titulo: req.body.titulo,
@@ -1480,13 +1480,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.body.campanhaId) demandaData.campanhaId = req.body.campanhaId;
       if (req.body.contratoId) demandaData.contratoId = req.body.contratoId;
       
-      console.log('[DEBUG] Creating demanda - final data:', JSON.stringify(demandaData, null, 2));
-      
       const demanda = await storage.createDemanda(demandaData);
       res.status(201).json(demanda);
     } catch (error: any) {
       console.error('Error creating demanda:', error);
-      console.error('[DEBUG] Error details:', error?.message, error?.stack);
       // Return more detailed error for debugging
       res.status(500).json({ 
         error: 'Failed to create demanda',
