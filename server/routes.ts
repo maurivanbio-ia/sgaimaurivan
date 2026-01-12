@@ -4877,7 +4877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { search } = req.query;
       const userUnidade = req.user?.unidade;
       
-      // Get RH collaborators
+      // Get RH collaborators (all from same unit, regardless of empreendimento)
       const rhConditions: SQL[] = [isNull(rhRegistros.deletedAt)];
       if (userUnidade) {
         rhConditions.push(eq(rhRegistros.unidade, userUnidade));
@@ -4891,7 +4891,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tipo: sql<string>`'rh'`.as('tipo'),
       }).from(rhRegistros).where(and(...rhConditions));
       
-      // Get system users
+      // Get system users from same unit
       const userConditions: SQL[] = [];
       if (userUnidade) {
         userConditions.push(eq(users.unidade, userUnidade));
@@ -4899,8 +4899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let systemUsers = await db.select({
         id: users.id,
-        nome: users.cargo,
         email: users.email,
+        cargo: users.cargo,
         tipo: sql<string>`'user'`.as('tipo'),
       }).from(users).where(userConditions.length > 0 ? and(...userConditions) : undefined);
       
@@ -4917,14 +4917,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Add system users (using email as name if cargo is empty)
+      // Add system users - extract name from email
       for (const user of systemUsers) {
         const key = user.email.toLowerCase();
         if (!seenEmails.has(key)) {
           seenEmails.add(key);
-          // Extract name from email if cargo is empty
-          const displayName = user.nome || user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          combined.push({ id: user.id, nome: displayName, cargo: user.nome || null, email: user.email, tipo: user.tipo });
+          // Extract name from email (e.g., "maurivan@ecobrasil.bio.br" -> "Maurivan")
+          const displayName = user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          combined.push({ id: user.id, nome: displayName, cargo: user.cargo || null, email: user.email, tipo: user.tipo });
         }
       }
       
@@ -4934,7 +4934,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const searchLower = search.toLowerCase();
         result = combined.filter(c => 
           c.nome.toLowerCase().includes(searchLower) || 
-          (c.email && c.email.toLowerCase().includes(searchLower))
+          (c.email && c.email.toLowerCase().includes(searchLower)) ||
+          (c.cargo && c.cargo.toLowerCase().includes(searchLower))
         );
       }
       
