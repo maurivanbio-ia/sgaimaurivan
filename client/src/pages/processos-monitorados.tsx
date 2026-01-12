@@ -230,8 +230,9 @@ export default function ProcessosMonitorados() {
     },
   });
 
-  const { data: processos = [], isLoading } = useQuery<Processo[]>({
+  const { data: processos = [], isLoading, error: processosError } = useQuery<Processo[]>({
     queryKey: ["/api/processos-monitorados"],
+    retry: 1,
   });
 
   const { data: empreendimentos = [] } = useQuery<any[]>({
@@ -383,6 +384,30 @@ export default function ProcessosMonitorados() {
     if (statusLower.includes("análise") || statusLower.includes("aguardando")) return "bg-yellow-500";
     return "bg-blue-500";
   };
+
+  if (processosError) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card className="border-red-500">
+          <CardHeader>
+            <CardTitle className="text-red-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Erro ao carregar processos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              {(processosError as Error)?.message || 'Erro desconhecido. Verifique sua conexão e tente novamente.'}
+            </p>
+            <Button className="mt-4" onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Recarregar página
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 space-y-6">
