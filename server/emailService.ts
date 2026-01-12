@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 
 interface EmailData {
   to: string;
@@ -8,13 +8,55 @@ interface EmailData {
   html?: string;
 }
 
-// Configurar SendGrid se disponível
-const sendgridApiKey = process.env.SENDGRID_API_KEY;
-if (sendgridApiKey) {
-  sgMail.setApiKey(sendgridApiKey);
+let connectionSettings: any;
+
+async function getResendCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY 
+    ? 'repl ' + process.env.REPL_IDENTITY 
+    : process.env.WEB_REPL_RENEWAL 
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+    : null;
+
+  if (!xReplitToken || !hostname) {
+    return null;
+  }
+
+  try {
+    connectionSettings = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
+      }
+    ).then(res => res.json()).then(data => data.items?.[0]);
+
+    if (!connectionSettings || !connectionSettings.settings.api_key) {
+      return null;
+    }
+    return {
+      apiKey: connectionSettings.settings.api_key, 
+      fromEmail: connectionSettings.settings.from_email
+    };
+  } catch (error) {
+    console.error('Erro ao obter credenciais do Resend:', error);
+    return null;
+  }
 }
 
-// Configurar Gmail SMTP como fallback
+async function getResendClient() {
+  const credentials = await getResendCredentials();
+  if (!credentials) {
+    return null;
+  }
+  return {
+    client: new Resend(credentials.apiKey),
+    fromEmail: credentials.fromEmail
+  };
+}
+
 const gmailTransporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -24,29 +66,29 @@ const gmailTransporter = nodemailer.createTransport({
 });
 
 export async function sendEmail(emailData: EmailData): Promise<void> {
-  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'ecobrasiloficial@gmail.com';
+  const defaultFromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'ecobrasiloficial@gmail.com';
   
-  // Tentar SendGrid primeiro (mais confiável)
-  if (sendgridApiKey) {
+  const resendClient = await getResendClient();
+  if (resendClient) {
     try {
-      await sgMail.send({
+      const fromEmail = resendClient.fromEmail || defaultFromEmail;
+      await resendClient.client.emails.send({
         to: emailData.to,
         from: fromEmail,
         subject: emailData.subject,
         text: emailData.text,
         html: emailData.html || emailData.text.replace(/\n/g, '<br>'),
       });
-      console.log(`Email enviado via SendGrid para ${emailData.to}`);
+      console.log(`Email enviado via Resend para ${emailData.to}`);
       return;
     } catch (error: any) {
-      console.error('Erro no SendGrid, tentando Gmail:', error.message);
+      console.error('Erro no Resend, tentando Gmail:', error.message);
     }
   }
   
-  // Fallback para Gmail SMTP
   try {
     const mailOptions = {
-      from: fromEmail,
+      from: defaultFromEmail,
       to: emailData.to,
       subject: emailData.subject,
       text: emailData.text,
