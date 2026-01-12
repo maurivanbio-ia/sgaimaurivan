@@ -305,7 +305,32 @@ export default function RhPage() {
 
   const handleEdit = (registro: RhRegistro) => {
     setEditingRegistro(registro);
-    form.reset(registro);
+    // Normalize null values to empty strings for form validation
+    const normalizedRegistro = {
+      ...registro,
+      cargo: registro.cargo || "",
+      cpf: registro.cpf || "",
+      rg: registro.rg || "",
+      cnh: registro.cnh || "",
+      fornecedor: registro.fornecedor || "",
+      seguroNumero: registro.seguroNumero || "",
+      valorTipo: registro.valorTipo || "",
+      valor: registro.valor || "",
+      dataInicio: registro.dataInicio || "",
+      dataFim: registro.dataFim || "",
+      contatoEmail: registro.contatoEmail || "",
+      contatoTelefone: registro.contatoTelefone || "",
+      regimeContratacao: registro.regimeContratacao || "",
+      contratoPjUrl: registro.contratoPjUrl || "",
+      cnpj: registro.cnpj || "",
+      razaoSocial: registro.razaoSocial || "",
+      ctpsNumero: registro.ctpsNumero || "",
+      ctpsSerie: registro.ctpsSerie || "",
+      pis: registro.pis || "",
+      contratoTrabalhoUrl: registro.contratoTrabalhoUrl || "",
+      fichaRegistroUrl: registro.fichaRegistroUrl || "",
+    };
+    form.reset(normalizedRegistro);
     setIsDialogOpen(true);
   };
 
