@@ -76,8 +76,9 @@ export default function EditProject() {
   const { unidadeSelecionada } = useUnidade();
   const [openResponsavel, setOpenResponsavel] = useState(false);
 
-  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
-    queryKey: ['/api/colaboradores', unidadeSelecionada],
+  const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
+    queryKey: ['/api/colaboradores'],
+    staleTime: 0,
   });
 
   const { data: project, isLoading } = useQuery<Empreendimento>({
