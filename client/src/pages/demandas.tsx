@@ -844,6 +844,21 @@ export default function DemandasPage() {
       }),
   });
 
+  const clearHistoricoMutation = useMutation({
+    mutationFn: async () =>
+      apiRequest("DELETE", `/api/admin/demandas/historico`),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+      toast({ title: data?.message || "Histórico limpo com sucesso!" });
+    },
+    onError: (e: any) =>
+      toast({
+        title: "Falha ao limpar histórico",
+        description: e?.message ?? "Erro desconhecido",
+        variant: "destructive",
+      }),
+  });
+
   const columns = useMemo(() => {
     const grouped: Record<Status, Demanda[]> = {
       a_fazer: [],
@@ -969,8 +984,27 @@ export default function DemandasPage() {
 
       {/* Tabela de Histórico */}
       <Card className="mt-8">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl">Histórico de Movimentações</CardTitle>
+          {historico.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm("Tem certeza que deseja limpar todo o histórico de movimentações?")) {
+                  clearHistoricoMutation.mutate();
+                }
+              }}
+              disabled={clearHistoricoMutation.isPending}
+            >
+              {clearHistoricoMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Limpar Histórico
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {isLoadingHistorico ? (

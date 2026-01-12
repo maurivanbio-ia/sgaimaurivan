@@ -1457,6 +1457,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin route to clear demandas movement history
+  app.delete('/api/admin/demandas/historico', requireAuth, async (req, res) => {
+    try {
+      // Only admins can clear history
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Apenas administradores podem limpar o histórico' });
+      }
+      
+      const result = await storage.clearDemandasHistorico();
+      console.log(`[ADMIN] User ${req.user?.email} cleared demandas movement history. Deleted ${result.count} records.`);
+      res.json({ success: true, message: `${result.count} registros de histórico removidos` });
+    } catch (error) {
+      console.error('Error clearing demandas history:', error);
+      res.status(500).json({ error: 'Falha ao limpar histórico' });
+    }
+  });
+
   // Create new demanda
   app.post('/api/demandas', requireAuth, async (req, res) => {
     try {
