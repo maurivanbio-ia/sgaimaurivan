@@ -6232,11 +6232,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!email || typeof email !== 'string' || !email.includes('@')) {
         return res.status(400).json({ error: 'Email inválido' });
       }
+      console.log(`[Newsletter] Enviando email de teste para: ${email}`);
       const result = await newsletterService.sendTestNewsletter(email);
+      
+      if (!result.success) {
+        console.error('[Newsletter] Falha no envio:', result.message);
+        return res.status(500).json({ error: result.message || 'Erro ao enviar email de teste' });
+      }
+      
       res.json(result);
-    } catch (error) {
-      console.error('Error sending test newsletter:', error);
-      res.status(500).json({ error: 'Erro ao enviar newsletter de teste' });
+    } catch (error: any) {
+      console.error('[Newsletter] Error sending test newsletter:', error);
+      res.status(500).json({ 
+        error: `Erro ao enviar email de teste: ${error?.message || 'Erro desconhecido'}` 
+      });
     }
   });
 
