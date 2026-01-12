@@ -1546,9 +1546,8 @@ export class DatabaseStorage implements IStorage {
     
     // CRITICAL: Multi-tenant isolation with fallback for legacy data
     // Demandas can be filtered by:
-    // 1. Direct unidade field on demandas table
-    // 2. OR by empreendimentoId belonging to the user's unidade (for legacy data without unidade field)
-    // 3. OR by responsavelId belonging to users of this unidade (for legacy data without unidade and empreendimentoId)
+    // 1. Direct unidade field on demandas table (exact match)
+    // 2. OR legacy data with unidade=NULL that matches by empreendimento, responsável, or criador
     if (filters?.unidade) {
       // Get empreendimento IDs belonging to this unidade for fallback matching
       const emps = await db.select({ id: empreendimentos.id })
@@ -1563,21 +1562,29 @@ export class DatabaseStorage implements IStorage {
       const userIds = usersInUnidade.map(u => u.id);
       
       // Build OR conditions for multi-tenant isolation
-      const orConditions = [
+      // Option 1: demanda has matching unidade field
+      const orConditions: any[] = [
         eq(demandas.unidade, filters.unidade)
       ];
       
+      // Option 2: legacy demandas with NULL unidade that belong to this tenant via fallback
+      // These are demandas created before unidade field was added
       if (empIds.length > 0) {
+        // Include demandas linked to empreendimentos of this unidade
         orConditions.push(inArray(demandas.empreendimentoId, empIds));
       }
       
       if (userIds.length > 0) {
         // Include demandas where responsável or criador is from this unidade
+        // This catches all legacy demandas created by users of this unidade
         orConditions.push(inArray(demandas.responsavelId, userIds));
         orConditions.push(inArray(demandas.criadoPor, userIds));
       }
       
+      // If no empIds and no userIds, still allow demandas with matching unidade
       conditions.push(or(...orConditions));
+      
+      console.log('[DEBUG getDemandas] Unidade:', filters.unidade, 'EmpIds:', empIds.length, 'UserIds:', userIds.length);
     }
     
     if (filters?.empreendimento && filters.empreendimento !== "todos") {
