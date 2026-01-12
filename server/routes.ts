@@ -1374,18 +1374,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all demandas with filters (filtered by user's unidade for multi-tenant isolation)
   app.get('/api/demandas', requireAuth, async (req, res) => {
     try {
-      const userUnidade = req.user?.unidade || '';
+      const userUnidade = req.user?.unidade;
       console.log('[DEBUG DEMANDAS] User:', req.user?.email, 'Unidade:', userUnidade, 'UserId:', req.session.userId);
       
-      const filters = {
+      const filters: any = {
         setor: req.query.setor as string,
         responsavel: req.query.responsavel as string,
         empreendimento: req.query.empreendimento as string,
         prioridade: req.query.prioridade as string,
         status: req.query.status as string,
         search: req.query.search as string,
-        unidade: userUnidade, // Add unidade filter for multi-tenant isolation
       };
+      
+      // Only add unidade filter if user has a unidade assigned
+      // This allows admins without unidade to see all demandas
+      if (userUnidade) {
+        filters.unidade = userUnidade;
+      }
       
       // Clean undefined values
       Object.keys(filters).forEach(key => {
