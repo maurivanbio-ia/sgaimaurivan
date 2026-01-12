@@ -16,6 +16,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@google-cloud/storage": "^7.18.0",
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
     "@mapbox/togeojson": "^0.16.2",
     "@neondatabase/serverless": "^0.10.4",
