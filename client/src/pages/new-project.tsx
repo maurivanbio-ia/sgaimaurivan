@@ -76,8 +76,9 @@ export default function NewProject() {
   const { unidadeSelecionada } = useUnidade();
   const [openResponsavel, setOpenResponsavel] = useState(false);
 
-  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
-    queryKey: ['/api/colaboradores', unidadeSelecionada],
+  const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
+    queryKey: ['/api/colaboradores'],
+    staleTime: 0,
   });
 
   const { data: existingProjects = [] } = useQuery<{ id: number; codigo: string | null }[]>({
@@ -402,7 +403,13 @@ export default function NewProject() {
                         <Command>
                           <CommandInput placeholder="Buscar colaborador..." />
                           <CommandList>
-                            <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                            {isLoadingColabs ? (
+                              <div className="p-4 text-center text-sm text-muted-foreground">Carregando...</div>
+                            ) : colaboradores.length === 0 ? (
+                              <CommandEmpty>Nenhum colaborador encontrado. Cadastre colaboradores no RH.</CommandEmpty>
+                            ) : (
+                              <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                            )}
                             <CommandGroup>
                               {colaboradores.map((colab) => (
                                 <CommandItem
