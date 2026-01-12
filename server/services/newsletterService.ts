@@ -204,6 +204,28 @@ class NewsletterService {
       };
     }
 
+    // Gerar resumo simples quando OpenAI não está disponível
+    const generateSimpleSummary = () => {
+      const temas = news.map(n => n.title.split(':')[0].split('-')[0].trim()).slice(0, 3);
+      return {
+        introducao: `Esta semana trouxe importantes atualizações no cenário ambiental brasileiro, com destaques para temas como ${temas.join(', ')}.`,
+        resumoGeral: `Acompanhe as ${news.length} notícias selecionadas que impactam diretamente o setor de consultoria ambiental, licenciamento e gestão de recursos naturais.`,
+        noticias: news.map(n => ({
+          titulo: n.title,
+          resumo: n.description || `Confira os detalhes desta importante notícia sobre ${n.title.toLowerCase()}.`,
+          link: n.url,
+          fonte: n.source,
+          dataPublicacao: n.publishedAt,
+        })),
+      };
+    };
+
+    // Verificar se OpenAI está configurado
+    if (!process.env.OPENAI_API_KEY) {
+      console.log("OpenAI não configurado, usando resumo simplificado");
+      return generateSimpleSummary();
+    }
+
     const newsContext = news.map((n, i) => 
       `${i + 1}. ${n.title}\nFonte: ${n.source}\nResumo: ${n.description}\nLink: ${n.url}`
     ).join("\n\n");
@@ -248,7 +270,6 @@ Responda no formato JSON:
           }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
         max_tokens: 2000,
       });
 
@@ -262,20 +283,11 @@ Responda no formato JSON:
         };
       }
     } catch (error) {
-      console.error("Erro ao gerar resumo com IA:", error);
+      console.error("Erro ao gerar resumo com IA, usando fallback:", error);
     }
 
-    return {
-      introducao: "Confira os principais destaques ambientais da semana.",
-      resumoGeral: "Acompanhe as notícias mais relevantes sobre meio ambiente e legislação.",
-      noticias: news.map(n => ({
-        titulo: n.title,
-        resumo: n.description || "",
-        link: n.url,
-        fonte: n.source,
-        dataPublicacao: n.publishedAt,
-      })),
-    };
+    // Fallback para resumo simples
+    return generateSimpleSummary();
   }
 
   generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }): string {
