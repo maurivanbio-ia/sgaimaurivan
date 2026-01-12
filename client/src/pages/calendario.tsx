@@ -36,7 +36,7 @@ interface Demanda {
   titulo: string;
   empreendimentoId: number;
   empreendimentoNome: string;
-  dataLimite: string;
+  dataEntrega: string;
   status: string;
   prioridade: string;
 }
@@ -155,11 +155,11 @@ export default function Calendario() {
     });
 
     demandas.forEach(dem => {
-      if (dem.dataLimite) {
+      if (dem.dataEntrega) {
         allEvents.push({
           id: `dem-${dem.id}`,
           title: dem.titulo,
-          date: parseISO(dem.dataLimite),
+          date: parseISO(dem.dataEntrega),
           type: "demanda",
           status: dem.status,
           link: `/demandas`,
