@@ -97,7 +97,8 @@ type Demanda = {
   prioridade: Prioridade;
   complexidade: Complexidade;
   categoria: Categoria;
-  dataEntrega: string; // YYYY-MM-DD
+  dataInicio?: string | null; // YYYY-MM-DD (início do período)
+  dataEntrega: string; // YYYY-MM-DD (fim do período)
   status: Status;
 
   responsavelId?: number | null;
@@ -318,6 +319,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
     responsavelId: (initial as any)?.responsavelId ?? null,
     responsavelNome: (initial as any)?.responsavel ?? "",
 
+    dataInicio: (initial as any)?.dataInicio ? normalizeDateYmd((initial as any).dataInicio) : "",
     dataEntrega: initial?.dataEntrega ? normalizeDateYmd(initial.dataEntrega) : "",
     status: (initial?.status ?? "a_fazer") as Status,
     empreendimentoId: initial?.empreendimentoId ? String(initial.empreendimentoId) : "",
@@ -334,6 +336,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
         prioridade: form.prioridade,
         complexidade: form.complexidade,
         categoria: form.categoria,
+        dataInicio: form.dataInicio || null,
         dataEntrega: form.dataEntrega,
         status: form.status ?? "a_fazer",
         responsavelId: form.responsavelId,
@@ -516,7 +519,17 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
         </div>
 
         <div>
-          <Label>Data de Entrega *</Label>
+          <Label>Data Início</Label>
+          <Input
+            type="date"
+            value={form.dataInicio}
+            onChange={(e) => setForm({ ...form, dataInicio: e.target.value })}
+            placeholder="Opcional"
+          />
+        </div>
+
+        <div>
+          <Label>Data Entrega *</Label>
           <Input
             type="date"
             value={form.dataEntrega}
@@ -525,6 +538,10 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
           />
         </div>
       </div>
+
+      <p className="text-xs text-muted-foreground -mt-2">
+        Para demandas de vários dias, preencha Data Início e Data Entrega. Ex: 13/01 a 17/01
+      </p>
 
       {isEdit ? (
         <div>
