@@ -1854,6 +1854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
         categoriaId: req.query.categoriaId ? parseInt(req.query.categoriaId as string) : undefined,
         search: req.query.search as string,
+        unidade: req.query.unidade as string,
         empreendimentoIds: isAdmin ? undefined : empreendimentoIds,
       };
       const lancamentos = await storage.getLancamentos(filters);

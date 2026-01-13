@@ -259,6 +259,7 @@ export interface IStorage {
     empreendimentoId?: number;
     categoriaId?: number;
     search?: string;
+    unidade?: string;
     startDate?: Date;
     endDate?: Date;
   }): Promise<FinanceiroLancamento[]>;
@@ -1887,6 +1888,7 @@ export class DatabaseStorage implements IStorage {
     empreendimentoId?: number;
     categoriaId?: number;
     search?: string;
+    unidade?: string;
     startDate?: Date;
     endDate?: Date;
     empreendimentoIds?: number[];
@@ -1907,6 +1909,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.search) {
       conditions.push(ilike(financeiroLancamentos.descricao, `%${filters.search}%`));
+    }
+    if (filters?.unidade && filters.unidade !== 'todas') {
+      conditions.push(eq(financeiroLancamentos.unidade, filters.unidade));
     }
     // Filtro por lista de empreendimentos acessíveis (multi-tenancy)
     if (filters?.empreendimentoIds !== undefined) {
