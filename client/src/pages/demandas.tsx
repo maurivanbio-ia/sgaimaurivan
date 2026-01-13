@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -11,44 +11,37 @@ import {
   DragStartEvent,
   useDroppable,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { format as formatDate, parseISO, isValid as isValidDate } from "date-fns";
+import {
+  format as formatDate,
+  parseISO,
+  isValid as isValidDate,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  addMonths,
+  subMonths,
+  isSameMonth,
+  isSameDay,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
@@ -64,6 +57,8 @@ import {
   Tag,
   AlertCircle,
   FileText,
+  Download,
+  FileDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -105,19 +100,12 @@ type Demanda = {
   dataEntrega: string; // YYYY-MM-DD
   status: Status;
 
-  // RESPONSÁVEL (corrigido)
-  responsavelId?: number | null; // vindo do backend ou enviado ao backend
-  responsavel?: string | null; // nome (se o backend devolver)
+  responsavelId?: number | null;
+  responsavel?: string | null;
   empreendimentoId?: number | null;
 };
 
-const VALID_STATUSES: Status[] = [
-  "a_fazer",
-  "em_andamento",
-  "em_revisao",
-  "concluido",
-  "cancelado",
-];
+const VALID_STATUSES: Status[] = ["a_fazer", "em_andamento", "em_revisao", "concluido", "cancelado"];
 
 const CATEGORIAS: { value: Categoria; label: string }[] = [
   { value: "reuniao", label: "Reunião" },
@@ -159,8 +147,14 @@ const SETORES = [
   "Administrativo",
 ];
 
+// Paleta EcoBrasil. Ajuste se você já tiver tokens no Tailwind.
+const ECOBRASIL = {
+  azulEscuro: "rgb(31, 56, 100)",
+  cinzaClaro: "rgb(217, 217, 217)",
+};
+
 // ===================================================
-// Funções auxiliares (robustez para evitar NaN/404)
+// Funções auxiliares
 // ===================================================
 
 async function apiRequest<T = any>(method: string, url: string, body?: any): Promise<T> {
@@ -180,9 +174,7 @@ async function apiRequest<T = any>(method: string, url: string, body?: any): Pro
   }
 
   if (!res.ok) {
-    const msg = json
-      ? `${res.status}: ${JSON.stringify(json)}`
-      : `${res.status}: ${text || "Erro"}`;
+    const msg = json ? `${res.status}: ${JSON.stringify(json)}` : `${res.status}: ${text || "Erro"}`;
     throw new Error(msg);
   }
 
@@ -202,19 +194,15 @@ function safeNumber(x: any): number | null {
 
 function normalizeStatus(x: any): Status {
   const s = String(x ?? "").trim();
-  return (VALID_STATUSES.includes(s as Status) ? (s as Status) : "a_fazer");
+  return VALID_STATUSES.includes(s as Status) ? (s as Status) : "a_fazer";
 }
 
 function normalizeDateYmd(x: any): string {
   const s = String(x ?? "").trim();
   if (!s) return "";
-  // aceita YYYY-MM-DD ou ISO
   const d = s.includes("T") ? new Date(s) : new Date(`${s}T12:00:00`);
   if (!isValidDate(d)) return "";
-  // normaliza p/ YYYY-MM-DD
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString().slice(0, 10);
 }
 
 function normalizeDemanda(raw: any): Demanda | null {
@@ -278,17 +266,30 @@ function removeDemandaFromCache(queryClient: any, id: number) {
   });
 }
 
+function escapeCsv(value: any) {
+  const s = String(value ?? "");
+  const needsQuotes = /[",\n;]/.test(s);
+  const cleaned = s.replaceAll('"', '""');
+  return needsQuotes ? `"${cleaned}"` : cleaned;
+}
+
+function downloadTextFile(filename: string, content: string, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ===================================================
 // Formulário de Criação/Edição
 // ===================================================
 
-function DemandaForm({
-  initial,
-  onSuccess,
-}: {
-  initial?: Partial<Demanda>;
-  onSuccess: () => void;
-}) {
+function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuccess: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = Boolean(initial?.id);
@@ -314,7 +315,6 @@ function DemandaForm({
     complexidade: (initial?.complexidade ?? "media") as Complexidade,
     categoria: (initial?.categoria ?? "geral") as Categoria,
 
-    // RESPONSÁVEL (corrigido)
     responsavelId: (initial as any)?.responsavelId ?? null,
     responsavelNome: (initial as any)?.responsavel ?? "",
 
@@ -325,10 +325,7 @@ function DemandaForm({
 
   const mutation = useMutation({
     mutationFn: async (): Promise<Demanda> => {
-      if (!form.responsavelId) {
-        // exige responsável de fato
-        throw new Error("Selecione um responsável.");
-      }
+      if (!form.responsavelId) throw new Error("Selecione um responsável.");
 
       const payload: any = {
         titulo: String(form.titulo).trim(),
@@ -339,18 +336,16 @@ function DemandaForm({
         categoria: form.categoria,
         dataEntrega: form.dataEntrega,
         status: form.status ?? "a_fazer",
-
-        // envia o ID do responsável (backend deve persistir)
         responsavelId: form.responsavelId,
       };
 
       if (form.empreendimentoId) payload.empreendimentoId = Number(form.empreendimentoId);
 
-      const res = isEdit && initial?.id != null
-        ? await apiRequest<any>("PATCH", `/api/demandas/${initial.id}`, payload)
-        : await apiRequest<any>("POST", "/api/demandas", payload);
+      const res =
+        isEdit && initial?.id != null
+          ? await apiRequest<any>("PATCH", `/api/demandas/${initial.id}`, payload)
+          : await apiRequest<any>("POST", "/api/demandas", payload);
 
-      // normaliza e garante nome do responsável no retorno (mesmo que o backend não devolva)
       const norm = normalizeDemanda(res) ?? normalizeDemanda(res?.data) ?? null;
       if (!norm) throw new Error("Resposta inválida do servidor ao salvar demanda.");
 
@@ -361,10 +356,8 @@ function DemandaForm({
       if (!isEdit) insertDemandaInCache(queryClient, createdOrUpdated);
       else replaceDemandaInCache(queryClient, createdOrUpdated);
 
-      // atualiza histórico (não precisa invalidar /api/demandas se cache já atualizado)
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-
-      toast({ title: isEdit ? "Demanda atualizada!" : "Demanda criada!" });
+      toast({ title: isEdit ? "Demanda atualizada." : "Demanda criada." });
       onSuccess();
     },
     onError: (e: any) => {
@@ -386,28 +379,18 @@ function DemandaForm({
     >
       <div>
         <Label>Título *</Label>
-        <Input
-          value={form.titulo}
-          onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-          required
-          data-testid="input-titulo"
-        />
+        <Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} required />
       </div>
 
       <div>
         <Label>Descrição *</Label>
-        <Textarea
-          value={form.descricao}
-          onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-          required
-          data-testid="input-descricao"
-        />
+        <Textarea value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} required />
       </div>
 
       <div>
         <Label>Empreendimento</Label>
         <Select value={form.empreendimentoId || ""} onValueChange={(v) => setForm({ ...form, empreendimentoId: v })}>
-          <SelectTrigger data-testid="select-empreendimento">
+          <SelectTrigger>
             <SelectValue placeholder="Selecione um empreendimento (opcional)" />
           </SelectTrigger>
           <SelectContent>
@@ -424,7 +407,7 @@ function DemandaForm({
         <div>
           <Label>Setor *</Label>
           <Select value={form.setor} onValueChange={(v) => setForm({ ...form, setor: v })}>
-            <SelectTrigger data-testid="select-setor">
+            <SelectTrigger>
               <SelectValue placeholder="Selecione o setor" />
             </SelectTrigger>
             <SelectContent>
@@ -439,11 +422,8 @@ function DemandaForm({
 
         <div>
           <Label>Prioridade *</Label>
-          <Select
-            value={form.prioridade}
-            onValueChange={(v: Prioridade) => setForm({ ...form, prioridade: v })}
-          >
-            <SelectTrigger data-testid="select-prioridade">
+          <Select value={form.prioridade} onValueChange={(v: Prioridade) => setForm({ ...form, prioridade: v })}>
+            <SelectTrigger>
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
@@ -456,11 +436,8 @@ function DemandaForm({
 
         <div>
           <Label>Complexidade *</Label>
-          <Select
-            value={form.complexidade}
-            onValueChange={(v: Complexidade) => setForm({ ...form, complexidade: v })}
-          >
-            <SelectTrigger data-testid="select-complexidade">
+          <Select value={form.complexidade} onValueChange={(v: Complexidade) => setForm({ ...form, complexidade: v })}>
+            <SelectTrigger>
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
@@ -475,7 +452,7 @@ function DemandaForm({
       <div>
         <Label>Categoria *</Label>
         <Select value={form.categoria} onValueChange={(v: Categoria) => setForm({ ...form, categoria: v })}>
-          <SelectTrigger data-testid="select-categoria">
+          <SelectTrigger>
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -498,10 +475,9 @@ function DemandaForm({
                 role="combobox"
                 aria-expanded={openResponsavel}
                 className={cn("w-full justify-between", !form.responsavelId && "text-muted-foreground")}
-                data-testid="input-responsavel"
               >
                 {form.responsavelId
-                  ? (colaboradores.find((c) => c.id === form.responsavelId)?.nome ?? form.responsavelNome ?? "Selecionado")
+                  ? colaboradores.find((c) => c.id === form.responsavelId)?.nome ?? form.responsavelNome ?? "Selecionado"
                   : "Selecione um colaborador"}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -520,27 +496,16 @@ function DemandaForm({
                           key={`${colab.tipo}-${colab.id}`}
                           value={colab.nome}
                           onSelect={() => {
-                            setForm({
-                              ...form,
-                              responsavelId: colab.id,
-                              responsavelNome: colab.nome,
-                            });
+                            setForm({ ...form, responsavelId: colab.id, responsavelNome: colab.nome });
                             setOpenResponsavel(false);
                           }}
                         >
                           <User className="mr-2 h-4 w-4" />
                           <div className="flex flex-col">
                             <span>{colab.nome}</span>
-                            {colab.email && (
-                              <span className="text-xs text-muted-foreground">{colab.email}</span>
-                            )}
+                            {colab.email ? <span className="text-xs text-muted-foreground">{colab.email}</span> : null}
                           </div>
-                          <Check
-                            className={cn(
-                              "ml-auto h-4 w-4",
-                              form.responsavelId === colab.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
+                          <Check className={cn("ml-auto h-4 w-4", form.responsavelId === colab.id ? "opacity-100" : "opacity-0")} />
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -557,16 +522,15 @@ function DemandaForm({
             value={form.dataEntrega}
             onChange={(e) => setForm({ ...form, dataEntrega: e.target.value })}
             required
-            data-testid="input-data-entrega"
           />
         </div>
       </div>
 
-      {isEdit && (
+      {isEdit ? (
         <div>
           <Label>Status</Label>
           <Select value={form.status} onValueChange={(v: Status) => setForm({ ...form, status: v })}>
-            <SelectTrigger data-testid="select-status">
+            <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -578,10 +542,10 @@ function DemandaForm({
             </SelectContent>
           </Select>
         </div>
-      )}
+      ) : null}
 
-      <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-submit-demanda">
-        {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      <Button type="submit" className="w-full" disabled={mutation.isPending}>
+        {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         {isEdit ? "Salvar alterações" : "Criar demanda"}
       </Button>
     </form>
@@ -607,24 +571,13 @@ function DemandaCard({
 
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: demanda.id,
-    data: {
-      type: "card",
-      status: demanda.status, // ajuda a inferir destino no onDragEnd
-    },
+    data: { type: "card", status: demanda.status },
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   const prioridadeColor =
-    {
-      baixa: "bg-green-500",
-      media: "bg-yellow-500",
-      alta: "bg-red-500",
-    }[demanda.prioridade] ?? "bg-yellow-500";
+    { baixa: "bg-green-500", media: "bg-yellow-500", alta: "bg-red-500" }[demanda.prioridade] ?? "bg-yellow-500";
 
   const statusLabel = STATUS_LABEL[demanda.status] ?? "A Fazer";
 
@@ -645,10 +598,10 @@ function DemandaCard({
 
   return (
     <>
-      <Card ref={setNodeRef} style={style} className="mb-2 hover:shadow-md transition-shadow" data-testid={`demanda-card-${demanda.id}`}>
+      <Card ref={setNodeRef} style={style} className="mb-2 hover:shadow-md transition-shadow">
         <CardHeader className="pb-2 pt-3 px-3">
           <div className="flex items-start justify-between gap-2">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pt-1" data-testid={`drag-handle-${demanda.id}`}>
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pt-1">
               <GripVertical className="h-5 w-5 text-muted-foreground" />
             </div>
 
@@ -666,7 +619,6 @@ function DemandaCard({
                   e.stopPropagation();
                   setShowDetails(true);
                 }}
-                data-testid={`button-view-demanda-${demanda.id}`}
                 title="Visualizar detalhes"
               >
                 <Eye className="h-4 w-4 text-blue-500 hover:text-blue-700" />
@@ -681,7 +633,6 @@ function DemandaCard({
                   e.stopPropagation();
                   onEdit(demanda);
                 }}
-                data-testid={`button-edit-demanda-${demanda.id}`}
                 title="Editar demanda"
               >
                 <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
@@ -696,7 +647,6 @@ function DemandaCard({
                   e.stopPropagation();
                   onDelete(demanda.id);
                 }}
-                data-testid={`button-delete-demanda-${demanda.id}`}
                 title="Excluir demanda"
               >
                 <Trash2 className="h-4 w-4 text-destructive hover:text-destructive/70" />
@@ -719,7 +669,6 @@ function DemandaCard({
             </Badge>
           </div>
 
-          {/* RESPONSÁVEL visível no card (opcional, mas ajuda a validar) */}
           <p className="text-xs text-muted-foreground mt-2">{responsavelNome}</p>
         </CardContent>
       </Card>
@@ -768,9 +717,7 @@ function DemandaCard({
                   <Calendar className="h-3 w-3" /> Data de Entrega
                 </Label>
                 <p className="mt-1 text-sm">
-                  {demanda.dataEntrega
-                    ? formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                    : "-"}
+                  {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "-"}
                 </p>
               </div>
 
@@ -827,18 +774,16 @@ function KanbanColumn({
   onEdit: (d: Demanda) => void;
   onDelete: (id: number) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: status,
-    data: { type: "column", status },
-  });
+  const { setNodeRef, isOver } = useDroppable({ id: status, data: { type: "column", status } });
 
   return (
     <div
       ref={setNodeRef}
-      className={`w-80 flex-shrink-0 rounded-lg border-2 p-3 transition-all ${STATUS_COLORS[status]} ${
+      className={cn(
+        "w-80 flex-shrink-0 rounded-lg border-2 p-3 transition-all",
+        STATUS_COLORS[status],
         isOver ? "ring-2 ring-primary ring-offset-2 shadow-lg" : ""
-      }`}
-      data-testid={`kanban-column-${status}`}
+      )}
     >
       <div className="flex items-center justify-between mb-3">
         <Badge variant="secondary" className="font-semibold">
@@ -852,22 +797,224 @@ function KanbanColumn({
       <SortableContext items={demandas.map((d) => d.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 min-h-[100px]">
           {demandas.map((d) => (
-            <DemandaCard
-              key={d.id}
-              demanda={d}
-              colaboradores={colaboradores}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
+            <DemandaCard key={d.id} demanda={d} colaboradores={colaboradores} onEdit={onEdit} onDelete={onDelete} />
           ))}
-          {demandas.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              Arraste uma demanda aqui
-            </div>
-          )}
+          {demandas.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Arraste uma demanda aqui</div>
+          ) : null}
         </div>
       </SortableContext>
     </div>
+  );
+}
+
+// ===================================================
+// Calendário EcoBrasil (mês, com destaques)
+// ===================================================
+
+function prioridadeBorder(prioridade: Prioridade) {
+  if (prioridade === "alta") return "border-l-4 border-l-red-600";
+  if (prioridade === "media") return "border-l-4 border-l-yellow-600";
+  return "border-l-4 border-l-green-600";
+}
+
+function CalendarioEcoBrasil({
+  demandas,
+  colaboradores,
+  monthDate,
+  onPrevMonth,
+  onNextMonth,
+  exportRef,
+}: {
+  demandas: Demanda[];
+  colaboradores: Colaborador[];
+  monthDate: Date;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  exportRef: React.RefObject<HTMLDivElement>;
+}) {
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const startDate = startOfWeek(monthStart, { locale: ptBR });
+  const endDate = endOfWeek(monthEnd, { locale: ptBR });
+
+  const rows: Date[][] = [];
+  let day = startDate;
+
+  while (day <= endDate) {
+    const week: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      week.push(day);
+      day = addDays(day, 1);
+    }
+    rows.push(week);
+  }
+
+  const byDate = useMemo(() => {
+    const map = new Map<string, Demanda[]>();
+    for (const d of demandas) {
+      const ymd = normalizeDateYmd(d.dataEntrega);
+      if (!ymd) continue;
+      if (!map.has(ymd)) map.set(ymd, []);
+      map.get(ymd)!.push(d);
+    }
+    for (const [k, arr] of map.entries()) {
+      arr.sort((a, b) => {
+        const prio = { alta: 0, media: 1, baixa: 2 };
+        return (prio[a.prioridade] ?? 9) - (prio[b.prioridade] ?? 9);
+      });
+      map.set(k, arr);
+    }
+    return map;
+  }, [demandas]);
+
+  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  return (
+    <Card className="mt-6">
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Calendário de Demandas
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Destaque por prioridade. Exportável em PDF com layout EcoBrasil.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={onPrevMonth}>
+            {formatDate(subMonths(monthDate, 1), "MMM yyyy", { locale: ptBR })}
+          </Button>
+          <Badge
+            className="text-white"
+            style={{ backgroundColor: ECOBRASIL.azulEscuro }}
+          >
+            {formatDate(monthDate, "MMMM 'de' yyyy", { locale: ptBR })}
+          </Badge>
+          <Button variant="outline" onClick={onNextMonth}>
+            {formatDate(addMonths(monthDate, 1), "MMM yyyy", { locale: ptBR })}
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <div
+          ref={exportRef}
+          id="ecobrasil-calendar-export"
+          className="rounded-xl border overflow-hidden"
+          style={{ borderColor: ECOBRASIL.cinzaClaro }}
+        >
+          <div
+            className="px-5 py-4 flex items-center justify-between"
+            style={{ backgroundColor: ECOBRASIL.azulEscuro }}
+          >
+            <div className="text-white">
+              <div className="text-lg font-semibold">EcoBrasil Consultoria Ambiental</div>
+              <div className="text-sm opacity-90">Calendário de Demandas. {formatDate(monthDate, "MMMM yyyy", { locale: ptBR })}</div>
+            </div>
+            <div className="text-white text-sm opacity-90">
+              Gerado em {formatDate(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7" style={{ backgroundColor: ECOBRASIL.cinzaClaro }}>
+            {weekdays.map((w) => (
+              <div key={w} className="px-2 py-2 text-xs font-semibold text-center" style={{ color: ECOBRASIL.azulEscuro }}>
+                {w}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-rows-6">
+            {rows.map((week, wi) => (
+              <div key={wi} className="grid grid-cols-7">
+                {week.map((d, di) => {
+                  const ymd = formatDate(d, "yyyy-MM-dd");
+                  const list = byDate.get(ymd) ?? [];
+                  const isToday = isSameDay(d, new Date());
+                  const isOutside = !isSameMonth(d, monthStart);
+
+                  return (
+                    <div
+                      key={`${wi}-${di}`}
+                      className={cn(
+                        "min-h-[120px] border p-2 align-top bg-white",
+                        isOutside ? "opacity-45" : "",
+                        isToday ? "ring-2 ring-offset-1" : ""
+                      )}
+                      style={{
+                        borderColor: "rgba(0,0,0,0.06)",
+                        ...(isToday ? { ringColor: ECOBRASIL.azulEscuro as any } : {}),
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-xs font-semibold" style={{ color: ECOBRASIL.azulEscuro }}>
+                          {formatDate(d, "d", { locale: ptBR })}
+                        </div>
+                        {list.length > 0 ? (
+                          <Badge variant="outline" className="text-[10px]">
+                            {list.length}
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-1">
+                        {list.slice(0, 4).map((dem) => {
+                          const resp = getResponsavelNome(dem, colaboradores);
+                          return (
+                            <div
+                              key={dem.id}
+                              className={cn(
+                                "rounded-md border px-2 py-1 text-[10px] leading-tight",
+                                prioridadeBorder(dem.prioridade)
+                              )}
+                            >
+                              <div className="font-semibold line-clamp-1">{dem.titulo}</div>
+                              <div className="text-[10px] text-muted-foreground line-clamp-1">{dem.descricao}</div>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">{dem.setor}</span>
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">{STATUS_LABEL[dem.status]}</span>
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">{resp}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {list.length > 4 ? (
+                          <div className="text-[10px] text-muted-foreground">Mais {list.length - 4}…</div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          <div className="px-5 py-3 text-[11px] flex items-center justify-between" style={{ backgroundColor: "white" }}>
+            <div className="flex items-center gap-3">
+              <span className="font-semibold" style={{ color: ECOBRASIL.azulEscuro }}>Legenda</span>
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: "#dc2626" }} />
+                Alta
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: "#ca8a04" }} />
+                Média
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: "#16a34a" }} />
+                Baixa
+              </span>
+            </div>
+            <div className="text-muted-foreground">
+              EcoBrasil. Demandas com data de entrega.
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -879,11 +1026,10 @@ export default function DemandasPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 3 },
-    })
-  );
+  const calendarExportRef = useRef<HTMLDivElement>(null);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 3 } }));
 
   const { data: colaboradoresRaw = [] } = useQuery<Colaborador[]>({
     queryKey: ["/api/colaboradores"],
@@ -899,8 +1045,6 @@ export default function DemandasPage() {
 
   const demandas: Demanda[] = useMemo(() => normalizeDemandasList(raw), [raw]);
 
-  // Histórico: exibir apenas últimos 30 dias (frontend).
-  // O purge automático real deve ser feito no backend (cron/job). Aqui fica uma proteção visual e uma tentativa opcional.
   const { data: historicoRaw, isLoading: isLoadingHistorico } = useQuery({
     queryKey: ["/api/demandas/historico/all"],
     queryFn: async () => apiRequest("GET", "/api/demandas/historico/all"),
@@ -922,7 +1066,104 @@ export default function DemandasPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // ===================================================
-  // Mutations com update otimista (corrige "não move" e "não deleta")
+  // Downloads
+  // ===================================================
+
+  const downloadDemandasCSV = () => {
+    const header = [
+      "id",
+      "titulo",
+      "descricao",
+      "setor",
+      "prioridade",
+      "complexidade",
+      "categoria",
+      "dataEntrega",
+      "status",
+      "responsavel",
+      "responsavelId",
+      "empreendimentoId",
+    ];
+
+    const rows = demandas.map((d) => {
+      const resp = getResponsavelNome(d, colaboradores);
+      return [
+        d.id,
+        d.titulo,
+        d.descricao,
+        d.setor,
+        d.prioridade,
+        d.complexidade,
+        d.categoria,
+        d.dataEntrega,
+        d.status,
+        resp,
+        d.responsavelId ?? "",
+        d.empreendimentoId ?? "",
+      ].map(escapeCsv).join(";");
+    });
+
+    const content = [header.join(";"), ...rows].join("\n");
+    downloadTextFile(`ecobrasil_demandas_${formatDate(new Date(), "yyyyMMdd_HHmm")}.csv`, content, "text/csv;charset=utf-8");
+    toast({ title: "CSV gerado." });
+  };
+
+  const downloadDemandasJSON = () => {
+    const enriched = demandas.map((d) => ({
+      ...d,
+      responsavelNome: getResponsavelNome(d, colaboradores),
+      statusLabel: STATUS_LABEL[d.status],
+    }));
+    downloadTextFile(
+      `ecobrasil_demandas_${formatDate(new Date(), "yyyyMMdd_HHmm")}.json`,
+      JSON.stringify(enriched, null, 2),
+      "application/json;charset=utf-8"
+    );
+    toast({ title: "JSON gerado." });
+  };
+
+  const downloadCalendarPDF = async () => {
+    try {
+      const el = calendarExportRef.current;
+      if (!el) throw new Error("Calendário não encontrado para exportação.");
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      const ratio = Math.min(pageW / imgW, pageH / imgH);
+
+      const drawW = imgW * ratio;
+      const drawH = imgH * ratio;
+
+      const marginX = (pageW - drawW) / 2;
+      const marginY = (pageH - drawH) / 2;
+
+      pdf.addImage(imgData, "PNG", marginX, marginY, drawW, drawH, undefined, "FAST");
+
+      pdf.save(`ecobrasil_calendario_demandas_${formatDate(calendarMonth, "yyyy_MM")}.pdf`);
+      toast({ title: "PDF do calendário gerado." });
+    } catch (e: any) {
+      toast({
+        title: "Falha ao gerar PDF",
+        description: e?.message ?? "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // ===================================================
+  // Mutations
   // ===================================================
 
   const moveMutation = useMutation({
@@ -935,7 +1176,6 @@ export default function DemandasPage() {
       await queryClient.cancelQueries({ queryKey: ["/api/demandas"] });
       const prev = queryClient.getQueryData(["/api/demandas"]);
 
-      // otimista
       queryClient.setQueryData(["/api/demandas"], (old: any) => {
         const arr = normalizeDemandasList(old);
         return arr.map((d) => (d.id === id ? { ...d, status } : d));
@@ -945,16 +1185,12 @@ export default function DemandasPage() {
     },
     onError: (e: any, _vars, ctx: any) => {
       if (ctx?.prev !== undefined) queryClient.setQueryData(["/api/demandas"], ctx.prev);
-      toast({
-        title: "Falha ao mover demanda",
-        description: e?.message ?? "Erro desconhecido",
-        variant: "destructive",
-      });
+      toast({ title: "Falha ao mover demanda", description: e?.message ?? "Erro desconhecido", variant: "destructive" });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      toast({ title: "Demanda movida com sucesso!" });
+      toast({ title: "Demanda movida." });
     },
   });
 
@@ -973,18 +1209,12 @@ export default function DemandasPage() {
     },
     onError: (e: any, _vars, ctx: any) => {
       if (ctx?.prev !== undefined) queryClient.setQueryData(["/api/demandas"], ctx.prev);
-      toast({
-        title: "Falha ao excluir demanda",
-        description: e?.message ?? "Erro desconhecido",
-        variant: "destructive",
-      });
+      toast({ title: "Falha ao excluir demanda", description: e?.message ?? "Erro desconhecido", variant: "destructive" });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/licencas/calendar"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"], exact: false });
-      toast({ title: "Demanda excluída com sucesso!" });
+      toast({ title: "Demanda excluída." });
     },
   });
 
@@ -992,16 +1222,12 @@ export default function DemandasPage() {
     mutationFn: async (senha: string) => apiRequest("DELETE", `/api/admin/demandas/historico`, { senha }),
     onSuccess: async (data: any) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      toast({ title: data?.message || "Histórico limpo com sucesso!" });
+      toast({ title: data?.message || "Histórico limpo." });
       setClearHistoricoDialogOpen(false);
       setClearHistoricoSenha("");
     },
     onError: (e: any) => {
-      toast({
-        title: "Falha ao limpar histórico",
-        description: e?.message ?? "Erro desconhecido",
-        variant: "destructive",
-      });
+      toast({ title: "Falha ao limpar histórico", description: e?.message ?? "Erro desconhecido", variant: "destructive" });
       setClearHistoricoSenha("");
     },
   });
@@ -1019,15 +1245,12 @@ export default function DemandasPage() {
       cancelado: [],
     };
 
-    demandas.forEach((d) => {
-      grouped[normalizeStatus(d.status)].push(d);
-    });
-
+    demandas.forEach((d) => grouped[normalizeStatus(d.status)].push(d));
     return grouped;
   }, [demandas]);
 
   // ===================================================
-  // Drag handlers (corrige drop sobre card vs coluna)
+  // Drag handlers
   // ===================================================
 
   const onDragStart = (e: DragStartEvent) => {
@@ -1038,38 +1261,29 @@ export default function DemandasPage() {
   };
 
   function extractOverStatus(over: any): Status | null {
-    // 1) se caiu na coluna, over.id será o status
     const overIdStr = String(over?.id ?? "");
     if (VALID_STATUSES.includes(overIdStr as Status)) return overIdStr as Status;
 
-    // 2) se caiu em cima de outro card, tenta achar coluna via data do sortable
     const sortableContainerId = over?.data?.current?.sortable?.containerId;
     const c = String(sortableContainerId ?? "");
     if (VALID_STATUSES.includes(c as Status)) return c as Status;
 
-    // 3) se o over.id for um número (id de card), usa status do card alvo
     const overIdNum = safeNumber(over?.id);
     if (overIdNum) {
       const target = demandas.find((x) => x.id === overIdNum);
       if (target) return normalizeStatus(target.status);
     }
-
     return null;
   }
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     setActiveDemanda(null);
-
     if (!over) return;
 
     const id = safeNumber(active.id);
     if (!id) {
-      toast({
-        title: "Falha ao mover demanda",
-        description: "ID inválido do card (não numérico).",
-        variant: "destructive",
-      });
+      toast({ title: "Falha ao mover demanda", description: "ID inválido do card.", variant: "destructive" });
       return;
     }
 
@@ -1084,27 +1298,43 @@ export default function DemandasPage() {
     return (
       <div className="p-6 text-center">
         <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-        <p>Carregando demandas...</p>
+        <p>Carregando demandas.</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6" data-testid="page-demandas">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-8 space-y-6">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Quadro de Demandas</h1>
-          <p className="text-muted-foreground mt-1">
-            Arraste os cards entre as colunas para alterar o status
-          </p>
+          <p className="text-muted-foreground mt-1">Arraste os cards entre as colunas para alterar o status.</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           <RefreshButton />
+
+          <Button variant="outline" onClick={downloadDemandasCSV}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Baixar CSV
+          </Button>
+
+          <Button variant="outline" onClick={downloadDemandasJSON}>
+            <Download className="h-4 w-4 mr-2" />
+            Baixar JSON
+          </Button>
+
+          <Button
+            style={{ backgroundColor: ECOBRASIL.azulEscuro, color: "white" }}
+            onClick={downloadCalendarPDF}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Baixar PDF do Calendário
+          </Button>
 
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-nova-demanda">
+              <Button>
                 <Plus className="h-4 w-4 mr-2" /> Nova Demanda
               </Button>
             </DialogTrigger>
@@ -1116,7 +1346,6 @@ export default function DemandasPage() {
 
               <DemandaForm
                 onSuccess={() => {
-                  // a demanda já entra no Kanban via cache (insertDemandaInCache)
                   setCreateDialogOpen(false);
                 }}
               />
@@ -1125,12 +1354,7 @@ export default function DemandasPage() {
         </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-      >
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {(Object.entries(STATUS_LABEL) as [Status, string][]).map(([status, label]) => (
             <KanbanColumn
@@ -1141,9 +1365,7 @@ export default function DemandasPage() {
               colaboradores={colaboradores}
               onEdit={setEditing}
               onDelete={(id) => {
-                if (confirm("Tem certeza que deseja excluir esta demanda?")) {
-                  deleteMutation.mutate(id);
-                }
+                if (confirm("Tem certeza que deseja excluir esta demanda?")) deleteMutation.mutate(id);
               }}
             />
           ))}
@@ -1163,33 +1385,45 @@ export default function DemandasPage() {
         </DragOverlay>
       </DndContext>
 
-      {/* Tabela de Histórico (últimos 30 dias no frontend) */}
+      <CalendarioEcoBrasil
+        demandas={demandas}
+        colaboradores={colaboradores}
+        monthDate={calendarMonth}
+        onPrevMonth={() => setCalendarMonth((d) => subMonths(d, 1))}
+        onNextMonth={() => setCalendarMonth((d) => addMonths(d, 1))}
+        exportRef={calendarExportRef}
+      />
+
+      {/* Histórico */}
       <Card className="mt-8">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl">Histórico de Movimentações (últimos 30 dias)</CardTitle>
 
-          {historico30d.length > 0 && (
-            <Dialog open={clearHistoricoDialogOpen} onOpenChange={(open) => {
-              setClearHistoricoDialogOpen(open);
-              if (!open) setClearHistoricoSenha("");
-            }}>
+          {historico30d.length > 0 ? (
+            <Dialog
+              open={clearHistoricoDialogOpen}
+              onOpenChange={(open) => {
+                setClearHistoricoDialogOpen(open);
+                if (!open) setClearHistoricoSenha("");
+              }}
+            >
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Limpar Histórico
                 </Button>
               </DialogTrigger>
+
               <DialogContent className="max-w-sm">
                 <DialogHeader>
                   <DialogTitle>Confirmar Limpeza do Histórico</DialogTitle>
                 </DialogHeader>
+
                 <form
                   className="space-y-4"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (clearHistoricoSenha.trim()) {
-                      clearHistoricoMutation.mutate(clearHistoricoSenha.trim());
-                    }
+                    if (clearHistoricoSenha.trim()) clearHistoricoMutation.mutate(clearHistoricoSenha.trim());
                   }}
                 >
                   <div>
@@ -1202,29 +1436,20 @@ export default function DemandasPage() {
                       autoFocus
                     />
                   </div>
+
                   <div className="flex gap-2 justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setClearHistoricoDialogOpen(false)}
-                    >
+                    <Button type="button" variant="outline" onClick={() => setClearHistoricoDialogOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button
-                      type="submit"
-                      variant="destructive"
-                      disabled={!clearHistoricoSenha.trim() || clearHistoricoMutation.isPending}
-                    >
-                      {clearHistoricoMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : null}
+                    <Button type="submit" variant="destructive" disabled={!clearHistoricoSenha.trim() || clearHistoricoMutation.isPending}>
+                      {clearHistoricoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       Confirmar
                     </Button>
                   </div>
                 </form>
               </DialogContent>
             </Dialog>
-          )}
+          ) : null}
         </CardHeader>
 
         <CardContent>
@@ -1233,12 +1458,10 @@ export default function DemandasPage() {
               <Loader2 className="h-6 w-6 animate-spin mx-auto" />
             </div>
           ) : historico30d.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma movimentação registrada nos últimos 30 dias
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhuma movimentação registrada nos últimos 30 dias.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" data-testid="table-historico">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-2">Data</th>
@@ -1251,11 +1474,9 @@ export default function DemandasPage() {
                 </thead>
                 <tbody>
                   {historico30d.map((h: any) => (
-                    <tr key={h.id} className="border-b hover:bg-muted/50" data-testid={`historico-row-${h.id}`}>
+                    <tr key={h.id} className="border-b hover:bg-muted/50">
                       <td className="p-2">
-                        {h.criadoEm
-                          ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR })
-                          : "-"}
+                        {h.criadoEm ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}
                       </td>
                       <td className="p-2">{h.demandaTitulo || "-"}</td>
                       <td className="p-2">{h.acao || "-"}</td>
@@ -1286,14 +1507,14 @@ export default function DemandasPage() {
             <DialogTitle>Editar Demanda</DialogTitle>
           </DialogHeader>
 
-          {editing && (
+          {editing ? (
             <DemandaForm
               initial={editing}
               onSuccess={() => {
                 setEditing(null);
               }}
             />
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
