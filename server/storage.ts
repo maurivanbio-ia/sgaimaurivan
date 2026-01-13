@@ -2696,23 +2696,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
+    // Build conditions: include folders that match unidade, belong to unit's empreendimentos,
+    // are institutional (macro type without empreendimentoId), or have no unidade set (legacy)
+    const conditions = [
+      eq(datasetPastas.unidade, unidade),
+      isNull(datasetPastas.unidade),
+      eq(datasetPastas.unidade, ''),
+      and(eq(datasetPastas.tipo, 'macro'), isNull(datasetPastas.empreendimentoId))
+    ];
+    
     if (empIds.length > 0) {
-      // Match pastas that either have the unidade field set OR belong to an empreendimento of this unidade
-      return db.select()
-        .from(datasetPastas)
-        .where(
-          or(
-            eq(datasetPastas.unidade, unidade),
-            inArray(datasetPastas.empreendimentoId, empIds)
-          )
-        )
-        .orderBy(asc(datasetPastas.caminho));
+      conditions.push(inArray(datasetPastas.empreendimentoId, empIds));
     }
     
-    // No empreendimentos in this unidade, filter by unidade field only
     return db.select()
       .from(datasetPastas)
-      .where(eq(datasetPastas.unidade, unidade))
+      .where(or(...conditions))
       .orderBy(asc(datasetPastas.caminho));
   }
 
