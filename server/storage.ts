@@ -2108,8 +2108,8 @@ export class DatabaseStorage implements IStorage {
     totalDespesas: number;
     totalPendente: number;
     saldoAtual: number;
-    porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
-    porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
+    porCategoria: Array<{ categoria: string; valor: number; tipo: string; unidade?: string }>;
+    porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number; unidade?: string }>;
     evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
     empreendimentoNome?: string;
   }> {
@@ -2182,7 +2182,8 @@ export class DatabaseStorage implements IStorage {
         empreendimentoId: emp.id,
         receitas, 
         despesas, 
-        lucro: receitas - despesas 
+        lucro: receitas - despesas,
+        unidade: emp.unidade || undefined
       };
     }).filter(item => item.receitas > 0 || item.despesas > 0);
 
