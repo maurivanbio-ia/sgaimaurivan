@@ -1614,14 +1614,33 @@ export class DatabaseStorage implements IStorage {
   }): Promise<(Demanda & { responsavel?: string })[]> {
     const conditions = [];
     
-    // TEMPORARY FIX: Disable multi-tenant filtering to diagnose the issue
-    // Will re-enable after confirming demandas appear correctly
-    // Multi-tenant isolation temporarily disabled for debugging
+    // Multi-tenant filtering with fallback for legacy data
     console.log('[DEBUG getDemandas] Filters received:', JSON.stringify(filters));
     
-    // DO NOT FILTER BY UNIDADE FOR NOW - just log the attempt
+    // For unidade filtering, we need to include:
+    // 1. Demandas that match the user's unidade
+    // 2. Demandas with null/empty unidade (legacy data)
+    // 3. Demandas that belong to empreendimentos in the user's unidade
     if (filters?.unidade) {
-      console.log('[DEBUG getDemandas] Would filter by unidade:', filters.unidade, '- but SKIPPING for now');
+      const emps = await db.select({ id: empreendimentos.id })
+        .from(empreendimentos)
+        .where(eq(empreendimentos.unidade, filters.unidade));
+      const empIds = emps.map(e => e.id);
+      
+      // Build unidade condition with legacy fallback
+      const unidadeConditions = [
+        eq(demandas.unidade, filters.unidade),
+        isNull(demandas.unidade),
+        eq(demandas.unidade, '')
+      ];
+      
+      // Also include demandas from empreendimentos of this unidade
+      if (empIds.length > 0) {
+        unidadeConditions.push(inArray(demandas.empreendimentoId, empIds));
+      }
+      
+      conditions.push(or(...unidadeConditions));
+      console.log('[DEBUG getDemandas] Filtering by unidade:', filters.unidade, 'with legacy fallback');
     }
     
     if (filters?.empreendimento && filters.empreendimento !== "todos") {
