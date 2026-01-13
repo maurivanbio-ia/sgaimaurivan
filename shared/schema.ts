@@ -394,6 +394,7 @@ export const demandas = pgTable("demandas", {
   prioridade: text("prioridade").notNull().default("media"), // baixa, media, alta
   complexidade: text("complexidade").notNull().default("media"), // baixa, media, alta - para gamificação
   categoria: text("categoria").notNull().default("geral"), // reuniao, relatorio_tecnico, documento, campo, vistoria, licenciamento, analise, outro
+  dataInicio: date("data_inicio"), // Data de início do período (opcional - se não definido, usa dataEntrega)
   dataEntrega: date("data_entrega").notNull(),
   dataConclusao: date("data_conclusao"),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
