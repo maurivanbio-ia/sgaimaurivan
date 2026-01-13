@@ -937,115 +937,168 @@ function CalendarioEcoBrasil({
         <div
           ref={exportRef}
           id="ecobrasil-calendar-export"
-          className="rounded-xl border overflow-hidden"
-          style={{ borderColor: ECOBRASIL.cinzaClaro }}
+          style={{ 
+            borderRadius: "12px",
+            border: `1px solid ${ECOBRASIL.cinzaClaro}`,
+            overflow: "hidden",
+            backgroundColor: "#ffffff",
+            width: "100%",
+          }}
         >
           <div
-            className="px-5 py-4 flex items-center justify-between"
-            style={{ backgroundColor: ECOBRASIL.azulEscuro }}
+            style={{ 
+              backgroundColor: ECOBRASIL.azulEscuro,
+              padding: "16px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
           >
-            <div className="text-white">
-              <div className="text-lg font-semibold">EcoBrasil Consultoria Ambiental</div>
-              <div className="text-sm opacity-90">Calendário de Demandas. {formatDate(monthDate, "MMMM yyyy", { locale: ptBR })}</div>
+            <div style={{ color: "#ffffff" }}>
+              <div style={{ fontSize: "18px", fontWeight: "600" }}>EcoBrasil Consultoria Ambiental</div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>Calendário de Demandas - {formatDate(monthDate, "MMMM yyyy", { locale: ptBR })}</div>
             </div>
-            <div className="text-white text-sm opacity-90">
+            <div style={{ color: "#ffffff", fontSize: "13px", opacity: 0.9 }}>
               Gerado em {formatDate(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}
             </div>
           </div>
 
-          <div className="grid grid-cols-7" style={{ backgroundColor: ECOBRASIL.cinzaClaro }}>
-            {weekdays.map((w) => (
-              <div key={w} className="px-2 py-2 text-xs font-semibold text-center" style={{ color: ECOBRASIL.azulEscuro }}>
-                {w}
-              </div>
-            ))}
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+            <thead>
+              <tr style={{ backgroundColor: ECOBRASIL.cinzaClaro }}>
+                {weekdays.map((w) => (
+                  <th key={w} style={{ 
+                    padding: "8px 4px", 
+                    fontSize: "12px", 
+                    fontWeight: "600", 
+                    textAlign: "center",
+                    color: ECOBRASIL.azulEscuro,
+                    border: "1px solid rgba(0,0,0,0.06)",
+                  }}>
+                    {w}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((week, wi) => (
+                <tr key={wi}>
+                  {week.map((d, di) => {
+                    const ymd = formatDate(d, "yyyy-MM-dd");
+                    const list = byDate.get(ymd) ?? [];
+                    const isToday = isSameDay(d, new Date());
+                    const isOutside = !isSameMonth(d, monthStart);
 
-          <div className="grid grid-rows-6">
-            {rows.map((week, wi) => (
-              <div key={wi} className="grid grid-cols-7">
-                {week.map((d, di) => {
-                  const ymd = formatDate(d, "yyyy-MM-dd");
-                  const list = byDate.get(ymd) ?? [];
-                  const isToday = isSameDay(d, new Date());
-                  const isOutside = !isSameMonth(d, monthStart);
-
-                  return (
-                    <div
-                      key={`${wi}-${di}`}
-                      className={cn(
-                        "min-h-[120px] border p-2 align-top bg-white",
-                        isOutside ? "opacity-45" : "",
-                        isToday ? "ring-2 ring-offset-1" : ""
-                      )}
-                      style={{
-                        borderColor: "rgba(0,0,0,0.06)",
-                        ...(isToday ? { ringColor: ECOBRASIL.azulEscuro as any } : {}),
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs font-semibold" style={{ color: ECOBRASIL.azulEscuro }}>
-                          {formatDate(d, "d", { locale: ptBR })}
+                    return (
+                      <td
+                        key={`${wi}-${di}`}
+                        style={{
+                          height: "90px",
+                          verticalAlign: "top",
+                          padding: "6px",
+                          backgroundColor: isToday ? "#e0f2fe" : "#ffffff",
+                          border: "1px solid rgba(0,0,0,0.08)",
+                          opacity: isOutside ? 0.4 : 1,
+                        }}
+                      >
+                        <div style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "space-between",
+                          marginBottom: "4px",
+                        }}>
+                          <span style={{ 
+                            fontSize: "12px", 
+                            fontWeight: "600", 
+                            color: ECOBRASIL.azulEscuro,
+                          }}>
+                            {formatDate(d, "d", { locale: ptBR })}
+                          </span>
+                          {list.length > 0 && (
+                            <span style={{ 
+                              fontSize: "9px", 
+                              padding: "1px 4px",
+                              border: "1px solid #ccc",
+                              borderRadius: "4px",
+                              color: "#666",
+                            }}>
+                              {list.length}
+                            </span>
+                          )}
                         </div>
-                        {list.length > 0 ? (
-                          <Badge variant="outline" className="text-[10px]">
-                            {list.length}
-                          </Badge>
-                        ) : null}
-                      </div>
 
-                      <div className="space-y-0.5">
-                        {list.slice(0, 3).map((dem) => {
-                          const resp = getResponsavelNome(dem, colaboradores);
-                          const prioridadeColor = {
-                            alta: "bg-red-500",
-                            media: "bg-yellow-500", 
-                            baixa: "bg-green-500"
-                          }[dem.prioridade] || "bg-gray-400";
-                          return (
-                            <div
-                              key={dem.id}
-                              className="rounded px-1.5 py-0.5 text-[9px] leading-tight bg-slate-50 border-l-2"
-                              style={{ borderLeftColor: dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a" }}
-                            >
-                              <div className="font-medium truncate" style={{ color: ECOBRASIL.azulEscuro }}>
-                                {dem.titulo.length > 20 ? dem.titulo.substring(0, 20) + "..." : dem.titulo}
+                        <div>
+                          {list.slice(0, 3).map((dem) => {
+                            const resp = getResponsavelNome(dem, colaboradores);
+                            const borderColor = dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a";
+                            return (
+                              <div
+                                key={dem.id}
+                                style={{
+                                  backgroundColor: "#f8fafc",
+                                  borderLeft: `3px solid ${borderColor}`,
+                                  borderRadius: "3px",
+                                  padding: "2px 4px",
+                                  marginBottom: "2px",
+                                  fontSize: "9px",
+                                  lineHeight: "1.2",
+                                }}
+                              >
+                                <div style={{ 
+                                  fontWeight: "500", 
+                                  color: ECOBRASIL.azulEscuro,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}>
+                                  {dem.titulo.length > 18 ? dem.titulo.substring(0, 18) + "..." : dem.titulo}
+                                </div>
+                                <div style={{ fontSize: "8px", color: "#6b7280" }}>
+                                  {resp.length > 15 ? resp.substring(0, 15) + "..." : resp}
+                                </div>
                               </div>
-                              <div className="text-[8px] text-muted-foreground truncate">
-                                {resp}
-                              </div>
+                            );
+                          })}
+                          {list.length > 3 && (
+                            <div style={{ fontSize: "9px", color: "#6b7280", fontWeight: "500" }}>
+                              +{list.length - 3} mais
                             </div>
-                          );
-                        })}
-                        {list.length > 3 ? (
-                          <div className="text-[9px] text-muted-foreground font-medium">+{list.length - 3} mais</div>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-          <div className="px-5 py-3 text-[11px] flex items-center justify-between" style={{ backgroundColor: "white" }}>
-            <div className="flex items-center gap-3">
-              <span className="font-semibold" style={{ color: ECOBRASIL.azulEscuro }}>Legenda</span>
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: "#dc2626" }} />
+          <div style={{ 
+            padding: "12px 20px",
+            backgroundColor: "#ffffff",
+            borderTop: "1px solid rgba(0,0,0,0.06)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: "11px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <span style={{ fontWeight: "600", color: ECOBRASIL.azulEscuro }}>Legenda:</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "12px", height: "12px", backgroundColor: "#dc2626", borderRadius: "2px", display: "inline-block" }} />
                 Alta
               </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: "#ca8a04" }} />
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "12px", height: "12px", backgroundColor: "#ca8a04", borderRadius: "2px", display: "inline-block" }} />
                 Média
               </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: "#16a34a" }} />
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "12px", height: "12px", backgroundColor: "#16a34a", borderRadius: "2px", display: "inline-block" }} />
                 Baixa
               </span>
             </div>
-            <div className="text-muted-foreground">
-              EcoBrasil. Demandas com data de entrega.
+            <div style={{ color: "#6b7280" }}>
+              EcoBrasil - Demandas com data de entrega
             </div>
           </div>
         </div>
