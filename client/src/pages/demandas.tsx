@@ -994,9 +994,9 @@ function CalendarioEcoBrasil({
                       <td
                         key={`${wi}-${di}`}
                         style={{
-                          height: "90px",
+                          height: "110px",
                           verticalAlign: "top",
-                          padding: "6px",
+                          padding: "8px",
                           backgroundColor: isToday ? "#e0f2fe" : "#ffffff",
                           border: "1px solid rgba(0,0,0,0.08)",
                           opacity: isOutside ? 0.4 : 1,
@@ -1006,63 +1006,74 @@ function CalendarioEcoBrasil({
                           display: "flex", 
                           alignItems: "center", 
                           justifyContent: "space-between",
-                          marginBottom: "4px",
+                          marginBottom: "6px",
                         }}>
                           <span style={{ 
-                            fontSize: "12px", 
-                            fontWeight: "600", 
+                            fontSize: "14px", 
+                            fontWeight: "700", 
                             color: ECOBRASIL.azulEscuro,
                           }}>
                             {formatDate(d, "d", { locale: ptBR })}
                           </span>
                           {list.length > 0 && (
                             <span style={{ 
-                              fontSize: "9px", 
-                              padding: "1px 4px",
-                              border: "1px solid #ccc",
-                              borderRadius: "4px",
-                              color: "#666",
+                              fontSize: "10px", 
+                              padding: "2px 6px",
+                              backgroundColor: ECOBRASIL.azulEscuro,
+                              borderRadius: "10px",
+                              color: "#ffffff",
+                              fontWeight: "600",
                             }}>
                               {list.length}
                             </span>
                           )}
                         </div>
 
-                        <div>
-                          {list.slice(0, 3).map((dem) => {
+                        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                          {list.slice(0, 2).map((dem) => {
                             const resp = getResponsavelNome(dem, colaboradores);
                             const borderColor = dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a";
+                            const bgColor = dem.prioridade === "alta" ? "#fef2f2" : dem.prioridade === "media" ? "#fefce8" : "#f0fdf4";
                             return (
                               <div
                                 key={dem.id}
                                 style={{
-                                  backgroundColor: "#f8fafc",
-                                  borderLeft: `3px solid ${borderColor}`,
-                                  borderRadius: "3px",
-                                  padding: "2px 4px",
-                                  marginBottom: "2px",
-                                  fontSize: "9px",
-                                  lineHeight: "1.2",
+                                  backgroundColor: bgColor,
+                                  borderLeft: `4px solid ${borderColor}`,
+                                  borderRadius: "4px",
+                                  padding: "4px 6px",
+                                  fontSize: "11px",
+                                  lineHeight: "1.3",
                                 }}
                               >
                                 <div style={{ 
-                                  fontWeight: "500", 
+                                  fontWeight: "600", 
                                   color: ECOBRASIL.azulEscuro,
+                                  wordBreak: "break-word",
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
                                   overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
                                 }}>
-                                  {dem.titulo.length > 18 ? dem.titulo.substring(0, 18) + "..." : dem.titulo}
+                                  {dem.titulo}
                                 </div>
-                                <div style={{ fontSize: "8px", color: "#6b7280" }}>
-                                  {resp.length > 15 ? resp.substring(0, 15) + "..." : resp}
+                                <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", fontWeight: "500" }}>
+                                  {resp}
                                 </div>
                               </div>
                             );
                           })}
-                          {list.length > 3 && (
-                            <div style={{ fontSize: "9px", color: "#6b7280", fontWeight: "500" }}>
-                              +{list.length - 3} mais
+                          {list.length > 2 && (
+                            <div style={{ 
+                              fontSize: "10px", 
+                              color: ECOBRASIL.azulEscuro, 
+                              fontWeight: "600",
+                              textAlign: "center",
+                              padding: "2px",
+                              backgroundColor: "#f1f5f9",
+                              borderRadius: "4px",
+                            }}>
+                              +{list.length - 2} mais
                             </div>
                           )}
                         </div>
