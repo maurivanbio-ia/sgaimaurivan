@@ -1457,12 +1457,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin route to clear demandas movement history
+  // Admin route to clear demandas movement history (requires password)
   app.delete('/api/admin/demandas/historico', requireAuth, async (req, res) => {
     try {
-      // Only admins can clear history
-      if (req.user?.role !== 'admin') {
-        return res.status(403).json({ error: 'Apenas administradores podem limpar o histórico' });
+      const { senha } = req.body || {};
+      const adminPassword = process.env.ADMIN_UNLOCK_PASSWORD;
+      
+      if (!senha || senha !== adminPassword) {
+        return res.status(403).json({ error: 'Senha incorreta' });
       }
       
       const result = await storage.clearDemandasHistorico();

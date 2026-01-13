@@ -881,7 +881,7 @@ export default function DemandasPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+      activationConstraint: { distance: 3 },
     })
   );
 
@@ -917,6 +917,8 @@ export default function DemandasPage() {
 
   const [editing, setEditing] = useState<Demanda | null>(null);
   const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
+  const [clearHistoricoDialogOpen, setClearHistoricoDialogOpen] = useState(false);
+  const [clearHistoricoSenha, setClearHistoricoSenha] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // ===================================================
@@ -986,17 +988,21 @@ export default function DemandasPage() {
   });
 
   const clearHistoricoMutation = useMutation({
-    mutationFn: async () => apiRequest("DELETE", `/api/admin/demandas/historico`),
+    mutationFn: async (senha: string) => apiRequest("DELETE", `/api/admin/demandas/historico`, { senha }),
     onSuccess: async (data: any) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
       toast({ title: data?.message || "Histórico limpo com sucesso!" });
+      setClearHistoricoDialogOpen(false);
+      setClearHistoricoSenha("");
     },
-    onError: (e: any) =>
+    onError: (e: any) => {
       toast({
         title: "Falha ao limpar histórico",
         description: e?.message ?? "Erro desconhecido",
         variant: "destructive",
-      }),
+      });
+      setClearHistoricoSenha("");
+    },
   });
 
   // ===================================================
@@ -1162,23 +1168,61 @@ export default function DemandasPage() {
           <CardTitle className="text-xl">Histórico de Movimentações (últimos 30 dias)</CardTitle>
 
           {historico30d.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (confirm("Tem certeza que deseja limpar todo o histórico de movimentações?")) {
-                  clearHistoricoMutation.mutate();
-                }
-              }}
-              disabled={clearHistoricoMutation.isPending}
-            >
-              {clearHistoricoMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              Limpar Histórico
-            </Button>
+            <Dialog open={clearHistoricoDialogOpen} onOpenChange={(open) => {
+              setClearHistoricoDialogOpen(open);
+              if (!open) setClearHistoricoSenha("");
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Histórico
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Confirmar Limpeza do Histórico</DialogTitle>
+                </DialogHeader>
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (clearHistoricoSenha.trim()) {
+                      clearHistoricoMutation.mutate(clearHistoricoSenha.trim());
+                    }
+                  }}
+                >
+                  <div>
+                    <Label>Digite a senha de administrador</Label>
+                    <Input
+                      type="password"
+                      value={clearHistoricoSenha}
+                      onChange={(e) => setClearHistoricoSenha(e.target.value)}
+                      placeholder="Senha"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setClearHistoricoDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="destructive"
+                      disabled={!clearHistoricoSenha.trim() || clearHistoricoMutation.isPending}
+                    >
+                      {clearHistoricoMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Confirmar
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           )}
         </CardHeader>
 
