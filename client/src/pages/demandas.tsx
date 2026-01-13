@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -7,11 +7,17 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DragOverlay,
   DragStartEvent,
+  DragOverEvent,
+  DragOverlay,
   useDroppable,
 } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   format as formatDate,
@@ -38,12 +44,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useLocation } from "wouter";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
@@ -150,38 +177,19 @@ const SETORES = [
   "Administrativo",
 ];
 
-// Paleta EcoBrasil. Ajuste se você já tiver tokens no Tailwind.
+// Paleta EcoBrasil
 const ECOBRASIL = {
   azulEscuro: "rgb(31, 56, 100)",
   cinzaClaro: "rgb(217, 217, 217)",
 };
 
 // ===================================================
-// Funções auxiliares
+// Helpers gerais
 // ===================================================
 
-async function apiRequest<T = any>(method: string, url: string, body?: any): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const text = await res.text();
-  let json: any = null;
-
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = null;
-  }
-
-  if (!res.ok) {
-    const msg = json ? `${res.status}: ${JSON.stringify(json)}` : `${res.status}: ${text || "Erro"}`;
-    throw new Error(msg);
-  }
-
-  return (json ?? null) as T;
+function safeNumber(x: any): number | null {
+  const n = typeof x === "number" ? x : Number(x);
+  return Number.isFinite(n) ? n : null;
 }
 
 function ensureArray<T>(data: any): T[] {
@@ -190,44 +198,81 @@ function ensureArray<T>(data: any): T[] {
   return [];
 }
 
-function safeNumber(x: any): number | null {
-  const n = typeof x === "number" ? x : Number(x);
-  return Number.isFinite(n) ? n : null;
-}
-
 function normalizeStatus(x: any): Status {
   const s = String(x ?? "").trim();
   return VALID_STATUSES.includes(s as Status) ? (s as Status) : "a_fazer";
 }
 
+function normalizePrioridade(x: any): Prioridade {
+  const s = String(x ?? "").trim().toLowerCase();
+  if (s === "alta" || s === "high" || s === "urgent" || s === "urgente") return "alta";
+  if (s === "baixa" || s === "low") return "baixa";
+  return "media";
+}
+
+function normalizeComplexidade(x: any): Complexidade {
+  const s = String(x ?? "").trim().toLowerCase();
+  if (s === "alta" || s === "high") return "alta";
+  if (s === "baixa" || s === "low") return "baixa";
+  return "media";
+}
+
+function normalizeCategoria(x: any): Categoria {
+  const s = String(x ?? "").trim().toLowerCase();
+  const allowed: Categoria[] = ["reuniao","relatorio_tecnico","documento","campo","vistoria","licenciamento","analise","outro","geral"];
+  return (allowed.includes(s as Categoria) ? (s as Categoria) : "geral");
+}
+
+function normalizeSetor(x: any): string {
+  const s = String(x ?? "").trim();
+  return SETORES.includes(s) ? s : SETORES[0];
+}
+
+function parseLocalYMD(ymd: string): Date | null {
+  const s = String(ymd ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map((p) => Number(p));
+  if (!y || !m || !d) return null;
+  const dt = new Date(y, m - 1, d, 12, 0, 0);
+  return isValidDate(dt) ? dt : null;
+}
+
 function normalizeDateYmd(x: any): string {
   const s = String(x ?? "").trim();
   if (!s) return "";
-  const d = s.includes("T") ? new Date(s) : new Date(`${s}T12:00:00`);
-  if (!isValidDate(d)) return "";
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  try {
+    const d = s.includes("T") ? parseISO(s) : new Date(s);
+    if (!isValidDate(d)) return "";
+    const local = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    return local.toISOString().slice(0, 10);
+  } catch {
+    return "";
+  }
 }
 
 function normalizeDemanda(raw: any): Demanda | null {
   const id = safeNumber(raw?.id);
   if (!id) return null;
 
-  const status = normalizeStatus(raw?.status);
+  const titulo = String(raw?.titulo ?? "").trim();
+  const descricao = String(raw?.descricao ?? "").trim();
+  const dataEntrega = normalizeDateYmd(raw?.dataEntrega ?? raw?.data_entrega);
+  if (!titulo || !descricao || !dataEntrega) return null;
+
   const dataInicio = normalizeDateYmd(raw?.dataInicio ?? raw?.data_inicio) || null;
-  const dataEntrega = normalizeDateYmd(raw?.dataEntrega);
 
   return {
     id,
-    titulo: String(raw?.titulo ?? "").trim(),
-    descricao: String(raw?.descricao ?? "").trim(),
-    setor: String(raw?.setor ?? SETORES[0]),
-    prioridade: (raw?.prioridade ?? "media") as Prioridade,
-    complexidade: (raw?.complexidade ?? "media") as Complexidade,
-    categoria: (raw?.categoria ?? "geral") as Categoria,
+    titulo,
+    descricao,
+    setor: normalizeSetor(raw?.setor),
+    prioridade: normalizePrioridade(raw?.prioridade),
+    complexidade: normalizeComplexidade(raw?.complexidade),
+    categoria: normalizeCategoria(raw?.categoria),
     dataInicio,
     dataEntrega,
-    status,
-
+    status: normalizeStatus(raw?.status),
     responsavelId: safeNumber(raw?.responsavelId ?? raw?.responsavel_id ?? raw?.responsavel?.id) ?? null,
     responsavel: raw?.responsavelNome ?? raw?.responsavel_nome ?? raw?.responsavel?.nome ?? raw?.responsavel ?? null,
     empreendimentoId: safeNumber(raw?.empreendimentoId ?? raw?.empreendimento_id) ?? null,
@@ -246,29 +291,6 @@ function getResponsavelNome(d: Demanda, colaboradores: Colaborador[]): string {
   if (!rid) return "Não atribuído";
   const c = colaboradores.find((x) => x.id === rid);
   return c?.nome ?? "Não atribuído";
-}
-
-function insertDemandaInCache(queryClient: any, newDemanda: Demanda) {
-  queryClient.setQueryData(["/api/demandas"], (old: any) => {
-    const arr = normalizeDemandasList(old);
-    const exists = arr.some((d) => d.id === newDemanda.id);
-    if (exists) return arr.map((d) => (d.id === newDemanda.id ? newDemanda : d));
-    return [newDemanda, ...arr];
-  });
-}
-
-function replaceDemandaInCache(queryClient: any, updated: Demanda) {
-  queryClient.setQueryData(["/api/demandas"], (old: any) => {
-    const arr = normalizeDemandasList(old);
-    return arr.map((d) => (d.id === updated.id ? updated : d));
-  });
-}
-
-function removeDemandaFromCache(queryClient: any, id: number) {
-  queryClient.setQueryData(["/api/demandas"], (old: any) => {
-    const arr = normalizeDemandasList(old);
-    return arr.filter((d) => d.id !== id);
-  });
 }
 
 function escapeCsv(value: any) {
@@ -291,10 +313,102 @@ function downloadTextFile(filename: string, content: string, mime = "text/plain;
 }
 
 // ===================================================
+// apiRequest robusto. credenciais incluídas
+// ===================================================
+
+async function apiRequest<T = any>(method: string, url: string, body?: any): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text();
+
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      json && typeof json === "object"
+        ? `${res.status}: ${json?.message ?? JSON.stringify(json)}`
+        : `${res.status}: ${text || "Erro"}`;
+    throw new Error(msg);
+  }
+
+  return (json ?? null) as T;
+}
+
+// ===================================================
+// Persistência de ordem local por status
+// ===================================================
+
+const ORDER_STORAGE_KEY = "ecobrasil_demandas_order_v1";
+
+type OrderState = Record<Status, number[]>;
+
+function loadOrder(): OrderState | null {
+  try {
+    const raw = localStorage.getItem(ORDER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const base: OrderState = { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
+    for (const st of VALID_STATUSES) {
+      const arr = Array.isArray(parsed?.[st]) ? parsed[st].map((x: any) => safeNumber(x)).filter(Boolean) : [];
+      base[st] = arr as number[];
+    }
+    return base;
+  } catch {
+    return null;
+  }
+}
+
+function saveOrder(order: OrderState) {
+  try {
+    localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
+  } catch {
+    // ignore
+  }
+}
+
+function buildOrderFromDemandas(demandas: Demanda[], prev?: OrderState | null): OrderState {
+  const byStatus: Record<Status, number[]> = { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
+
+  const idsByStatus = new Map<Status, number[]>();
+  for (const st of VALID_STATUSES) idsByStatus.set(st, []);
+
+  for (const d of demandas) {
+    const st = normalizeStatus(d.status);
+    idsByStatus.get(st)!.push(d.id);
+  }
+
+  for (const st of VALID_STATUSES) {
+    const currentIds = idsByStatus.get(st)!;
+    const prevIds = prev?.[st] ?? [];
+    const kept = prevIds.filter((id) => currentIds.includes(id));
+    const missing = currentIds.filter((id) => !kept.includes(id));
+    byStatus[st] = [...kept, ...missing];
+  }
+
+  return byStatus;
+}
+
+// ===================================================
 // Formulário de Criação/Edição
 // ===================================================
 
-function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuccess: () => void }) {
+function DemandaForm({
+  initial,
+  onSuccess,
+}: {
+  initial?: Partial<Demanda>;
+  onSuccess: () => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = Boolean(initial?.id);
@@ -303,14 +417,14 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
   const { data: empreendimentos = [] } = useQuery({
     queryKey: ["/api/empreendimentos"],
     queryFn: async () => apiRequest("GET", "/api/empreendimentos"),
+    staleTime: 60_000,
   });
 
-  const { data: colaboradoresRaw = [] } = useQuery<Colaborador[]>({
+  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
     queryKey: ["/api/colaboradores"],
     queryFn: async () => apiRequest("GET", "/api/colaboradores"),
+    staleTime: 60_000,
   });
-
-  const colaboradores = Array.isArray(colaboradoresRaw) ? colaboradoresRaw : [];
 
   const [form, setForm] = useState({
     titulo: initial?.titulo ?? "",
@@ -319,27 +433,45 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
     prioridade: (initial?.prioridade ?? "media") as Prioridade,
     complexidade: (initial?.complexidade ?? "media") as Complexidade,
     categoria: (initial?.categoria ?? "geral") as Categoria,
-
     responsavelId: (initial as any)?.responsavelId ?? null,
     responsavelNome: (initial as any)?.responsavel ?? "",
-
     dataInicio: (initial as any)?.dataInicio ? normalizeDateYmd((initial as any).dataInicio) : "",
     dataEntrega: initial?.dataEntrega ? normalizeDateYmd(initial.dataEntrega) : "",
     status: (initial?.status ?? "a_fazer") as Status,
     empreendimentoId: initial?.empreendimentoId ? String(initial.empreendimentoId) : "",
   });
 
+  const validate = (): string | null => {
+    const titulo = String(form.titulo ?? "").trim();
+    const descricao = String(form.descricao ?? "").trim();
+    if (!titulo) return "Informe um título.";
+    if (!descricao) return "Informe uma descrição.";
+    if (!form.responsavelId) return "Selecione um responsável.";
+    if (!form.dataEntrega) return "Informe a data de entrega.";
+
+    const entrega = parseLocalYMD(form.dataEntrega);
+    if (!entrega) return "Data de entrega inválida.";
+
+    if (form.dataInicio) {
+      const inicio = parseLocalYMD(form.dataInicio);
+      if (!inicio) return "Data de início inválida.";
+      if (inicio.getTime() > entrega.getTime()) return "A data de início não pode ser maior que a data de entrega.";
+    }
+    return null;
+  };
+
   const mutation = useMutation({
     mutationFn: async (): Promise<Demanda> => {
-      if (!form.responsavelId) throw new Error("Selecione um responsável.");
+      const err = validate();
+      if (err) throw new Error(err);
 
       const payload: any = {
         titulo: String(form.titulo).trim(),
         descricao: String(form.descricao).trim(),
-        setor: form.setor,
-        prioridade: form.prioridade,
-        complexidade: form.complexidade,
-        categoria: form.categoria,
+        setor: normalizeSetor(form.setor),
+        prioridade: normalizePrioridade(form.prioridade),
+        complexidade: normalizeComplexidade(form.complexidade),
+        categoria: normalizeCategoria(form.categoria),
         dataInicio: form.dataInicio || null,
         dataEntrega: form.dataEntrega,
         status: form.status ?? "a_fazer",
@@ -360,14 +492,19 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
       return { ...norm, responsavelId: form.responsavelId, responsavel: nome };
     },
     onSuccess: async (createdOrUpdated: Demanda) => {
-      if (!isEdit) insertDemandaInCache(queryClient, createdOrUpdated);
-      else replaceDemandaInCache(queryClient, createdOrUpdated);
+      queryClient.setQueryData<Demanda[]>(["/api/demandas"], (old) => {
+        const arr = Array.isArray(old) ? old : [];
+        const exists = arr.some((d) => d.id === createdOrUpdated.id);
+        if (exists) return arr.map((d) => (d.id === createdOrUpdated.id ? createdOrUpdated : d));
+        return [createdOrUpdated, ...arr];
+      });
 
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ 
+      await queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
-        refetchType: 'all'
+        refetchType: "all",
       });
+
       toast({ title: isEdit ? "Demanda atualizada." : "Demanda criada." });
       onSuccess();
     },
@@ -390,12 +527,20 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
     >
       <div>
         <Label>Título *</Label>
-        <Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} required />
+        <Input
+          value={form.titulo}
+          onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+          required
+        />
       </div>
 
       <div>
         <Label>Descrição *</Label>
-        <Textarea value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} required />
+        <Textarea
+          value={form.descricao}
+          onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+          required
+        />
       </div>
 
       <div>
@@ -516,7 +661,12 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
                             <span>{colab.nome}</span>
                             {colab.email ? <span className="text-xs text-muted-foreground">{colab.email}</span> : null}
                           </div>
-                          <Check className={cn("ml-auto h-4 w-4", form.responsavelId === colab.id ? "opacity-100" : "opacity-0")} />
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              form.responsavelId === colab.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -548,7 +698,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
       </div>
 
       <p className="text-xs text-muted-foreground -mt-2">
-        Para demandas de vários dias, preencha Data Início e Data Entrega. Ex: 13/01 a 17/01
+        Para demandas de vários dias, preencha Data Início e Data Entrega. Ex.: 13/01 a 17/01
       </p>
 
       {isEdit ? (
@@ -578,28 +728,34 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
 }
 
 // ===================================================
-// Cartão de Demanda (Arrastável)
+// Card Sortable
 // ===================================================
 
 function DemandaCard({
   demanda,
   colaboradores,
   onEdit,
-  onDelete,
+  onAskDelete,
 }: {
   demanda: Demanda;
   colaboradores: Colaborador[];
   onEdit: (d: Demanda) => void;
-  onDelete: (id: number) => void;
+  onAskDelete: (d: Demanda) => void;
 }) {
   const [showDetails, setShowDetails] = useState(false);
 
+  const sortableId = `card:${demanda.id}`;
+
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
-    id: demanda.id,
-    data: { type: "card", status: demanda.status },
+    id: sortableId,
+    data: { type: "card", demandaId: demanda.id, status: demanda.status },
   });
 
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const prioridadeColor =
     { baixa: "bg-green-500", media: "bg-yellow-500", alta: "bg-red-500" }[demanda.prioridade] ?? "bg-yellow-500";
@@ -670,7 +826,7 @@ function DemandaCard({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onDelete(demanda.id);
+                  onAskDelete(demanda);
                 }}
                 title="Excluir demanda"
               >
@@ -790,16 +946,17 @@ function KanbanColumn({
   demandas,
   colaboradores,
   onEdit,
-  onDelete,
+  onAskDelete,
 }: {
   status: Status;
   label: string;
   demandas: Demanda[];
   colaboradores: Colaborador[];
   onEdit: (d: Demanda) => void;
-  onDelete: (id: number) => void;
+  onAskDelete: (d: Demanda) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status, data: { type: "column", status } });
+  const droppableId = `column:${status}`;
+  const { setNodeRef, isOver } = useDroppable({ id: droppableId, data: { type: "column", status } });
 
   return (
     <div
@@ -819,10 +976,16 @@ function KanbanColumn({
         </Badge>
       </div>
 
-      <SortableContext items={demandas.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={demandas.map((d) => `card:${d.id}`)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 min-h-[100px]">
           {demandas.map((d) => (
-            <DemandaCard key={d.id} demanda={d} colaboradores={colaboradores} onEdit={onEdit} onDelete={onDelete} />
+            <DemandaCard
+              key={d.id}
+              demanda={d}
+              colaboradores={colaboradores}
+              onEdit={onEdit}
+              onAskDelete={onAskDelete}
+            />
           ))}
           {demandas.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">Arraste uma demanda aqui</div>
@@ -834,14 +997,8 @@ function KanbanColumn({
 }
 
 // ===================================================
-// Calendário EcoBrasil (mês, com destaques)
+// Calendário EcoBrasil (mês)
 // ===================================================
-
-function prioridadeBorder(prioridade: Prioridade) {
-  if (prioridade === "alta") return "border-l-4 border-l-red-600";
-  if (prioridade === "media") return "border-l-4 border-l-yellow-600";
-  return "border-l-4 border-l-green-600";
-}
 
 function CalendarioEcoBrasil({
   demandas,
@@ -860,8 +1017,12 @@ function CalendarioEcoBrasil({
 }) {
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
-  const startDate = startOfWeek(monthStart, { locale: ptBR });
-  const endDate = endOfWeek(monthEnd, { locale: ptBR });
+
+  // ptBR normalmente começa na segunda. então cabeçalho deve começar na segunda.
+  const weekStartsOn = 1;
+
+  const startDate = startOfWeek(monthStart, { locale: ptBR, weekStartsOn });
+  const endDate = endOfWeek(monthEnd, { locale: ptBR, weekStartsOn });
 
   const rows: Date[][] = [];
   let day = startDate;
@@ -877,26 +1038,37 @@ function CalendarioEcoBrasil({
 
   const byDate = useMemo(() => {
     const map = new Map<string, Demanda[]>();
+
+    // otimização: só expandir intervalos que intersectam o mês exibido
+    const visibleStart = startDate;
+    const visibleEnd = endDate;
+
     for (const d of demandas) {
-      const dataEntregaYmd = normalizeDateYmd(d.dataEntrega);
-      if (!dataEntregaYmd) continue;
-      
-      const dataFim = parseISO(dataEntregaYmd);
-      const dataInicioYmd = d.dataInicio ? normalizeDateYmd(d.dataInicio) : null;
-      const dataInicio = dataInicioYmd ? parseISO(dataInicioYmd) : dataFim;
-      
-      if (dataInicio <= dataFim) {
-        const diasPeriodo = eachDayOfInterval({ start: dataInicio, end: dataFim });
-        for (const dia of diasPeriodo) {
-          const ymd = formatDate(dia, "yyyy-MM-dd");
-          if (!map.has(ymd)) map.set(ymd, []);
-          map.get(ymd)!.push(d);
-        }
-      } else {
-        if (!map.has(dataEntregaYmd)) map.set(dataEntregaYmd, []);
-        map.get(dataEntregaYmd)!.push(d);
+      const entregaYmd = normalizeDateYmd(d.dataEntrega);
+      if (!entregaYmd) continue;
+
+      const fim = parseLocalYMD(entregaYmd) ?? parseISO(entregaYmd);
+      const inicioYmd = d.dataInicio ? normalizeDateYmd(d.dataInicio) : "";
+      const ini = inicioYmd ? (parseLocalYMD(inicioYmd) ?? parseISO(inicioYmd)) : fim;
+
+      if (!isValidDate(ini) || !isValidDate(fim)) continue;
+
+      const start = ini.getTime() <= fim.getTime() ? ini : fim;
+      const end = ini.getTime() <= fim.getTime() ? fim : ini;
+
+      const clampedStart = new Date(Math.max(start.getTime(), visibleStart.getTime()));
+      const clampedEnd = new Date(Math.min(end.getTime(), visibleEnd.getTime()));
+
+      if (clampedStart.getTime() > clampedEnd.getTime()) continue;
+
+      const dias = eachDayOfInterval({ start: clampedStart, end: clampedEnd });
+      for (const dia of dias) {
+        const ymd = formatDate(dia, "yyyy-MM-dd");
+        if (!map.has(ymd)) map.set(ymd, []);
+        map.get(ymd)!.push(d);
       }
     }
+
     for (const [k, arr] of map.entries()) {
       arr.sort((a, b) => {
         const prio = { alta: 0, media: 1, baixa: 2 };
@@ -904,10 +1076,11 @@ function CalendarioEcoBrasil({
       });
       map.set(k, arr);
     }
-    return map;
-  }, [demandas]);
 
-  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    return map;
+  }, [demandas, startDate, endDate]);
+
+  const weekdays = weekStartsOn === 1 ? ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] : ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
   return (
     <Card className="mt-6">
@@ -926,10 +1099,7 @@ function CalendarioEcoBrasil({
           <Button variant="outline" onClick={onPrevMonth}>
             {formatDate(subMonths(monthDate, 1), "MMM yyyy", { locale: ptBR })}
           </Button>
-          <Badge
-            className="text-white"
-            style={{ backgroundColor: ECOBRASIL.azulEscuro }}
-          >
+          <Badge className="text-white" style={{ backgroundColor: ECOBRASIL.azulEscuro }}>
             {formatDate(monthDate, "MMMM 'de' yyyy", { locale: ptBR })}
           </Badge>
           <Button variant="outline" onClick={onNextMonth}>
@@ -942,7 +1112,7 @@ function CalendarioEcoBrasil({
         <div
           ref={exportRef}
           id="ecobrasil-calendar-export"
-          style={{ 
+          style={{
             borderRadius: "12px",
             border: `1px solid ${ECOBRASIL.cinzaClaro}`,
             overflow: "hidden",
@@ -951,7 +1121,7 @@ function CalendarioEcoBrasil({
           }}
         >
           <div
-            style={{ 
+            style={{
               backgroundColor: ECOBRASIL.azulEscuro,
               padding: "16px 20px",
               display: "flex",
@@ -961,7 +1131,9 @@ function CalendarioEcoBrasil({
           >
             <div style={{ color: "#ffffff" }}>
               <div style={{ fontSize: "18px", fontWeight: "600" }}>EcoBrasil Consultoria Ambiental</div>
-              <div style={{ fontSize: "14px", opacity: 0.9 }}>Calendário de Demandas - {formatDate(monthDate, "MMMM yyyy", { locale: ptBR })}</div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>
+                Calendário de Demandas. {formatDate(monthDate, "MMMM yyyy", { locale: ptBR })}
+              </div>
             </div>
             <div style={{ color: "#ffffff", fontSize: "13px", opacity: 0.9 }}>
               Gerado em {formatDate(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}
@@ -972,14 +1144,17 @@ function CalendarioEcoBrasil({
             <thead>
               <tr style={{ backgroundColor: ECOBRASIL.cinzaClaro }}>
                 {weekdays.map((w) => (
-                  <th key={w} style={{ 
-                    padding: "8px 4px", 
-                    fontSize: "12px", 
-                    fontWeight: "600", 
-                    textAlign: "center",
-                    color: ECOBRASIL.azulEscuro,
-                    border: "1px solid rgba(0,0,0,0.06)",
-                  }}>
+                  <th
+                    key={w}
+                    style={{
+                      padding: "8px 4px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      textAlign: "center",
+                      color: ECOBRASIL.azulEscuro,
+                      border: "1px solid rgba(0,0,0,0.06)",
+                    }}
+                  >
                     {w}
                   </th>
                 ))}
@@ -991,8 +1166,8 @@ function CalendarioEcoBrasil({
                   {week.map((d, di) => {
                     const ymd = formatDate(d, "yyyy-MM-dd");
                     const list = byDate.get(ymd) ?? [];
-                    const isToday = isSameDay(d, new Date());
-                    const isOutside = !isSameMonth(d, monthStart);
+                    const today = isSameDay(d, new Date());
+                    const outside = !isSameMonth(d, monthStart);
 
                     return (
                       <td
@@ -1001,33 +1176,33 @@ function CalendarioEcoBrasil({
                           height: "110px",
                           verticalAlign: "top",
                           padding: "8px",
-                          backgroundColor: isToday ? "#e0f2fe" : "#ffffff",
+                          backgroundColor: today ? "#e0f2fe" : "#ffffff",
                           border: "1px solid rgba(0,0,0,0.08)",
-                          opacity: isOutside ? 0.4 : 1,
+                          opacity: outside ? 0.4 : 1,
                         }}
                       >
-                        <div style={{ 
-                          display: "flex", 
-                          alignItems: "center", 
-                          justifyContent: "space-between",
-                          marginBottom: "6px",
-                        }}>
-                          <span style={{ 
-                            fontSize: "14px", 
-                            fontWeight: "700", 
-                            color: ECOBRASIL.azulEscuro,
-                          }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontSize: "14px", fontWeight: "700", color: ECOBRASIL.azulEscuro }}>
                             {formatDate(d, "d", { locale: ptBR })}
                           </span>
                           {list.length > 0 && (
-                            <span style={{ 
-                              fontSize: "10px", 
-                              padding: "2px 6px",
-                              backgroundColor: ECOBRASIL.azulEscuro,
-                              borderRadius: "10px",
-                              color: "#ffffff",
-                              fontWeight: "600",
-                            }}>
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                padding: "2px 6px",
+                                backgroundColor: ECOBRASIL.azulEscuro,
+                                borderRadius: "10px",
+                                color: "#ffffff",
+                                fontWeight: "600",
+                              }}
+                            >
                               {list.length}
                             </span>
                           )}
@@ -1036,8 +1211,10 @@ function CalendarioEcoBrasil({
                         <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                           {list.slice(0, 2).map((dem) => {
                             const resp = getResponsavelNome(dem, colaboradores);
-                            const borderColor = dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a";
-                            const bgColor = dem.prioridade === "alta" ? "#fef2f2" : dem.prioridade === "media" ? "#fefce8" : "#f0fdf4";
+                            const borderColor =
+                              dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a";
+                            const bgColor =
+                              dem.prioridade === "alta" ? "#fef2f2" : dem.prioridade === "media" ? "#fefce8" : "#f0fdf4";
                             return (
                               <div
                                 key={dem.id}
@@ -1050,15 +1227,17 @@ function CalendarioEcoBrasil({
                                   lineHeight: "1.3",
                                 }}
                               >
-                                <div style={{ 
-                                  fontWeight: "600", 
-                                  color: ECOBRASIL.azulEscuro,
-                                  wordBreak: "break-word",
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                }}>
+                                <div
+                                  style={{
+                                    fontWeight: "600",
+                                    color: ECOBRASIL.azulEscuro,
+                                    wordBreak: "break-word",
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                  }}
+                                >
                                   {dem.titulo}
                                 </div>
                                 <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", fontWeight: "500" }}>
@@ -1068,15 +1247,17 @@ function CalendarioEcoBrasil({
                             );
                           })}
                           {list.length > 2 && (
-                            <div style={{ 
-                              fontSize: "10px", 
-                              color: ECOBRASIL.azulEscuro, 
-                              fontWeight: "600",
-                              textAlign: "center",
-                              padding: "2px",
-                              backgroundColor: "#f1f5f9",
-                              borderRadius: "4px",
-                            }}>
+                            <div
+                              style={{
+                                fontSize: "10px",
+                                color: ECOBRASIL.azulEscuro,
+                                fontWeight: "600",
+                                textAlign: "center",
+                                padding: "2px",
+                                backgroundColor: "#f1f5f9",
+                                borderRadius: "4px",
+                              }}
+                            >
                               +{list.length - 2} mais
                             </div>
                           )}
@@ -1089,15 +1270,17 @@ function CalendarioEcoBrasil({
             </tbody>
           </table>
 
-          <div style={{ 
-            padding: "12px 20px",
-            backgroundColor: "#ffffff",
-            borderTop: "1px solid rgba(0,0,0,0.06)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontSize: "11px",
-          }}>
+          <div
+            style={{
+              padding: "12px 20px",
+              backgroundColor: "#ffffff",
+              borderTop: "1px solid rgba(0,0,0,0.06)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "11px",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               <span style={{ fontWeight: "600", color: ECOBRASIL.azulEscuro }}>Legenda:</span>
               <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -1113,9 +1296,7 @@ function CalendarioEcoBrasil({
                 Baixa
               </span>
             </div>
-            <div style={{ color: "#6b7280" }}>
-              EcoBrasil - Demandas com data de entrega
-            </div>
+            <div style={{ color: "#6b7280" }}>EcoBrasil. Demandas com data de entrega</div>
           </div>
         </div>
       </CardContent>
@@ -1130,49 +1311,82 @@ function CalendarioEcoBrasil({
 export default function DemandasPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const calendarExportRef = useRef<HTMLDivElement>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 3 } }));
 
-  const { data: colaboradoresRaw = [] } = useQuery<Colaborador[]>({
+  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
     queryKey: ["/api/colaboradores"],
     queryFn: async () => apiRequest("GET", "/api/colaboradores"),
+    staleTime: 60_000,
   });
 
-  const colaboradores = Array.isArray(colaboradoresRaw) ? colaboradoresRaw : [];
-
-  const { data: raw, isLoading } = useQuery({
+  const demandasQuery = useQuery({
     queryKey: ["/api/demandas"],
     queryFn: async () => apiRequest("GET", "/api/demandas"),
+    select: (raw) => normalizeDemandasList(raw),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+    onError: (e: any) => {
+      toast({
+        title: "Falha ao carregar demandas",
+        description: e?.message ?? "Erro desconhecido",
+        variant: "destructive",
+      });
+    },
   });
 
-  const demandas: Demanda[] = useMemo(() => normalizeDemandasList(raw), [raw]);
+  const demandas: Demanda[] = Array.isArray(demandasQuery.data) ? demandasQuery.data : [];
+  const isLoading = demandasQuery.isLoading;
 
   const { data: historicoRaw, isLoading: isLoadingHistorico } = useQuery({
     queryKey: ["/api/demandas/historico/all"],
     queryFn: async () => apiRequest("GET", "/api/demandas/historico/all"),
+    staleTime: 30_000,
   });
 
   const historico30d = useMemo(() => {
     const arr = ensureArray<any>(historicoRaw);
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
     return arr.filter((h) => {
-      const t = h?.criadoEm ? new Date(h.criadoEm).getTime() : 0;
-      return t && Number.isFinite(t) ? t >= cutoff : true;
+      const t = h?.criadoEm ? new Date(h.criadoEm).getTime() : NaN;
+      return Number.isFinite(t) ? t >= cutoff : false;
     });
   }, [historicoRaw]);
 
   const [editing, setEditing] = useState<Demanda | null>(null);
   const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
+
   const [clearHistoricoDialogOpen, setClearHistoricoDialogOpen] = useState(false);
   const [clearHistoricoSenha, setClearHistoricoSenha] = useState("");
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  
+
   const [confirmDocumentoDialogOpen, setConfirmDocumentoDialogOpen] = useState(false);
   const [demandaPendenteConclusao, setDemandaPendenteConclusao] = useState<{ id: number; titulo: string } | null>(null);
-  const [, setLocation] = useLocation();
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [demandaParaExcluir, setDemandaParaExcluir] = useState<Demanda | null>(null);
+
+  // ===================================================
+  // Ordem local por status
+  // ===================================================
+
+  const [order, setOrder] = useState<OrderState>(() => {
+    const loaded = typeof window !== "undefined" ? loadOrder() : null;
+    return loaded ?? { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
+  });
+
+  useEffect(() => {
+    const next = buildOrderFromDemandas(demandas, order);
+    setOrder(next);
+    saveOrder(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demandas.length]);
 
   // ===================================================
   // Downloads
@@ -1187,6 +1401,7 @@ export default function DemandasPage() {
       "prioridade",
       "complexidade",
       "categoria",
+      "dataInicio",
       "dataEntrega",
       "status",
       "responsavel",
@@ -1204,6 +1419,7 @@ export default function DemandasPage() {
         d.prioridade,
         d.complexidade,
         d.categoria,
+        d.dataInicio ?? "",
         d.dataEntrega,
         d.status,
         resp,
@@ -1259,8 +1475,8 @@ export default function DemandasPage() {
       const marginY = (pageH - drawH) / 2;
 
       pdf.addImage(imgData, "PNG", marginX, marginY, drawW, drawH, undefined, "FAST");
-
       pdf.save(`ecobrasil_calendario_demandas_${formatDate(calendarMonth, "yyyy_MM")}.pdf`);
+
       toast({ title: "PDF do calendário gerado." });
     } catch (e: any) {
       toast({
@@ -1283,10 +1499,11 @@ export default function DemandasPage() {
     },
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/demandas"] });
-      const prev = queryClient.getQueryData(["/api/demandas"]);
 
-      queryClient.setQueryData(["/api/demandas"], (old: any) => {
-        const arr = normalizeDemandasList(old);
+      const prev = queryClient.getQueryData<Demanda[]>(["/api/demandas"]);
+
+      queryClient.setQueryData<Demanda[]>(["/api/demandas"], (old) => {
+        const arr = Array.isArray(old) ? old : [];
         return arr.map((d) => (d.id === id ? { ...d, status } : d));
       });
 
@@ -1299,9 +1516,9 @@ export default function DemandasPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ 
+      await queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
-        refetchType: 'all'
+        refetchType: "all",
       });
       toast({ title: "Demanda movida." });
     },
@@ -1314,9 +1531,12 @@ export default function DemandasPage() {
     },
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ["/api/demandas"] });
-      const prev = queryClient.getQueryData(["/api/demandas"]);
+      const prev = queryClient.getQueryData<Demanda[]>(["/api/demandas"]);
 
-      removeDemandaFromCache(queryClient, id);
+      queryClient.setQueryData<Demanda[]>(["/api/demandas"], (old) => {
+        const arr = Array.isArray(old) ? old : [];
+        return arr.filter((d) => d.id !== id);
+      });
 
       return { prev };
     },
@@ -1327,9 +1547,9 @@ export default function DemandasPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ 
+      await queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
-        refetchType: 'all'
+        refetchType: "all",
       });
       toast({ title: "Demanda excluída." });
     },
@@ -1350,71 +1570,160 @@ export default function DemandasPage() {
   });
 
   // ===================================================
-  // Agrupamento por colunas
+  // View model por coluna com ordem
   // ===================================================
 
-  const columns = useMemo(() => {
-    const grouped: Record<Status, Demanda[]> = {
-      a_fazer: [],
-      em_andamento: [],
-      em_revisao: [],
-      concluido: [],
-      cancelado: [],
-    };
-
-    demandas.forEach((d) => grouped[normalizeStatus(d.status)].push(d));
-    return grouped;
+  const demandaById = useMemo(() => {
+    const m = new Map<number, Demanda>();
+    for (const d of demandas) m.set(d.id, d);
+    return m;
   }, [demandas]);
+
+  const columns = useMemo(() => {
+    const grouped: Record<Status, Demanda[]> = { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
+
+    for (const st of VALID_STATUSES) {
+      const ids = order[st] ?? [];
+      const list: Demanda[] = [];
+      for (const id of ids) {
+        const d = demandaById.get(id);
+        if (d && normalizeStatus(d.status) === st) list.push(d);
+      }
+
+      // fallback para itens não presentes na ordem
+      const present = new Set(list.map((x) => x.id));
+      for (const d of demandas) {
+        const s = normalizeStatus(d.status);
+        if (s === st && !present.has(d.id)) list.push(d);
+      }
+
+      grouped[st] = list;
+    }
+
+    return grouped;
+  }, [demandas, demandaById, order]);
+
+  // ===================================================
+  // DnD parsing ids
+  // ===================================================
+
+  function parseCardId(id: any): number | null {
+    const s = String(id ?? "");
+    if (s.startsWith("card:")) return safeNumber(s.slice(5));
+    return safeNumber(id);
+  }
+
+  function parseColumnStatus(id: any): Status | null {
+    const s = String(id ?? "");
+    if (s.startsWith("column:")) {
+      const st = s.slice(7);
+      return VALID_STATUSES.includes(st as Status) ? (st as Status) : null;
+    }
+    return null;
+  }
 
   // ===================================================
   // Drag handlers
   // ===================================================
 
   const onDragStart = (e: DragStartEvent) => {
-    const id = safeNumber(e.active.id);
+    const id = parseCardId(e.active.id);
     if (!id) return;
-    const d = demandas.find((x) => x.id === id);
+    const d = demandaById.get(id);
     if (d) setActiveDemanda(d);
   };
 
-  function extractOverStatus(over: any): Status | null {
-    const overIdStr = String(over?.id ?? "");
-    if (VALID_STATUSES.includes(overIdStr as Status)) return overIdStr as Status;
+  const onDragOver = (e: DragOverEvent) => {
+    const { active, over } = e;
+    if (!over) return;
 
-    const sortableContainerId = over?.data?.current?.sortable?.containerId;
-    const c = String(sortableContainerId ?? "");
-    if (VALID_STATUSES.includes(c as Status)) return c as Status;
+    const activeId = parseCardId(active.id);
+    if (!activeId) return;
 
-    const overIdNum = safeNumber(over?.id);
-    if (overIdNum) {
-      const target = demandas.find((x) => x.id === overIdNum);
-      if (target) return normalizeStatus(target.status);
+    const overStatus = parseColumnStatus(over.id);
+    const overCardId = parseCardId(over.id);
+
+    const d = demandaById.get(activeId);
+    if (!d) return;
+
+    const fromStatus = normalizeStatus(d.status);
+
+    let toStatus: Status | null = null;
+    if (overStatus) toStatus = overStatus;
+    else if (overCardId) {
+      const target = demandaById.get(overCardId);
+      if (target) toStatus = normalizeStatus(target.status);
     }
-    return null;
-  }
+
+    if (!toStatus) return;
+    if (toStatus === fromStatus) return;
+
+    // preview otimista da mudança de coluna. sem chamar backend aqui
+    setOrder((prev) => {
+      const next: OrderState = { ...prev };
+      next[fromStatus] = (next[fromStatus] ?? []).filter((x) => x !== activeId);
+      next[toStatus!] = [activeId, ...((next[toStatus!] ?? []).filter((x) => x !== activeId))];
+      saveOrder(next);
+      return next;
+    });
+
+    // também aplica status local no cache para render consistente
+    queryClient.setQueryData<Demanda[]>(["/api/demandas"], (old) => {
+      const arr = Array.isArray(old) ? old : [];
+      return arr.map((x) => (x.id === activeId ? { ...x, status: toStatus! } : x));
+    });
+  };
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     setActiveDemanda(null);
     if (!over) return;
 
-    const id = safeNumber(active.id);
-    if (!id) {
-      toast({ title: "Falha ao mover demanda", description: "ID inválido do card.", variant: "destructive" });
+    const activeId = parseCardId(active.id);
+    if (!activeId) return;
+
+    const activeDem = demandaById.get(activeId);
+    if (!activeDem) return;
+
+    const fromStatus = normalizeStatus(activeDem.status);
+
+    const overStatus = parseColumnStatus(over.id);
+    const overCardId = parseCardId(over.id);
+
+    let toStatus: Status | null = null;
+    if (overStatus) toStatus = overStatus;
+    else if (overCardId) {
+      const target = demandaById.get(overCardId);
+      if (target) toStatus = normalizeStatus(target.status);
+    }
+
+    if (!toStatus) return;
+
+    // reorder dentro da mesma coluna
+    if (toStatus === fromStatus && overCardId && overCardId !== activeId) {
+      setOrder((prev) => {
+        const ids = [...(prev[toStatus!] ?? [])];
+        const oldIndex = ids.indexOf(activeId);
+        const newIndex = ids.indexOf(overCardId);
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        const moved = arrayMove(ids, oldIndex, newIndex);
+        const next = { ...prev, [toStatus!]: moved };
+        saveOrder(next);
+        return next;
+      });
       return;
     }
 
-    const newStatus = extractOverStatus(over);
-    if (!newStatus) return;
-
-    const d = demandas.find((x) => x.id === id);
-    if (d && d.status !== newStatus) {
-      if (newStatus === "concluido") {
-        setDemandaPendenteConclusao({ id: d.id, titulo: d.titulo });
+    // mover para outra coluna. confirmação se concluir
+    if (toStatus !== fromStatus) {
+      if (toStatus === "concluido") {
+        setDemandaPendenteConclusao({ id: activeId, titulo: activeDem.titulo });
         setConfirmDocumentoDialogOpen(true);
-      } else {
-        moveMutation.mutate({ id, status: newStatus });
+        return;
       }
+
+      // persistir mudança no backend
+      moveMutation.mutate({ id: activeId, status: toStatus });
     }
   };
 
@@ -1433,6 +1742,21 @@ export default function DemandasPage() {
     }
     setConfirmDocumentoDialogOpen(false);
     setDemandaPendenteConclusao(null);
+  };
+
+  // ===================================================
+  // Exclusão com Dialog
+  // ===================================================
+
+  const askDelete = (d: Demanda) => {
+    setDemandaParaExcluir(d);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (demandaParaExcluir) deleteMutation.mutate(demandaParaExcluir.id);
+    setDeleteDialogOpen(false);
+    setDemandaParaExcluir(null);
   };
 
   if (isLoading) {
@@ -1460,10 +1784,12 @@ export default function DemandasPage() {
             Baixar CSV
           </Button>
 
-          <Button
-            style={{ backgroundColor: ECOBRASIL.azulEscuro, color: "white" }}
-            onClick={downloadCalendarPDF}
-          >
+          <Button variant="outline" onClick={downloadDemandasJSON}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Baixar JSON
+          </Button>
+
+          <Button style={{ backgroundColor: ECOBRASIL.azulEscuro, color: "white" }} onClick={downloadCalendarPDF}>
             <Download className="h-4 w-4 mr-2" />
             Baixar PDF do Calendário
           </Button>
@@ -1490,7 +1816,13 @@ export default function DemandasPage() {
         </div>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+      >
         <div className="flex gap-4 overflow-x-auto pb-4">
           {(Object.entries(STATUS_LABEL) as [Status, string][]).map(([status, label]) => (
             <KanbanColumn
@@ -1500,9 +1832,7 @@ export default function DemandasPage() {
               demandas={columns[status]}
               colaboradores={colaboradores}
               onEdit={setEditing}
-              onDelete={(id) => {
-                if (confirm("Tem certeza que deseja excluir esta demanda?")) deleteMutation.mutate(id);
-              }}
+              onAskDelete={askDelete}
             />
           ))}
         </div>
@@ -1577,7 +1907,11 @@ export default function DemandasPage() {
                     <Button type="button" variant="outline" onClick={() => setClearHistoricoDialogOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button type="submit" variant="destructive" disabled={!clearHistoricoSenha.trim() || clearHistoricoMutation.isPending}>
+                    <Button
+                      type="submit"
+                      variant="destructive"
+                      disabled={!clearHistoricoSenha.trim() || clearHistoricoMutation.isPending}
+                    >
                       {clearHistoricoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       Confirmar
                     </Button>
@@ -1655,12 +1989,15 @@ export default function DemandasPage() {
       </Dialog>
 
       {/* Modal de Confirmação de Documento ao Concluir */}
-      <Dialog open={confirmDocumentoDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setConfirmDocumentoDialogOpen(false);
-          setDemandaPendenteConclusao(null);
-        }
-      }}>
+      <Dialog
+        open={confirmDocumentoDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDocumentoDialogOpen(false);
+            setDemandaPendenteConclusao(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1675,28 +2012,56 @@ export default function DemandasPage() {
           </DialogHeader>
 
           <div className="py-4">
-            <p className="text-center text-lg font-medium mb-2">
-              Esta demanda gerou algum documento/produto?
-            </p>
+            <p className="text-center text-lg font-medium mb-2">Esta demanda gerou algum documento/produto?</p>
             <p className="text-center text-sm text-muted-foreground">
               Se sim, você será direcionado para salvar o documento antes de concluir a demanda.
             </p>
           </div>
 
           <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={handleConfirmSemDocumento}
-              className="flex-1"
-            >
-              Não, apenas concluir
+            <Button variant="outline" onClick={handleConfirmSemDocumento} className="flex-1">
+              Não. Apenas concluir
             </Button>
-            <Button
-              onClick={handleConfirmComDocumento}
-              className="flex-1"
-            >
+            <Button onClick={handleConfirmComDocumento} className="flex-1">
               <FileText className="h-4 w-4 mr-2" />
-              Sim, salvar documento
+              Sim. Salvar documento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Exclusão */}
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setDemandaParaExcluir(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Excluir Demanda
+            </DialogTitle>
+            <DialogDescription>
+              {demandaParaExcluir?.titulo ? (
+                <span>
+                  Confirma a exclusão da demanda <span className="font-medium text-foreground">"{demandaParaExcluir.titulo}"</span>?
+                </span>
+              ) : (
+                "Confirma a exclusão desta demanda?"
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} className="flex-1" disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir
             </Button>
           </DialogFooter>
         </DialogContent>
