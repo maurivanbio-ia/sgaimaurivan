@@ -2684,25 +2684,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
+    // Build unidade conditions:
+    // 1. Datasets that match the user's unidade
+    // 2. Legacy datasets (null/empty unidade) BUT only if they belong to empreendimentos of this unidade
+    const unidadeConditions = [
+      eq(datasets.unidade, unidade)
+    ];
+    
+    // Include datasets from empreendimentos of this unidade (including legacy ones)
     if (empIds.length > 0) {
-      // Match datasets that either have the unidade field set OR belong to an empreendimento of this unidade
-      return db.select()
-        .from(datasets)
-        .where(and(
-          eq(datasets.pastaId, pastaId),
-          or(
-            eq(datasets.unidade, unidade),
-            inArray(datasets.empreendimentoId, empIds)
-          )
-        ))
-        .orderBy(desc(datasets.dataUpload));
+      unidadeConditions.push(inArray(datasets.empreendimentoId, empIds));
     }
     
     return db.select()
       .from(datasets)
       .where(and(
         eq(datasets.pastaId, pastaId),
-        eq(datasets.unidade, unidade)
+        or(...unidadeConditions)
       ))
       .orderBy(desc(datasets.dataUpload));
   }

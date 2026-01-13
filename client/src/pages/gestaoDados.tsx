@@ -761,6 +761,17 @@ export default function GestaoDados() {
     });
   };
 
+  // Helper: Expand all folders
+  const expandAllFolders = () => {
+    const allIds = new Set(pastas.map(p => p.id));
+    setExpandedFolders(allIds);
+  };
+
+  // Helper: Collapse all folders
+  const collapseAllFolders = () => {
+    setExpandedFolders(new Set());
+  };
+
   // Helper: Build folder tree from flat list
   const buildFolderTree = (allPastas: DatasetPasta[]) => {
     const rootFolders = allPastas.filter(p => !p.paiId);
@@ -1364,10 +1375,30 @@ export default function GestaoDados() {
                     <FolderTree className="h-5 w-5 text-primary" />
                     Pastas
                   </CardTitle>
-                  <Button size="sm" variant="outline" onClick={() => { setParentFolderId(null); setIsCreateFolderOpen(true); }}>
-                    <FolderPlus className="h-4 w-4 mr-1" />
-                    Nova
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={collapseAllFolders}
+                      title="Recolher todas"
+                      className="h-7 w-7 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={expandAllFolders}
+                      title="Expandir todas"
+                      className="h-7 w-7 p-0"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setParentFolderId(null); setIsCreateFolderOpen(true); }}>
+                      <FolderPlus className="h-4 w-4 mr-1" />
+                      Nova
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
