@@ -26,6 +26,7 @@ import {
   subMonths,
   isSameMonth,
   isSameDay,
+  eachDayOfInterval,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -211,6 +212,7 @@ function normalizeDemanda(raw: any): Demanda | null {
   if (!id) return null;
 
   const status = normalizeStatus(raw?.status);
+  const dataInicio = normalizeDateYmd(raw?.dataInicio ?? raw?.data_inicio) || null;
   const dataEntrega = normalizeDateYmd(raw?.dataEntrega);
 
   return {
@@ -221,6 +223,7 @@ function normalizeDemanda(raw: any): Demanda | null {
     prioridade: (raw?.prioridade ?? "media") as Prioridade,
     complexidade: (raw?.complexidade ?? "media") as Complexidade,
     categoria: (raw?.categoria ?? "geral") as Categoria,
+    dataInicio,
     dataEntrega,
     status,
 
@@ -870,10 +873,24 @@ function CalendarioEcoBrasil({
   const byDate = useMemo(() => {
     const map = new Map<string, Demanda[]>();
     for (const d of demandas) {
-      const ymd = normalizeDateYmd(d.dataEntrega);
-      if (!ymd) continue;
-      if (!map.has(ymd)) map.set(ymd, []);
-      map.get(ymd)!.push(d);
+      const dataEntregaYmd = normalizeDateYmd(d.dataEntrega);
+      if (!dataEntregaYmd) continue;
+      
+      const dataFim = parseISO(dataEntregaYmd);
+      const dataInicioYmd = d.dataInicio ? normalizeDateYmd(d.dataInicio) : null;
+      const dataInicio = dataInicioYmd ? parseISO(dataInicioYmd) : dataFim;
+      
+      if (dataInicio <= dataFim) {
+        const diasPeriodo = eachDayOfInterval({ start: dataInicio, end: dataFim });
+        for (const dia of diasPeriodo) {
+          const ymd = formatDate(dia, "yyyy-MM-dd");
+          if (!map.has(ymd)) map.set(ymd, []);
+          map.get(ymd)!.push(d);
+        }
+      } else {
+        if (!map.has(dataEntregaYmd)) map.set(dataEntregaYmd, []);
+        map.get(dataEntregaYmd)!.push(d);
+      }
     }
     for (const [k, arr] of map.entries()) {
       arr.sort((a, b) => {

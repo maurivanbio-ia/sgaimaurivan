@@ -36,6 +36,7 @@ interface Demanda {
   titulo: string;
   empreendimentoId: number;
   empreendimentoNome: string;
+  dataInicio?: string | null;
   dataEntrega: string;
   status: string;
   prioridade: string;
@@ -156,16 +157,46 @@ export default function Calendario() {
 
     demandas.forEach(dem => {
       if (dem.dataEntrega) {
-        allEvents.push({
-          id: `dem-${dem.id}`,
-          title: dem.titulo,
-          date: parseISO(dem.dataEntrega),
-          type: "demanda",
-          status: dem.status,
-          link: `/demandas`,
-          color: eventColors.demanda,
-          prioridade: dem.prioridade,
-        });
+        const dataFim = parseISO(dem.dataEntrega);
+        const dataInicio = dem.dataInicio ? parseISO(dem.dataInicio) : dataFim;
+        
+        if (dataInicio <= dataFim) {
+          const diasPeriodo = eachDayOfInterval({ start: dataInicio, end: dataFim });
+          diasPeriodo.forEach((dia, idx) => {
+            const isPrimeiro = idx === 0;
+            const isUltimo = idx === diasPeriodo.length - 1;
+            const isUnico = diasPeriodo.length === 1;
+            
+            let tituloEvento = dem.titulo;
+            if (!isUnico) {
+              if (isPrimeiro) tituloEvento = `${dem.titulo} (início)`;
+              else if (isUltimo) tituloEvento = `${dem.titulo} (fim)`;
+              else tituloEvento = dem.titulo;
+            }
+            
+            allEvents.push({
+              id: `dem-${dem.id}-${idx}`,
+              title: tituloEvento,
+              date: dia,
+              type: "demanda",
+              status: dem.status,
+              link: `/demandas`,
+              color: eventColors.demanda,
+              prioridade: dem.prioridade,
+            });
+          });
+        } else {
+          allEvents.push({
+            id: `dem-${dem.id}`,
+            title: dem.titulo,
+            date: dataFim,
+            type: "demanda",
+            status: dem.status,
+            link: `/demandas`,
+            color: eventColors.demanda,
+            prioridade: dem.prioridade,
+          });
+        }
       }
     });
 
