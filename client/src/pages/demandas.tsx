@@ -364,8 +364,10 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
       else replaceDemandaInCache(queryClient, createdOrUpdated);
 
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/dashboard/stats"] });
+      await queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
+        refetchType: 'all'
+      });
       toast({ title: isEdit ? "Demanda atualizada." : "Demanda criada." });
       onSuccess();
     },
@@ -1297,8 +1299,10 @@ export default function DemandasPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/dashboard/stats"] });
+      await queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
+        refetchType: 'all'
+      });
       toast({ title: "Demanda movida." });
     },
   });
@@ -1323,8 +1327,10 @@ export default function DemandasPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/dashboard/stats"] });
+      await queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
+        refetchType: 'all'
+      });
       toast({ title: "Demanda excluída." });
     },
   });
