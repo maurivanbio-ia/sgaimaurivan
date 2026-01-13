@@ -1458,7 +1458,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin route to clear demandas movement history (requires password)
-  app.delete('/api/admin/demandas/historico', requireAuth, async (req, res) => {
+  // Using POST instead of DELETE because DELETE with body doesn't work reliably in all browsers
+  app.post('/api/admin/demandas/historico/clear', requireAuth, async (req, res) => {
     try {
       const { senha } = req.body || {};
       const adminPassword = process.env.ADMIN_UNLOCK_PASSWORD;

@@ -1324,7 +1324,7 @@ export default function DemandasPage() {
   });
 
   const clearHistoricoMutation = useMutation({
-    mutationFn: async (senha: string) => apiRequest("DELETE", `/api/admin/demandas/historico`, { senha }),
+    mutationFn: async (senha: string) => apiRequest("POST", `/api/admin/demandas/historico/clear`, { senha }),
     onSuccess: async (data: any) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
       toast({ title: data?.message || "Histórico limpo." });
