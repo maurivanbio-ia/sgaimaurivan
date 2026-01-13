@@ -270,23 +270,17 @@ export default function DashboardCoordenador() {
   const isLoading =
     userQuery.isLoading ||
     projetosQuery.isLoading ||
-    empreendimentosQuery.isLoading ||
-    lancamentosQuery.isLoading ||
-    categoriasQuery.isLoading;
+    empreendimentosQuery.isLoading;
 
   const hasError =
     userQuery.isError ||
     projetosQuery.isError ||
-    empreendimentosQuery.isError ||
-    lancamentosQuery.isError ||
-    categoriasQuery.isError;
+    empreendimentosQuery.isError;
 
   const errorMessage =
     (userQuery.error as Error | undefined)?.message ||
     (projetosQuery.error as Error | undefined)?.message ||
     (empreendimentosQuery.error as Error | undefined)?.message ||
-    (lancamentosQuery.error as Error | undefined)?.message ||
-    (categoriasQuery.error as Error | undefined)?.message ||
     "";
 
   const projetos = projetosQuery.data ?? [];
