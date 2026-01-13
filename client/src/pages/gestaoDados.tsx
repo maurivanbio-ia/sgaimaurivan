@@ -139,6 +139,68 @@ export default function GestaoDados() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Estado para demanda pendente de conclusão (vindo das demandas)
+  const [demandaPendente, setDemandaPendente] = useState<{ id: number; titulo: string } | null>(null);
+
+  // Verificar se há demanda pendente ao montar
+  useEffect(() => {
+    const stored = localStorage.getItem("demandaPendenteConclusao");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed?.id && parsed?.titulo) {
+          setDemandaPendente(parsed);
+        }
+      } catch (e) {
+        localStorage.removeItem("demandaPendenteConclusao");
+      }
+    }
+  }, []);
+
+  // Função para concluir demanda pendente
+  const concluirDemandaPendente = async () => {
+    if (!demandaPendente) return;
+    
+    try {
+      const res = await fetch(`/api/demandas/${demandaPendente.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "concluido" }),
+      });
+      
+      if (res.ok) {
+        toast({ 
+          title: "Demanda Concluída!", 
+          description: `"${demandaPendente.titulo}" foi concluída com sucesso após salvar o documento.` 
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+        localStorage.removeItem("demandaPendenteConclusao");
+        setDemandaPendente(null);
+      } else {
+        toast({ 
+          title: "Erro ao concluir demanda", 
+          description: "Documento salvo, mas houve erro ao concluir a demanda. Clique em 'Tentar novamente' no banner.",
+          variant: "destructive"
+        });
+      }
+    } catch (e) {
+      console.error("Erro ao concluir demanda:", e);
+      toast({ 
+        title: "Erro de conexão", 
+        description: "Não foi possível concluir a demanda. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Cancelar demanda pendente
+  const cancelarDemandaPendente = () => {
+    localStorage.removeItem("demandaPendenteConclusao");
+    setDemandaPendente(null);
+    toast({ title: "Cancelado", description: "A demanda não será concluída automaticamente." });
+  };
+
   // Estados principais
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState("");
@@ -331,6 +393,9 @@ export default function GestaoDados() {
       refetch();
       toast({ title: "Sucesso", description: "Arquivo enviado e registrado com sucesso!" });
       setIsUploadingToFolder(false);
+      if (demandaPendente) {
+        concluirDemandaPendente();
+      }
     },
     onError: () => {
       toast({ title: "Erro", description: "Falha ao registrar arquivo.", variant: "destructive" });
@@ -442,6 +507,9 @@ export default function GestaoDados() {
       resetForm();
       setIsUploadDialogOpen(false);
       setIsUploading(false);
+      if (demandaPendente) {
+        concluirDemandaPendente();
+      }
     },
     onError: () => {
       toast({ title: "Erro", description: "Falha ao enviar arquivo.", variant: "destructive" });
@@ -466,6 +534,9 @@ export default function GestaoDados() {
       resetForm();
       setIsUploadDialogOpen(false);
       setIsUploading(false);
+      if (demandaPendente) {
+        concluirDemandaPendente();
+      }
     },
     onError: () => {
       toast({ title: "Erro", description: "Falha ao enviar documento.", variant: "destructive" });
@@ -794,6 +865,34 @@ export default function GestaoDados() {
   return (
     <SensitivePageWrapper moduleName="Gestão de Dados">
     <div className="container mx-auto p-6 space-y-6">
+      {/* Banner de Demanda Pendente */}
+      {demandaPendente && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 rounded-full p-2">
+              <FileText className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-medium text-amber-800">
+                Demanda aguardando conclusão
+              </p>
+              <p className="text-sm text-amber-700">
+                "{demandaPendente.titulo}" será concluída automaticamente após salvar o documento.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={concluirDemandaPendente} className="text-green-600 hover:text-green-800 border-green-200 hover:bg-green-50">
+              Concluir agora
+            </Button>
+            <Button variant="ghost" size="sm" onClick={cancelarDemandaPendente} className="text-amber-600 hover:text-amber-800">
+              <X className="h-4 w-4 mr-1" />
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>

@@ -38,7 +38,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useLocation } from "wouter";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -1153,6 +1154,10 @@ export default function DemandasPage() {
   const [clearHistoricoDialogOpen, setClearHistoricoDialogOpen] = useState(false);
   const [clearHistoricoSenha, setClearHistoricoSenha] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  
+  const [confirmDocumentoDialogOpen, setConfirmDocumentoDialogOpen] = useState(false);
+  const [demandaPendenteConclusao, setDemandaPendenteConclusao] = useState<{ id: number; titulo: string } | null>(null);
+  const [, setLocation] = useLocation();
 
   // ===================================================
   // Downloads
@@ -1380,7 +1385,31 @@ export default function DemandasPage() {
     if (!newStatus) return;
 
     const d = demandas.find((x) => x.id === id);
-    if (d && d.status !== newStatus) moveMutation.mutate({ id, status: newStatus });
+    if (d && d.status !== newStatus) {
+      if (newStatus === "concluido") {
+        setDemandaPendenteConclusao({ id: d.id, titulo: d.titulo });
+        setConfirmDocumentoDialogOpen(true);
+      } else {
+        moveMutation.mutate({ id, status: newStatus });
+      }
+    }
+  };
+
+  const handleConfirmSemDocumento = () => {
+    if (demandaPendenteConclusao) {
+      moveMutation.mutate({ id: demandaPendenteConclusao.id, status: "concluido" });
+    }
+    setConfirmDocumentoDialogOpen(false);
+    setDemandaPendenteConclusao(null);
+  };
+
+  const handleConfirmComDocumento = () => {
+    if (demandaPendenteConclusao) {
+      localStorage.setItem("demandaPendenteConclusao", JSON.stringify(demandaPendenteConclusao));
+      setLocation("/gestao-dados");
+    }
+    setConfirmDocumentoDialogOpen(false);
+    setDemandaPendenteConclusao(null);
   };
 
   if (isLoading) {
@@ -1599,6 +1628,54 @@ export default function DemandasPage() {
               }}
             />
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Documento ao Concluir */}
+      <Dialog open={confirmDocumentoDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmDocumentoDialogOpen(false);
+          setDemandaPendenteConclusao(null);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Conclusão de Demanda
+            </DialogTitle>
+            <DialogDescription>
+              {demandaPendenteConclusao?.titulo && (
+                <span className="font-medium text-foreground">"{demandaPendenteConclusao.titulo}"</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-center text-lg font-medium mb-2">
+              Esta demanda gerou algum documento/produto?
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              Se sim, você será direcionado para salvar o documento antes de concluir a demanda.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handleConfirmSemDocumento}
+              className="flex-1"
+            >
+              Não, apenas concluir
+            </Button>
+            <Button
+              onClick={handleConfirmComDocumento}
+              className="flex-1"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Sim, salvar documento
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
