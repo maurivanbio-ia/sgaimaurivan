@@ -994,29 +994,31 @@ function CalendarioEcoBrasil({
                         ) : null}
                       </div>
 
-                      <div className="space-y-1">
-                        {list.slice(0, 4).map((dem) => {
+                      <div className="space-y-0.5">
+                        {list.slice(0, 3).map((dem) => {
                           const resp = getResponsavelNome(dem, colaboradores);
+                          const prioridadeColor = {
+                            alta: "bg-red-500",
+                            media: "bg-yellow-500", 
+                            baixa: "bg-green-500"
+                          }[dem.prioridade] || "bg-gray-400";
                           return (
                             <div
                               key={dem.id}
-                              className={cn(
-                                "rounded-md border px-2 py-1 text-[10px] leading-tight",
-                                prioridadeBorder(dem.prioridade)
-                              )}
+                              className="rounded px-1.5 py-0.5 text-[9px] leading-tight bg-slate-50 border-l-2"
+                              style={{ borderLeftColor: dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a" }}
                             >
-                              <div className="font-semibold line-clamp-1">{dem.titulo}</div>
-                              <div className="text-[10px] text-muted-foreground line-clamp-1">{dem.descricao}</div>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">{dem.setor}</span>
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">{STATUS_LABEL[dem.status]}</span>
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px]">{resp}</span>
+                              <div className="font-medium truncate" style={{ color: ECOBRASIL.azulEscuro }}>
+                                {dem.titulo.length > 20 ? dem.titulo.substring(0, 20) + "..." : dem.titulo}
+                              </div>
+                              <div className="text-[8px] text-muted-foreground truncate">
+                                {resp}
                               </div>
                             </div>
                           );
                         })}
-                        {list.length > 4 ? (
-                          <div className="text-[10px] text-muted-foreground">Mais {list.length - 4}…</div>
+                        {list.length > 3 ? (
+                          <div className="text-[9px] text-muted-foreground font-medium">+{list.length - 3} mais</div>
                         ) : null}
                       </div>
                     </div>
@@ -1351,11 +1353,6 @@ export default function DemandasPage() {
           <Button variant="outline" onClick={downloadDemandasCSV}>
             <FileDown className="h-4 w-4 mr-2" />
             Baixar CSV
-          </Button>
-
-          <Button variant="outline" onClick={downloadDemandasJSON}>
-            <Download className="h-4 w-4 mr-2" />
-            Baixar JSON
           </Button>
 
           <Button
