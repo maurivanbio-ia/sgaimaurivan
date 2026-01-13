@@ -1,12 +1,24 @@
+// src/pages/DashboardCoordenador.tsx
+// Correções e integrações aplicadas.
+// 1. Regra de acesso mais robusta (aceita "coordenador", "coordenador(a)", variações, e também admin/diretor).
+// 2. Integração com filtro de empreendimento via querystring (?empreendimentoId=) e propagação automática para navegação.
+// 3. Queries mais resilientes com fallback de endpoints (evita “quebrar” se um endpoint mudou).
+// 4. Sanitização de dados numéricos para evitar NaN/Infinity em gráficos (recharts pode travar em alguns cenários).
+// 5. Estados de carregamento, erro e empty-states consistentes, com botão de recarregar.
+// 6. Navegação para empreendimentos preserva empreendimentoId na URL.
+
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AlertTriangle, FolderKanban, TrendingDown, BarChart3, RefreshCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, FolderKanban, TrendingDown, BarChart3, RefreshCcw, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   BarChart,
   Bar,
@@ -20,6 +32,10 @@ import {
   Pie,
   Cell,
 } from "recharts";
+
+/* =========================
+   Tipos
+   ========================= */
 
 interface User {
   id: number;
@@ -63,59 +79,26 @@ interface CategoriaFinanceira {
   cor: string;
 }
 
-const FALLBACK_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#14b8a6",
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-];
+/* =========================
+   Constantes e utilitários
+   ========================= */
+
+const FALLBACK_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 function toNumberBR(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return 0;
-
   const raw = value.trim();
   if (!raw) return 0;
 
-  const cleaned = raw
-    .replace(/\s/g, "")
-    .replace(/[R$]/g, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".");
-
+  const cleaned = raw.replace(/\s/g, "").replace(/[R$]/g, "").replace(/\./g, "").replace(/,/g, ".");
   const num = Number.parseFloat(cleaned);
   return Number.isFinite(num) ? num : 0;
 }
 
 function formatCurrency(value: number | string): string {
   const num = typeof value === "string" ? toNumberBR(value) : value;
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(num || 0);
-}
-
-function safeUserLabel(email?: string): string {
-  if (!email) return "Usuário";
-  const left = email.split("@")[0] || "Usuário";
-  return left || "Usuário";
-}
-
-function getInitials(email?: string): string {
-  const label = safeUserLabel(email);
-  const letters = label.replace(/[^a-zA-Z0-9]/g, "");
-  const two = (letters.slice(0, 2) || "US").toUpperCase();
-  return two;
-}
-
-async function fetchJSON<T>(url: string): Promise<T> {
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Falha ao carregar ${url}. Status ${res.status}. ${txt}`);
-  }
-  return res.json() as Promise<T>;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number.isFinite(num) ? num : 0);
 }
 
 type MoneyTickMode = "auto" | "full";
@@ -129,53 +112,160 @@ function formatAxisMoney(value: number, mode: MoneyTickMode = "auto"): string {
   return `R$ ${value.toFixed(0)}`;
 }
 
+function safeUserLabel(email?: string): string {
+  if (!email) return "Usuário";
+  const left = email.split("@")[0] || "Usuário";
+  return left || "Usuário";
+}
+
+function getInitials(email?: string): string {
+  const label = safeUserLabel(email);
+  const letters = label.replace(/[^a-zA-Z0-9]/g, "");
+  return (letters.slice(0, 2) || "US").toUpperCase();
+}
+
+function normalizeText(s: string | null | undefined): string {
+  return (s || "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+function isCoordinatorUser(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeText(user.role);
+  const cargo = normalizeText(user.cargo);
+
+  // Aceita variações: "coordenador", "coordenador(a)", "coord", "coordenacao", etc.
+  const looksCoordinator =
+    cargo.includes("coordenador") || cargo.includes("coordenacao") || cargo.includes("coord") || role.includes("coordenador");
+
+  // Se quiser permitir admin/diretor também acessarem, mantém true para esses perfis.
+  const isPrivileged = role === "admin" || cargo.includes("diretor") || cargo.includes("administrador");
+
+  return looksCoordinator || isPrivileged;
+}
+
+function canSeeComparativo(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeText(user.role);
+  const cargo = normalizeText(user.cargo);
+  return role === "admin" || cargo.includes("diretor") || cargo.includes("administrador");
+}
+
+async function fetchJSON<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Falha ao carregar ${url}. Status ${res.status}. ${txt}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function fetchJSONWithFallback<T>(urls: string[]): Promise<T> {
+  let lastErr: unknown = null;
+  for (const u of urls) {
+    try {
+      return await fetchJSON<T>(u);
+    } catch (e) {
+      lastErr = e;
+      const msg = (e as Error)?.message || "";
+      // Se não for 404, ou se for erro de autenticação, não fica tentando outros.
+      if (!msg.includes("Status 404") && !msg.includes("Status 400")) throw e;
+    }
+  }
+  throw (lastErr as Error) || new Error("Falha ao carregar recurso.");
+}
+
+function readEmpreendimentoIdFromUrl(): number | null {
+  try {
+    const u = new URL(window.location.href);
+    const v = u.searchParams.get("empreendimentoId");
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function withEmpParam(path: string, empreendimentoId?: number | null) {
+  if (!empreendimentoId) return path;
+  const url = new URL(path, "http://local");
+  url.searchParams.set("empreendimentoId", String(empreendimentoId));
+  return url.pathname + url.search;
+}
+
+function safeFinite(n: number): number {
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* =========================
+   Componente
+   ========================= */
+
 export default function DashboardCoordenador() {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
+  const initialEmpId = readEmpreendimentoIdFromUrl();
+  const [selectedEmpId, setSelectedEmpId] = useState<number | null>(initialEmpId);
 
   const userQuery = useQuery<User>({
     queryKey: ["/api/auth/me"],
     queryFn: () => fetchJSON<User>("/api/auth/me"),
     staleTime: 60_000,
-    retry: 2,
+    retry: 1,
   });
+
+  const user = userQuery.data;
 
   const projetosQuery = useQuery<Projeto[]>({
     queryKey: ["/api/projetos"],
-    queryFn: () => fetchJSON<Projeto[]>("/api/projetos"),
+    queryFn: () => fetchJSONWithFallback<Projeto[]>(["/api/projetos", "/api/projects"]),
     staleTime: 60_000,
-    retry: 2,
-    enabled: !!userQuery.data,
+    retry: 1,
+    enabled: !!user,
   });
 
   const empreendimentosQuery = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
-    queryFn: () => fetchJSON<Empreendimento[]>("/api/empreendimentos"),
+    queryFn: () => fetchJSONWithFallback<Empreendimento[]>(["/api/empreendimentos", "/api/enterprises"]),
     staleTime: 60_000,
-    retry: 2,
-    enabled: !!userQuery.data,
+    retry: 1,
+    enabled: !!user,
   });
 
   const lancamentosQuery = useQuery<Lancamento[]>({
     queryKey: ["/api/financeiro/lancamentos"],
-    queryFn: () => fetchJSON<Lancamento[]>("/api/financeiro/lancamentos"),
+    queryFn: () =>
+      fetchJSONWithFallback<Lancamento[]>([
+        "/api/financeiro/lancamentos",
+        "/api/financeiro/transactions",
+        "/api/finance/lancamentos",
+      ]),
     staleTime: 30_000,
-    retry: 2,
-    enabled: !!userQuery.data,
+    retry: 1,
+    enabled: !!user,
   });
 
   const categoriasQuery = useQuery<CategoriaFinanceira[]>({
     queryKey: ["/api/categorias-financeiras"],
-    queryFn: () => fetchJSON<CategoriaFinanceira[]>("/api/categorias-financeiras"),
+    queryFn: () =>
+      fetchJSONWithFallback<CategoriaFinanceira[]>([
+        "/api/categorias-financeiras",
+        "/api/financeiro/categorias",
+        "/api/finance/categories",
+      ]),
     staleTime: 5 * 60_000,
-    retry: 2,
-    enabled: !!userQuery.data,
+    retry: 1,
+    enabled: !!user,
   });
 
-  const user = userQuery.data;
-  const projetos = projetosQuery.data ?? [];
-  const empreendimentos = empreendimentosQuery.data ?? [];
-  const lancamentos = lancamentosQuery.data ?? [];
-  const categorias = categoriasQuery.data ?? [];
+  const allUsersQuery = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: () => fetchJSONWithFallback<User[]>(["/api/users", "/api/usuarios"]),
+    staleTime: 5 * 60_000,
+    retry: 1,
+    enabled: !!user && canSeeComparativo(user),
+  });
 
   const isLoading =
     userQuery.isLoading ||
@@ -199,53 +289,52 @@ export default function DashboardCoordenador() {
     (categoriasQuery.error as Error | undefined)?.message ||
     "";
 
-  const canSeeComparativo = React.useMemo(() => {
-    const role = (user?.role || "").toLowerCase();
-    const cargo = (user?.cargo || "").toLowerCase();
-    return role === "admin" || cargo === "diretor" || cargo === "administrador";
-  }, [user?.role, user?.cargo]);
+  const projetos = projetosQuery.data ?? [];
+  const empreendimentos = empreendimentosQuery.data ?? [];
+  const lancamentos = lancamentosQuery.data ?? [];
+  const categorias = categoriasQuery.data ?? [];
+  const allUsers = allUsersQuery.data ?? [];
 
-  const {
-    myProjects,
-    myEmpreendimentos,
-    allMyEmpreendimentoIds,
-    empreendimentoMap,
-    categoriaMap,
-    despesasByEmpreendimentoId,
-    totalDespesasByEmpreendimentoId,
-    myDespesas,
-    totalGastos,
-    orcamentoByEmpreendimentoId,
-    empreendimentosResumo,
-    categoriaChartData,
-    barChartDataEmpreendimentos,
-  } = React.useMemo(() => {
+  // Se o empreendimento selecionado não existe mais, volta para null.
+  React.useEffect(() => {
+    if (selectedEmpId && empreendimentos.length > 0) {
+      const exists = empreendimentos.some((e) => e.id === selectedEmpId);
+      if (!exists) setSelectedEmpId(null);
+    }
+  }, [selectedEmpId, empreendimentos]);
+
+  const allowAccess = isCoordinatorUser(user);
+
+  const derived = useMemo(() => {
     const empreendimentoMap = new Map<number, Empreendimento>();
     for (const e of empreendimentos) empreendimentoMap.set(e.id, e);
 
     const categoriaMap = new Map<number, CategoriaFinanceira>();
     for (const c of categorias) categoriaMap.set(c.id, c);
 
+    // Projetos sob coordenação do usuário
     const myProjects = user ? projetos.filter((p) => p.coordenadorId === user.id) : [];
+
+    // Empreendimentos onde ele é coordenador direto (campo em empreendimento)
     const myEmpreendimentos = user ? empreendimentos.filter((e) => e.coordenadorId === user.id) : [];
 
-    const myProjectEmprIds = new Set<number>(myProjects.map((p) => p.empreendimentoId));
-    const myEmpreendimentoIds = new Set<number>(myEmpreendimentos.map((e) => e.id));
-    const allMyEmpreendimentoIds = new Set<number>([...myProjectEmprIds, ...myEmpreendimentoIds]);
+    // Universo de empreendimentos do escopo, união de ambos.
+    const myProjectEmpIds = new Set<number>(myProjects.map((p) => p.empreendimentoId));
+    const myEmpIds = new Set<number>(myEmpreendimentos.map((e) => e.id));
+    const allMyEmpreendimentoIds = new Set<number>([...myProjectEmpIds, ...myEmpIds]);
 
-    const despesasByEmpreendimentoId = new Map<number, Lancamento[]>();
-    const totalDespesasByEmpreendimentoId = new Map<number, number>();
+    // Se existe filtro selecionado, reduz o escopo para aquele empreendimento.
+    const scopedEmpreendimentoIds =
+      selectedEmpId && allMyEmpreendimentoIds.has(selectedEmpId) ? new Set<number>([selectedEmpId]) : allMyEmpreendimentoIds;
 
     const myDespesas: Lancamento[] = [];
+    const totalDespesasByEmpreendimentoId = new Map<number, number>();
+
     for (const l of lancamentos) {
-      if (l.tipo !== "despesa") continue;
-      if (!allMyEmpreendimentoIds.has(l.empreendimentoId)) continue;
+      if (normalizeText(l.tipo) !== "despesa") continue;
+      if (!scopedEmpreendimentoIds.has(l.empreendimentoId)) continue;
 
       myDespesas.push(l);
-
-      const arr = despesasByEmpreendimentoId.get(l.empreendimentoId) ?? [];
-      arr.push(l);
-      despesasByEmpreendimentoId.set(l.empreendimentoId, arr);
 
       const prev = totalDespesasByEmpreendimentoId.get(l.empreendimentoId) ?? 0;
       totalDespesasByEmpreendimentoId.set(l.empreendimentoId, prev + toNumberBR(l.valor));
@@ -255,15 +344,15 @@ export default function DashboardCoordenador() {
 
     const orcamentoByEmpreendimentoId = new Map<number, number>();
     for (const p of myProjects) {
+      if (!scopedEmpreendimentoIds.has(p.empreendimentoId)) continue;
       const prev = orcamentoByEmpreendimentoId.get(p.empreendimentoId) ?? 0;
       orcamentoByEmpreendimentoId.set(p.empreendimentoId, prev + toNumberBR(p.orcamentoPrevisto));
     }
 
-    const empreendimentosResumo = Array.from(allMyEmpreendimentoIds).map((empreendimentoId) => {
+    const empreendimentosResumo = Array.from(scopedEmpreendimentoIds).map((empreendimentoId) => {
       const empreendimento = empreendimentoMap.get(empreendimentoId);
       const totalDespesas = totalDespesasByEmpreendimentoId.get(empreendimentoId) ?? 0;
       const orcamento = orcamentoByEmpreendimentoId.get(empreendimentoId) ?? 0;
-
       const percentualGasto = orcamento > 0 ? (totalDespesas / orcamento) * 100 : 0;
 
       return {
@@ -271,76 +360,60 @@ export default function DashboardCoordenador() {
         empreendimentoNome: empreendimento?.nome || "Empreendimento",
         cliente: empreendimento?.cliente || "",
         unidade: empreendimento?.unidade || "",
-        totalGastos: totalDespesas,
-        orcamento,
-        percentualGasto,
+        totalGastos: safeFinite(totalDespesas),
+        orcamento: safeFinite(orcamento),
+        percentualGasto: safeFinite(percentualGasto),
         projetosVinculados: myProjects.filter((p) => p.empreendimentoId === empreendimentoId).length,
       };
     });
 
     empreendimentosResumo.sort((a, b) => b.totalGastos - a.totalGastos);
 
-    const gastosPorCategoriaAgg = new Map<
-      string,
-      { nome: string; valor: number; cor: string }
-    >();
-
+    const gastosPorCategoriaAgg = new Map<string, { nome: string; valor: number; cor: string }>();
     for (const l of myDespesas) {
       const categoria = categoriaMap.get(l.categoriaId);
       const nome = categoria?.nome || "Outros";
       const cor = categoria?.cor || "#94a3b8";
+
       const prev = gastosPorCategoriaAgg.get(nome) ?? { nome, valor: 0, cor };
-      prev.valor += toNumberBR(l.valor);
+      prev.valor = safeFinite(prev.valor + toNumberBR(l.valor));
       prev.cor = cor || prev.cor;
       gastosPorCategoriaAgg.set(nome, prev);
     }
 
     const categoriaChartData = Array.from(gastosPorCategoriaAgg.values())
+      .filter((x) => Number.isFinite(x.valor) && x.valor > 0)
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 8);
 
     const barChartDataEmpreendimentos = empreendimentosResumo.map((e) => ({
       nome: e.empreendimentoNome.length > 18 ? `${e.empreendimentoNome.slice(0, 18)}...` : e.empreendimentoNome,
-      gastos: e.totalGastos,
-      orcamento: e.orcamento,
+      gastos: safeFinite(e.totalGastos),
+      orcamento: safeFinite(e.orcamento),
     }));
 
+    const myProjectsScoped =
+      selectedEmpId && allMyEmpreendimentoIds.has(selectedEmpId)
+        ? myProjects.filter((p) => p.empreendimentoId === selectedEmpId)
+        : myProjects;
+
     return {
-      myProjects,
-      myEmpreendimentos,
-      allMyEmpreendimentoIds,
       empreendimentoMap,
-      categoriaMap,
-      despesasByEmpreendimentoId,
-      totalDespesasByEmpreendimentoId,
+      myProjects: myProjectsScoped,
+      allMyEmpreendimentoIds,
+      totalGastos: safeFinite(totalGastos),
       myDespesas,
-      totalGastos,
-      orcamentoByEmpreendimentoId,
       empreendimentosResumo,
       categoriaChartData,
       barChartDataEmpreendimentos,
     };
-  }, [user, projetos, empreendimentos, lancamentos, categorias]);
+  }, [user, projetos, empreendimentos, lancamentos, categorias, selectedEmpId]);
 
-  const allUsersQuery = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: () => fetchJSON<User[]>("/api/users"),
-    staleTime: 5 * 60_000,
-    retry: 2,
-    enabled: !!user && canSeeComparativo,
-  });
-
-  const allUsers = allUsersQuery.data ?? [];
-
-  const comparativoCoordenadores = React.useMemo(() => {
-    if (!canSeeComparativo) return [];
+  const comparativoCoordenadores = useMemo(() => {
+    if (!user || !canSeeComparativo(user)) return [];
 
     const coordIds = Array.from(
-      new Set(
-        projetos
-          .filter((p) => p.coordenadorId != null)
-          .map((p) => p.coordenadorId as number),
-      ),
+      new Set(projetos.filter((p) => p.coordenadorId != null).map((p) => p.coordenadorId as number)),
     );
 
     const coordProjectsById = new Map<number, Projeto[]>();
@@ -353,7 +426,7 @@ export default function DashboardCoordenador() {
 
     const totalDespesaByEmpIdGlobal = new Map<number, number>();
     for (const l of lancamentos) {
-      if (l.tipo !== "despesa") continue;
+      if (normalizeText(l.tipo) !== "despesa") continue;
       const prev = totalDespesaByEmpIdGlobal.get(l.empreendimentoId) ?? 0;
       totalDespesaByEmpIdGlobal.set(l.empreendimentoId, prev + toNumberBR(l.valor));
     }
@@ -364,23 +437,41 @@ export default function DashboardCoordenador() {
       const coordEmpIds = new Set(coordProjects.map((p) => p.empreendimentoId));
 
       let totalGastos = 0;
-      for (const empId of coordEmpIds) {
-        totalGastos += totalDespesaByEmpIdGlobal.get(empId) ?? 0;
-      }
+      for (const empId of coordEmpIds) totalGastos += totalDespesaByEmpIdGlobal.get(empId) ?? 0;
 
       return {
         userId: coordId,
         nome: safeUserLabel(coordUser?.email),
         email: coordUser?.email ?? "",
         totalProjetos: coordProjects.length,
-        totalGastos,
-        isCurrentUser: coordId === user?.id,
+        totalGastos: safeFinite(totalGastos),
+        isCurrentUser: coordId === user.id,
       };
     });
 
     result.sort((a, b) => b.totalGastos - a.totalGastos);
     return result;
-  }, [canSeeComparativo, projetos, lancamentos, allUsers, user?.id]);
+  }, [user, projetos, lancamentos, allUsers]);
+
+  const availableEmpFilterOptions = useMemo(() => {
+    if (!user) return [];
+    const myEmpIds = Array.from(derived.allMyEmpreendimentoIds);
+    const list = empreendimentos.filter((e) => myEmpIds.includes(e.id));
+    list.sort((a, b) => a.nome.localeCompare(b.nome));
+    return list;
+  }, [user, empreendimentos, derived.allMyEmpreendimentoIds]);
+
+  function hardRefetchAll() {
+    userQuery.refetch();
+    projetosQuery.refetch();
+    empreendimentosQuery.refetch();
+    lancamentosQuery.refetch();
+    categoriasQuery.refetch();
+    if (user && canSeeComparativo(user)) allUsersQuery.refetch();
+
+    // Opcional, mas ajuda quando o problema é cache corrompido.
+    queryClient.invalidateQueries();
+  }
 
   if (isLoading) {
     return (
@@ -408,27 +499,13 @@ export default function DashboardCoordenador() {
               <AlertTriangle className="h-10 w-10 text-yellow-500 mt-1" />
               <div className="space-y-2">
                 <h2 className="text-xl font-bold">Falha ao carregar o painel</h2>
-                <p className="text-sm text-muted-foreground">
-                  Ocorreu um erro ao buscar os dados. Você pode tentar novamente agora.
-                </p>
-                {errorMessage ? (
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{errorMessage}</p>
-                ) : null}
+                <p className="text-sm text-muted-foreground">Ocorreu um erro ao buscar os dados. Você pode tentar novamente.</p>
+                {errorMessage ? <p className="text-xs text-muted-foreground whitespace-pre-wrap">{errorMessage}</p> : null}
                 <div className="pt-2">
-                  <button
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90"
-                    onClick={() => {
-                      userQuery.refetch();
-                      projetosQuery.refetch();
-                      empreendimentosQuery.refetch();
-                      lancamentosQuery.refetch();
-                      categoriasQuery.refetch();
-                      if (canSeeComparativo) allUsersQuery.refetch();
-                    }}
-                  >
+                  <Button onClick={hardRefetchAll} className="gap-2">
                     <RefreshCcw className="h-4 w-4" />
                     Recarregar
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -438,16 +515,16 @@ export default function DashboardCoordenador() {
     );
   }
 
-  if (!user || (user.cargo || "").toLowerCase() !== "coordenador") {
+  if (!user || !allowAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6 flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-8 text-center">
             <AlertTriangle className="h-16 w-16 mx-auto text-yellow-500 mb-4" />
             <h2 className="text-2xl font-bold mb-2">Acesso Restrito</h2>
-            <p className="text-muted-foreground mb-4">Este painel é exclusivo para coordenadores de projetos.</p>
+            <p className="text-muted-foreground mb-4">Este painel é destinado a coordenadores. Administradores e diretores também podem acessar.</p>
             <p className="text-sm text-muted-foreground">
-              Seu cargo atual. <Badge variant="outline">{user?.cargo || "Não definido"}</Badge>
+              Seu cargo. <Badge variant="outline">{user?.cargo || "Não definido"}</Badge>
             </p>
           </CardContent>
         </Card>
@@ -455,17 +532,52 @@ export default function DashboardCoordenador() {
     );
   }
 
+  const empScopeCount = derived.allMyEmpreendimentoIds.size;
+
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6"
-      data-testid="dashboard-coordenador"
-    >
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6" data-testid="dashboard-coordenador">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">
-          <h1 className="text-3xl font-bold mb-2" data-testid="welcome-message">
-            Bem vindo, {safeUserLabel(user.email)}.
-          </h1>
-          <p className="text-white/80">Painel do Coordenador. Acompanhamento financeiro por empreendimento.</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2" data-testid="welcome-message">
+                Bem vindo, {safeUserLabel(user.email)}.
+              </h1>
+              <p className="text-white/80">Painel do Coordenador. Acompanhamento financeiro por empreendimento.</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-white/90" />
+              <Select
+                value={selectedEmpId ? String(selectedEmpId) : "todos"}
+                onValueChange={(v) => {
+                  const newVal = v === "todos" ? null : Number(v);
+                  setSelectedEmpId(Number.isFinite(newVal as number) ? (newVal as number) : null);
+
+                  // Atualiza a URL sem quebrar o router do wouter.
+                  const next = withEmpParam("/dashboard-coordenador", newVal);
+                  navigate(next);
+                }}
+              >
+                <SelectTrigger className="w-[320px] bg-white/10 text-white border-white/20">
+                  <SelectValue placeholder="Filtrar empreendimento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos do meu escopo</SelectItem>
+                  {availableEmpFilterOptions.map((e) => (
+                    <SelectItem key={e.id} value={String(e.id)}>
+                      {e.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button variant="secondary" className="gap-2" onClick={hardRefetchAll}>
+                <RefreshCcw className="h-4 w-4" />
+                Atualizar
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -475,8 +587,8 @@ export default function DashboardCoordenador() {
               <FolderKanban className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{myProjects.length} projeto(s)</div>
-              <p className="text-xs text-muted-foreground">{allMyEmpreendimentoIds.size} empreendimento(s) vinculado(s)</p>
+              <div className="text-2xl font-bold">{derived.myProjects.length} projeto(s)</div>
+              <p className="text-xs text-muted-foreground">{empScopeCount} empreendimento(s) no escopo</p>
             </CardContent>
           </Card>
 
@@ -486,8 +598,8 @@ export default function DashboardCoordenador() {
               <TrendingDown className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{formatCurrency(totalGastos)}</div>
-              <p className="text-xs text-muted-foreground">despesas nos empreendimentos sob sua coordenação</p>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(derived.totalGastos)}</div>
+              <p className="text-xs text-muted-foreground">despesas nos empreendimentos do seu escopo</p>
             </CardContent>
           </Card>
 
@@ -497,7 +609,7 @@ export default function DashboardCoordenador() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{myDespesas.length}</div>
+              <div className="text-2xl font-bold">{derived.myDespesas.length}</div>
               <p className="text-xs text-muted-foreground">despesas registradas no seu escopo</p>
             </CardContent>
           </Card>
@@ -512,9 +624,9 @@ export default function DashboardCoordenador() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {barChartDataEmpreendimentos.length > 0 ? (
+              {derived.barChartDataEmpreendimentos.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={barChartDataEmpreendimentos} layout="vertical" margin={{ left: 20 }}>
+                  <BarChart data={derived.barChartDataEmpreendimentos} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" tickFormatter={(v: number) => formatAxisMoney(v, "auto")} />
                     <YAxis type="category" dataKey="nome" width={140} />
@@ -525,7 +637,9 @@ export default function DashboardCoordenador() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">Nenhum empreendimento atribuído</div>
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  Nenhum empreendimento no escopo. Verifique se existem projetos atribuídos ao seu usuário.
+                </div>
               )}
             </CardContent>
           </Card>
@@ -535,21 +649,22 @@ export default function DashboardCoordenador() {
               <CardTitle>Gastos por categoria</CardTitle>
             </CardHeader>
             <CardContent>
-              {categoriaChartData.length > 0 ? (
+              {derived.categoriaChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
-                      data={categoriaChartData}
+                      data={derived.categoriaChartData}
                       cx="50%"
                       cy="50%"
                       outerRadius={90}
                       dataKey="valor"
                       nameKey="nome"
-                      label={({ nome }: { nome: string }) =>
-                        `${nome.length > 12 ? nome.substring(0, 12) + "..." : nome}`
-                      }
+                      label={(p: any) => {
+                        const nome = String(p?.nome ?? "");
+                        return `${nome.length > 12 ? nome.substring(0, 12) + "..." : nome}`;
+                      }}
                     >
-                      {categoriaChartData.map((entry, index) => (
+                      {derived.categoriaChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.cor || FALLBACK_COLORS[index % FALLBACK_COLORS.length]} />
                       ))}
                     </Pie>
@@ -558,13 +673,13 @@ export default function DashboardCoordenador() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">Nenhuma despesa registrada</div>
+                <div className="flex items-center justify-center h-64 text-muted-foreground">Nenhuma despesa registrada no escopo atual</div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {canSeeComparativo ? (
+        {canSeeComparativo(user) ? (
           <Card data-testid="comparativo-coordenadores">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -635,11 +750,11 @@ export default function DashboardCoordenador() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {empreendimentosResumo.map((row) => (
+                {derived.empreendimentosResumo.map((row) => (
                   <TableRow
                     key={row.empreendimentoId}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/empreendimentos/${row.empreendimentoId}`)}
+                    onClick={() => navigate(withEmpParam(`/empreendimentos/${row.empreendimentoId}`, selectedEmpId ?? row.empreendimentoId))}
                     data-testid={`empreendimento-row-${row.empreendimentoId}`}
                   >
                     <TableCell className="font-medium">{row.empreendimentoNome}</TableCell>
@@ -648,9 +763,9 @@ export default function DashboardCoordenador() {
                     <TableCell className="text-right text-red-600 font-medium">{formatCurrency(row.totalGastos)}</TableCell>
                     <TableCell
                       className={`text-right font-semibold ${
-                        row.percentualGasto > 100
+                        row.orcamento > 0 && row.percentualGasto > 100
                           ? "text-red-600"
-                          : row.percentualGasto > 80
+                          : row.orcamento > 0 && row.percentualGasto > 80
                             ? "text-yellow-600"
                             : "text-green-600"
                       }`}
@@ -659,10 +774,10 @@ export default function DashboardCoordenador() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {empreendimentosResumo.length === 0 ? (
+                {derived.empreendimentosResumo.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      Nenhum empreendimento atribuído a você
+                      Nenhum empreendimento atribuído ao seu usuário. Verifique o campo coordenadorId em projetos ou empreendimentos.
                     </TableCell>
                   </TableRow>
                 ) : null}
@@ -686,13 +801,13 @@ export default function DashboardCoordenador() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {myProjects.map((p) => {
-                  const emp = empreendimentoMap.get(p.empreendimentoId);
+                {derived.myProjects.map((p) => {
+                  const emp = derived.empreendimentoMap.get(p.empreendimentoId);
                   return (
                     <TableRow
                       key={p.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/empreendimentos/${p.empreendimentoId}`)}
+                      onClick={() => navigate(withEmpParam(`/empreendimentos/${p.empreendimentoId}`, selectedEmpId ?? p.empreendimentoId))}
                       data-testid={`project-row-${p.id}`}
                     >
                       <TableCell className="font-medium">{p.nome}</TableCell>
@@ -700,23 +815,22 @@ export default function DashboardCoordenador() {
                       <TableCell className="text-right">{formatCurrency(toNumberBR(p.orcamentoPrevisto))}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {(p.status || "")
-                            .replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          {(p.status || "").replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                         </Badge>
                       </TableCell>
                     </TableRow>
                   );
                 })}
-                {myProjects.length === 0 ? (
+                {derived.myProjects.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      Nenhum projeto atribuído a você
+                      Nenhum projeto atribuído a você no filtro atual
                     </TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>
             </Table>
+
             <p className="text-xs text-muted-foreground mt-3">
               Observação. As despesas estão registradas no nível de empreendimento. O detalhamento de gastos por projeto exige que cada lançamento possua referência direta ao projeto.
             </p>
