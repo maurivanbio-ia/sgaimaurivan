@@ -1,7 +1,5 @@
-
-import { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import wildlifeBg from "@assets/stock_images/brazilian_wildlife_b_15bd5736.jpg";
 import {
   DndContext,
   closestCorners,
@@ -10,6 +8,7 @@ import {
   useSensors,
   DragEndEvent,
   DragOverlay,
+  DragStartEvent,
   useDroppable,
 } from "@dnd-kit/core";
 import {
@@ -18,15 +17,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { format as formatDate, parseISO } from "date-fns";
+import { format as formatDate, parseISO, isValid as isValidDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,7 +41,14 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
@@ -55,7 +56,6 @@ import {
   Loader2,
   GripVertical,
   Trash2,
-  RefreshCw,
   ChevronsUpDown,
   Check,
   User,
@@ -68,27 +68,31 @@ import {
 import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
 
+// ===================================================
+// Tipos e Constantes
+// ===================================================
+
 interface Colaborador {
   id: number;
   nome: string;
   cargo: string | null;
   email: string | null;
-  tipo: 'rh' | 'user';
+  tipo: "rh" | "user";
 }
 
-// ===================================================
-// Tipos e Constantes
-// ===================================================
-
-type Status =
-  | "a_fazer"
-  | "em_andamento"
-  | "em_revisao"
-  | "concluido"
-  | "cancelado";
+type Status = "a_fazer" | "em_andamento" | "em_revisao" | "concluido" | "cancelado";
 type Prioridade = "baixa" | "media" | "alta";
 type Complexidade = "baixa" | "media" | "alta";
-type Categoria = "reuniao" | "relatorio_tecnico" | "documento" | "campo" | "vistoria" | "licenciamento" | "analise" | "outro" | "geral";
+type Categoria =
+  | "reuniao"
+  | "relatorio_tecnico"
+  | "documento"
+  | "campo"
+  | "vistoria"
+  | "licenciamento"
+  | "analise"
+  | "outro"
+  | "geral";
 
 type Demanda = {
   id: number;
@@ -98,11 +102,22 @@ type Demanda = {
   prioridade: Prioridade;
   complexidade: Complexidade;
   categoria: Categoria;
-  responsavel: string;
-  dataEntrega: string;
+  dataEntrega: string; // YYYY-MM-DD
   status: Status;
-  empreendimentoId?: number;
+
+  // RESPONSÁVEL (corrigido)
+  responsavelId?: number | null; // vindo do backend ou enviado ao backend
+  responsavel?: string | null; // nome (se o backend devolver)
+  empreendimentoId?: number | null;
 };
+
+const VALID_STATUSES: Status[] = [
+  "a_fazer",
+  "em_andamento",
+  "em_revisao",
+  "concluido",
+  "cancelado",
+];
 
 const CATEGORIAS: { value: Categoria; label: string }[] = [
   { value: "reuniao", label: "Reunião" },
@@ -145,30 +160,32 @@ const SETORES = [
 ];
 
 // ===================================================
-// Funções auxiliares
+// Funções auxiliares (robustez para evitar NaN/404)
 // ===================================================
 
-async function apiRequest<T = any>(
-  method: string,
-  url: string,
-  body?: any
-): Promise<T> {
+async function apiRequest<T = any>(method: string, url: string, body?: any): Promise<T> {
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
+
   const text = await res.text();
   let json: any = null;
+
   try {
     json = text ? JSON.parse(text) : null;
-  } catch {}
+  } catch {
+    json = null;
+  }
+
   if (!res.ok) {
     const msg = json
       ? `${res.status}: ${JSON.stringify(json)}`
       : `${res.status}: ${text || "Erro"}`;
     throw new Error(msg);
   }
+
   return (json ?? null) as T;
 }
 
@@ -178,22 +195,87 @@ function ensureArray<T>(data: any): T[] {
   return [];
 }
 
+function safeNumber(x: any): number | null {
+  const n = typeof x === "number" ? x : Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeStatus(x: any): Status {
+  const s = String(x ?? "").trim();
+  return (VALID_STATUSES.includes(s as Status) ? (s as Status) : "a_fazer");
+}
+
+function normalizeDateYmd(x: any): string {
+  const s = String(x ?? "").trim();
+  if (!s) return "";
+  // aceita YYYY-MM-DD ou ISO
+  const d = s.includes("T") ? new Date(s) : new Date(`${s}T12:00:00`);
+  if (!isValidDate(d)) return "";
+  // normaliza p/ YYYY-MM-DD
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function normalizeDemanda(raw: any): Demanda | null {
+  const id = safeNumber(raw?.id);
+  if (!id) return null;
+
+  const status = normalizeStatus(raw?.status);
+  const dataEntrega = normalizeDateYmd(raw?.dataEntrega);
+
+  return {
+    id,
+    titulo: String(raw?.titulo ?? "").trim(),
+    descricao: String(raw?.descricao ?? "").trim(),
+    setor: String(raw?.setor ?? SETORES[0]),
+    prioridade: (raw?.prioridade ?? "media") as Prioridade,
+    complexidade: (raw?.complexidade ?? "media") as Complexidade,
+    categoria: (raw?.categoria ?? "geral") as Categoria,
+    dataEntrega,
+    status,
+
+    responsavelId: safeNumber(raw?.responsavelId ?? raw?.responsavel_id ?? raw?.responsavel?.id) ?? null,
+    responsavel: raw?.responsavelNome ?? raw?.responsavel_nome ?? raw?.responsavel?.nome ?? raw?.responsavel ?? null,
+    empreendimentoId: safeNumber(raw?.empreendimentoId ?? raw?.empreendimento_id) ?? null,
+  };
+}
+
+function normalizeDemandasList(raw: any): Demanda[] {
+  return ensureArray<any>(raw)
+    .map(normalizeDemanda)
+    .filter((d): d is Demanda => Boolean(d?.id));
+}
+
+function getResponsavelNome(d: Demanda, colaboradores: Colaborador[]): string {
+  if (d?.responsavel && String(d.responsavel).trim()) return String(d.responsavel).trim();
+  const rid = d?.responsavelId ?? null;
+  if (!rid) return "Não atribuído";
+  const c = colaboradores.find((x) => x.id === rid);
+  return c?.nome ?? "Não atribuído";
+}
+
 function insertDemandaInCache(queryClient: any, newDemanda: Demanda) {
   queryClient.setQueryData(["/api/demandas"], (old: any) => {
-    const arr = ensureArray<Demanda>(old);
+    const arr = normalizeDemandasList(old);
     const exists = arr.some((d) => d.id === newDemanda.id);
-    if (exists) return arr;
+    if (exists) return arr.map((d) => (d.id === newDemanda.id ? newDemanda : d));
     return [newDemanda, ...arr];
   });
 }
 
-function toYmd(dateStrOrDate: string | Date): string {
-  const d =
-    typeof dateStrOrDate === "string" ? new Date(dateStrOrDate) : dateStrOrDate;
-  const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0)
-    .toISOString()
-    .slice(0, 10);
-  return iso;
+function replaceDemandaInCache(queryClient: any, updated: Demanda) {
+  queryClient.setQueryData(["/api/demandas"], (old: any) => {
+    const arr = normalizeDemandasList(old);
+    return arr.map((d) => (d.id === updated.id ? updated : d));
+  });
+}
+
+function removeDemandaFromCache(queryClient: any, id: number) {
+  queryClient.setQueryData(["/api/demandas"], (old: any) => {
+    const arr = normalizeDemandasList(old);
+    return arr.filter((d) => d.id !== id);
+  });
 }
 
 // ===================================================
@@ -214,16 +296,15 @@ function DemandaForm({
 
   const { data: empreendimentos = [] } = useQuery({
     queryKey: ["/api/empreendimentos"],
-    queryFn: async () => {
-      const res = await fetch("/api/empreendimentos");
-      if (!res.ok) throw new Error("Failed to fetch empreendimentos");
-      return res.json();
-    },
+    queryFn: async () => apiRequest("GET", "/api/empreendimentos"),
   });
 
-  const { data: colaboradores = [] } = useQuery<Colaborador[]>({
+  const { data: colaboradoresRaw = [] } = useQuery<Colaborador[]>({
     queryKey: ["/api/colaboradores"],
+    queryFn: async () => apiRequest("GET", "/api/colaboradores"),
   });
+
+  const colaboradores = Array.isArray(colaboradoresRaw) ? colaboradoresRaw : [];
 
   const [form, setForm] = useState({
     titulo: initial?.titulo ?? "",
@@ -232,52 +313,57 @@ function DemandaForm({
     prioridade: (initial?.prioridade ?? "media") as Prioridade,
     complexidade: (initial?.complexidade ?? "media") as Complexidade,
     categoria: (initial?.categoria ?? "geral") as Categoria,
-    responsavel: initial?.responsavel ?? "",
-    responsavelId: null as number | null,
-    dataEntrega: initial?.dataEntrega 
-      ? new Date(initial.dataEntrega).toISOString().split('T')[0]
-      : "",
+
+    // RESPONSÁVEL (corrigido)
+    responsavelId: (initial as any)?.responsavelId ?? null,
+    responsavelNome: (initial as any)?.responsavel ?? "",
+
+    dataEntrega: initial?.dataEntrega ? normalizeDateYmd(initial.dataEntrega) : "",
     status: (initial?.status ?? "a_fazer") as Status,
-    empreendimentoId: (initial?.empreendimentoId?.toString() ?? "") as string,
+    empreendimentoId: initial?.empreendimentoId ? String(initial.empreendimentoId) : "",
   });
 
   const mutation = useMutation({
     mutationFn: async (): Promise<Demanda> => {
+      if (!form.responsavelId) {
+        // exige responsável de fato
+        throw new Error("Selecione um responsável.");
+      }
+
       const payload: any = {
-        titulo: form.titulo.trim(),
-        descricao: form.descricao.trim(),
+        titulo: String(form.titulo).trim(),
+        descricao: String(form.descricao).trim(),
         setor: form.setor,
         prioridade: form.prioridade,
         complexidade: form.complexidade,
         categoria: form.categoria,
         dataEntrega: form.dataEntrega,
         status: form.status ?? "a_fazer",
+
+        // envia o ID do responsável (backend deve persistir)
+        responsavelId: form.responsavelId,
       };
 
-      if (form.responsavelId) {
-        payload.responsavelId = form.responsavelId;
-      }
+      if (form.empreendimentoId) payload.empreendimentoId = Number(form.empreendimentoId);
 
-      if (form.empreendimentoId) {
-        payload.empreendimentoId = parseInt(form.empreendimentoId);
-      }
+      const res = isEdit && initial?.id != null
+        ? await apiRequest<any>("PATCH", `/api/demandas/${initial.id}`, payload)
+        : await apiRequest<any>("POST", "/api/demandas", payload);
 
-      if (isEdit && initial?.id != null) {
-        return apiRequest<Demanda>("PATCH", `/api/demandas/${initial.id}`, payload);
-      } else {
-        return apiRequest<Demanda>("POST", "/api/demandas", payload);
-      }
+      // normaliza e garante nome do responsável no retorno (mesmo que o backend não devolva)
+      const norm = normalizeDemanda(res) ?? normalizeDemanda(res?.data) ?? null;
+      if (!norm) throw new Error("Resposta inválida do servidor ao salvar demanda.");
+
+      const nome = colaboradores.find((c) => c.id === form.responsavelId)?.nome ?? form.responsavelNome ?? null;
+      return { ...norm, responsavelId: form.responsavelId, responsavel: nome };
     },
     onSuccess: async (createdOrUpdated: Demanda) => {
-      if (!isEdit) {
-        insertDemandaInCache(queryClient, createdOrUpdated);
-      } else {
-        queryClient.setQueryData(["/api/demandas"], (old: any) => {
-          const arr = ensureArray<Demanda>(old);
-          return arr.map((d) => (d.id === createdOrUpdated.id ? createdOrUpdated : d));
-        });
-      }
+      if (!isEdit) insertDemandaInCache(queryClient, createdOrUpdated);
+      else replaceDemandaInCache(queryClient, createdOrUpdated);
+
+      // atualiza histórico (não precisa invalidar /api/demandas se cache já atualizado)
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+
       toast({ title: isEdit ? "Demanda atualizada!" : "Demanda criada!" });
       onSuccess();
     },
@@ -320,16 +406,13 @@ function DemandaForm({
 
       <div>
         <Label>Empreendimento</Label>
-        <Select
-          value={form.empreendimentoId || ""}
-          onValueChange={(v) => setForm({ ...form, empreendimentoId: v })}
-        >
+        <Select value={form.empreendimentoId || ""} onValueChange={(v) => setForm({ ...form, empreendimentoId: v })}>
           <SelectTrigger data-testid="select-empreendimento">
             <SelectValue placeholder="Selecione um empreendimento (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            {empreendimentos.map((emp: any) => (
-              <SelectItem key={emp.id} value={emp.id.toString()}>
+            {ensureArray<any>(empreendimentos).map((emp: any) => (
+              <SelectItem key={emp.id} value={String(emp.id)}>
                 {emp.nome}
               </SelectItem>
             ))}
@@ -340,10 +423,7 @@ function DemandaForm({
       <div className="grid grid-cols-3 gap-3">
         <div>
           <Label>Setor *</Label>
-          <Select
-            value={form.setor}
-            onValueChange={(v) => setForm({ ...form, setor: v })}
-          >
+          <Select value={form.setor} onValueChange={(v) => setForm({ ...form, setor: v })}>
             <SelectTrigger data-testid="select-setor">
               <SelectValue placeholder="Selecione o setor" />
             </SelectTrigger>
@@ -394,10 +474,7 @@ function DemandaForm({
 
       <div>
         <Label>Categoria *</Label>
-        <Select
-          value={form.categoria}
-          onValueChange={(v: Categoria) => setForm({ ...form, categoria: v })}
-        >
+        <Select value={form.categoria} onValueChange={(v: Categoria) => setForm({ ...form, categoria: v })}>
           <SelectTrigger data-testid="select-categoria">
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
@@ -420,56 +497,59 @@ function DemandaForm({
                 variant="outline"
                 role="combobox"
                 aria-expanded={openResponsavel}
-                className={cn(
-                  "w-full justify-between",
-                  !form.responsavel && "text-muted-foreground"
-                )}
+                className={cn("w-full justify-between", !form.responsavelId && "text-muted-foreground")}
                 data-testid="input-responsavel"
               >
-                {form.responsavel || "Selecione um colaborador"}
+                {form.responsavelId
+                  ? (colaboradores.find((c) => c.id === form.responsavelId)?.nome ?? form.responsavelNome ?? "Selecionado")
+                  : "Selecione um colaborador"}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0">
+
+            <PopoverContent className="w-[320px] p-0">
               <Command>
                 <CommandInput placeholder="Buscar colaborador..." />
                 <CommandList>
                   <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
                   <CommandGroup>
-                    {colaboradores.filter(c => c.tipo === 'user' && c.id).map((colab) => (
-                      <CommandItem
-                        key={`${colab.tipo}-${colab.id}`}
-                        value={colab.nome}
-                        onSelect={() => {
-                          setForm({ 
-                            ...form, 
-                            responsavel: colab.nome,
-                            responsavelId: colab.id
-                          });
-                          setOpenResponsavel(false);
-                        }}
-                      >
-                        <User className="mr-2 h-4 w-4" />
-                        <div className="flex flex-col">
-                          <span>{colab.nome}</span>
-                          {colab.email && (
-                            <span className="text-xs text-muted-foreground">{colab.email}</span>
-                          )}
-                        </div>
-                        <Check
-                          className={cn(
-                            "ml-auto h-4 w-4",
-                            form.responsavel === colab.nome ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                      </CommandItem>
-                    ))}
+                    {colaboradores
+                      .filter((c) => c.tipo === "user" && c.id)
+                      .map((colab) => (
+                        <CommandItem
+                          key={`${colab.tipo}-${colab.id}`}
+                          value={colab.nome}
+                          onSelect={() => {
+                            setForm({
+                              ...form,
+                              responsavelId: colab.id,
+                              responsavelNome: colab.nome,
+                            });
+                            setOpenResponsavel(false);
+                          }}
+                        >
+                          <User className="mr-2 h-4 w-4" />
+                          <div className="flex flex-col">
+                            <span>{colab.nome}</span>
+                            {colab.email && (
+                              <span className="text-xs text-muted-foreground">{colab.email}</span>
+                            )}
+                          </div>
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              form.responsavelId === colab.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
                   </CommandGroup>
                 </CommandList>
               </Command>
             </PopoverContent>
           </Popover>
         </div>
+
         <div>
           <Label>Data de Entrega *</Label>
           <Input
@@ -485,28 +565,23 @@ function DemandaForm({
       {isEdit && (
         <div>
           <Label>Status</Label>
-          <Select
-            value={form.status}
-            onValueChange={(v: Status) => setForm({ ...form, status: v })}
-          >
+          <Select value={form.status} onValueChange={(v: Status) => setForm({ ...form, status: v })}>
             <SelectTrigger data-testid="select-status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="a_fazer">A Fazer</SelectItem>
-              <SelectItem value="em_andamento">Em Andamento</SelectItem>
-              <SelectItem value="em_revisao">Em Revisão</SelectItem>
-              <SelectItem value="concluido">Concluído</SelectItem>
-              <SelectItem value="cancelado">Cancelado</SelectItem>
+              {VALID_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       )}
 
       <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-submit-demanda">
-        {mutation.isPending && (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
+        {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {isEdit ? "Salvar alterações" : "Criar demanda"}
       </Button>
     </form>
@@ -519,18 +594,24 @@ function DemandaForm({
 
 function DemandaCard({
   demanda,
+  colaboradores,
   onEdit,
   onDelete,
 }: {
   demanda: Demanda;
+  colaboradores: Colaborador[];
   onEdit: (d: Demanda) => void;
   onDelete: (id: number) => void;
 }) {
   const [showDetails, setShowDetails] = useState(false);
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
-    useSortable({
-      id: demanda.id,
-    });
+
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+    id: demanda.id,
+    data: {
+      type: "card",
+      status: demanda.status, // ajuda a inferir destino no onDragEnd
+    },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -538,60 +619,43 @@ function DemandaCard({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const prioridadeColor = {
-    baixa: "bg-green-500",
-    media: "bg-yellow-500",
-    alta: "bg-red-500",
-  }[demanda.prioridade];
+  const prioridadeColor =
+    {
+      baixa: "bg-green-500",
+      media: "bg-yellow-500",
+      alta: "bg-red-500",
+    }[demanda.prioridade] ?? "bg-yellow-500";
 
-  const statusLabel = {
-    a_fazer: "A Fazer",
-    em_andamento: "Em Andamento",
-    em_revisao: "Em Revisão",
-    concluido: "Concluído",
-    cancelado: "Cancelado",
-  }[demanda.status];
+  const statusLabel = STATUS_LABEL[demanda.status] ?? "A Fazer";
 
-  const categoriaLabel = {
-    reuniao: "Reunião",
-    relatorio_tecnico: "Relatório Técnico",
-    documento: "Documento",
-    campo: "Campo",
-    vistoria: "Vistoria",
-    licenciamento: "Licenciamento",
-    analise: "Análise",
-    outro: "Outro",
-    geral: "Geral",
-  }[demanda.categoria || "geral"];
+  const categoriaLabel =
+    {
+      reuniao: "Reunião",
+      relatorio_tecnico: "Relatório Técnico",
+      documento: "Documento",
+      campo: "Campo",
+      vistoria: "Vistoria",
+      licenciamento: "Licenciamento",
+      analise: "Análise",
+      outro: "Outro",
+      geral: "Geral",
+    }[demanda.categoria || "geral"] ?? "Geral";
+
+  const responsavelNome = getResponsavelNome(demanda, colaboradores);
 
   return (
     <>
-      <Card
-        ref={setNodeRef}
-        style={style}
-        className="mb-2 hover:shadow-md transition-shadow"
-        data-testid={`demanda-card-${demanda.id}`}
-      >
+      <Card ref={setNodeRef} style={style} className="mb-2 hover:shadow-md transition-shadow" data-testid={`demanda-card-${demanda.id}`}>
         <CardHeader className="pb-2 pt-3 px-3">
           <div className="flex items-start justify-between gap-2">
-            {/* Área de arrasto */}
-            <div
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing pt-1"
-              data-testid={`drag-handle-${demanda.id}`}
-            >
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pt-1" data-testid={`drag-handle-${demanda.id}`}>
               <GripVertical className="h-5 w-5 text-muted-foreground" />
             </div>
 
-            {/* Título */}
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-sm font-semibold line-clamp-2">
-                {demanda.titulo}
-              </CardTitle>
+              <CardTitle className="text-sm font-semibold line-clamp-2">{demanda.titulo}</CardTitle>
             </div>
 
-            {/* Botões de ação */}
             <div className="flex gap-1">
               <Button
                 size="icon"
@@ -607,6 +671,7 @@ function DemandaCard({
               >
                 <Eye className="h-4 w-4 text-blue-500 hover:text-blue-700" />
               </Button>
+
               <Button
                 size="icon"
                 variant="ghost"
@@ -621,6 +686,7 @@ function DemandaCard({
               >
                 <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
               </Button>
+
               <Button
                 size="icon"
                 variant="ghost"
@@ -638,27 +704,26 @@ function DemandaCard({
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="text-xs text-muted-foreground px-3 pb-3">
           <p className="line-clamp-2 mb-2">{demanda.descricao}</p>
           <div className="flex flex-wrap gap-1.5">
-            <Badge variant="secondary" className="text-xs">{demanda.setor}</Badge>
+            <Badge variant="secondary" className="text-xs">
+              {demanda.setor}
+            </Badge>
             <Badge className={`${prioridadeColor} text-white text-xs`}>
               {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
             </Badge>
             <Badge variant="outline" className="text-xs">
-              {formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", {
-                locale: ptBR,
-              })}
+              {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", { locale: ptBR }) : "-"}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            {demanda.responsavel}
-          </p>
+
+          {/* RESPONSÁVEL visível no card (opcional, mas ajuda a validar) */}
+          <p className="text-xs text-muted-foreground mt-2">{responsavelNome}</p>
         </CardContent>
       </Card>
 
-      {/* Modal de Visualização de Detalhes */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -667,31 +732,30 @@ function DemandaCard({
               {demanda.titulo}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
-            {/* Status e Prioridade */}
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="text-sm">{statusLabel}</Badge>
+              <Badge variant="outline" className="text-sm">
+                {statusLabel}
+              </Badge>
               <Badge className={`${prioridadeColor} text-white text-sm`}>
                 Prioridade: {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
               </Badge>
             </div>
 
-            {/* Descrição */}
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Descrição</Label>
               <p className="mt-1 text-sm whitespace-pre-wrap">{demanda.descricao || "Sem descrição"}</p>
             </div>
 
-            {/* Informações em Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" /> Responsável
                 </Label>
-                <p className="mt-1 text-sm">{demanda.responsavel || "Não atribuído"}</p>
+                <p className="mt-1 text-sm">{responsavelNome}</p>
               </div>
-              
+
               <div>
                 <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                   <Tag className="h-3 w-3" /> Setor
@@ -704,7 +768,9 @@ function DemandaCard({
                   <Calendar className="h-3 w-3" /> Data de Entrega
                 </Label>
                 <p className="mt-1 text-sm">
-                  {formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  {demanda.dataEntrega
+                    ? formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                    : "-"}
                 </p>
               </div>
 
@@ -721,12 +787,16 @@ function DemandaCard({
               </div>
             </div>
 
-            {/* Botões de Ação */}
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setShowDetails(false)}>
                 Fechar
               </Button>
-              <Button onClick={() => { setShowDetails(false); onEdit(demanda); }}>
+              <Button
+                onClick={() => {
+                  setShowDetails(false);
+                  onEdit(demanda);
+                }}
+              >
                 <Pencil className="h-4 w-4 mr-2" />
                 Editar
               </Button>
@@ -746,17 +816,20 @@ function KanbanColumn({
   status,
   label,
   demandas,
+  colaboradores,
   onEdit,
   onDelete,
 }: {
   status: Status;
   label: string;
   demandas: Demanda[];
+  colaboradores: Colaborador[];
   onEdit: (d: Demanda) => void;
   onDelete: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
+    data: { type: "column", status },
   });
 
   return (
@@ -775,14 +848,17 @@ function KanbanColumn({
           {demandas.length}
         </Badge>
       </div>
-      
-      <SortableContext
-        items={demandas.map((d) => d.id)}
-        strategy={verticalListSortingStrategy}
-      >
+
+      <SortableContext items={demandas.map((d) => d.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 min-h-[100px]">
           {demandas.map((d) => (
-            <DemandaCard key={d.id} demanda={d} onEdit={onEdit} onDelete={onDelete} />
+            <DemandaCard
+              key={d.id}
+              demanda={d}
+              colaboradores={colaboradores}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           ))}
           {demandas.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
@@ -802,69 +878,117 @@ function KanbanColumn({
 export default function DemandasPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Inicia drag após mover 8px
-      },
+      activationConstraint: { distance: 8 },
     })
   );
+
+  const { data: colaboradoresRaw = [] } = useQuery<Colaborador[]>({
+    queryKey: ["/api/colaboradores"],
+    queryFn: async () => apiRequest("GET", "/api/colaboradores"),
+  });
+
+  const colaboradores = Array.isArray(colaboradoresRaw) ? colaboradoresRaw : [];
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["/api/demandas"],
     queryFn: async () => apiRequest("GET", "/api/demandas"),
   });
-  
-  const demandas: Demanda[] = ensureArray<Demanda>(raw);
 
+  const demandas: Demanda[] = useMemo(() => normalizeDemandasList(raw), [raw]);
+
+  // Histórico: exibir apenas últimos 30 dias (frontend).
+  // O purge automático real deve ser feito no backend (cron/job). Aqui fica uma proteção visual e uma tentativa opcional.
   const { data: historicoRaw, isLoading: isLoadingHistorico } = useQuery({
     queryKey: ["/api/demandas/historico/all"],
     queryFn: async () => apiRequest("GET", "/api/demandas/historico/all"),
   });
 
-  const historico = ensureArray(historicoRaw);
+  const historico30d = useMemo(() => {
+    const arr = ensureArray<any>(historicoRaw);
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    return arr.filter((h) => {
+      const t = h?.criadoEm ? new Date(h.criadoEm).getTime() : 0;
+      return t && Number.isFinite(t) ? t >= cutoff : true;
+    });
+  }, [historicoRaw]);
+
   const [editing, setEditing] = useState<Demanda | null>(null);
   const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
+  // ===================================================
+  // Mutations com update otimista (corrige "não move" e "não deleta")
+  // ===================================================
+
   const moveMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: Status }) =>
-      apiRequest("PATCH", `/api/demandas/${id}`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      toast({ title: "Demanda movida com sucesso!" });
+    mutationFn: async ({ id, status }: { id: number; status: Status }) => {
+      if (!id || !Number.isFinite(id)) throw new Error("ID inválido da demanda.");
+      if (!VALID_STATUSES.includes(status)) throw new Error("Status inválido.");
+      return apiRequest("PATCH", `/api/demandas/${id}`, { status });
     },
-    onError: (e: any) =>
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/demandas"] });
+      const prev = queryClient.getQueryData(["/api/demandas"]);
+
+      // otimista
+      queryClient.setQueryData(["/api/demandas"], (old: any) => {
+        const arr = normalizeDemandasList(old);
+        return arr.map((d) => (d.id === id ? { ...d, status } : d));
+      });
+
+      return { prev };
+    },
+    onError: (e: any, _vars, ctx: any) => {
+      if (ctx?.prev !== undefined) queryClient.setQueryData(["/api/demandas"], ctx.prev);
       toast({
         title: "Falha ao mover demanda",
         description: e?.message ?? "Erro desconhecido",
         variant: "destructive",
-      }),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+      toast({ title: "Demanda movida com sucesso!" });
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) =>
-      apiRequest("DELETE", `/api/demandas/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/licencas/calendar"], exact: false });
-      toast({ title: "Demanda excluída com sucesso!" });
+    mutationFn: async (id: number) => {
+      if (!id || !Number.isFinite(id)) throw new Error("ID inválido da demanda.");
+      return apiRequest("DELETE", `/api/demandas/${id}`);
     },
-    onError: (e: any) =>
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/demandas"] });
+      const prev = queryClient.getQueryData(["/api/demandas"]);
+
+      removeDemandaFromCache(queryClient, id);
+
+      return { prev };
+    },
+    onError: (e: any, _vars, ctx: any) => {
+      if (ctx?.prev !== undefined) queryClient.setQueryData(["/api/demandas"], ctx.prev);
       toast({
         title: "Falha ao excluir demanda",
         description: e?.message ?? "Erro desconhecido",
         variant: "destructive",
-      }),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/licencas/calendar"], exact: false });
+      toast({ title: "Demanda excluída com sucesso!" });
+    },
   });
 
   const clearHistoricoMutation = useMutation({
-    mutationFn: async () =>
-      apiRequest("DELETE", `/api/admin/demandas/historico`),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+    mutationFn: async () => apiRequest("DELETE", `/api/admin/demandas/historico`),
+    onSuccess: async (data: any) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
       toast({ title: data?.message || "Histórico limpo com sucesso!" });
     },
     onError: (e: any) =>
@@ -875,6 +999,10 @@ export default function DemandasPage() {
       }),
   });
 
+  // ===================================================
+  // Agrupamento por colunas
+  // ===================================================
+
   const columns = useMemo(() => {
     const grouped: Record<Status, Demanda[]> = {
       a_fazer: [],
@@ -884,36 +1012,65 @@ export default function DemandasPage() {
       cancelado: [],
     };
 
-    (demandas ?? []).forEach((d) => {
-      const rawStatus = (d.status ?? "").toString().trim();
-      const s: Status = (["a_fazer", "em_andamento", "em_revisao", "concluido", "cancelado"].includes(rawStatus)
-        ? (rawStatus as Status)
-        : "a_fazer");
-      grouped[s].push(d);
+    demandas.forEach((d) => {
+      grouped[normalizeStatus(d.status)].push(d);
     });
 
     return grouped;
   }, [demandas]);
 
-  const onDragStart = (e: any) => {
-    const id = Number(e.active.id);
+  // ===================================================
+  // Drag handlers (corrige drop sobre card vs coluna)
+  // ===================================================
+
+  const onDragStart = (e: DragStartEvent) => {
+    const id = safeNumber(e.active.id);
+    if (!id) return;
     const d = demandas.find((x) => x.id === id);
     if (d) setActiveDemanda(d);
   };
 
+  function extractOverStatus(over: any): Status | null {
+    // 1) se caiu na coluna, over.id será o status
+    const overIdStr = String(over?.id ?? "");
+    if (VALID_STATUSES.includes(overIdStr as Status)) return overIdStr as Status;
+
+    // 2) se caiu em cima de outro card, tenta achar coluna via data do sortable
+    const sortableContainerId = over?.data?.current?.sortable?.containerId;
+    const c = String(sortableContainerId ?? "");
+    if (VALID_STATUSES.includes(c as Status)) return c as Status;
+
+    // 3) se o over.id for um número (id de card), usa status do card alvo
+    const overIdNum = safeNumber(over?.id);
+    if (overIdNum) {
+      const target = demandas.find((x) => x.id === overIdNum);
+      if (target) return normalizeStatus(target.status);
+    }
+
+    return null;
+  }
+
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     setActiveDemanda(null);
-    
+
     if (!over) return;
-    
-    const id = Number(active.id);
-    const newStatus = over.id as Status;
-    const d = demandas.find((x) => x.id === id);
-    
-    if (d && d.status !== newStatus) {
-      moveMutation.mutate({ id, status: newStatus });
+
+    const id = safeNumber(active.id);
+    if (!id) {
+      toast({
+        title: "Falha ao mover demanda",
+        description: "ID inválido do card (não numérico).",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const newStatus = extractOverStatus(over);
+    if (!newStatus) return;
+
+    const d = demandas.find((x) => x.id === id);
+    if (d && d.status !== newStatus) moveMutation.mutate({ id, status: newStatus });
   };
 
   if (isLoading) {
@@ -934,25 +1091,29 @@ export default function DemandasPage() {
             Arraste os cards entre as colunas para alterar o status
           </p>
         </div>
+
         <div className="flex gap-2">
           <RefreshButton />
+
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-nova-demanda">
                 <Plus className="h-4 w-4 mr-2" /> Nova Demanda
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Nova Demanda</DialogTitle>
-            </DialogHeader>
-            <DemandaForm
-              onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
-                setCreateDialogOpen(false);
-              }}
-            />
-          </DialogContent>
+
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Nova Demanda</DialogTitle>
+              </DialogHeader>
+
+              <DemandaForm
+                onSuccess={() => {
+                  // a demanda já entra no Kanban via cache (insertDemandaInCache)
+                  setCreateDialogOpen(false);
+                }}
+              />
+            </DialogContent>
           </Dialog>
         </div>
       </div>
@@ -964,31 +1125,28 @@ export default function DemandasPage() {
         onDragEnd={onDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {(Object.entries(STATUS_LABEL) as [Status, string][]).map(
-            ([status, label]) => (
-              <KanbanColumn
-                key={status}
-                status={status}
-                label={label}
-                demandas={columns[status]}
-                onEdit={setEditing}
-                onDelete={(id) => {
-                  if (confirm("Tem certeza que deseja excluir esta demanda?")) {
-                    deleteMutation.mutate(id);
-                  }
-                }}
-              />
-            )
-          )}
+          {(Object.entries(STATUS_LABEL) as [Status, string][]).map(([status, label]) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              label={label}
+              demandas={columns[status]}
+              colaboradores={colaboradores}
+              onEdit={setEditing}
+              onDelete={(id) => {
+                if (confirm("Tem certeza que deseja excluir esta demanda?")) {
+                  deleteMutation.mutate(id);
+                }
+              }}
+            />
+          ))}
         </div>
 
         <DragOverlay>
           {activeDemanda ? (
             <Card className="w-80 opacity-90 rotate-3 shadow-xl">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">
-                  {activeDemanda.titulo}
-                </CardTitle>
+                <CardTitle className="text-sm font-semibold">{activeDemanda.titulo}</CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
                 <p className="line-clamp-2">{activeDemanda.descricao}</p>
@@ -998,11 +1156,12 @@ export default function DemandasPage() {
         </DragOverlay>
       </DndContext>
 
-      {/* Tabela de Histórico */}
+      {/* Tabela de Histórico (últimos 30 dias no frontend) */}
       <Card className="mt-8">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl">Histórico de Movimentações</CardTitle>
-          {historico.length > 0 && (
+          <CardTitle className="text-xl">Histórico de Movimentações (últimos 30 dias)</CardTitle>
+
+          {historico30d.length > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -1022,14 +1181,15 @@ export default function DemandasPage() {
             </Button>
           )}
         </CardHeader>
+
         <CardContent>
           {isLoadingHistorico ? (
             <div className="text-center py-4">
               <Loader2 className="h-6 w-6 animate-spin mx-auto" />
             </div>
-          ) : historico.length === 0 ? (
+          ) : historico30d.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma movimentação registrada ainda
+              Nenhuma movimentação registrada nos últimos 30 dias
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -1045,10 +1205,12 @@ export default function DemandasPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {historico.map((h: any) => (
+                  {historico30d.map((h: any) => (
                     <tr key={h.id} className="border-b hover:bg-muted/50" data-testid={`historico-row-${h.id}`}>
                       <td className="p-2">
-                        {h.criadoEm ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}
+                        {h.criadoEm
+                          ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                          : "-"}
                       </td>
                       <td className="p-2">{h.demandaTitulo || "-"}</td>
                       <td className="p-2">{h.acao || "-"}</td>
@@ -1078,11 +1240,11 @@ export default function DemandasPage() {
           <DialogHeader>
             <DialogTitle>Editar Demanda</DialogTitle>
           </DialogHeader>
+
           {editing && (
             <DemandaForm
               initial={editing}
               onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
                 setEditing(null);
               }}
             />
