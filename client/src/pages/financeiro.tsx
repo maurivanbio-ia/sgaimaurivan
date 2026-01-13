@@ -632,6 +632,7 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
       dataPagamento: parseServerDate(lancamento.dataPagamento),
       descricao: lancamento.descricao,
       observacoes: lancamento.observacoes || "",
+      unidade: (lancamento.unidade as "salvador" | "goiania" | "lem") || "salvador",
     },
   });
 
@@ -655,6 +656,7 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
         dataPagamento: formatDateLocal(data.dataPagamento) || undefined,
         descricao: data.descricao,
         observacoes: data.observacoes || null,
+        unidade: data.unidade,
       },
     });
   };
@@ -712,6 +714,31 @@ function EditLancamentoForm({ lancamento, onSuccess, onCancel, updateMutation }:
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="unidade"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Unidade</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger data-testid="edit-select-unidade">
+                    <SelectValue placeholder="Selecione a unidade" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {Object.entries(UNIDADES_CONFIG).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
