@@ -8769,6 +8769,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: req.query.status as string | undefined,
         tipo: req.query.tipo as string | undefined,
         categoria: req.query.categoria as string | undefined,
+        tema: req.query.tema as string | undefined,
+        search: req.query.search as string | undefined,
       };
       const items = await storage.getBaseConhecimento(filters);
       res.json(items);
@@ -8860,6 +8862,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error tracking download:', error);
       res.status(500).json({ error: 'Erro ao registrar download' });
+    }
+  });
+
+  // Análise automática de documento com IA
+  app.post('/api/base-conhecimento/analyze', requireAuth, async (req, res) => {
+    try {
+      const { filename, contentPreview } = req.body;
+      if (!filename) {
+        return res.status(400).json({ error: 'Nome do arquivo é obrigatório' });
+      }
+      const { analyzeDocument } = await import('./services/documentAnalysisService');
+      const analysis = await analyzeDocument(filename, contentPreview);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error('Error analyzing document:', error);
+      res.status(500).json({ error: 'Erro ao analisar documento' });
     }
   });
 

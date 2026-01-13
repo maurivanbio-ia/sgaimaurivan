@@ -4355,7 +4355,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ========== BASE DE CONHECIMENTO ==========
-  async getBaseConhecimento(filters?: { unidade?: string; status?: string; tipo?: string; categoria?: string }): Promise<BaseConhecimento[]> {
+  async getBaseConhecimento(filters?: { unidade?: string; status?: string; tipo?: string; categoria?: string; tema?: string; search?: string }): Promise<BaseConhecimento[]> {
     const conditions: any[] = [isNull(baseConhecimento.deletedAt)];
     
     if (filters?.unidade) {
@@ -4369,6 +4369,20 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.categoria) {
       conditions.push(eq(baseConhecimento.categoria, filters.categoria));
+    }
+    if (filters?.tema) {
+      conditions.push(eq(baseConhecimento.tema, filters.tema));
+    }
+    if (filters?.search) {
+      const searchTerm = `%${filters.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          ilike(baseConhecimento.titulo, searchTerm),
+          ilike(baseConhecimento.tags, searchTerm),
+          ilike(baseConhecimento.descricao, searchTerm),
+          ilike(baseConhecimento.autores, searchTerm)
+        )
+      );
     }
     
     return db.select().from(baseConhecimento)

@@ -2460,9 +2460,10 @@ export const baseConhecimento = pgTable("base_conhecimento", {
   id: serial("id").primaryKey(),
   titulo: text("titulo").notNull(),
   descricao: text("descricao"),
-  tipo: text("tipo").notNull(), // modelo, procedimento, legislacao, manual, formulario, checklist, outro
+  tipo: text("tipo").notNull(), // modelo, procedimento, legislacao, manual, formulario, checklist, artigo_cientifico, outro
   categoria: text("categoria"), // licenciamento, monitoramento, sst, rh, financeiro, etc
   subcategoria: text("subcategoria"),
+  tema: text("tema"), // tema/área do artigo (fauna, flora, recursos_hidricos, residuos, etc)
   conteudo: text("conteudo"), // conteúdo em texto/markdown
   arquivoUrl: text("arquivo_url"),
   arquivoNome: text("arquivo_nome"),
@@ -2474,6 +2475,15 @@ export const baseConhecimento = pgTable("base_conhecimento", {
   visualizacoes: integer("visualizacoes").default(0),
   downloads: integer("downloads").default(0),
   status: text("status").notNull().default("ativo"), // ativo, rascunho, arquivado
+  // Campos para artigos científicos
+  isArtigoCientifico: boolean("is_artigo_cientifico").default(false),
+  citacaoAbnt: text("citacao_abnt"), // citação no formato ABNT (ex: SILVA, 2023)
+  referenciaAbnt: text("referencia_abnt"), // referência completa ABNT
+  resumoAuto: text("resumo_auto"), // resumo gerado automaticamente por IA
+  autores: text("autores"), // autores do artigo
+  anoPublicacao: text("ano_publicacao"), // ano de publicação
+  periodico: text("periodico"), // nome do periódico/revista
+  doi: text("doi"), // DOI do artigo
   unidade: text("unidade").notNull().default("salvador"),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
