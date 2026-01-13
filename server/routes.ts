@@ -1618,18 +1618,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete demanda
-  app.delete('/api/demandas/:id', async (req, res) => {
+  app.delete('/api/demandas/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid demanda ID' });
       }
 
+      console.log(`[DELETE DEMANDA] User ${req.user?.email} attempting to delete demanda ${id}`);
       const success = await storage.deleteDemanda(id);
       if (!success) {
+        console.log(`[DELETE DEMANDA] Demanda ${id} not found`);
         return res.status(404).json({ error: 'Demanda not found' });
       }
 
+      console.log(`[DELETE DEMANDA] Demanda ${id} deleted successfully`);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting demanda:', error);
