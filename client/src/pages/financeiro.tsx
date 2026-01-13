@@ -116,6 +116,13 @@ const TIPO_CONFIG = {
   solicitacao_recurso: { label: "Solicitação", color: "bg-purple-100 text-purple-700", icon: FileText }
 };
 
+// Unidades configuration
+const UNIDADES_CONFIG = {
+  salvador: { label: "Salvador (BA)", sigla: "BA" },
+  goiania: { label: "Goiânia (GO)", sigla: "GO" },
+  lem: { label: "Luís Eduardo Magalhães (LEM)", sigla: "LEM" }
+};
+
 // Create form schema for Novo Lançamento
 const novoLancamentoSchema = z.object({
   tipo: z.enum(["receita", "despesa", "reembolso", "solicitacao_recurso"], { required_error: "Tipo é obrigatório" }),
@@ -128,6 +135,7 @@ const novoLancamentoSchema = z.object({
   dataPagamento: z.date().optional().nullable(),
   descricao: z.string().min(5, "Descrição deve ter pelo menos 5 caracteres"),
   observacoes: z.string().optional(),
+  unidade: z.enum(["salvador", "goiania", "lem"], { required_error: "Unidade é obrigatória" }),
 });
 
 type NovoLancamentoFormData = z.infer<typeof novoLancamentoSchema>;
@@ -195,6 +203,7 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
       data: new Date(),
       dataVencimento: null,
       dataPagamento: null,
+      unidade: "salvador",
     },
   });
 
@@ -285,6 +294,29 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
                         {emp.nome}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="unidade"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Unidade *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-unidade">
+                      <SelectValue placeholder="Selecione a unidade" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="salvador">Salvador (BA)</SelectItem>
+                    <SelectItem value="goiania">Goiânia (GO)</SelectItem>
+                    <SelectItem value="lem">Luís Eduardo Magalhães (LEM)</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -801,7 +833,8 @@ export default function FinanceiroPage() {
     tipo: "todos",
     status: "todos",
     empreendimento: "",
-    search: ""
+    search: "",
+    unidade: "todas"
   });
   const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState<string>("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -915,13 +948,14 @@ export default function FinanceiroPage() {
       params.append("empreendimentoId", selectedEmpreendimentoId);
     }
     if (filters.search) params.append("search", filters.search);
+    if (filters.unidade && filters.unidade !== "todas") params.append("unidade", filters.unidade);
     const queryStr = params.toString();
     return queryStr ? `?${queryStr}` : "";
   };
 
   // Fetch financial data with proper query string
   const { data: lancamentos = [], isLoading } = useQuery<FinanceiroLancamento[]>({
-    queryKey: ["/api/financeiro/lancamentos", filters.tipo, filters.status, selectedEmpreendimentoId, filters.search],
+    queryKey: ["/api/financeiro/lancamentos", filters.tipo, filters.status, selectedEmpreendimentoId, filters.search, filters.unidade],
     queryFn: async () => {
       const res = await fetch(`/api/financeiro/lancamentos${buildQueryString()}`, {
         credentials: "include",
@@ -1663,6 +1697,18 @@ export default function FinanceiroPage() {
                   </SelectContent>
                 </Select>
 
+                <Select value={filters.unidade} onValueChange={(value) => setFilters({...filters, unidade: value})}>
+                  <SelectTrigger data-testid="filter-unidade">
+                    <SelectValue placeholder="Unidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as Unidades</SelectItem>
+                    <SelectItem value="salvador">Salvador (BA)</SelectItem>
+                    <SelectItem value="goiania">Goiânia (GO)</SelectItem>
+                    <SelectItem value="lem">Luís Eduardo Magalhães (LEM)</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <Input
                   placeholder="Empreendimento"
                   value={filters.empreendimento}
@@ -1671,7 +1717,7 @@ export default function FinanceiroPage() {
                 />
 
                 <Button 
-                  onClick={() => setFilters({ tipo: "todos", status: "todos", empreendimento: "", search: "" })}
+                  onClick={() => setFilters({ tipo: "todos", status: "todos", empreendimento: "", search: "", unidade: "todas" })}
                   variant="outline"
                   data-testid="button-clear-filters"
                 >
@@ -1710,6 +1756,7 @@ export default function FinanceiroPage() {
                         <th className="text-left p-4">Descrição</th>
                         <th className="text-left p-4">Valor</th>
                         <th className="text-left p-4">Status</th>
+                        <th className="text-left p-4">Unidade</th>
                         <th className="text-left p-4">Empreendimento</th>
                         <th className="text-left p-4">Ações</th>
                       </tr>
@@ -1761,6 +1808,11 @@ export default function FinanceiroPage() {
                                 className={`${statusConfig?.color} text-white border-transparent`}
                               >
                                 {statusConfig?.label}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              <Badge variant="secondary" className="text-xs">
+                                {UNIDADES_CONFIG[lancamento.unidade as keyof typeof UNIDADES_CONFIG]?.sigla || lancamento.unidade || 'BA'}
                               </Badge>
                             </td>
                             <td className="p-4">
