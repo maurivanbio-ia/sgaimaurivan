@@ -87,6 +87,9 @@ export async function getRankingGeral(periodo?: string) {
 export async function getDesempenhoUsuario(usuarioId: number, periodo?: string) {
   const periodoAtual = periodo || new Date().toISOString().substring(0, 7);
   
+  // Verificar conquistas automaticamente quando usuário acessa
+  await verificarConquistasAutomatico(usuarioId);
+  
   const [pontuacao] = await db
     .select()
     .from(pontuacoesGamificacao)
@@ -129,6 +132,14 @@ export async function getDesempenhoUsuario(usuarioId: number, periodo?: string) 
     conquistas: conquistasUsuario,
     historico
   };
+}
+
+async function verificarConquistasAutomatico(usuarioId: number) {
+  try {
+    await verificarConquistas(usuarioId);
+  } catch (error) {
+    console.error('[Gamificação] Erro ao verificar conquistas automaticamente:', error);
+  }
 }
 
 async function verificarPontuacaoDuplicada(referenciaId: number, referenciaTipo: string): Promise<boolean> {
