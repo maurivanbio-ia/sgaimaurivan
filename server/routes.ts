@@ -2079,11 +2079,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Financial Statistics route
   app.get('/api/financeiro/stats', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
-      const { empreendimentoId, startDate, endDate } = req.query;
+      const { empreendimentoId, startDate, endDate, unidade } = req.query;
       const empId = empreendimentoId ? parseInt(String(empreendimentoId)) : undefined;
       const start = startDate ? new Date(String(startDate)) : undefined;
       const end = endDate ? new Date(String(endDate)) : undefined;
-      const stats = await storage.getFinancialStats(empId, start, end);
+      const unidadeFilter = unidade ? String(unidade) : undefined;
+      const stats = await storage.getFinancialStats(empId, start, end, unidadeFilter);
       res.json(stats);
     } catch (error) {
       console.error('Error fetching financial stats:', error);
