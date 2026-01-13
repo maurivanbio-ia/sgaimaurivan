@@ -963,19 +963,25 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced Stats - MULTI-TENANCY
   async getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; proxVencer?: number }> {
-    // Busca empreendimentos da unidade
-    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    // Se temos um empreendimentoId específico, usar direto
+    if (empreendimentoId) {
+      const licencas = await this.getLicencasByEmpreendimento(empreendimentoId);
+      return this.calcularLicenseStats(licencas);
+    }
+    
+    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
+    const emps = unidade && unidade.trim() !== '' 
+      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+      : await db.select().from(empreendimentos);
     const empIds = emps.map(e => e.id);
     
-    // Se nenhum empreendimento da unidade, retorna zeros
+    // Se nenhum empreendimento, retorna zeros
     if (empIds.length === 0) {
       return { active: 0, expiring: 0, expired: 0, proxVencer: 0 };
     }
     
-    // Busca licenças dos empreendimentos da unidade
-    const licencas = empreendimentoId 
-      ? await this.getLicencasByEmpreendimento(empreendimentoId)
-      : await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+    // Busca licenças dos empreendimentos
+    const licencas = await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
     
     const now = new Date();
     const ninetyDaysFromNow = new Date();
@@ -1005,9 +1011,41 @@ export class DatabaseStorage implements IStorage {
 
     return { active, expiring, expired, proxVencer };
   }
+  
+  private calcularLicenseStats(licencas: any[]): { active: number; expiring: number; expired: number; proxVencer: number } {
+    const now = new Date();
+    const ninetyDaysFromNow = new Date();
+    ninetyDaysFromNow.setDate(now.getDate() + 90);
+    const sixtyDaysFromNow = new Date();
+    sixtyDaysFromNow.setDate(now.getDate() + 60);
+
+    let active = 0;
+    let expiring = 0;
+    let expired = 0;
+    let proxVencer = 0;
+
+    licencas.forEach(licenca => {
+      const validadeDate = new Date(licenca.validade);
+      if (validadeDate < now) {
+        expired++;
+      } else if (validadeDate <= ninetyDaysFromNow) {
+        expiring++;
+        if (validadeDate <= sixtyDaysFromNow) {
+          proxVencer++;
+        }
+      } else {
+        active++;
+      }
+    });
+
+    return { active, expiring, expired, proxVencer };
+  }
 
   async getCondicionanteStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }> {
-    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
+    const emps = unidade && unidade.trim() !== ''
+      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+      : await db.select().from(empreendimentos);
     const empIds = emps.map(e => e.id);
     
     if (empIds.length === 0) {
@@ -1028,7 +1066,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEntregaStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }> {
-    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
+    const emps = unidade && unidade.trim() !== ''
+      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+      : await db.select().from(empreendimentos);
     const empIds = emps.map(e => e.id);
     
     if (empIds.length === 0) {
@@ -1049,7 +1090,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMonthlyExpiryData(unidade: string, empreendimentoId?: number): Promise<Array<{ month: string; count: number }>> {
-    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
+    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
+    const emps = unidade && unidade.trim() !== ''
+      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+      : await db.select().from(empreendimentos);
     const empIds = emps.map(e => e.id);
     
     if (empIds.length === 0) {
