@@ -1193,7 +1193,12 @@ export class DatabaseStorage implements IStorage {
     const filters: {
       unidade?: string;
       empreendimento?: string;
-    } = { unidade };
+    } = {};
+    
+    // Only filter by unidade if user has one assigned (admin without unidade sees all)
+    if (unidade && unidade.trim() !== '') {
+      filters.unidade = unidade;
+    }
     
     if (empreendimentoId) {
       filters.empreendimento = empreendimentoId.toString();
