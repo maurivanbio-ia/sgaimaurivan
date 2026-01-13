@@ -2300,8 +2300,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const XLSX = await import('xlsx');
       
-      // Get all financial data
-      const lancamentos = await storage.getLancamentos();
+      // Get filter parameters
+      const { unidade, tipo, status, empreendimentoId } = req.query;
+      const filters: {
+        tipo?: string;
+        status?: string;
+        empreendimentoId?: number;
+        unidade?: string;
+      } = {};
+      if (unidade) filters.unidade = String(unidade);
+      if (tipo) filters.tipo = String(tipo);
+      if (status) filters.status = String(status);
+      if (empreendimentoId) filters.empreendimentoId = parseInt(String(empreendimentoId));
+      
+      // Get filtered financial data
+      const lancamentos = await storage.getLancamentos(filters);
       const categorias = await storage.getCategorias();
       const empreendimentos = await storage.getEmpreendimentos();
       
@@ -2309,9 +2322,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categoriaMap = new Map(categorias.map(c => [c.id, c.nome]));
       const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e.nome]));
       
+      // Unidade label mapping
+      const unidadeLabels: Record<string, string> = {
+        'salvador': 'Salvador (BA)',
+        'goiania': 'Goiânia (GO)',
+        'lem': 'Luís Eduardo Magalhães (LEM)'
+      };
+      
       // Transform data for Excel
       const exportData = lancamentos.map(l => ({
         'ID': l.id,
+        'Unidade': unidadeLabels[l.unidade || 'salvador'] || l.unidade || 'Salvador (BA)',
         'Tipo': l.tipo.charAt(0).toUpperCase() + l.tipo.slice(1),
         'Categoria': categoriaMap.get(l.categoriaId) || 'N/A',
         'Empreendimento': empreendimentoMap.get(l.empreendimentoId) || 'N/A',
@@ -2328,6 +2349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add column widths
       worksheet['!cols'] = [
         { wch: 8 },  // ID
+        { wch: 30 }, // Unidade
         { wch: 18 }, // Tipo
         { wch: 25 }, // Categoria
         { wch: 30 }, // Empreendimento
