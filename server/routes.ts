@@ -1380,7 +1380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filters: any = {
         setor: req.query.setor as string,
         responsavel: req.query.responsavel as string,
-        empreendimento: req.query.empreendimento as string,
+        empreendimento: req.query.empreendimento as string || req.query.empreendimentoId as string,
         prioridade: req.query.prioridade as string,
         status: req.query.status as string,
         search: req.query.search as string,
