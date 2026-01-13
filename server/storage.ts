@@ -1203,7 +1203,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFrotaStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number; alugados: number }> {
-    const veiculos = await this.getVeiculos(empreendimentoId ? { empreendimentoId, unidade } : { unidade });
+    // Build filters - only include unidade if not empty
+    const filters: { empreendimentoId?: number; unidade?: string } = {};
+    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
+    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
+    
+    const veiculos = Object.keys(filters).length > 0 ? await this.getVeiculos(filters) : await this.getVeiculos();
     return {
       total: veiculos.length,
       disponiveis: veiculos.filter(v => v.status === 'disponivel').length,
@@ -1214,7 +1219,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEquipamentosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number }> {
-    const equipamentos = await this.getEquipamentos({ unidade, empreendimentoId });
+    // Build filters - only include unidade if not empty
+    const filters: { empreendimentoId?: number; unidade?: string } = {};
+    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
+    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
+    
+    const equipamentos = Object.keys(filters).length > 0 ? await this.getEquipamentos(filters) : await this.getEquipamentos();
     return {
       total: equipamentos.length,
       disponiveis: equipamentos.filter(e => e.status === 'disponivel').length,
@@ -1224,7 +1234,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRhStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }> {
-    const rh = await this.getRhRegistros({ empreendimentoId, unidade });
+    // Build filters - only include unidade if not empty
+    const filters: { empreendimentoId?: number; unidade?: string } = {};
+    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
+    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
+    
+    const rh = Object.keys(filters).length > 0 ? await this.getRhRegistros(filters) : await this.getRhRegistros();
     return {
       total: rh.length,
       ativos: rh.filter((r: any) => r.situacao === 'ativo').length,
@@ -1260,7 +1275,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getContratosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }> {
-    const contratos = await this.getContratos({ empreendimentoId, unidade });
+    // Build filters - only include unidade if not empty
+    const filters: { empreendimentoId?: number; unidade?: string } = {};
+    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
+    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
+    
+    const contratos = Object.keys(filters).length > 0 ? await this.getContratos(filters) : await this.getContratos();
     const ativos = contratos.filter(c => !c.deletedAt);
     const valorTotal = ativos.reduce((sum, c) => sum + (parseFloat(c.valorTotal || '0')), 0);
     return {
