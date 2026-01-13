@@ -281,7 +281,7 @@ export interface IStorage {
   updateOrcamento(id: number, orcamento: Partial<InsertOrcamento>): Promise<Orcamento>;
   deleteOrcamento(id: number): Promise<boolean>;
   
-  getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date): Promise<{
+  getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date, unidade?: string): Promise<{
     totalReceitas: number;
     totalDespesas: number;
     totalPendente: number;
@@ -2039,7 +2039,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Financial statistics
-  async getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date): Promise<{
+  async getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date, unidade?: string): Promise<{
     totalReceitas: number;
     totalDespesas: number;
     totalPendente: number;
@@ -2056,6 +2056,11 @@ export class DatabaseStorage implements IStorage {
     let lancamentos = empreendimentoId 
       ? allLancamentos.filter(l => l.empreendimentoId === empreendimentoId)
       : allLancamentos;
+    
+    // Apply unidade filter if specified
+    if (unidade && unidade !== 'todas') {
+      lancamentos = lancamentos.filter(l => l.unidade === unidade);
+    }
     
     // Apply date range filter if specified
     if (startDate || endDate) {
