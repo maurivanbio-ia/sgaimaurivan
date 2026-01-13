@@ -1563,6 +1563,9 @@ export class DatabaseStorage implements IStorage {
       const empId = parseInt(filters.empreendimento);
       if (!isNaN(empId)) {
         conditions.push(eq(demandas.empreendimentoId, empId));
+        console.log('[DEBUG getDemandas] Filtering by empreendimentoId:', empId);
+      } else {
+        console.log('[DEBUG getDemandas] Invalid empreendimentoId:', filters.empreendimento);
       }
     }
     
