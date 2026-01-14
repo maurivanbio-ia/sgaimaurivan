@@ -146,14 +146,6 @@ const eventDotClass: Record<EventType, string> = {
   tarefa: "bg-emerald-500",
 };
 
-const eventRingClass: Record<EventType, string> = {
-  licenca: "ring-red-500",
-  demanda: "ring-blue-500",
-  condicionante: "ring-amber-500",
-  cronograma: "ring-purple-500",
-  tarefa: "ring-emerald-500",
-};
-
 const priorityClass: Record<string, string> = {
   urgente: "border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20",
   alta: "border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-900/40 dark:text-orange-200 dark:bg-orange-900/20",
@@ -209,13 +201,7 @@ function getTipoLabel(type: EventType) {
 function isDoneStatus(status?: string) {
   if (!status) return false;
   const s = status.toLowerCase().trim();
-  return (
-    s.includes("conclu") ||
-    s.includes("final") ||
-    s.includes("encerr") ||
-    s === "done" ||
-    s === "ok"
-  );
+  return s.includes("conclu") || s.includes("final") || s.includes("encerr") || s === "done" || s === "ok";
 }
 
 function normalizeText(s: string) {
@@ -303,6 +289,14 @@ function writePrefs(prefs: StoredPrefs) {
   }
 }
 
+function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
+  const as = startOfDay(aStart).getTime();
+  const ae = startOfDay(aEnd).getTime();
+  const bs = startOfDay(bStart).getTime();
+  const be = startOfDay(bEnd).getTime();
+  return as <= be && bs <= ae;
+}
+
 /* =========================
    Componente
    ========================= */
@@ -326,14 +320,33 @@ export default function Calendario() {
 
   /* =========================
      Fetch padronizado
+     Ajustes.
+     404 e 204 retornam lista vazia, evitando quebra do calendário quando não há registros.
      ========================= */
 
   const fetcher = useCallback(async <T,>(url: string): Promise<T> => {
     const res = await apiRequest("GET", url);
+
+    if (res.status === 204) {
+      return ([] as unknown) as T;
+    }
+
+    if (res.status === 404) {
+      return ([] as unknown) as T;
+    }
+
     if (!res.ok) {
       const msg = await res.text().catch(() => "");
-      throw new Error(msg || "Falha ao buscar dados.");
+      throw new Error(msg || `Falha ao buscar dados (${res.status}).`);
     }
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const txt = await res.text().catch(() => "");
+      if (!txt) return ([] as unknown) as T;
+      throw new Error("Resposta inesperada (não JSON).");
+    }
+
     return (await res.json()) as T;
   }, []);
 
@@ -372,11 +385,16 @@ export default function Calendario() {
     retry: 2,
   });
 
+  /* =========================
+     Loading.
+     Ajuste importante: era && e isso impede skeleton na maioria dos cenários.
+     ========================= */
+
   const anyLoading =
-    licencasQ.isLoading &&
-    demandasQ.isLoading &&
-    condicionantesQ.isLoading &&
-    cronogramaQ.isLoading &&
+    licencasQ.isLoading ||
+    demandasQ.isLoading ||
+    condicionantesQ.isLoading ||
+    cronogramaQ.isLoading ||
     tarefasQ.isLoading;
 
   const anyFetching =
@@ -420,9 +438,7 @@ export default function Calendario() {
       const overdue = isBefore(startOfDay(d), today) && !done;
 
       const title = `Venc. Licença: ${lic.numero}`;
-      const searchText = normalizeText(
-        `${title} ${lic.numero} ${lic.tipo} ${lic.empreendimentoNome} ${lic.status}`
-      );
+      const searchText = normalizeText(`${title} ${lic.numero} ${lic.tipo} ${lic.empreendimentoNome} ${lic.status}`);
 
       all.push({
         id: `lic-${lic.id}`,
@@ -449,9 +465,7 @@ export default function Calendario() {
       const overdue = isBefore(startOfDay(end), today) && !done;
 
       const title = dem.titulo;
-      const searchText = normalizeText(
-        `${title} ${dem.empreendimentoNome} ${dem.status} ${dem.prioridade}`
-      );
+      const searchText = normalizeText(`${title} ${dem.empreendimentoNome} ${dem.status} ${dem.prioridade}`);
 
       all.push({
         id: `dem-${dem.id}`,
@@ -516,9 +530,7 @@ export default function Calendario() {
           : "Etapa";
 
       const title = `${tipoLabel}: ${item.titulo}`;
-      const searchText = normalizeText(
-        `${title} ${item.tipo} ${item.status} ${item.responsavel || ""} ${item.prioridade || ""}`
-      );
+      const searchText = normalizeText(`${title} ${item.tipo} ${item.status} ${item.responsavel || ""} ${item.prioridade || ""}`);
 
       all.push({
         id: `cron-${item.id}`,
@@ -549,9 +561,7 @@ export default function Calendario() {
       const overdue = isBefore(startOfDay(d), today) && !done;
 
       const title = `Tarefa: ${tarefa.titulo}`;
-      const searchText = normalizeText(
-        `${title} ${tarefa.status} ${tarefa.prioridade} ${tarefa.descricao || ""}`
-      );
+      const searchText = normalizeText(`${title} ${tarefa.status} ${tarefa.prioridade} ${tarefa.descricao || ""}`);
 
       all.push({
         id: `tar-${tarefa.id}`,
@@ -594,7 +604,7 @@ export default function Calendario() {
   const paddingDays = Array(firstDayIndex).fill(null);
 
   /* =========================
-     Indexação por dia, sem explosão de intervalos
+     Indexação por dia
      ========================= */
 
   const eventsByDayKey = useMemo(() => {
@@ -651,10 +661,20 @@ export default function Calendario() {
 
   /* =========================
      KPI e contagens
+     Ajuste importante: ranges não podem entrar sempre. Precisam sobrepor o mês.
      ========================= */
 
   const monthKPIs = useMemo(() => {
-    const thisMonth = filteredEvents.filter((e) => isSameMonth(e.date, currentDate) || (e.rangeStart && e.rangeEnd));
+    const monthStartDay = startOfDay(startOfMonth(currentDate));
+    const monthEndDay = startOfDay(endOfMonth(currentDate));
+
+    const thisMonth = filteredEvents.filter((e) => {
+      if (e.rangeStart && e.rangeEnd && (e.type === "demanda" || e.type === "cronograma")) {
+        return rangesOverlap(e.rangeStart, e.rangeEnd, monthStartDay, monthEndDay);
+      }
+      return isSameMonth(e.date, currentDate);
+    });
+
     const today = startOfDay(new Date());
     const in7 = addDays(today, 7);
 
@@ -732,7 +752,7 @@ export default function Calendario() {
   }, [filteredEvents, agendaWindow]);
 
   /* =========================
-     Seleção do dia e agrupamento por entidade
+     Seleção do dia
      ========================= */
 
   const selectedDayEvents = useMemo(() => {
@@ -775,7 +795,7 @@ export default function Calendario() {
   };
 
   /* =========================
-     Loading inicial (primeiro paint)
+     Loading inicial
      ========================= */
 
   if (anyLoading) {
@@ -850,9 +870,7 @@ export default function Calendario() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-yellow-700 dark:text-yellow-300 mt-0.5" />
                 <div className="flex-1 space-y-2">
-                  <div className="font-semibold text-yellow-900 dark:text-yellow-100">
-                    Alguns dados não puderam ser carregados
-                  </div>
+                  <div className="font-semibold text-yellow-900 dark:text-yellow-100">Alguns dados não puderam ser carregados</div>
                   <div className="text-sm text-yellow-800 dark:text-yellow-200 space-y-1">
                     {errorSources.map((e) => (
                       <div key={e.name} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -896,24 +914,21 @@ export default function Calendario() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant={prefs.filterType === "todos" ? "default" : "outline"}
-              onClick={() => setFilterType("todos")}
-              data-testid="filter-todos"
-            >
+            <Button size="sm" variant={prefs.filterType === "todos" ? "default" : "outline"} onClick={() => setFilterType("todos")} data-testid="filter-todos">
               Todos
             </Button>
+
             <Button
               size="sm"
               variant={prefs.filterType === "licenca" ? "default" : "outline"}
               onClick={() => setFilterType(prefs.filterType === "licenca" ? "todos" : "licenca")}
               data-testid="filter-licencas"
-              className={prefs.filterType === "licenca" ? "gap-2" : "gap-2"}
+              className="gap-2"
             >
               <FileText className="h-4 w-4" />
               Licenças
             </Button>
+
             <Button
               size="sm"
               variant={prefs.filterType === "demanda" ? "default" : "outline"}
@@ -924,6 +939,7 @@ export default function Calendario() {
               <ClipboardList className="h-4 w-4" />
               Demandas
             </Button>
+
             <Button
               size="sm"
               variant={prefs.filterType === "condicionante" ? "default" : "outline"}
@@ -934,6 +950,7 @@ export default function Calendario() {
               <AlertTriangle className="h-4 w-4" />
               Condicionantes
             </Button>
+
             <Button
               size="sm"
               variant={prefs.filterType === "cronograma" ? "default" : "outline"}
@@ -944,6 +961,7 @@ export default function Calendario() {
               <Target className="h-4 w-4" />
               Cronograma
             </Button>
+
             <Button
               size="sm"
               variant={prefs.filterType === "tarefa" ? "default" : "outline"}
@@ -1067,32 +1085,18 @@ export default function Calendario() {
                 </CardTitle>
 
                 <div className="flex gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    variant={prefs.agendaRange === "hoje" ? "default" : "outline"}
-                    onClick={() => setAgendaRange("hoje")}
-                    data-testid="agenda-range-hoje"
-                  >
+                  <Button size="sm" variant={prefs.agendaRange === "hoje" ? "default" : "outline"} onClick={() => setAgendaRange("hoje")} data-testid="agenda-range-hoje">
                     Hoje
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={prefs.agendaRange === "7d" ? "default" : "outline"}
-                    onClick={() => setAgendaRange("7d")}
-                    data-testid="agenda-range-7d"
-                  >
+                  <Button size="sm" variant={prefs.agendaRange === "7d" ? "default" : "outline"} onClick={() => setAgendaRange("7d")} data-testid="agenda-range-7d">
                     7 dias
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={prefs.agendaRange === "30d" ? "default" : "outline"}
-                    onClick={() => setAgendaRange("30d")}
-                    data-testid="agenda-range-30d"
-                  >
+                  <Button size="sm" variant={prefs.agendaRange === "30d" ? "default" : "outline"} onClick={() => setAgendaRange("30d")} data-testid="agenda-range-30d">
                     30 dias
                   </Button>
                 </div>
               </div>
+
               <div className="text-sm text-muted-foreground mt-2">
                 Período: {format(agendaWindow.start, "dd/MM/yyyy")} até {format(agendaWindow.end, "dd/MM/yyyy")}
               </div>
@@ -1149,28 +1153,12 @@ export default function Calendario() {
                                   Data: {format(event.date, "dd/MM/yyyy")} . {dueText}
                                 </div>
 
-                                {event.empreendimentoNome && (
-                                  <div className="text-xs text-muted-foreground mt-1 truncate">
-                                    Empreendimento: {event.empreendimentoNome}
-                                  </div>
-                                )}
-
-                                {event.licencaNumero && (
-                                  <div className="text-xs text-muted-foreground mt-1 truncate">
-                                    Licença: {event.licencaNumero}
-                                  </div>
-                                )}
-
-                                {event.status && (
-                                  <div className="text-xs text-muted-foreground mt-1 truncate">
-                                    Status: {event.status}
-                                  </div>
-                                )}
+                                {event.empreendimentoNome && <div className="text-xs text-muted-foreground mt-1 truncate">Empreendimento: {event.empreendimentoNome}</div>}
+                                {event.licencaNumero && <div className="text-xs text-muted-foreground mt-1 truncate">Licença: {event.licencaNumero}</div>}
+                                {event.status && <div className="text-xs text-muted-foreground mt-1 truncate">Status: {event.status}</div>}
                               </div>
 
-                              <div className="text-xs text-muted-foreground whitespace-nowrap">
-                                {format(event.date, "EEE", { locale: ptBR })}
-                              </div>
+                              <div className="text-xs text-muted-foreground whitespace-nowrap">{format(event.date, "EEE", { locale: ptBR })}</div>
                             </div>
 
                             {event.rangeStart && event.rangeEnd && (event.type === "demanda" || event.type === "cronograma") && (
@@ -1216,45 +1204,21 @@ export default function Calendario() {
           <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">
-                  {format(currentDate, "MMMM yyyy", { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}
-                </CardTitle>
+                <CardTitle className="text-xl">{format(currentDate, "MMMM yyyy", { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}</CardTitle>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={goPrevMonth}
-                    data-testid="button-prev-month"
-                    aria-label="Mês anterior"
-                  >
+                  <Button variant="outline" size="icon" onClick={goPrevMonth} data-testid="button-prev-month" aria-label="Mês anterior">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToday}
-                    data-testid="button-today"
-                    aria-label="Ir para hoje"
-                  >
+                  <Button variant="outline" size="sm" onClick={goToday} data-testid="button-today" aria-label="Ir para hoje">
                     Hoje
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={goNextMonth}
-                    data-testid="button-next-month"
-                    aria-label="Próximo mês"
-                  >
+                  <Button variant="outline" size="icon" onClick={goNextMonth} data-testid="button-next-month" aria-label="Próximo mês">
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              {anyFetching && (
-                <div className="text-xs text-muted-foreground mt-2">
-                  Atualizando dados em segundo plano
-                </div>
-              )}
+              {anyFetching && <div className="text-xs text-muted-foreground mt-2">Atualizando dados em segundo plano</div>}
             </CardHeader>
 
             <CardContent>
@@ -1284,9 +1248,7 @@ export default function Calendario() {
 
                   const overdueHere = dayEvents.some((e) => e.overdue);
 
-                  const ariaLabel = `Dia ${format(day, "dd/MM/yyyy")}. ${dayEvents.length} ${
-                    dayEvents.length === 1 ? "evento" : "eventos"
-                  }. Licenças ${countsByType.licenca}. Demandas ${countsByType.demanda}. Condicionantes ${countsByType.condicionante}. Cronograma ${countsByType.cronograma}. Tarefas ${countsByType.tarefa}.${overdueHere ? " Há itens atrasados." : ""}`;
+                  const ariaLabel = `Dia ${format(day, "dd/MM/yyyy")}. ${dayEvents.length} ${dayEvents.length === 1 ? "evento" : "eventos"}. Licenças ${countsByType.licenca}. Demandas ${countsByType.demanda}. Condicionantes ${countsByType.condicionante}. Cronograma ${countsByType.cronograma}. Tarefas ${countsByType.tarefa}.${overdueHere ? " Há itens atrasados." : ""}`;
 
                   return (
                     <button
@@ -1305,22 +1267,14 @@ export default function Calendario() {
                       data-testid={`day-${format(day, "yyyy-MM-dd")}`}
                     >
                       <div className="flex flex-col h-full">
-                        <span className={`text-sm ${isToday(day) ? "font-bold text-green-600" : ""}`}>
-                          {format(day, "d")}
-                        </span>
+                        <span className={`text-sm ${isToday(day) ? "font-bold text-green-600" : ""}`}>{format(day, "d")}</span>
 
                         {hasEvents && (
                           <div className="flex flex-wrap gap-0.5 mt-1">
                             {dayEvents.slice(0, 4).map((event) => (
-                              <div
-                                key={event.entityId}
-                                className={`w-2 h-2 rounded-full ${eventDotClass[event.type]}`}
-                                title={event.title}
-                              />
+                              <div key={event.entityId} className={`w-2 h-2 rounded-full ${eventDotClass[event.type]}`} title={event.title} />
                             ))}
-                            {dayEvents.length > 4 && (
-                              <span className="text-xs text-muted-foreground">+{dayEvents.length - 4}</span>
-                            )}
+                            {dayEvents.length > 4 && <span className="text-xs text-muted-foreground">+{dayEvents.length - 4}</span>}
                           </div>
                         )}
                       </div>
@@ -1342,16 +1296,12 @@ export default function Calendario() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">
-                {selectedDate ? format(selectedDate, "dd 'de' MMMM", { locale: ptBR }) : "Selecione um dia"}
-              </CardTitle>
+              <CardTitle className="text-lg">{selectedDate ? format(selectedDate, "dd 'de' MMMM", { locale: ptBR }) : "Selecione um dia"}</CardTitle>
             </CardHeader>
 
             <CardContent>
               {!selectedDate ? (
-                <p className="text-muted-foreground text-center py-8">
-                  Clique em um dia do calendário para ver os eventos
-                </p>
+                <p className="text-muted-foreground text-center py-8">Clique em um dia do calendário para ver os eventos</p>
               ) : selectedDayEvents.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500 opacity-50" />
@@ -1382,16 +1332,11 @@ export default function Calendario() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="font-medium text-sm truncate">{event.title}</p>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {dueText}
-                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">{dueText}</div>
                               </div>
 
                               {event.overdue && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20`}
-                                >
+                                <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20">
                                   Atrasado
                                 </Badge>
                               )}
@@ -1415,23 +1360,9 @@ export default function Calendario() {
                               )}
                             </div>
 
-                            {event.empreendimentoNome && (
-                              <p className="text-xs text-muted-foreground mt-2 truncate">
-                                Empreendimento: {event.empreendimentoNome}
-                              </p>
-                            )}
-
-                            {event.licencaNumero && (
-                              <p className="text-xs text-muted-foreground mt-1 truncate">
-                                Licença: {event.licencaNumero}
-                              </p>
-                            )}
-
-                            {event.status && (
-                              <p className="text-xs text-muted-foreground mt-1 truncate">
-                                Status: {event.status}
-                              </p>
-                            )}
+                            {event.empreendimentoNome && <p className="text-xs text-muted-foreground mt-2 truncate">Empreendimento: {event.empreendimentoNome}</p>}
+                            {event.licencaNumero && <p className="text-xs text-muted-foreground mt-1 truncate">Licença: {event.licencaNumero}</p>}
+                            {event.status && <p className="text-xs text-muted-foreground mt-1 truncate">Status: {event.status}</p>}
 
                             {event.rangeStart && event.rangeEnd && (event.type === "demanda" || event.type === "cronograma") && (
                               <p className="text-xs text-muted-foreground mt-2">
@@ -1448,30 +1379,15 @@ export default function Calendario() {
 
               {selectedDate && (
                 <div className="mt-4 pt-4 border-t space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => setViewMode("agenda")}
-                    data-testid="button-open-agenda"
-                  >
+                  <Button variant="outline" className="w-full justify-start" onClick={() => setViewMode("agenda")} data-testid="button-open-agenda">
                     Abrir em Agenda
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate("/demandas")}
-                    data-testid="button-open-demandas"
-                  >
+                  <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/demandas")} data-testid="button-open-demandas">
                     Abrir Demandas
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate("/condicionantes/pendentes")}
-                    data-testid="button-open-condicionantes"
-                  >
+                  <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/condicionantes/pendentes")} data-testid="button-open-condicionantes">
                     Abrir Condicionantes
                   </Button>
                 </div>
