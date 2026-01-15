@@ -1324,7 +1324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { ObjectStorageService } = await import("./objectStorage");
       const objectStorageService = new ObjectStorageService();
-      const { uploadUrl, filePath } = await objectStorageService.getPdfUploadURL();
+      const filename = req.body?.filename;
+      const { uploadUrl, filePath } = await objectStorageService.getPdfUploadURL(filename);
       res.json({ method: "PUT", url: uploadUrl, filePath });
     } catch (error) {
       console.error("Get PDF upload URL error:", error);
