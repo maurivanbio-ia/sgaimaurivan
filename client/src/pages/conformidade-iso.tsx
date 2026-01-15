@@ -90,6 +90,34 @@ const NORMAS: readonly NormaConfig[] = [
 ] as const;
 
 /* =========================
+   Fetch helper (robusto)
+========================= */
+
+async function fetchJsonStrict<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const contentType = res.headers.get("content-type") || "";
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ao acessar ${url}`);
+  }
+
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Resposta não é JSON. Provável redirecionamento para login ou erro de rota.\nInício da resposta: ${text.slice(0, 80)}`
+    );
+  }
+
+  return res.json();
+}
+
+/* =========================
    Helpers (robustos e testáveis)
 ========================= */
 
@@ -320,11 +348,6 @@ export default function ConformidadeISO() {
   const { unidadeSelecionada } = useUnidade();
   const unidadeId = React.useMemo(() => getUnidadeId(unidadeSelecionada), [unidadeSelecionada]);
 
-  /**
-   * Observação importante.
-   * Este componente assume que você tem um queryFn global configurado para React Query (padrão comum em apps).
-   * Se não tiver, inclua queryFn aqui conforme seu client HTTP.
-   */
   const {
     data: conformidade,
     isLoading,
@@ -335,11 +358,14 @@ export default function ConformidadeISO() {
   } = useQuery<ConformidadeData>({
     queryKey: ["conformidade-iso", unidadeId],
     enabled: Boolean(unidadeId),
+    queryFn: () => fetchJsonStrict<ConformidadeData>(
+      `/api/conformidade-iso${unidadeId ? `?unidade=${encodeURIComponent(String(unidadeId))}` : ''}`
+    ),
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
-    retry: 2,
+    retry: 1,
   });
 
   if (!unidadeId) {

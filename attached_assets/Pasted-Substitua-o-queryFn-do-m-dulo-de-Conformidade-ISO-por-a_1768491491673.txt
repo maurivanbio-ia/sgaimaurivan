@@ -1,0 +1,404 @@
+Substitua o queryFn do módulo de Conformidade ISO por algo neste padrão:
+
+async function fetchJsonStrict<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const contentType = res.headers.get("content-type") || "";
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ao acessar ${url}`);
+  }
+
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Resposta não é JSON. Provável redirecionamento para login ou erro de rota.\nInício da resposta: ${text.slice(0, 80)}`
+    );
+  }
+
+  return res.json();
+}
+
+
+E então, no componente de Conformidade ISO:
+
+const {
+  data: conformidade,
+  isLoading,
+  isError,
+  error,
+  refetch,
+  isFetching,
+} = useQuery<ConformidadeData>({
+  queryKey: ["conformidade-iso", unidadeId],
+  enabled: Boolean(unidadeId),
+  queryFn: () => fetchJsonStrict<ConformidadeData>("/api/conformidade-iso"),
+  staleTime: 60_000,
+  retry: 1,
+});
+
+
+Com isso:
+
+Se o backend devolver HTML (login, erro, redirect), o erro será claro e controlado.
+
+O sistema não tentará mais interpretar páginas HTML como JSON.
+
+A mensagem exibida deixará explícito que a rota está incorreta ou que a sessão não está válida.
+
+Na prática, este comportamento revela que hoje o backend está devolvendo uma página HTML para /api/conformidade-iso. Isso confirma que:
+
+Ou a rota não existe.
+
+Ou ela está protegida por autenticação e o frontend está sendo redirecionado silenciosamente para login.
+
+Após essa correção, você conseguirá identificar com precisão qual dos dois cenários está ocorrendo, e o frontend deixará de “quebrar” com erro genérico de parsing.
+
+crie /api/conformidade-iso
+// server/routes/conformidade-iso.ts
+import { Router, Request, Response } from "express";
+
+/**
+ * Endpoint: GET /api/conformidade-iso?unidadeId=...
+ * Retorna JSON SEMPRE. Nunca retorna HTML.
+ *
+ * Premissas comuns:
+ * . Você já tem autenticação via cookie/sessão (credentials: "include")
+ * . Você tem algum middleware requireAuth (opcional aqui. plugue o seu)
+ */
+
+// Opcional. Troque pelo seu middleware real.
+function requireAuth(req: Request, res: Response, next: Function) {
+  // Exemplo genérico. Ajuste ao seu auth.
+  const isLoggedIn = Boolean((req as any).user || (req as any).session);
+  if (!isLoggedIn) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  next();
+}
+
+type StatusRequisito = "conforme" | "nao_conforme" | "em_implementacao" | "nao_aplicavel";
+type TipoAlerta = "critico" | "atencao" | "info";
+
+interface RequisitoISO {
+  id: string;
+  codigo: string;
+  titulo: string;
+  descricao: string;
+  status: StatusRequisito;
+  evidencias: string[];
+  moduloRelacionado: string;
+  indicador?: number; // 0..100
+  meta?: number; // 0..100
+}
+
+interface AlertaConformidade {
+  id: string;
+  tipo: TipoAlerta;
+  mensagem: string;
+  modulo: string;
+  dataCriacao: string; // ISO string
+}
+
+interface ConformidadeData {
+  iso14001: { score: number; requisitos: RequisitoISO[] };
+  iso9001: { score: number; requisitos: RequisitoISO[] };
+  iso45001: { score: number; requisitos: RequisitoISO[] };
+  alertas: AlertaConformidade[];
+  resumo: {
+    totalRequisitos: number;
+    conformes: number;
+    naoConformes: number;
+    emImplementacao: number;
+  };
+}
+
+/**
+ * Regras de score (simples e pragmáticas):
+ * . score = (conformes / (total - nao_aplicavel)) * 100
+ * . em_implementacao conta como não conforme para score, mas aparece no resumo
+ */
+function computeScore(requisitos: RequisitoISO[]): number {
+  const aplicaveis = requisitos.filter((r) => r.status !== "nao_aplicavel");
+  if (aplicaveis.length === 0) return 0;
+  const conformes = aplicaveis.filter((r) => r.status === "conforme").length;
+  return Math.round((conformes / aplicaveis.length) * 100);
+}
+
+function buildResumo(all: RequisitoISO[]) {
+  return {
+    totalRequisitos: all.length,
+    conformes: all.filter((r) => r.status === "conforme").length,
+    naoConformes: all.filter((r) => r.status === "nao_conforme").length,
+    emImplementacao: all.filter((r) => r.status === "em_implementacao").length,
+  };
+}
+
+/**
+ * Aqui entram suas consultas reais.
+ * Você pode montar status com base nos módulos:
+ * . licenças e condicionantes -> ISO 14001
+ * . treinamentos, fornecedores, documentos -> ISO 9001
+ * . RH, SST, frota -> ISO 45001
+ *
+ * Abaixo vai uma implementação inicial funcional (MVP) com stubs.
+ * Depois você substitui as funções get* por acesso ao seu banco.
+ */
+
+async function getLicencasResumo(unidadeId?: string) {
+  // TODO: substituir por DB
+  // Ex: SELECT count(*) total, sum(case when validade >= current_date then 1 else 0 end) vigentes ...
+  return { total: 0, vigentes: 0, vencidas: 0 };
+}
+
+async function getCondicionantesResumo(unidadeId?: string) {
+  return { total: 0, emDia: 0, atrasadas: 0 };
+}
+
+async function getTreinamentosResumo(unidadeId?: string) {
+  return { total: 0, validos: 0, vencidos: 0 };
+}
+
+async function getFornecedoresResumo(unidadeId?: string) {
+  return { total: 0, qualificados: 0, naoQualificados: 0 };
+}
+
+async function getSstResumo(unidadeId?: string) {
+  return { docsTotal: 0, docsEmDia: 0, docsAtrasados: 0 };
+}
+
+async function getFrotaResumo(unidadeId?: string) {
+  return { total: 0, regular: 0, irregular: 0 };
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+/**
+ * Constrói requisitos padrão com base em “indicadores” vindos dos módulos.
+ * Ajuste a lista para refletir sua matriz ISO real.
+ */
+async function buildConformidade(unidadeId?: string): Promise<ConformidadeData> {
+  const [lic, cond, trein, forn, sst, frota] = await Promise.all([
+    getLicencasResumo(unidadeId),
+    getCondicionantesResumo(unidadeId),
+    getTreinamentosResumo(unidadeId),
+    getFornecedoresResumo(unidadeId),
+    getSstResumo(unidadeId),
+    getFrotaResumo(unidadeId),
+  ]);
+
+  // ISO 14001 (Ambiental) – exemplo mínimo
+  const req14001: RequisitoISO[] = [
+    {
+      id: "14001-6.1.3",
+      codigo: "6.1.3",
+      titulo: "Atendimento a requisitos legais e outros requisitos",
+      descricao: "Licenças vigentes e obrigações legais mapeadas e acompanhadas.",
+      status:
+        lic.total === 0
+          ? "em_implementacao"
+          : lic.vigentes === lic.total
+          ? "conforme"
+          : "nao_conforme",
+      evidencias:
+        lic.total === 0
+          ? []
+          : [
+              `Licenças totais: ${lic.total}`,
+              `Vigentes: ${lic.vigentes}`,
+              `Vencidas: ${lic.vencidas}`,
+            ],
+      moduloRelacionado: "Licenças",
+      indicador: lic.total === 0 ? 0 : Math.round((lic.vigentes / Math.max(lic.total, 1)) * 100),
+      meta: 100,
+    },
+    {
+      id: "14001-9.1.2",
+      codigo: "9.1.2",
+      titulo: "Avaliação de conformidade",
+      descricao: "Condicionantes monitoradas e cumpridas nos prazos.",
+      status:
+        cond.total === 0
+          ? "em_implementacao"
+          : cond.atrasadas === 0
+          ? "conforme"
+          : "nao_conforme",
+      evidencias:
+        cond.total === 0
+          ? []
+          : [
+              `Condicionantes totais: ${cond.total}`,
+              `Em dia: ${cond.emDia}`,
+              `Atrasadas: ${cond.atrasadas}`,
+            ],
+      moduloRelacionado: "Condicionantes",
+      indicador: cond.total === 0 ? 0 : Math.round((cond.emDia / Math.max(cond.total, 1)) * 100),
+      meta: 95,
+    },
+  ];
+
+  // ISO 9001 (Qualidade) – exemplo mínimo
+  const req9001: RequisitoISO[] = [
+    {
+      id: "9001-7.2",
+      codigo: "7.2",
+      titulo: "Competência",
+      descricao: "Treinamentos definidos, realizados e válidos.",
+      status:
+        trein.total === 0
+          ? "em_implementacao"
+          : trein.vencidos === 0
+          ? "conforme"
+          : "nao_conforme",
+      evidencias:
+        trein.total === 0
+          ? []
+          : [
+              `Treinamentos totais: ${trein.total}`,
+              `Válidos: ${trein.validos}`,
+              `Vencidos: ${trein.vencidos}`,
+            ],
+      moduloRelacionado: "Treinamentos",
+      indicador: trein.total === 0 ? 0 : Math.round((trein.validos / Math.max(trein.total, 1)) * 100),
+      meta: 90,
+    },
+    {
+      id: "9001-8.4",
+      codigo: "8.4",
+      titulo: "Controle de processos, produtos e serviços providos externamente",
+      descricao: "Fornecedores avaliados e qualificados.",
+      status:
+        forn.total === 0
+          ? "em_implementacao"
+          : forn.qualificados / Math.max(forn.total, 1) >= 0.8
+          ? "conforme"
+          : "nao_conforme",
+      evidencias:
+        forn.total === 0
+          ? []
+          : [
+              `Fornecedores totais: ${forn.total}`,
+              `Qualificados: ${forn.qualificados}`,
+              `Não qualificados: ${forn.naoQualificados}`,
+            ],
+      moduloRelacionado: "Fornecedores",
+      indicador: forn.total === 0 ? 0 : Math.round((forn.qualificados / Math.max(forn.total, 1)) * 100),
+      meta: 80,
+    },
+  ];
+
+  // ISO 45001 (SST) – exemplo mínimo
+  const req45001: RequisitoISO[] = [
+    {
+      id: "45001-7.5",
+      codigo: "7.5",
+      titulo: "Informação documentada",
+      descricao: "Documentos SST controlados e atualizados.",
+      status:
+        sst.docsTotal === 0
+          ? "em_implementacao"
+          : sst.docsAtrasados === 0
+          ? "conforme"
+          : "nao_conforme",
+      evidencias:
+        sst.docsTotal === 0
+          ? []
+          : [
+              `Docs SST totais: ${sst.docsTotal}`,
+              `Em dia: ${sst.docsEmDia}`,
+              `Atrasados: ${sst.docsAtrasados}`,
+            ],
+      moduloRelacionado: "SST",
+      indicador: sst.docsTotal === 0 ? 0 : Math.round((sst.docsEmDia / Math.max(sst.docsTotal, 1)) * 100),
+      meta: 95,
+    },
+    {
+      id: "45001-8.1",
+      codigo: "8.1",
+      titulo: "Planejamento e controle operacional",
+      descricao: "Frota regularizada (documentação e seguro).",
+      status:
+        frota.total === 0
+          ? "em_implementacao"
+          : frota.irregular === 0
+          ? "conforme"
+          : "nao_conforme",
+      evidencias:
+        frota.total === 0
+          ? []
+          : [
+              `Veículos totais: ${frota.total}`,
+              `Regular: ${frota.regular}`,
+              `Irregular: ${frota.irregular}`,
+            ],
+      moduloRelacionado: "Frota",
+      indicador: frota.total === 0 ? 0 : Math.round((frota.regular / Math.max(frota.total, 1)) * 100),
+      meta: 100,
+    },
+  ];
+
+  // Alertas (derivados de falhas)
+  const alertas: AlertaConformidade[] = [];
+
+  for (const r of [...req14001, ...req9001, ...req45001]) {
+    if (r.status === "nao_conforme") {
+      alertas.push({
+        id: `alert-${r.id}`,
+        tipo: "critico",
+        mensagem: `${r.codigo} . ${r.titulo} está como Não Conforme`,
+        modulo: r.moduloRelacionado,
+        dataCriacao: nowIso(),
+      });
+    } else if (r.status === "em_implementacao") {
+      alertas.push({
+        id: `alert-${r.id}`,
+        tipo: "atencao",
+        mensagem: `${r.codigo} . ${r.titulo} está Em Implementação`,
+        modulo: r.moduloRelacionado,
+        dataCriacao: nowIso(),
+      });
+    }
+  }
+
+  const iso14001Score = computeScore(req14001);
+  const iso9001Score = computeScore(req9001);
+  const iso45001Score = computeScore(req45001);
+
+  const allReq = [...req14001, ...req9001, ...req45001];
+
+  return {
+    iso14001: { score: iso14001Score, requisitos: req14001 },
+    iso9001: { score: iso9001Score, requisitos: req9001 },
+    iso45001: { score: iso45001Score, requisitos: req45001 },
+    alertas,
+    resumo: buildResumo(allReq),
+  };
+}
+
+export const conformidadeIsoRouter = Router();
+
+conformidadeIsoRouter.get("/api/conformidade-iso", requireAuth, async (req, res) => {
+  try {
+    // Você pode receber unidadeSelecionada via querystring, header, cookie etc.
+    const unidadeId = typeof req.query.unidadeId === "string" ? req.query.unidadeId : undefined;
+
+    const payload = await buildConformidade(unidadeId);
+
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    return res.status(200).json(payload);
+  } catch (err: any) {
+    return res.status(500).json({
+      message: "Erro interno ao calcular conformidade",
+      detail: String(err?.message ?? err),
+    });
+  }
+});
+
+// server/app.ts (ou
