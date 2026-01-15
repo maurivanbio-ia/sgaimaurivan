@@ -1,63 +1,122 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff, ArrowLeft, Building2, UserCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft, UserCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import registerBackground from "@assets/register-background-puma.png";
 
+const DEFAULT_UNIDADE = "salvador";
+
+// Se quiser liberar qualquer domínio, deixe [].
+// Para restringir ao corporativo, mantenha como abaixo.
+const ALLOWED_DOMAINS = ["ecobrasil.bio.br"] as const;
+
+const normalizeEmail = (v: string) => v.trim().toLowerCase();
+
+const getDomain = (email: string) => {
+  const at = email.lastIndexOf("@");
+  return at >= 0 ? email.slice(at + 1) : "";
+};
+
+// Política mínima: 10 chars + 3/4 classes (min/mai/número/símbolo)
+const validatePassword = (password: string) => {
+  const minLen = 10;
+  if (password.length < minLen) return `A senha deve ter no mínimo ${minLen} caracteres`;
+
+  const hasLower = /[a-z]/.test(password);
+  const hasUpper = /[A-Z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
+
+  const score = [hasLower, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
+  if (score < 3) return "Use pelo menos 3 destes: minúscula, maiúscula, número, símbolo";
+
+  return null;
+};
+
 export default function Register() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
   const [email, setEmail] = useState("");
+  const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [unidade, setUnidade] = useState<string>("salvador");
-  const [cargo, setCargo] = useState<string>("");
+
+  // Segurança: auto-registro não deve permitir perfis elevados.
+  // Ideal: backend ignora "cargo" vindo do cliente e define "colaborador".
+  // Aqui: travo o front para "colaborador".
+  const [cargo] = useState<string>("colaborador");
+
+  // Unidade fixa: removi estado e input hidden redundante.
+  const unidade = DEFAULT_UNIDADE;
+
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { toast } = useToast();
+  const passwordHint = useMemo(() => validatePassword(password), [password]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const finalEmail = normalizeEmail(email);
+    if (!finalEmail || !finalEmail.includes("@")) {
+      setError("Informe um e-mail válido");
+      return;
+    }
+
+    if (ALLOWED_DOMAINS.length > 0) {
+      const domain = getDomain(finalEmail);
+      if (!ALLOWED_DOMAINS.includes(domain as any)) {
+        setError(`Use seu e-mail corporativo (@${ALLOWED_DOMAINS[0]})`);
+        return;
+      }
+    }
+
+    const pwdError = validatePassword(password);
+    if (pwdError) {
+      setError(pwdError);
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("As senhas não coincidem");
       return;
     }
 
-    if (password.length < 6) {
-      setError("A senha deve ter no mínimo 6 caracteres");
-      return;
-    }
-
-
-    if (!cargo) {
-      setError("Selecione seu cargo");
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/auth/register", { email, password, unidade, cargo });
+      await apiRequest("POST", "/api/auth/register", {
+        email: finalEmail,
+        password,
+        unidade,
+        cargo: cargo || "colaborador",
+      });
 
       toast({
         title: "Conta criada com sucesso!",
         description: "Bem-vindo ao sistema!",
       });
 
-      // Redireciona para o dashboard após registro bem-sucedido
       setLocation("/");
-    } catch (error: any) {
-      const message = error.message || "Erro ao criar conta. Tente novamente.";
+    } catch (err: any) {
+      const message = err?.message || "Erro ao criar conta. Tente novamente.";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -66,7 +125,6 @@ export default function Register() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
-      {/* Imagem de fundo da onça-parda */}
       <div
         className="absolute inset-0 z-0"
         style={{
@@ -80,10 +138,9 @@ export default function Register() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40" />
       </div>
 
-      {/* Créditos da foto no rodapé direito */}
       <div className="absolute bottom-4 right-4 z-20 text-right">
         <p className="text-white/90 text-xs drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-          <em>Puma concolor</em> - onça-parda
+          <em>Puma concolor</em> . onça-parda
         </p>
         <p className="text-white/80 text-xs drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
           Foto: Patrick Rodrigues
@@ -95,16 +152,10 @@ export default function Register() {
           <CardContent className="pt-8 pb-8 px-8">
             <div className="text-center mb-8">
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 mx-auto w-fit mb-6 shadow-lg">
-                <img
-                  src={logoEcoBrasil}
-                  alt="EcoBrasil Logo"
-                  className="h-14 mx-auto"
-                />
+                <img src={logoEcoBrasil} alt="EcoBrasil Logo" className="h-14 mx-auto" />
               </div>
-              <p className="text-white/90 font-medium drop-shadow">
-                Criar Nova Conta
-              </p>
-              <div className="w-20 h-1 bg-gradient-to-r from-[#00599C] to-[#B2CDE1] mx-auto mt-4 rounded-full shadow-sm"></div>
+              <p className="text-white/90 font-medium drop-shadow">Criar Nova Conta</p>
+              <div className="w-20 h-1 bg-gradient-to-r from-[#00599C] to-[#B2CDE1] mx-auto mt-4 rounded-full shadow-sm" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -121,10 +172,17 @@ export default function Register() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="seu@ecobrasil.bio.br"
+                  disabled={isLoading}
+                  placeholder={`seu@${ALLOWED_DOMAINS[0] ?? "empresa.com.br"}`}
                   className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50"
                   data-testid="input-email"
                 />
+                {email && (
+                  <p className="text-xs text-white/70 mt-2">
+                    Será registrado como:{" "}
+                    <span className="font-medium text-white/90">{normalizedEmail}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -132,7 +190,7 @@ export default function Register() {
                   htmlFor="password"
                   className="block text-sm font-medium text-white mb-2 drop-shadow"
                 >
-                  Senha (mínimo 6 caracteres)
+                  Senha
                 </Label>
                 <div className="relative">
                   <Input
@@ -141,23 +199,33 @@ export default function Register() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    placeholder="••••••••"
+                    disabled={isLoading}
+                    placeholder="••••••••••"
                     className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50 pr-10"
                     data-testid="input-password"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-3 top-2.5 text-white/80 hover:text-white"
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    aria-pressed={showPassword}
+                    disabled={isLoading}
                     data-testid="button-toggle-password"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+
+                {passwordHint ? (
+                  <p className="text-xs text-white/80 mt-2">{passwordHint}</p>
+                ) : password ? (
+                  <p className="text-xs text-emerald-200 mt-2">Senha forte o suficiente</p>
+                ) : (
+                  <p className="text-xs text-white/70 mt-2">
+                    Mínimo 10 caracteres. Use 3 destes: minúscula, maiúscula, número, símbolo.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -174,27 +242,24 @@ export default function Register() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    placeholder="••••••••"
+                    disabled={isLoading}
+                    placeholder="••••••••••"
                     className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50 pr-10"
                     data-testid="input-confirm-password"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    onClick={() => setShowConfirmPassword((v) => !v)}
                     className="absolute right-3 top-2.5 text-white/80 hover:text-white"
+                    aria-label={showConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
+                    aria-pressed={showConfirmPassword}
+                    disabled={isLoading}
                     data-testid="button-toggle-confirm-password"
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
-
-              {/* Unidade definida automaticamente como Salvador */}
-              <input type="hidden" name="unidade" value="salvador" />
 
               <div>
                 <Label
@@ -204,21 +269,23 @@ export default function Register() {
                   <UserCircle className="h-4 w-4 inline mr-2" />
                   Cargo
                 </Label>
-                <Select value={cargo} onValueChange={setCargo}>
-                  <SelectTrigger 
+
+                {/* Travado por segurança: auto-registro apenas colaborador */}
+                <Select value={cargo} onValueChange={() => {}} disabled>
+                  <SelectTrigger
                     className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white focus:bg-white/30 focus:border-white/50"
                     data-testid="select-cargo"
                   >
-                    <SelectValue placeholder="Selecione seu cargo" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="coordenador">Coordenador(a)</SelectItem>
-                    <SelectItem value="diretor">Diretor(a)</SelectItem>
-                    <SelectItem value="rh">Recursos Humanos</SelectItem>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="colaborador">Colaborador(a)</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <p className="text-xs text-white/70 mt-2">
+                  Perfis avançados devem ser atribuídos pelo administrador.
+                </p>
               </div>
 
               {error && (
@@ -248,6 +315,7 @@ export default function Register() {
                   type="button"
                   onClick={() => setLocation("/login")}
                   className="text-sm text-[#B2CDE1] hover:text-white inline-flex items-center gap-2 underline"
+                  disabled={isLoading}
                   data-testid="link-back-to-login"
                 >
                   <ArrowLeft className="h-4 w-4" />

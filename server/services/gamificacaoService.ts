@@ -87,6 +87,9 @@ export async function getRankingGeral(periodo?: string) {
 export async function getDesempenhoUsuario(usuarioId: number, periodo?: string) {
   const periodoAtual = periodo || new Date().toISOString().substring(0, 7);
   
+  // Verificar conquistas automaticamente quando usuário acessa
+  await verificarConquistasAutomatico(usuarioId);
+  
   const [pontuacao] = await db
     .select()
     .from(pontuacoesGamificacao)
@@ -129,6 +132,14 @@ export async function getDesempenhoUsuario(usuarioId: number, periodo?: string) 
     conquistas: conquistasUsuario,
     historico
   };
+}
+
+async function verificarConquistasAutomatico(usuarioId: number) {
+  try {
+    await verificarConquistas(usuarioId);
+  } catch (error) {
+    console.error('[Gamificação] Erro ao verificar conquistas automaticamente:', error);
+  }
 }
 
 async function verificarPontuacaoDuplicada(referenciaId: number, referenciaTipo: string): Promise<boolean> {
@@ -204,7 +215,7 @@ export async function registrarPontosTarefa(tarefaId: number, usuarioId: number,
   console.log(`[Gamificação] Tarefa ${tarefaId}: +${pontos} pontos para usuário ${usuarioId}`);
 }
 
-export async function registrarPontosDemanda(demandaId: number, usuarioId: number, pontos: number, tipo: string) {
+export async function registrarPontosDemanda(demandaId: number, usuarioId: number, pontos: number, tipo: string, foiAntecipada: boolean = false) {
   const jaPontuada = await verificarPontuacaoDuplicada(demandaId, 'demanda');
   if (jaPontuada) {
     console.log(`[Gamificação] Demanda ${demandaId} já foi pontuada anteriormente, ignorando`);
@@ -223,15 +234,22 @@ export async function registrarPontosDemanda(demandaId: number, usuarioId: numbe
     .limit(1);
   
   if (existente) {
+    const updateData: any = {
+      pontos: sql`${pontuacoesGamificacao.pontos} + ${pontos}`,
+      atualizadoEm: new Date(),
+    };
+    
+    if (tipo === 'demanda_concluida') {
+      updateData.demandasConcluidas = sql`${pontuacoesGamificacao.demandasConcluidas} + 1`;
+    }
+    
+    if (foiAntecipada) {
+      updateData.demandasAntecipadas = sql`${pontuacoesGamificacao.demandasAntecipadas} + 1`;
+    }
+    
     await db
       .update(pontuacoesGamificacao)
-      .set({
-        pontos: sql`${pontuacoesGamificacao.pontos} + ${pontos}`,
-        demandasConcluidas: tipo === 'demanda_concluida' 
-          ? sql`${pontuacoesGamificacao.demandasConcluidas} + 1` 
-          : pontuacoesGamificacao.demandasConcluidas,
-        atualizadoEm: new Date(),
-      })
+      .set(updateData)
       .where(eq(pontuacoesGamificacao.id, existente.id));
   } else {
     await db.insert(pontuacoesGamificacao).values({
@@ -243,7 +261,7 @@ export async function registrarPontosDemanda(demandaId: number, usuarioId: numbe
       tarefasAtrasadas: 0,
       demandasAtrasadas: 0,
       tarefasAntecipadas: 0,
-      demandasAntecipadas: 0,
+      demandasAntecipadas: foiAntecipada ? 1 : 0,
       pontosComplexidade: 0,
       pontosPrazo: 0,
       pontosEconomia: 0,
@@ -261,7 +279,7 @@ export async function registrarPontosDemanda(demandaId: number, usuarioId: numbe
     referenciaTipo: 'demanda',
   });
   
-  console.log(`[Gamificação] Demanda ${demandaId}: +${pontos} pontos para usuário ${usuarioId}`);
+  console.log(`[Gamificação] Demanda ${demandaId}: +${pontos} pontos para usuário ${usuarioId}${foiAntecipada ? ' (antecipada)' : ''}`);
 }
 
 export async function processarConclusaoTarefa(tarefa: any, usuarioId: number) {
@@ -271,6 +289,10 @@ export async function processarConclusaoTarefa(tarefa: any, usuarioId: number) {
       concluidaEm: new Date()
     });
     await registrarPontosTarefa(tarefa.id, usuarioId, pontos, 'tarefa_concluida');
+    
+    // Verificar conquistas após registrar pontos
+    await verificarConquistas(usuarioId);
+    
     return pontos;
   } catch (error) {
     console.error('[Gamificação] Erro ao processar conclusão de tarefa:', error);
@@ -280,15 +302,120 @@ export async function processarConclusaoTarefa(tarefa: any, usuarioId: number) {
 
 export async function processarConclusaoDemanda(demanda: any, usuarioId: number) {
   try {
+    const dataConclusao = new Date();
     const pontos = await calcularPontuacaoDemanda({
       ...demanda,
-      dataConclusao: new Date()
+      dataConclusao
     });
-    await registrarPontosDemanda(demanda.id, usuarioId, pontos, 'demanda_concluida');
+    
+    // Verificar se foi antecipada (concluída antes da data de entrega)
+    const foiAntecipada = demanda.dataEntrega && dataConclusao < new Date(demanda.dataEntrega);
+    
+    await registrarPontosDemanda(demanda.id, usuarioId, pontos, 'demanda_concluida', foiAntecipada);
+    
+    // Verificar conquistas após registrar pontos
+    await verificarConquistas(usuarioId);
+    
     return pontos;
   } catch (error) {
     console.error('[Gamificação] Erro ao processar conclusão de demanda:', error);
     return 0;
+  }
+}
+
+export async function verificarConquistas(usuarioId: number) {
+  try {
+    const periodoAtual = new Date().toISOString().substring(0, 7);
+    
+    // Obter pontuação atual do usuário
+    const [pontuacao] = await db
+      .select()
+      .from(pontuacoesGamificacao)
+      .where(and(
+        eq(pontuacoesGamificacao.usuarioId, usuarioId),
+        eq(pontuacoesGamificacao.periodo, periodoAtual)
+      ))
+      .limit(1);
+    
+    if (!pontuacao) {
+      console.log(`[Gamificação] Usuário ${usuarioId} não tem pontuação no período ${periodoAtual}`);
+      return;
+    }
+    
+    // Obter conquistas disponíveis
+    const conquistasDisponiveis = await db
+      .select()
+      .from(conquistasGamificacao)
+      .where(eq(conquistasGamificacao.ativo, true));
+    
+    // Obter conquistas já obtidas pelo usuário
+    const conquistasObtidas = await db
+      .select({ conquistaId: usuarioConquistas.conquistaId })
+      .from(usuarioConquistas)
+      .where(eq(usuarioConquistas.usuarioId, usuarioId));
+    
+    const idsConquistasObtidas = new Set(conquistasObtidas.map(c => c.conquistaId));
+    
+    // Verificar cada conquista
+    for (const conquista of conquistasDisponiveis) {
+      if (idsConquistasObtidas.has(conquista.id)) {
+        continue; // Já possui esta conquista
+      }
+      
+      let criterioAtingido = false;
+      
+      switch (conquista.criterio) {
+        case 'tarefas_concluidas':
+          criterioAtingido = pontuacao.tarefasConcluidas >= conquista.valorMinimo;
+          break;
+        case 'demandas_concluidas':
+          criterioAtingido = pontuacao.demandasConcluidas >= conquista.valorMinimo;
+          break;
+        case 'pontos_totais':
+          criterioAtingido = pontuacao.pontos >= conquista.valorMinimo;
+          break;
+        case 'tarefas_antecipadas':
+          criterioAtingido = (pontuacao.tarefasAntecipadas || 0) >= conquista.valorMinimo;
+          break;
+        case 'demandas_antecipadas':
+          criterioAtingido = (pontuacao.demandasAntecipadas || 0) >= conquista.valorMinimo;
+          break;
+        default:
+          break;
+      }
+      
+      if (criterioAtingido) {
+        // Conceder conquista
+        await db.insert(usuarioConquistas).values({
+          usuarioId,
+          conquistaId: conquista.id,
+        });
+        
+        // Adicionar pontos bônus
+        if (conquista.pontosBonus > 0) {
+          await db
+            .update(pontuacoesGamificacao)
+            .set({
+              pontos: sql`${pontuacoesGamificacao.pontos} + ${conquista.pontosBonus}`,
+              atualizadoEm: new Date(),
+            })
+            .where(eq(pontuacoesGamificacao.id, pontuacao.id));
+          
+          await db.insert(historicosPontuacao).values({
+            usuarioId,
+            pontos: conquista.pontosBonus,
+            tipo: 'conquista_desbloqueada',
+            descricao: `Bônus por desbloquear: ${conquista.nome}`,
+            referenciaId: conquista.id,
+            referenciaTipo: 'conquista',
+          });
+        }
+        
+        console.log(`[Gamificação] Conquista "${conquista.nome}" desbloqueada para usuário ${usuarioId} (+${conquista.pontosBonus} pts bônus)`);
+      }
+    }
+  } catch (error) {
+    console.error('[Gamificação] Erro ao verificar conquistas:', error);
   }
 }
 
