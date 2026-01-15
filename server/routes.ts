@@ -2773,12 +2773,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== EQUIPMENT ROUTES ====
 
-  // Get all equipamentos with optional filters
+  // Get all equipamentos with pagination, filters and sorting
   app.get('/api/equipamentos', requireAuth, async (req, res) => {
     try {
-      const { tipo, status, search, localizacaoAtual, empreendimentoId } = req.query;
+      const { tipo, status, search, localizacaoAtual, empreendimentoId, page, pageSize, sort, dir } = req.query;
+      const userUnidade = req.user?.unidade;
+      
+      // Se tem parâmetros de paginação, usar método paginado
+      if (page || pageSize || sort) {
+        const options = {
+          page: page ? parseInt(String(page)) : 1,
+          pageSize: pageSize ? parseInt(String(pageSize)) : 20,
+          sort: sort ? String(sort) : undefined,
+          dir: (dir === 'asc' || dir === 'desc') ? dir : 'desc' as 'asc' | 'desc',
+          tipo: tipo ? String(tipo) : undefined,
+          status: status ? String(status) : undefined,
+          search: search ? String(search) : undefined,
+          unidade: userUnidade,
+          empreendimentoId: empreendimentoId ? parseInt(String(empreendimentoId)) : undefined,
+        };
+        const result = await storage.getEquipamentosPaginated(options);
+        return res.json(result);
+      }
+      
+      // Sem paginação, retorna lista simples (compatibilidade)
       const filters: any = {};
-
       if (tipo) filters.tipo = String(tipo);
       if (status) filters.status = String(status);
       if (search) filters.search = String(search);
@@ -2797,13 +2816,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/equipamentos/stats', requireAuth, async (req, res) => {
     try {
       const { empreendimentoId } = req.query;
+      const userUnidade = req.user?.unidade || '';
       const stats = await storage.getEquipamentosStats(
+        userUnidade,
         empreendimentoId ? parseInt(String(empreendimentoId)) : undefined
       );
       res.json(stats);
     } catch (error) {
       console.error('Error fetching equipamentos stats:', error);
       res.status(500).json({ error: 'Failed to fetch equipamentos stats' });
+    }
+  });
+
+  // Get ocorrências abertas (todas unidades se admin/diretor)
+  app.get('/api/equipamentos/ocorrencias-abertas', requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const ocorrencias = await storage.getOcorrenciasAbertas(isPrivileged ? undefined : userUnidade);
+      res.json(ocorrencias);
+    } catch (error) {
+      console.error('Error fetching ocorrencias abertas:', error);
+      res.status(500).json({ error: 'Failed to fetch ocorrencias' });
     }
   });
 
@@ -3042,6 +3077,280 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting damage image:', error);
       res.status(500).json({ error: 'Failed to delete damage image' });
+    }
+  });
+
+  // ---- Equipment Events (Audit Trail) ----
+  
+  // Get eventos for an equipment
+  app.get('/api/equipamentos/:id/eventos', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      
+      const eventos = await storage.getEquipamentoEventos(id);
+      res.json(eventos);
+    } catch (error) {
+      console.error('Error fetching equipment eventos:', error);
+      res.status(500).json({ error: 'Failed to fetch eventos' });
+    }
+  });
+
+  // Create evento for an equipment
+  app.post('/api/equipamentos/:id/eventos', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+
+      const { tipo, descricao, detalhesJson } = req.body;
+      if (!tipo) return res.status(400).json({ error: 'tipo is required' });
+
+      const evento = await storage.createEquipamentoEvento({
+        equipamentoId: id,
+        tipo,
+        descricao: descricao || null,
+        detalhesJson: detalhesJson ? JSON.stringify(detalhesJson) : null,
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.status(201).json(evento);
+    } catch (error) {
+      console.error('Error creating equipment evento:', error);
+      res.status(500).json({ error: 'Failed to create evento' });
+    }
+  });
+
+  // ---- Equipment Checkouts (Retirada/Devolução) ----
+  
+  // Get checkouts for an equipment
+  app.get('/api/equipamentos/:id/checkouts', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      
+      const checkouts = await storage.getEquipamentoCheckouts(id);
+      res.json(checkouts);
+    } catch (error) {
+      console.error('Error fetching equipment checkouts:', error);
+      res.status(500).json({ error: 'Failed to fetch checkouts' });
+    }
+  });
+
+  // Get checkout ativo for an equipment
+  app.get('/api/equipamentos/:id/checkout-ativo', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const checkout = await storage.getCheckoutAtivo(id);
+      res.json(checkout || null);
+    } catch (error) {
+      console.error('Error fetching checkout ativo:', error);
+      res.status(500).json({ error: 'Failed to fetch checkout ativo' });
+    }
+  });
+
+  // Create checkout (retirada) for an equipment
+  app.post('/api/equipamentos/:id/checkouts', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+
+      // Check if there's already an active checkout
+      const checkoutAtivo = await storage.getCheckoutAtivo(id);
+      if (checkoutAtivo) {
+        return res.status(400).json({ error: 'Equipamento já possui checkout ativo. Realize a devolução primeiro.' });
+      }
+
+      const { responsavel, dataRetirada, dataDevolucaoPrevista, projeto, localDestino, observacoes } = req.body;
+      if (!responsavel) return res.status(400).json({ error: 'responsavel is required' });
+
+      const checkout = await storage.createEquipamentoCheckout({
+        equipamentoId: id,
+        tipo: 'retirada',
+        responsavel,
+        dataRetirada: dataRetirada ? new Date(dataRetirada) : new Date(),
+        dataDevolucaoPrevista: dataDevolucaoPrevista ? new Date(dataDevolucaoPrevista) : null,
+        projeto: projeto || null,
+        localDestino: localDestino || null,
+        condicaoRetirada: 'bom',
+        observacoes: observacoes || null,
+      });
+
+      // Update equipment status to "em_uso"
+      await storage.updateEquipamento(id, { status: 'em_uso', localizacaoAtual: localDestino || 'Em campo' });
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId: id,
+        tipo: 'checkout',
+        descricao: `Retirado por ${responsavel}`,
+        detalhesJson: JSON.stringify({ checkoutId: checkout.id, projeto, localDestino }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.status(201).json(checkout);
+    } catch (error) {
+      console.error('Error creating equipment checkout:', error);
+      res.status(500).json({ error: 'Failed to create checkout' });
+    }
+  });
+
+  // Finalize checkout (devolução)
+  app.put('/api/equipamentos/:id/checkouts/:checkoutId/devolver', requireAuth, async (req, res) => {
+    try {
+      const equipamentoId = parseInt(req.params.id);
+      const checkoutId = parseInt(req.params.checkoutId);
+      if (isNaN(equipamentoId) || isNaN(checkoutId)) {
+        return res.status(400).json({ error: 'Invalid IDs' });
+      }
+
+      const { condicaoDevolucao, observacoes, novaLocalizacao } = req.body;
+
+      const checkout = await storage.finalizarCheckout(checkoutId, {
+        dataDevolucaoReal: new Date(),
+        condicaoDevolucao: condicaoDevolucao || 'bom',
+        observacoes,
+      });
+
+      // Update equipment status back to "disponivel"
+      await storage.updateEquipamento(equipamentoId, { 
+        status: 'disponivel', 
+        localizacaoAtual: novaLocalizacao || 'Escritório' 
+      });
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId,
+        tipo: 'checkin',
+        descricao: `Devolvido. Condição: ${condicaoDevolucao || 'bom'}`,
+        detalhesJson: JSON.stringify({ checkoutId: checkout.id, condicaoDevolucao }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.json(checkout);
+    } catch (error) {
+      console.error('Error finalizing checkout:', error);
+      res.status(500).json({ error: 'Failed to finalize checkout' });
+    }
+  });
+
+  // ---- Equipment Ocorrências (Avarias/Problemas) ----
+  
+  // Get ocorrências for an equipment
+  app.get('/api/equipamentos/:id/ocorrencias', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      
+      const ocorrencias = await storage.getEquipamentoOcorrencias(id);
+      res.json(ocorrencias);
+    } catch (error) {
+      console.error('Error fetching equipment ocorrencias:', error);
+      res.status(500).json({ error: 'Failed to fetch ocorrencias' });
+    }
+  });
+
+  // Create ocorrência for an equipment
+  app.post('/api/equipamentos/:id/ocorrencias', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const equipamento = await storage.getEquipamentoById(id);
+      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+
+      const { tipo, descricao, gravidade, dataOcorrencia, reportadoPor, imagensJson } = req.body;
+      if (!tipo || !descricao) {
+        return res.status(400).json({ error: 'tipo and descricao are required' });
+      }
+
+      const ocorrencia = await storage.createEquipamentoOcorrencia({
+        equipamentoId: id,
+        tipo,
+        descricao,
+        gravidade: gravidade || 'media',
+        status: 'aberta',
+        dataOcorrencia: dataOcorrencia ? new Date(dataOcorrencia) : new Date(),
+        reportadoPor: reportadoPor || null,
+        imagensJson: imagensJson ? JSON.stringify(imagensJson) : null,
+      });
+
+      // If severity is high, update equipment status
+      if (gravidade === 'alta' || gravidade === 'critica') {
+        await storage.updateEquipamento(id, { status: 'em_manutencao' });
+      }
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId: id,
+        tipo: 'ocorrencia',
+        descricao: `Ocorrência registrada: ${tipo} - ${descricao.substring(0, 100)}`,
+        detalhesJson: JSON.stringify({ ocorrenciaId: ocorrencia.id, gravidade }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.status(201).json(ocorrencia);
+    } catch (error) {
+      console.error('Error creating equipment ocorrencia:', error);
+      res.status(500).json({ error: 'Failed to create ocorrencia' });
+    }
+  });
+
+  // Update ocorrência status
+  app.put('/api/equipamentos/:id/ocorrencias/:ocorrenciaId', requireAuth, async (req, res) => {
+    try {
+      const equipamentoId = parseInt(req.params.id);
+      const ocorrenciaId = parseInt(req.params.ocorrenciaId);
+      if (isNaN(equipamentoId) || isNaN(ocorrenciaId)) {
+        return res.status(400).json({ error: 'Invalid IDs' });
+      }
+
+      const { status, resolucao, custoReparo, dataResolucao } = req.body;
+
+      const ocorrencia = await storage.updateEquipamentoOcorrencia(ocorrenciaId, {
+        status,
+        resolucao,
+        custoReparo: custoReparo ? String(custoReparo) : undefined,
+        dataResolucao: dataResolucao ? new Date(dataResolucao) : (status === 'resolvida' ? new Date() : undefined),
+      });
+
+      // If resolved, update equipment status back to disponivel
+      if (status === 'resolvida') {
+        const equipamento = await storage.getEquipamentoById(equipamentoId);
+        if (equipamento?.status === 'em_manutencao') {
+          await storage.updateEquipamento(equipamentoId, { status: 'disponivel' });
+        }
+      }
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId,
+        tipo: 'ocorrencia_atualizada',
+        descricao: `Status alterado para: ${status}`,
+        detalhesJson: JSON.stringify({ ocorrenciaId, status, resolucao }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.json(ocorrencia);
+    } catch (error) {
+      console.error('Error updating equipment ocorrencia:', error);
+      res.status(500).json({ error: 'Failed to update ocorrencia' });
     }
   });
 
