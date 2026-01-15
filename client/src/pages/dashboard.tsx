@@ -323,7 +323,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">Calendário Integrado</p>
-                    <p className="text-sm text-muted-foreground">Licenças, condicionantes, entregas e demandas</p>
+                    <p className="text-sm text-muted-foreground">Acompanhe prazos e vencimentos</p>
                   </div>
                 </div>
                 <div className="text-right">
