@@ -621,10 +621,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Licenca routes
+  // Licenca routes - API consolidada com filtros (multi-tenant isolated)
   app.get("/api/licencas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencas();
+      const { status, empreendimentoId, q, orgaoEmissor, tipo } = req.query;
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: somente admin/diretor podem ver outras unidades
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const filters = {
+        status: status as 'ativas' | 'vencer' | 'vencidas' | undefined,
+        unidade: effectiveUnidade,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        q: q as string | undefined,
+        orgaoEmissor: orgaoEmissor as string | undefined,
+        tipo: tipo as string | undefined,
+      };
+      const licencas = await storage.getLicencasWithFilters(filters);
       res.json(licencas);
     } catch (error) {
       console.error("Get licencas error:", error);
@@ -632,10 +648,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Filtered data routes (must be before /:id routes)
+  // Métricas de licenças (multi-tenant isolated)
+  app.get("/api/licencas/metrics", requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: somente admin/diretor podem ver outras unidades
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const metrics = await storage.getLicencasMetrics(effectiveUnidade);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Get licenças metrics error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Filtered data routes (multi-tenant isolated)
   app.get("/api/licencas/ativas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('ativa');
+      const userUnidade = req.user?.unidade;
+      const licencas = await storage.getLicencasWithFilters({ status: 'ativas', unidade: userUnidade });
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças ativas error:", error);
@@ -645,7 +680,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licencas/vencer", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('expiring');
+      const userUnidade = req.user?.unidade;
+      const licencas = await storage.getLicencasWithFilters({ status: 'vencer', unidade: userUnidade });
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças a vencer error:", error);
@@ -655,7 +691,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licencas/vencidas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('expired');
+      const userUnidade = req.user?.unidade;
+      const licencas = await storage.getLicencasWithFilters({ status: 'vencidas', unidade: userUnidade });
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças vencidas error:", error);
@@ -710,12 +747,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper para verificar acesso multi-tenant a licença
+  async function checkLicencaAccess(licencaId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; licenca?: any }> {
+    const licenca = await storage.getLicenca(licencaId);
+    if (!licenca) return { allowed: false };
+    
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (isPrivileged) return { allowed: true, licenca };
+    
+    // Se não tem unidade atribuída, é considerado acesso global (legacy)
+    if (!userUnidade) return { allowed: true, licenca };
+    
+    const empreendimento = await storage.getEmpreendimento(licenca.empreendimentoId);
+    // Se não encontrar empreendimento, negar acesso para segurança multi-tenant
+    if (!empreendimento) return { allowed: false, licenca };
+    
+    return { 
+      allowed: empreendimento.unidade === userUnidade, 
+      licenca 
+    };
+  }
+
   app.get("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const licenca = await storage.getLicenca(id);
+      const { allowed, licenca } = await checkLicencaAccess(id, req.user?.unidade, req.user?.role);
+      
       if (!licenca) {
         return res.status(404).json({ message: "Licença not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado a esta licença" });
       }
       res.json(licenca);
     } catch (error) {
@@ -726,7 +788,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/licencas", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
       const data = insertLicencaAmbientalSchema.parse(req.body);
+      
+      // Verificar acesso ao empreendimento antes de criar licença
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      if (!isPrivileged && userUnidade) {
+        const empreendimento = await storage.getEmpreendimento(data.empreendimentoId);
+        if (empreendimento && empreendimento.unidade !== userUnidade) {
+          return res.status(403).json({ message: "Sem permissão para criar licença neste empreendimento" });
+        }
+      }
+      
       const licenca = await storage.createLicenca(data);
       res.status(201).json(licenca);
     } catch (error) {
@@ -738,6 +812,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, licenca: existing } = await checkLicencaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!existing) {
+        return res.status(404).json({ message: "Licença not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para editar esta licença" });
+      }
+      
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
       const licenca = await storage.updateLicenca(id, data);
       res.json(licenca);
@@ -750,6 +833,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, licenca } = await checkLicencaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!licenca) {
+        return res.status(404).json({ message: "Licença not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para excluir esta licença" });
+      }
+      
       await storage.deleteLicenca(id);
       res.status(204).send();
     } catch (error) {
@@ -758,10 +850,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Condicionante routes
+  // Condicionante routes - API consolidada com filtros (multi-tenant isolated)
   app.get("/api/condicionantes", requireAuth, async (req, res) => {
     try {
-      const condicionantes = await storage.getCondicionantes();
+      const { status, licencaId, empreendimentoId } = req.query;
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: sempre aplicar filtro por unidade (exceto admin/diretor)
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const filters = {
+        status: status as 'pendente' | 'cumprida' | 'vencida' | undefined,
+        unidade: effectiveUnidade,
+        licencaId: licencaId ? parseInt(licencaId as string) : undefined,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+      };
+      const condicionantes = await storage.getCondicionantesWithFilters(filters);
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes error:", error);
@@ -769,10 +875,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Filtered condicionantes route (must be before /:id routes)
+  // Métricas de condicionantes (multi-tenant isolated)
+  app.get("/api/condicionantes/metrics", requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: somente admin/diretor podem ver outras unidades
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const metrics = await storage.getCondicionantesMetrics(effectiveUnidade);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Get condicionantes metrics error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Filtered condicionantes route (multi-tenant isolated)
   app.get("/api/condicionantes/pendentes", requireAuth, async (req, res) => {
     try {
-      const condicionantes = await storage.getCondicionantesByStatus('pendente');
+      const userUnidade = req.user?.unidade;
+      const condicionantes = await storage.getCondicionantesWithFilters({ 
+        status: 'pendente',
+        unidade: userUnidade
+      });
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes pendentes error:", error);
@@ -780,12 +908,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper para verificar acesso multi-tenant a condicionante via licença
+  async function checkCondicionanteAccess(condicionanteId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; condicionante?: any }> {
+    const condicionante = await storage.getCondicionante(condicionanteId);
+    if (!condicionante) return { allowed: false };
+    
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (isPrivileged) return { allowed: true, condicionante };
+    
+    const { allowed } = await checkLicencaAccess(condicionante.licencaId, userUnidade, userRole);
+    return { allowed, condicionante };
+  }
+
   app.get("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const condicionante = await storage.getCondicionante(id);
+      const { allowed, condicionante } = await checkCondicionanteAccess(id, req.user?.unidade, req.user?.role);
+      
       if (!condicionante) {
         return res.status(404).json({ message: "Condicionante not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado a esta condicionante" });
       }
       res.json(condicionante);
     } catch (error) {
@@ -797,7 +941,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/licencas/:licencaId/condicionantes", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
-      const condicionantes = await storage.getCondicionantesByLicenca(licencaId);
+      const userUnidade = req.user?.unidade;
+      const condicionantes = await storage.getCondicionantesWithFilters({
+        licencaId,
+        unidade: userUnidade
+      });
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes by licenca error:", error);
@@ -808,6 +956,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/licencas/:licencaId/condicionantes", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
+      
+      // Verificar acesso à licença antes de criar condicionante
+      const { allowed } = await checkLicencaAccess(licencaId, req.user?.unidade, req.user?.role);
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para criar condicionante nesta licença" });
+      }
+      
       const data = insertCondicionanteSchema.parse({ ...req.body, licencaId });
       const condicionante = await storage.createCondicionante(data);
       res.status(201).json(condicionante);
@@ -820,6 +975,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/condicionantes", requireAuth, async (req, res) => {
     try {
       const data = insertCondicionanteSchema.parse(req.body);
+      
+      // Verificar acesso à licença antes de criar condicionante
+      if (data.licencaId) {
+        const { allowed } = await checkLicencaAccess(data.licencaId, req.user?.unidade, req.user?.role);
+        if (!allowed) {
+          return res.status(403).json({ message: "Sem permissão para criar condicionante nesta licença" });
+        }
+      }
+      
       const condicionante = await storage.createCondicionante(data);
       res.status(201).json(condicionante);
     } catch (error) {
@@ -831,6 +995,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, condicionante: existing } = await checkCondicionanteAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!existing) {
+        return res.status(404).json({ message: "Condicionante not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para editar esta condicionante" });
+      }
+      
       const data = insertCondicionanteSchema.partial().parse(req.body);
       const condicionante = await storage.updateCondicionante(id, data);
       res.json(condicionante);
@@ -843,6 +1016,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, condicionante } = await checkCondicionanteAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!condicionante) {
+        return res.status(404).json({ message: "Condicionante not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para excluir esta condicionante" });
+      }
+      
       await storage.deleteCondicionante(id);
       res.status(204).send();
     } catch (error) {
@@ -851,10 +1033,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Entrega routes
+  // Entrega routes (multi-tenant isolated via licença)
+  // Helper para verificar acesso a entrega via licença
+  async function checkEntregaAccess(entregaId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; entrega?: any }> {
+    const entrega = await storage.getEntrega(entregaId);
+    if (!entrega) return { allowed: false };
+    
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (isPrivileged) return { allowed: true, entrega };
+    
+    const { allowed } = await checkLicencaAccess(entrega.licencaId, userUnidade, userRole);
+    return { allowed, entrega };
+  }
+
   app.get("/api/entregas", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      
       const entregas = await storage.getEntregas();
+      
+      // Filtrar por unidade se não for privilegiado
+      if (!isPrivileged && userUnidade) {
+        const filtered = [];
+        for (const entrega of entregas) {
+          const { allowed } = await checkLicencaAccess(entrega.licencaId, userUnidade, userRole);
+          if (allowed) filtered.push(entrega);
+        }
+        return res.json(filtered);
+      }
+      
       res.json(entregas);
     } catch (error) {
       console.error("Get entregas error:", error);
@@ -865,9 +1074,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const entrega = await storage.getEntrega(id);
+      const { allowed, entrega } = await checkEntregaAccess(id, req.user?.unidade, req.user?.role);
+      
       if (!entrega) {
         return res.status(404).json({ message: "Entrega not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado a esta entrega" });
       }
       res.json(entrega);
     } catch (error) {
@@ -879,6 +1092,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
+      
+      // Verificar acesso à licença
+      const { allowed } = await checkLicencaAccess(licencaId, req.user?.unidade, req.user?.role);
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
       const entregas = await storage.getEntregasByLicenca(licencaId);
       res.json(entregas);
     } catch (error) {
@@ -890,6 +1110,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
+      
+      // Verificar acesso à licença
+      const { allowed } = await checkLicencaAccess(licencaId, req.user?.unidade, req.user?.role);
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para criar entrega nesta licença" });
+      }
+      
       const data = insertEntregaSchema.parse({ ...req.body, licencaId });
       const entrega = await storage.createEntrega(data);
       res.status(201).json(entrega);
@@ -902,6 +1129,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/entregas", requireAuth, async (req, res) => {
     try {
       const data = insertEntregaSchema.parse(req.body);
+      
+      // Verificar acesso à licença
+      if (data.licencaId) {
+        const { allowed } = await checkLicencaAccess(data.licencaId, req.user?.unidade, req.user?.role);
+        if (!allowed) {
+          return res.status(403).json({ message: "Sem permissão para criar entrega nesta licença" });
+        }
+      }
+      
       const entrega = await storage.createEntrega(data);
       res.status(201).json(entrega);
     } catch (error) {
@@ -913,6 +1149,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, entrega: existing } = await checkEntregaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!existing) {
+        return res.status(404).json({ message: "Entrega not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para editar esta entrega" });
+      }
+      
       const data = insertEntregaSchema.partial().parse(req.body);
       const entrega = await storage.updateEntrega(id, data);
       res.json(entrega);
@@ -925,6 +1170,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, entrega } = await checkEntregaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!entrega) {
+        return res.status(404).json({ message: "Entrega not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para excluir esta entrega" });
+      }
+      
       await storage.deleteEntrega(id);
       res.status(204).send();
     } catch (error) {
@@ -1324,7 +1578,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { ObjectStorageService } = await import("./objectStorage");
       const objectStorageService = new ObjectStorageService();
-      const { uploadUrl, filePath } = await objectStorageService.getPdfUploadURL();
+      const filename = req.body?.filename;
+      const { uploadUrl, filePath } = await objectStorageService.getPdfUploadURL(filename);
       res.json({ method: "PUT", url: uploadUrl, filePath });
     } catch (error) {
       console.error("Get PDF upload URL error:", error);
@@ -1374,16 +1629,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all demandas with filters (filtered by user's unidade for multi-tenant isolation)
   app.get('/api/demandas', requireAuth, async (req, res) => {
     try {
-      const userUnidade = req.user?.unidade || '';
-      const filters = {
+      const userUnidade = req.user?.unidade;
+      console.log('[DEBUG DEMANDAS] User:', req.user?.email, 'Unidade:', userUnidade, 'UserId:', req.session.userId);
+      
+      const filters: any = {
         setor: req.query.setor as string,
         responsavel: req.query.responsavel as string,
-        empreendimento: req.query.empreendimento as string,
+        empreendimento: req.query.empreendimento as string || req.query.empreendimentoId as string,
         prioridade: req.query.prioridade as string,
         status: req.query.status as string,
         search: req.query.search as string,
-        unidade: userUnidade, // Add unidade filter for multi-tenant isolation
       };
+      
+      // Only add unidade filter if user has a unidade assigned
+      // This allows admins without unidade to see all demandas
+      if (userUnidade) {
+        filters.unidade = userUnidade;
+      }
       
       // Clean undefined values
       Object.keys(filters).forEach(key => {
@@ -1392,7 +1654,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      console.log('[DEBUG DEMANDAS] Filters:', JSON.stringify(filters));
       const demandas = await storage.getDemandas(filters);
+      console.log('[DEBUG DEMANDAS] Found:', demandas.length, 'demandas');
       res.json(demandas);
     } catch (error) {
       console.error('Error fetching demandas:', error);
@@ -1448,9 +1712,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin route to clear demandas movement history (requires password)
+  // Using POST instead of DELETE because DELETE with body doesn't work reliably in all browsers
+  app.post('/api/admin/demandas/historico/clear', requireAuth, async (req, res) => {
+    try {
+      const { senha } = req.body || {};
+      const adminPassword = process.env.ADMIN_UNLOCK_PASSWORD;
+      
+      if (!senha || senha !== adminPassword) {
+        return res.status(403).json({ error: 'Senha incorreta' });
+      }
+      
+      const result = await storage.clearDemandasHistorico();
+      console.log(`[ADMIN] User ${req.user?.email} cleared demandas movement history. Deleted ${result.count} records.`);
+      res.json({ success: true, message: `${result.count} registros de histórico removidos` });
+    } catch (error) {
+      console.error('Error clearing demandas history:', error);
+      res.status(500).json({ error: 'Falha ao limpar histórico' });
+    }
+  });
+
   // Create new demanda
   app.post('/api/demandas', requireAuth, async (req, res) => {
     try {
+      console.log('[DEBUG CREATE DEMANDA] User:', req.user?.email, 'Unidade:', req.user?.unidade, 'UserId:', req.session.userId);
+      console.log('[DEBUG CREATE DEMANDA] Body:', JSON.stringify(req.body));
+      
       // Ensure required fields are set and remove undefined/invalid empreendimentoId
       const demandaData: any = {
         titulo: req.body.titulo,
@@ -1480,7 +1767,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.body.campanhaId) demandaData.campanhaId = req.body.campanhaId;
       if (req.body.contratoId) demandaData.contratoId = req.body.contratoId;
       
+      console.log('[DEBUG CREATE DEMANDA] Data to save:', JSON.stringify(demandaData));
       const demanda = await storage.createDemanda(demandaData);
+      console.log('[DEBUG CREATE DEMANDA] Created:', JSON.stringify(demanda));
       res.status(201).json(demanda);
     } catch (error: any) {
       console.error('Error creating demanda:', error);
@@ -1585,18 +1874,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete demanda
-  app.delete('/api/demandas/:id', async (req, res) => {
+  app.delete('/api/demandas/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid demanda ID' });
       }
 
+      console.log(`[DELETE DEMANDA] User ${req.user?.email} attempting to delete demanda ${id}`);
       const success = await storage.deleteDemanda(id);
       if (!success) {
+        console.log(`[DELETE DEMANDA] Demanda ${id} not found`);
         return res.status(404).json({ error: 'Demanda not found' });
       }
 
+      console.log(`[DELETE DEMANDA] Demanda ${id} deleted successfully`);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting demanda:', error);
@@ -1631,7 +1923,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder demandas - persiste a ordem das demandas no Kanban (multi-tenant isolated)
+  app.post('/api/demandas/reorder', requireAuth, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: 'Items array is required' });
+      }
+
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+
+      // items = [{ id: number, ordem: number, status: string }]
+      let updatedCount = 0;
+      for (const item of items) {
+        if (item.id && typeof item.ordem === 'number') {
+          // Validar que a demanda pertence à unidade do usuário
+          const demanda = await storage.getDemanda(item.id);
+          if (!demanda) continue;
+          
+          // Multi-tenant: verificar se pode atualizar essa demanda
+          if (!isPrivileged && userUnidade && demanda.unidade !== userUnidade) {
+            console.warn(`[REORDER] Tentativa de atualizar demanda ${item.id} de outra unidade por usuário ${req.user?.email}`);
+            continue;
+          }
+          
+          await storage.updateDemanda(item.id, { 
+            ordem: item.ordem,
+            ...(item.status && { status: item.status })
+          });
+          updatedCount++;
+        }
+      }
+
+      res.json({ success: true, updated: updatedCount });
+    } catch (error) {
+      console.error('Error reordering demandas:', error);
+      res.status(500).json({ error: 'Failed to reorder demandas' });
+    }
+  });
+
   // ==== END DEMANDAS ROUTES ====
+
+  // ==== CALENDAR ROUTES ====
+
+  // Eventos agregados do calendário (licenças, demandas, condicionantes, entregas)
+  app.get('/api/calendario', requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade || '';
+      const { startDate, endDate, tipos } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date();
+      const end = endDate ? new Date(endDate as string) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      
+      const tiposArr = tipos ? (tipos as string).split(',') : ['licenca', 'demanda', 'condicionante', 'entrega'];
+      
+      const events: any[] = [];
+      
+      // Licenças a vencer
+      if (tiposArr.includes('licenca')) {
+        const licencas = await storage.getLicencasByDateRange(userUnidade, start, end);
+        events.push(...licencas.map((l: any) => ({
+          id: `licenca-${l.id}`,
+          tipo: 'licenca',
+          titulo: `${l.tipo} - ${l.empreendimentoNome}`,
+          data: l.validade,
+          status: 'a_vencer',
+          empreendimento: l.empreendimentoNome,
+          orgaoEmissor: l.orgaoEmissor,
+          itemId: l.id,
+        })));
+      }
+      
+      // Demandas com prazo
+      if (tiposArr.includes('demanda')) {
+        const demandas = await storage.getDemandasByDateRange(userUnidade, start, end);
+        events.push(...demandas.map((d: any) => ({
+          id: `demanda-${d.id}`,
+          tipo: 'demanda',
+          titulo: d.titulo,
+          data: d.dataEntrega,
+          status: d.status,
+          responsavel: d.responsavel,
+          prioridade: d.prioridade,
+          itemId: d.id,
+        })));
+      }
+      
+      // Condicionantes pendentes
+      if (tiposArr.includes('condicionante')) {
+        const conds = await storage.getCondicionantesWithFilters({ 
+          unidade: userUnidade, 
+          status: 'pendente' 
+        });
+        const filteredConds = conds.filter((c: any) => {
+          const prazo = new Date(c.prazo);
+          return prazo >= start && prazo <= end;
+        });
+        events.push(...filteredConds.map((c: any) => ({
+          id: `condicionante-${c.id}`,
+          tipo: 'condicionante',
+          titulo: c.titulo,
+          data: c.prazo,
+          status: c.status,
+          licenca: c.licencaTipo,
+          empreendimento: c.empreendimentoNome,
+          itemId: c.id,
+        })));
+      }
+      
+      // Ordenar por data
+      events.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+      
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching calendario:', error);
+      res.status(500).json({ error: 'Failed to fetch calendario' });
+    }
+  });
+
+  // ==== END CALENDAR ROUTES ====
 
   // =============================================
   // FINANCIAL MODULE ROUTES
@@ -1818,6 +2230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         empreendimentoId: req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined,
         categoriaId: req.query.categoriaId ? parseInt(req.query.categoriaId as string) : undefined,
         search: req.query.search as string,
+        unidade: req.query.unidade as string,
         empreendimentoIds: isAdmin ? undefined : empreendimentoIds,
       };
       const lancamentos = await storage.getLancamentos(filters);
@@ -2042,11 +2455,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Financial Statistics route
   app.get('/api/financeiro/stats', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
-      const { empreendimentoId, startDate, endDate } = req.query;
+      const { empreendimentoId, startDate, endDate, unidade } = req.query;
       const empId = empreendimentoId ? parseInt(String(empreendimentoId)) : undefined;
       const start = startDate ? new Date(String(startDate)) : undefined;
       const end = endDate ? new Date(String(endDate)) : undefined;
-      const stats = await storage.getFinancialStats(empId, start, end);
+      const unidadeFilter = unidade ? String(unidade) : undefined;
+      const stats = await storage.getFinancialStats(empId, start, end, unidadeFilter);
       res.json(stats);
     } catch (error) {
       console.error('Error fetching financial stats:', error);
@@ -2262,8 +2676,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const XLSX = await import('xlsx');
       
-      // Get all financial data
-      const lancamentos = await storage.getLancamentos();
+      // Get filter parameters
+      const { unidade, tipo, status, empreendimentoId } = req.query;
+      const filters: {
+        tipo?: string;
+        status?: string;
+        empreendimentoId?: number;
+        unidade?: string;
+      } = {};
+      if (unidade) filters.unidade = String(unidade);
+      if (tipo) filters.tipo = String(tipo);
+      if (status) filters.status = String(status);
+      if (empreendimentoId) filters.empreendimentoId = parseInt(String(empreendimentoId));
+      
+      // Get filtered financial data
+      const lancamentos = await storage.getLancamentos(filters);
       const categorias = await storage.getCategorias();
       const empreendimentos = await storage.getEmpreendimentos();
       
@@ -2271,9 +2698,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categoriaMap = new Map(categorias.map(c => [c.id, c.nome]));
       const empreendimentoMap = new Map(empreendimentos.map(e => [e.id, e.nome]));
       
+      // Unidade label mapping
+      const unidadeLabels: Record<string, string> = {
+        'salvador': 'Salvador (BA)',
+        'goiania': 'Goiânia (GO)',
+        'lem': 'Luís Eduardo Magalhães (LEM)'
+      };
+      
       // Transform data for Excel
       const exportData = lancamentos.map(l => ({
         'ID': l.id,
+        'Unidade': unidadeLabels[l.unidade || 'salvador'] || l.unidade || 'Salvador (BA)',
         'Tipo': l.tipo.charAt(0).toUpperCase() + l.tipo.slice(1),
         'Categoria': categoriaMap.get(l.categoriaId) || 'N/A',
         'Empreendimento': empreendimentoMap.get(l.empreendimentoId) || 'N/A',
@@ -2290,6 +2725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add column widths
       worksheet['!cols'] = [
         { wch: 8 },  // ID
+        { wch: 30 }, // Unidade
         { wch: 18 }, // Tipo
         { wch: 25 }, // Categoria
         { wch: 30 }, // Empreendimento
@@ -2337,17 +2773,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==== EQUIPMENT ROUTES ====
 
-  // Get all equipamentos with optional filters
+  // Get all equipamentos with pagination, filters and sorting
   app.get('/api/equipamentos', requireAuth, async (req, res) => {
     try {
-      const { tipo, status, search, localizacaoAtual, empreendimentoId } = req.query;
+      const { tipo, status, search, localizacaoAtual, empreendimentoId, page, pageSize, sort, dir, unidade } = req.query;
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: admin/diretor can access all units or filter by specific one
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged 
+        ? (unidade ? String(unidade) : undefined) 
+        : userUnidade;
+      
+      // Se tem parâmetros de paginação, usar método paginado
+      if (page || pageSize || sort) {
+        const options = {
+          page: page ? parseInt(String(page)) : 1,
+          pageSize: pageSize ? parseInt(String(pageSize)) : 20,
+          sort: sort ? String(sort) : undefined,
+          dir: (dir === 'asc' || dir === 'desc') ? dir : 'desc' as 'asc' | 'desc',
+          tipo: tipo ? String(tipo) : undefined,
+          status: status ? String(status) : undefined,
+          search: search ? String(search) : undefined,
+          unidade: effectiveUnidade,
+          empreendimentoId: empreendimentoId ? parseInt(String(empreendimentoId)) : undefined,
+        };
+        const result = await storage.getEquipamentosPaginated(options);
+        return res.json(result);
+      }
+      
+      // Sem paginação, retorna lista simples (com filtro multi-tenant)
       const filters: any = {};
-
       if (tipo) filters.tipo = String(tipo);
       if (status) filters.status = String(status);
       if (search) filters.search = String(search);
       if (localizacaoAtual) filters.localizacaoAtual = String(localizacaoAtual);
       if (empreendimentoId) filters.empreendimentoId = parseInt(String(empreendimentoId));
+      if (effectiveUnidade) filters.unidade = effectiveUnidade;
 
       const equipamentos = await storage.getEquipamentos(filters);
       res.json(equipamentos);
@@ -2361,7 +2824,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/equipamentos/stats', requireAuth, async (req, res) => {
     try {
       const { empreendimentoId } = req.query;
+      const userUnidade = req.user?.unidade || '';
       const stats = await storage.getEquipamentosStats(
+        userUnidade,
         empreendimentoId ? parseInt(String(empreendimentoId)) : undefined
       );
       res.json(stats);
@@ -2371,6 +2836,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get ocorrências abertas (todas unidades se admin/diretor)
+  app.get('/api/equipamentos/ocorrencias-abertas', requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const ocorrencias = await storage.getOcorrenciasAbertas(isPrivileged ? undefined : userUnidade);
+      res.json(ocorrencias);
+    } catch (error) {
+      console.error('Error fetching ocorrencias abertas:', error);
+      res.status(500).json({ error: 'Failed to fetch ocorrencias' });
+    }
+  });
+
+  // Helper function to check equipment access (multi-tenant) - defined early for use in all routes
+  async function checkEquipamentoAccessEarly(equipamentoId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; equipamento: any | null; error?: string }> {
+    const equipamento = await storage.getEquipamentoById(equipamentoId);
+    if (!equipamento) {
+      return { allowed: false, equipamento: null, error: 'Equipamento not found' };
+    }
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (!isPrivileged && equipamento.unidade && equipamento.unidade !== userUnidade) {
+      return { allowed: false, equipamento: null, error: 'Acesso negado a este equipamento' };
+    }
+    return { allowed: true, equipamento };
+  }
+
   // Get single equipamento
   app.get('/api/equipamentos/:id', requireAuth, async (req, res) => {
     try {
@@ -2378,10 +2870,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
       res.json(equipamento);
     } catch (error) {
       console.error('Error fetching equipamento:', error);
@@ -2392,8 +2884,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create equipamento
   app.post('/api/equipamentos', requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      
+      // Non-privileged users can only create equipment for their own unit
+      const equipamentoUnidade = req.body.unidade || userUnidade;
+      if (!isPrivileged && equipamentoUnidade !== userUnidade) {
+        return res.status(403).json({ error: 'Não é permitido criar equipamento para outra unidade' });
+      }
+
       const validatedData = insertEquipamentoSchema.parse({
         ...req.body,
+        unidade: equipamentoUnidade,
         criadoPor: req.session.userId,
       });
       const equipamento = await storage.createEquipamento(validatedData);
@@ -2414,6 +2917,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
+      
+      const { allowed, equipamento: existing, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(existing ? 403 : 404).json({ error });
+      
       const equipamento = await storage.updateEquipamento(id, req.body);
       res.json(equipamento);
     } catch (error) {
@@ -2429,6 +2936,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
+      
+      const { allowed, equipamento: existing, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(existing ? 403 : 404).json({ error });
+      
       const deleted = await storage.deleteEquipamento(id);
       if (!deleted) {
         return res.status(404).json({ error: 'Equipamento not found' });
@@ -2448,10 +2959,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { extension = 'jpg' } = req.body;
       const { ObjectStorageService } = await import("./objectStorage");
@@ -2473,10 +2982,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { filePath, descricao } = req.body;
       if (!filePath) {
@@ -2520,10 +3027,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       let imagens: Array<{ filePath: string; descricao?: string; dataUpload: string }> = [];
       if (equipamento.imagensDanoJson) {
@@ -2565,10 +3070,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { filePath } = req.body;
       if (!filePath) {
@@ -2606,6 +3109,299 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting damage image:', error);
       res.status(500).json({ error: 'Failed to delete damage image' });
+    }
+  });
+
+  // ---- Equipment Events (Audit Trail) ----
+  
+  // Get eventos for an equipment
+  app.get('/api/equipamentos/:id/eventos', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
+      const eventos = await storage.getEquipamentoEventos(id);
+      res.json(eventos);
+    } catch (error) {
+      console.error('Error fetching equipment eventos:', error);
+      res.status(500).json({ error: 'Failed to fetch eventos' });
+    }
+  });
+
+  // Create evento for an equipment
+  app.post('/api/equipamentos/:id/eventos', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
+      const { tipo, descricao, detalhesJson } = req.body;
+      if (!tipo || typeof tipo !== 'string') return res.status(400).json({ error: 'tipo is required and must be a string' });
+
+      const evento = await storage.createEquipamentoEvento({
+        equipamentoId: id,
+        tipo,
+        descricao: typeof descricao === 'string' ? descricao : null,
+        detalhesJson: detalhesJson ? JSON.stringify(detalhesJson) : null,
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.status(201).json(evento);
+    } catch (error) {
+      console.error('Error creating equipment evento:', error);
+      res.status(500).json({ error: 'Failed to create evento' });
+    }
+  });
+
+  // ---- Equipment Checkouts (Retirada/Devolução) ----
+  
+  // Get checkouts for an equipment
+  app.get('/api/equipamentos/:id/checkouts', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
+      const checkouts = await storage.getEquipamentoCheckouts(id);
+      res.json(checkouts);
+    } catch (error) {
+      console.error('Error fetching equipment checkouts:', error);
+      res.status(500).json({ error: 'Failed to fetch checkouts' });
+    }
+  });
+
+  // Get checkout ativo for an equipment
+  app.get('/api/equipamentos/:id/checkout-ativo', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
+      const checkout = await storage.getCheckoutAtivo(id);
+      res.json(checkout || null);
+    } catch (error) {
+      console.error('Error fetching checkout ativo:', error);
+      res.status(500).json({ error: 'Failed to fetch checkout ativo' });
+    }
+  });
+
+  // Create checkout (retirada) for an equipment
+  app.post('/api/equipamentos/:id/checkouts', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
+      // Check if there's already an active checkout
+      const checkoutAtivo = await storage.getCheckoutAtivo(id);
+      if (checkoutAtivo) {
+        return res.status(400).json({ error: 'Equipamento já possui checkout ativo. Realize a devolução primeiro.' });
+      }
+
+      const { responsavel, dataRetirada, dataDevolucaoPrevista, projeto, localDestino, observacoes } = req.body;
+      if (!responsavel || typeof responsavel !== 'string') {
+        return res.status(400).json({ error: 'responsavel is required and must be a string' });
+      }
+
+      const checkout = await storage.createEquipamentoCheckout({
+        equipamentoId: id,
+        tipo: 'retirada',
+        responsavel,
+        dataRetirada: dataRetirada ? new Date(dataRetirada) : new Date(),
+        dataDevolucaoPrevista: dataDevolucaoPrevista ? new Date(dataDevolucaoPrevista) : null,
+        projeto: typeof projeto === 'string' ? projeto : null,
+        localDestino: typeof localDestino === 'string' ? localDestino : null,
+        condicaoRetirada: 'bom',
+        observacoes: typeof observacoes === 'string' ? observacoes : null,
+      });
+
+      // Update equipment status to "em_uso"
+      await storage.updateEquipamento(id, { status: 'em_uso', localizacaoAtual: localDestino || 'Em campo' });
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId: id,
+        tipo: 'checkout',
+        descricao: `Retirado por ${responsavel}`,
+        detalhesJson: JSON.stringify({ checkoutId: checkout.id, projeto, localDestino }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.status(201).json(checkout);
+    } catch (error) {
+      console.error('Error creating equipment checkout:', error);
+      res.status(500).json({ error: 'Failed to create checkout' });
+    }
+  });
+
+  // Finalize checkout (devolução)
+  app.put('/api/equipamentos/:id/checkouts/:checkoutId/devolver', requireAuth, async (req, res) => {
+    try {
+      const equipamentoId = parseInt(req.params.id);
+      const checkoutId = parseInt(req.params.checkoutId);
+      if (isNaN(equipamentoId) || isNaN(checkoutId)) {
+        return res.status(400).json({ error: 'Invalid IDs' });
+      }
+
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(equipamentoId, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
+      const { condicaoDevolucao, observacoes, novaLocalizacao } = req.body;
+
+      const checkout = await storage.finalizarCheckout(checkoutId, {
+        dataDevolucaoReal: new Date(),
+        condicaoDevolucao: typeof condicaoDevolucao === 'string' ? condicaoDevolucao : 'bom',
+        observacoes: typeof observacoes === 'string' ? observacoes : undefined,
+      });
+
+      // Update equipment status back to "disponivel"
+      await storage.updateEquipamento(equipamentoId, { 
+        status: 'disponivel', 
+        localizacaoAtual: typeof novaLocalizacao === 'string' ? novaLocalizacao : 'Escritório' 
+      });
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId,
+        tipo: 'checkin',
+        descricao: `Devolvido. Condição: ${condicaoDevolucao || 'bom'}`,
+        detalhesJson: JSON.stringify({ checkoutId: checkout.id, condicaoDevolucao }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.json(checkout);
+    } catch (error) {
+      console.error('Error finalizing checkout:', error);
+      res.status(500).json({ error: 'Failed to finalize checkout' });
+    }
+  });
+
+  // ---- Equipment Ocorrências (Avarias/Problemas) ----
+  
+  // Get ocorrências for an equipment
+  app.get('/api/equipamentos/:id/ocorrencias', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
+      const ocorrencias = await storage.getEquipamentoOcorrencias(id);
+      res.json(ocorrencias);
+    } catch (error) {
+      console.error('Error fetching equipment ocorrencias:', error);
+      res.status(500).json({ error: 'Failed to fetch ocorrencias' });
+    }
+  });
+
+  // Create ocorrência for an equipment
+  app.post('/api/equipamentos/:id/ocorrencias', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
+      const { tipo, descricao, gravidade, dataOcorrencia, reportadoPor, imagensJson } = req.body;
+      if (!tipo || typeof tipo !== 'string' || !descricao || typeof descricao !== 'string') {
+        return res.status(400).json({ error: 'tipo and descricao are required and must be strings' });
+      }
+
+      const validGravidades = ['baixa', 'media', 'alta', 'critica'];
+      const gravidadeValue = validGravidades.includes(gravidade) ? gravidade : 'media';
+
+      const ocorrencia = await storage.createEquipamentoOcorrencia({
+        equipamentoId: id,
+        tipo,
+        descricao,
+        gravidade: gravidadeValue,
+        status: 'aberta',
+        dataOcorrencia: dataOcorrencia ? new Date(dataOcorrencia) : new Date(),
+        reportadoPor: typeof reportadoPor === 'string' ? reportadoPor : null,
+        imagensJson: imagensJson ? JSON.stringify(imagensJson) : null,
+      });
+
+      // If severity is high, update equipment status
+      if (gravidadeValue === 'alta' || gravidadeValue === 'critica') {
+        await storage.updateEquipamento(id, { status: 'em_manutencao' });
+      }
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId: id,
+        tipo: 'ocorrencia',
+        descricao: `Ocorrência registrada: ${tipo} - ${descricao.substring(0, 100)}`,
+        detalhesJson: JSON.stringify({ ocorrenciaId: ocorrencia.id, gravidade: gravidadeValue }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.status(201).json(ocorrencia);
+    } catch (error) {
+      console.error('Error creating equipment ocorrencia:', error);
+      res.status(500).json({ error: 'Failed to create ocorrencia' });
+    }
+  });
+
+  // Update ocorrência status
+  app.put('/api/equipamentos/:id/ocorrencias/:ocorrenciaId', requireAuth, async (req, res) => {
+    try {
+      const equipamentoId = parseInt(req.params.id);
+      const ocorrenciaId = parseInt(req.params.ocorrenciaId);
+      if (isNaN(equipamentoId) || isNaN(ocorrenciaId)) {
+        return res.status(400).json({ error: 'Invalid IDs' });
+      }
+
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(equipamentoId, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
+      const { status, resolucao, custoReparo, dataResolucao } = req.body;
+
+      const validStatuses = ['aberta', 'em_analise', 'em_reparo', 'resolvida', 'cancelada'];
+      if (status && !validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status value' });
+      }
+
+      const ocorrencia = await storage.updateEquipamentoOcorrencia(ocorrenciaId, {
+        status,
+        resolucao: typeof resolucao === 'string' ? resolucao : undefined,
+        custoReparo: custoReparo ? String(custoReparo) : undefined,
+        dataResolucao: dataResolucao ? new Date(dataResolucao) : (status === 'resolvida' ? new Date() : undefined),
+      });
+
+      // If resolved, update equipment status back to disponivel
+      if (status === 'resolvida') {
+        const currentEquipamento = await storage.getEquipamentoById(equipamentoId);
+        if (currentEquipamento?.status === 'em_manutencao') {
+          await storage.updateEquipamento(equipamentoId, { status: 'disponivel' });
+        }
+      }
+
+      // Log evento
+      await storage.createEquipamentoEvento({
+        equipamentoId,
+        tipo: 'ocorrencia_atualizada',
+        descricao: `Status alterado para: ${status}`,
+        detalhesJson: JSON.stringify({ ocorrenciaId, status, resolucao }),
+        criadoPor: req.session.userId || null,
+      });
+      
+      res.json(ocorrencia);
+    } catch (error) {
+      console.error('Error updating equipment ocorrencia:', error);
+      res.status(500).json({ error: 'Failed to update ocorrencia' });
     }
   });
 
@@ -8709,6 +9505,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: req.query.status as string | undefined,
         tipo: req.query.tipo as string | undefined,
         categoria: req.query.categoria as string | undefined,
+        tema: req.query.tema as string | undefined,
+        search: req.query.search as string | undefined,
       };
       const items = await storage.getBaseConhecimento(filters);
       res.json(items);
@@ -8800,6 +9598,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error tracking download:', error);
       res.status(500).json({ error: 'Erro ao registrar download' });
+    }
+  });
+
+  // Análise automática de documento com IA
+  app.post('/api/base-conhecimento/analyze', requireAuth, async (req, res) => {
+    try {
+      const { filename, contentPreview } = req.body;
+      if (!filename) {
+        return res.status(400).json({ error: 'Nome do arquivo é obrigatório' });
+      }
+      const { analyzeDocument } = await import('./services/documentAnalysisService');
+      const analysis = await analyzeDocument(filename, contentPreview);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error('Error analyzing document:', error);
+      res.status(500).json({ error: 'Erro ao analisar documento' });
     }
   });
 

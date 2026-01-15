@@ -43,6 +43,11 @@ export default function EditLicense() {
 
   const { data: license, isLoading } = useQuery<LicencaAmbiental>({
     queryKey: ["/api/licencas", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/licencas/${id}`);
+      return res.json();
+    },
   });
 
   const form = useForm<LicenseFormData>({
@@ -260,7 +265,10 @@ export default function EditLicense() {
                     </FormLabel>
                     <ObjectUploader
                       onGetUploadParameters={async () => {
-                        const response = await apiRequest("POST", "/api/upload/pdf");
+                        const response = await apiRequest("POST", "/api/upload/pdf", {
+                          filename: `licenca_${id}_${Date.now()}.pdf`,
+                          contentType: "application/pdf",
+                        });
                         const data = await response.json();
                         return { 
                           method: data.method, 
