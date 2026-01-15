@@ -804,6 +804,163 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getLicencasWithFilters(filters: {
+    status?: 'ativas' | 'vencer' | 'vencidas';
+    unidade?: string;
+    empreendimentoId?: number;
+    q?: string;
+    orgaoEmissor?: string;
+    tipo?: string;
+  }): Promise<any[]> {
+    const hoje = new Date();
+    const em60Dias = new Date();
+    em60Dias.setDate(em60Dias.getDate() + 60);
+
+    let query = db
+      .select({
+        id: licencasAmbientais.id,
+        numero: licencasAmbientais.numero,
+        tipo: licencasAmbientais.tipo,
+        orgaoEmissor: licencasAmbientais.orgaoEmissor,
+        dataEmissao: licencasAmbientais.dataEmissao,
+        validade: licencasAmbientais.validade,
+        status: licencasAmbientais.status,
+        arquivoPdf: licencasAmbientais.arquivoPdf,
+        empreendimentoId: licencasAmbientais.empreendimentoId,
+        criadoEm: licencasAmbientais.criadoEm,
+        empreendimentoNome: empreendimentos.nome,
+        empreendimentoCliente: empreendimentos.cliente,
+        unidade: empreendimentos.unidade,
+      })
+      .from(licencasAmbientais)
+      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
+
+    const conditions: any[] = [];
+
+    if (filters.unidade) {
+      conditions.push(eq(empreendimentos.unidade, filters.unidade));
+    }
+
+    if (filters.empreendimentoId) {
+      conditions.push(eq(licencasAmbientais.empreendimentoId, filters.empreendimentoId));
+    }
+
+    if (filters.orgaoEmissor) {
+      conditions.push(eq(licencasAmbientais.orgaoEmissor, filters.orgaoEmissor));
+    }
+
+    if (filters.tipo) {
+      conditions.push(eq(licencasAmbientais.tipo, filters.tipo));
+    }
+
+    if (filters.q) {
+      const searchTerm = `%${filters.q}%`;
+      conditions.push(
+        or(
+          ilike(licencasAmbientais.numero, searchTerm),
+          ilike(licencasAmbientais.tipo, searchTerm),
+          ilike(licencasAmbientais.orgaoEmissor, searchTerm),
+          ilike(empreendimentos.nome, searchTerm),
+          ilike(empreendimentos.cliente, searchTerm)
+        )
+      );
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const licencas = await query.orderBy(desc(licencasAmbientais.criadoEm));
+
+    // Filtrar por status calculado
+    return licencas
+      .map(licenca => ({
+        ...licenca,
+        status: this.calculateLicenseStatus(licenca.validade)
+      }))
+      .filter(licenca => {
+        if (!filters.status) return true;
+        if (filters.status === 'ativas') return licenca.status === 'ativa';
+        if (filters.status === 'vencer') return licenca.status === 'a_vencer';
+        if (filters.status === 'vencidas') return licenca.status === 'vencida';
+        return true;
+      });
+  }
+
+  async getLicencasMetrics(unidade?: string): Promise<{
+    total: number;
+    ativas: number;
+    aVencer: number;
+    vencidas: number;
+    porOrgao: Record<string, number>;
+    porTipo: Record<string, number>;
+    vencimentosPorMes: Array<{ mes: string; quantidade: number }>;
+  }> {
+    const hoje = new Date();
+    const em60Dias = new Date();
+    em60Dias.setDate(em60Dias.getDate() + 60);
+
+    let query = db
+      .select({
+        id: licencasAmbientais.id,
+        tipo: licencasAmbientais.tipo,
+        orgaoEmissor: licencasAmbientais.orgaoEmissor,
+        validade: licencasAmbientais.validade,
+        unidade: empreendimentos.unidade,
+      })
+      .from(licencasAmbientais)
+      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
+
+    if (unidade) {
+      query = query.where(eq(empreendimentos.unidade, unidade)) as any;
+    }
+
+    const licencas = await query;
+
+    let ativas = 0, aVencer = 0, vencidas = 0;
+    const porOrgao: Record<string, number> = {};
+    const porTipo: Record<string, number> = {};
+    const vencimentosPorMesMap: Record<string, number> = {};
+
+    for (const licenca of licencas) {
+      const status = this.calculateLicenseStatus(licenca.validade);
+      if (status === 'ativa') ativas++;
+      else if (status === 'a_vencer') aVencer++;
+      else if (status === 'vencida') vencidas++;
+
+      // Contagem por órgão
+      const orgao = licenca.orgaoEmissor || 'Não informado';
+      porOrgao[orgao] = (porOrgao[orgao] || 0) + 1;
+
+      // Contagem por tipo
+      const tipo = licenca.tipo || 'Não informado';
+      porTipo[tipo] = (porTipo[tipo] || 0) + 1;
+
+      // Vencimentos por mês (próximos 12 meses)
+      const validade = new Date(licenca.validade);
+      if (validade >= hoje) {
+        const mesAno = `${validade.getFullYear()}-${String(validade.getMonth() + 1).padStart(2, '0')}`;
+        vencimentosPorMesMap[mesAno] = (vencimentosPorMesMap[mesAno] || 0) + 1;
+      }
+    }
+
+    // Ordenar vencimentos por mês
+    const vencimentosPorMes = Object.entries(vencimentosPorMesMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(0, 12)
+      .map(([mes, quantidade]) => ({ mes, quantidade }));
+
+    return {
+      total: licencas.length,
+      ativas,
+      aVencer,
+      vencidas,
+      porOrgao,
+      porTipo,
+      vencimentosPorMes,
+    };
+  }
+
   async getLicenca(id: number): Promise<LicencaAmbiental | undefined> {
     const [licenca] = await db.select().from(licencasAmbientais).where(eq(licencasAmbientais.id, id));
     if (!licenca) return undefined;
@@ -877,6 +1034,141 @@ export class DatabaseStorage implements IStorage {
       ...condicionante,
       status: this.calculateCondicionanteStatus(condicionante.prazo)
     }));
+  }
+
+  async getCondicionantesWithFilters(filters: {
+    status?: 'pendente' | 'cumprida' | 'vencida';
+    unidade?: string;
+    licencaId?: number;
+    empreendimentoId?: number;
+  }): Promise<any[]> {
+    let query = db
+      .select({
+        id: condicionantes.id,
+        titulo: condicionantes.titulo,
+        descricao: condicionantes.descricao,
+        prazo: condicionantes.prazo,
+        status: condicionantes.status,
+        arquivoPdf: condicionantes.arquivoPdf,
+        licencaId: condicionantes.licencaId,
+        criadoEm: condicionantes.criadoEm,
+        licencaTipo: licencasAmbientais.tipo,
+        licencaOrgao: licencasAmbientais.orgaoEmissor,
+        empreendimentoId: licencasAmbientais.empreendimentoId,
+        empreendimentoNome: empreendimentos.nome,
+        unidade: empreendimentos.unidade,
+      })
+      .from(condicionantes)
+      .leftJoin(licencasAmbientais, eq(condicionantes.licencaId, licencasAmbientais.id))
+      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
+
+    const conditions: any[] = [];
+
+    if (filters.unidade) {
+      conditions.push(eq(empreendimentos.unidade, filters.unidade));
+    }
+
+    if (filters.licencaId) {
+      conditions.push(eq(condicionantes.licencaId, filters.licencaId));
+    }
+
+    if (filters.empreendimentoId) {
+      conditions.push(eq(licencasAmbientais.empreendimentoId, filters.empreendimentoId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const data = await query.orderBy(asc(condicionantes.prazo));
+
+    return data
+      .map(c => ({
+        ...c,
+        status: this.calculateCondicionanteStatus(c.prazo)
+      }))
+      .filter(c => {
+        if (!filters.status) return true;
+        return c.status === filters.status;
+      });
+  }
+
+  async getCondicionantesMetrics(unidade?: string): Promise<{
+    total: number;
+    pendentes: number;
+    cumpridas: number;
+    vencidas: number;
+    porLicenca: Array<{ licencaId: number; licencaTipo: string; quantidade: number }>;
+    vencimentosPorSemana: Array<{ semana: string; quantidade: number }>;
+  }> {
+    let query = db
+      .select({
+        id: condicionantes.id,
+        prazo: condicionantes.prazo,
+        status: condicionantes.status,
+        licencaId: condicionantes.licencaId,
+        licencaTipo: licencasAmbientais.tipo,
+        unidade: empreendimentos.unidade,
+      })
+      .from(condicionantes)
+      .leftJoin(licencasAmbientais, eq(condicionantes.licencaId, licencasAmbientais.id))
+      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
+
+    if (unidade) {
+      query = query.where(eq(empreendimentos.unidade, unidade)) as any;
+    }
+
+    const data = await query;
+
+    let pendentes = 0, cumpridas = 0, vencidas = 0;
+    const porLicencaMap: Record<number, { licencaTipo: string; quantidade: number }> = {};
+    const vencimentosPorSemanaMap: Record<string, number> = {};
+
+    const hoje = new Date();
+
+    for (const c of data) {
+      const status = this.calculateCondicionanteStatus(c.prazo);
+      if (status === 'pendente') pendentes++;
+      else if (status === 'cumprida') cumpridas++;
+      else if (status === 'vencida') vencidas++;
+
+      // Por licença
+      if (c.licencaId) {
+        if (!porLicencaMap[c.licencaId]) {
+          porLicencaMap[c.licencaId] = { licencaTipo: c.licencaTipo || 'N/A', quantidade: 0 };
+        }
+        porLicencaMap[c.licencaId].quantidade++;
+      }
+
+      // Vencimentos por semana (próximas 8 semanas)
+      const prazo = new Date(c.prazo);
+      if (prazo >= hoje && status === 'pendente') {
+        const diffDays = Math.ceil((prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        const semana = Math.ceil(diffDays / 7);
+        if (semana <= 8) {
+          const semanaKey = `Semana ${semana}`;
+          vencimentosPorSemanaMap[semanaKey] = (vencimentosPorSemanaMap[semanaKey] || 0) + 1;
+        }
+      }
+    }
+
+    const porLicenca = Object.entries(porLicencaMap)
+      .map(([licencaId, v]) => ({ licencaId: parseInt(licencaId), ...v }))
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 10);
+
+    const vencimentosPorSemana = Object.entries(vencimentosPorSemanaMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([semana, quantidade]) => ({ semana, quantidade }));
+
+    return {
+      total: data.length,
+      pendentes,
+      cumpridas,
+      vencidas,
+      porLicenca,
+      vencimentosPorSemana,
+    };
   }
 
   async createCondicionante(condicionante: InsertCondicionante): Promise<Condicionante> {

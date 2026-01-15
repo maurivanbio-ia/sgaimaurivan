@@ -621,10 +621,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Licenca routes
+  // Licenca routes - API consolidada com filtros (multi-tenant isolated)
   app.get("/api/licencas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencas();
+      const { status, empreendimentoId, q, orgaoEmissor, tipo } = req.query;
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: somente admin/diretor podem ver outras unidades
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const filters = {
+        status: status as 'ativas' | 'vencer' | 'vencidas' | undefined,
+        unidade: effectiveUnidade,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+        q: q as string | undefined,
+        orgaoEmissor: orgaoEmissor as string | undefined,
+        tipo: tipo as string | undefined,
+      };
+      const licencas = await storage.getLicencasWithFilters(filters);
       res.json(licencas);
     } catch (error) {
       console.error("Get licencas error:", error);
@@ -632,10 +648,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Filtered data routes (must be before /:id routes)
+  // Métricas de licenças (multi-tenant isolated)
+  app.get("/api/licencas/metrics", requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: somente admin/diretor podem ver outras unidades
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const metrics = await storage.getLicencasMetrics(effectiveUnidade);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Get licenças metrics error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Filtered data routes (multi-tenant isolated)
   app.get("/api/licencas/ativas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('ativa');
+      const userUnidade = req.user?.unidade;
+      const licencas = await storage.getLicencasWithFilters({ status: 'ativas', unidade: userUnidade });
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças ativas error:", error);
@@ -645,7 +680,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licencas/vencer", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('expiring');
+      const userUnidade = req.user?.unidade;
+      const licencas = await storage.getLicencasWithFilters({ status: 'vencer', unidade: userUnidade });
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças a vencer error:", error);
@@ -655,7 +691,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/licencas/vencidas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('expired');
+      const userUnidade = req.user?.unidade;
+      const licencas = await storage.getLicencasWithFilters({ status: 'vencidas', unidade: userUnidade });
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças vencidas error:", error);
@@ -710,12 +747,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper para verificar acesso multi-tenant a licença
+  async function checkLicencaAccess(licencaId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; licenca?: any }> {
+    const licenca = await storage.getLicenca(licencaId);
+    if (!licenca) return { allowed: false };
+    
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (isPrivileged) return { allowed: true, licenca };
+    
+    // Se não tem unidade atribuída, é considerado acesso global (legacy)
+    if (!userUnidade) return { allowed: true, licenca };
+    
+    const empreendimento = await storage.getEmpreendimento(licenca.empreendimentoId);
+    // Se não encontrar empreendimento, negar acesso para segurança multi-tenant
+    if (!empreendimento) return { allowed: false, licenca };
+    
+    return { 
+      allowed: empreendimento.unidade === userUnidade, 
+      licenca 
+    };
+  }
+
   app.get("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const licenca = await storage.getLicenca(id);
+      const { allowed, licenca } = await checkLicencaAccess(id, req.user?.unidade, req.user?.role);
+      
       if (!licenca) {
         return res.status(404).json({ message: "Licença not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado a esta licença" });
       }
       res.json(licenca);
     } catch (error) {
@@ -726,7 +788,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/licencas", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
       const data = insertLicencaAmbientalSchema.parse(req.body);
+      
+      // Verificar acesso ao empreendimento antes de criar licença
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      if (!isPrivileged && userUnidade) {
+        const empreendimento = await storage.getEmpreendimento(data.empreendimentoId);
+        if (empreendimento && empreendimento.unidade !== userUnidade) {
+          return res.status(403).json({ message: "Sem permissão para criar licença neste empreendimento" });
+        }
+      }
+      
       const licenca = await storage.createLicenca(data);
       res.status(201).json(licenca);
     } catch (error) {
@@ -738,6 +812,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, licenca: existing } = await checkLicencaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!existing) {
+        return res.status(404).json({ message: "Licença not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para editar esta licença" });
+      }
+      
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
       const licenca = await storage.updateLicenca(id, data);
       res.json(licenca);
@@ -750,6 +833,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, licenca } = await checkLicencaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!licenca) {
+        return res.status(404).json({ message: "Licença not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para excluir esta licença" });
+      }
+      
       await storage.deleteLicenca(id);
       res.status(204).send();
     } catch (error) {
@@ -758,10 +850,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Condicionante routes
+  // Condicionante routes - API consolidada com filtros (multi-tenant isolated)
   app.get("/api/condicionantes", requireAuth, async (req, res) => {
     try {
-      const condicionantes = await storage.getCondicionantes();
+      const { status, licencaId, empreendimentoId } = req.query;
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: sempre aplicar filtro por unidade (exceto admin/diretor)
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const filters = {
+        status: status as 'pendente' | 'cumprida' | 'vencida' | undefined,
+        unidade: effectiveUnidade,
+        licencaId: licencaId ? parseInt(licencaId as string) : undefined,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId as string) : undefined,
+      };
+      const condicionantes = await storage.getCondicionantesWithFilters(filters);
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes error:", error);
@@ -769,10 +875,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Filtered condicionantes route (must be before /:id routes)
+  // Métricas de condicionantes (multi-tenant isolated)
+  app.get("/api/condicionantes/metrics", requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: somente admin/diretor podem ver outras unidades
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged ? (req.query.unidade as string) || userUnidade : userUnidade;
+      
+      const metrics = await storage.getCondicionantesMetrics(effectiveUnidade);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Get condicionantes metrics error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Filtered condicionantes route (multi-tenant isolated)
   app.get("/api/condicionantes/pendentes", requireAuth, async (req, res) => {
     try {
-      const condicionantes = await storage.getCondicionantesByStatus('pendente');
+      const userUnidade = req.user?.unidade;
+      const condicionantes = await storage.getCondicionantesWithFilters({ 
+        status: 'pendente',
+        unidade: userUnidade
+      });
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes pendentes error:", error);
@@ -780,12 +908,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper para verificar acesso multi-tenant a condicionante via licença
+  async function checkCondicionanteAccess(condicionanteId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; condicionante?: any }> {
+    const condicionante = await storage.getCondicionante(condicionanteId);
+    if (!condicionante) return { allowed: false };
+    
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (isPrivileged) return { allowed: true, condicionante };
+    
+    const { allowed } = await checkLicencaAccess(condicionante.licencaId, userUnidade, userRole);
+    return { allowed, condicionante };
+  }
+
   app.get("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const condicionante = await storage.getCondicionante(id);
+      const { allowed, condicionante } = await checkCondicionanteAccess(id, req.user?.unidade, req.user?.role);
+      
       if (!condicionante) {
         return res.status(404).json({ message: "Condicionante not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado a esta condicionante" });
       }
       res.json(condicionante);
     } catch (error) {
@@ -797,7 +941,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/licencas/:licencaId/condicionantes", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
-      const condicionantes = await storage.getCondicionantesByLicenca(licencaId);
+      const userUnidade = req.user?.unidade;
+      const condicionantes = await storage.getCondicionantesWithFilters({
+        licencaId,
+        unidade: userUnidade
+      });
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes by licenca error:", error);
@@ -808,6 +956,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/licencas/:licencaId/condicionantes", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
+      
+      // Verificar acesso à licença antes de criar condicionante
+      const { allowed } = await checkLicencaAccess(licencaId, req.user?.unidade, req.user?.role);
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para criar condicionante nesta licença" });
+      }
+      
       const data = insertCondicionanteSchema.parse({ ...req.body, licencaId });
       const condicionante = await storage.createCondicionante(data);
       res.status(201).json(condicionante);
@@ -820,6 +975,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/condicionantes", requireAuth, async (req, res) => {
     try {
       const data = insertCondicionanteSchema.parse(req.body);
+      
+      // Verificar acesso à licença antes de criar condicionante
+      if (data.licencaId) {
+        const { allowed } = await checkLicencaAccess(data.licencaId, req.user?.unidade, req.user?.role);
+        if (!allowed) {
+          return res.status(403).json({ message: "Sem permissão para criar condicionante nesta licença" });
+        }
+      }
+      
       const condicionante = await storage.createCondicionante(data);
       res.status(201).json(condicionante);
     } catch (error) {
@@ -831,6 +995,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, condicionante: existing } = await checkCondicionanteAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!existing) {
+        return res.status(404).json({ message: "Condicionante not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para editar esta condicionante" });
+      }
+      
       const data = insertCondicionanteSchema.partial().parse(req.body);
       const condicionante = await storage.updateCondicionante(id, data);
       res.json(condicionante);
@@ -843,6 +1016,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, condicionante } = await checkCondicionanteAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!condicionante) {
+        return res.status(404).json({ message: "Condicionante not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para excluir esta condicionante" });
+      }
+      
       await storage.deleteCondicionante(id);
       res.status(204).send();
     } catch (error) {
@@ -851,10 +1033,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Entrega routes
+  // Entrega routes (multi-tenant isolated via licença)
+  // Helper para verificar acesso a entrega via licença
+  async function checkEntregaAccess(entregaId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; entrega?: any }> {
+    const entrega = await storage.getEntrega(entregaId);
+    if (!entrega) return { allowed: false };
+    
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (isPrivileged) return { allowed: true, entrega };
+    
+    const { allowed } = await checkLicencaAccess(entrega.licencaId, userUnidade, userRole);
+    return { allowed, entrega };
+  }
+
   app.get("/api/entregas", requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      
       const entregas = await storage.getEntregas();
+      
+      // Filtrar por unidade se não for privilegiado
+      if (!isPrivileged && userUnidade) {
+        const filtered = [];
+        for (const entrega of entregas) {
+          const { allowed } = await checkLicencaAccess(entrega.licencaId, userUnidade, userRole);
+          if (allowed) filtered.push(entrega);
+        }
+        return res.json(filtered);
+      }
+      
       res.json(entregas);
     } catch (error) {
       console.error("Get entregas error:", error);
@@ -865,9 +1074,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const entrega = await storage.getEntrega(id);
+      const { allowed, entrega } = await checkEntregaAccess(id, req.user?.unidade, req.user?.role);
+      
       if (!entrega) {
         return res.status(404).json({ message: "Entrega not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado a esta entrega" });
       }
       res.json(entrega);
     } catch (error) {
@@ -879,6 +1092,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
+      
+      // Verificar acesso à licença
+      const { allowed } = await checkLicencaAccess(licencaId, req.user?.unidade, req.user?.role);
+      if (!allowed) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
       const entregas = await storage.getEntregasByLicenca(licencaId);
       res.json(entregas);
     } catch (error) {
@@ -890,6 +1110,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
+      
+      // Verificar acesso à licença
+      const { allowed } = await checkLicencaAccess(licencaId, req.user?.unidade, req.user?.role);
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para criar entrega nesta licença" });
+      }
+      
       const data = insertEntregaSchema.parse({ ...req.body, licencaId });
       const entrega = await storage.createEntrega(data);
       res.status(201).json(entrega);
@@ -902,6 +1129,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/entregas", requireAuth, async (req, res) => {
     try {
       const data = insertEntregaSchema.parse(req.body);
+      
+      // Verificar acesso à licença
+      if (data.licencaId) {
+        const { allowed } = await checkLicencaAccess(data.licencaId, req.user?.unidade, req.user?.role);
+        if (!allowed) {
+          return res.status(403).json({ message: "Sem permissão para criar entrega nesta licença" });
+        }
+      }
+      
       const entrega = await storage.createEntrega(data);
       res.status(201).json(entrega);
     } catch (error) {
@@ -913,6 +1149,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, entrega: existing } = await checkEntregaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!existing) {
+        return res.status(404).json({ message: "Entrega not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para editar esta entrega" });
+      }
+      
       const data = insertEntregaSchema.partial().parse(req.body);
       const entrega = await storage.updateEntrega(id, data);
       res.json(entrega);
@@ -925,6 +1170,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { allowed, entrega } = await checkEntregaAccess(id, req.user?.unidade, req.user?.role);
+      
+      if (!entrega) {
+        return res.status(404).json({ message: "Entrega not found" });
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: "Sem permissão para excluir esta entrega" });
+      }
+      
       await storage.deleteEntrega(id);
       res.status(204).send();
     } catch (error) {
@@ -1669,7 +1923,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder demandas - persiste a ordem das demandas no Kanban (multi-tenant isolated)
+  app.post('/api/demandas/reorder', requireAuth, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: 'Items array is required' });
+      }
+
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+
+      // items = [{ id: number, ordem: number, status: string }]
+      let updatedCount = 0;
+      for (const item of items) {
+        if (item.id && typeof item.ordem === 'number') {
+          // Validar que a demanda pertence à unidade do usuário
+          const demanda = await storage.getDemanda(item.id);
+          if (!demanda) continue;
+          
+          // Multi-tenant: verificar se pode atualizar essa demanda
+          if (!isPrivileged && userUnidade && demanda.unidade !== userUnidade) {
+            console.warn(`[REORDER] Tentativa de atualizar demanda ${item.id} de outra unidade por usuário ${req.user?.email}`);
+            continue;
+          }
+          
+          await storage.updateDemanda(item.id, { 
+            ordem: item.ordem,
+            ...(item.status && { status: item.status })
+          });
+          updatedCount++;
+        }
+      }
+
+      res.json({ success: true, updated: updatedCount });
+    } catch (error) {
+      console.error('Error reordering demandas:', error);
+      res.status(500).json({ error: 'Failed to reorder demandas' });
+    }
+  });
+
   // ==== END DEMANDAS ROUTES ====
+
+  // ==== CALENDAR ROUTES ====
+
+  // Eventos agregados do calendário (licenças, demandas, condicionantes, entregas)
+  app.get('/api/calendario', requireAuth, async (req, res) => {
+    try {
+      const userUnidade = req.user?.unidade || '';
+      const { startDate, endDate, tipos } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date();
+      const end = endDate ? new Date(endDate as string) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      
+      const tiposArr = tipos ? (tipos as string).split(',') : ['licenca', 'demanda', 'condicionante', 'entrega'];
+      
+      const events: any[] = [];
+      
+      // Licenças a vencer
+      if (tiposArr.includes('licenca')) {
+        const licencas = await storage.getLicencasByDateRange(userUnidade, start, end);
+        events.push(...licencas.map((l: any) => ({
+          id: `licenca-${l.id}`,
+          tipo: 'licenca',
+          titulo: `${l.tipo} - ${l.empreendimentoNome}`,
+          data: l.validade,
+          status: 'a_vencer',
+          empreendimento: l.empreendimentoNome,
+          orgaoEmissor: l.orgaoEmissor,
+          itemId: l.id,
+        })));
+      }
+      
+      // Demandas com prazo
+      if (tiposArr.includes('demanda')) {
+        const demandas = await storage.getDemandasByDateRange(userUnidade, start, end);
+        events.push(...demandas.map((d: any) => ({
+          id: `demanda-${d.id}`,
+          tipo: 'demanda',
+          titulo: d.titulo,
+          data: d.dataEntrega,
+          status: d.status,
+          responsavel: d.responsavel,
+          prioridade: d.prioridade,
+          itemId: d.id,
+        })));
+      }
+      
+      // Condicionantes pendentes
+      if (tiposArr.includes('condicionante')) {
+        const conds = await storage.getCondicionantesWithFilters({ 
+          unidade: userUnidade, 
+          status: 'pendente' 
+        });
+        const filteredConds = conds.filter((c: any) => {
+          const prazo = new Date(c.prazo);
+          return prazo >= start && prazo <= end;
+        });
+        events.push(...filteredConds.map((c: any) => ({
+          id: `condicionante-${c.id}`,
+          tipo: 'condicionante',
+          titulo: c.titulo,
+          data: c.prazo,
+          status: c.status,
+          licenca: c.licencaTipo,
+          empreendimento: c.empreendimentoNome,
+          itemId: c.id,
+        })));
+      }
+      
+      // Ordenar por data
+      events.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+      
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching calendario:', error);
+      res.status(500).json({ error: 'Failed to fetch calendario' });
+    }
+  });
+
+  // ==== END CALENDAR ROUTES ====
 
   // =============================================
   // FINANCIAL MODULE ROUTES
