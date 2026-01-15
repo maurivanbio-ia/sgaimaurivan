@@ -1,7 +1,9 @@
 /**
- * Serviço de consulta aos portais SEIA (Sistema Estadual de Informações Ambientais)
- * Suporta múltiplos estados: BA, GO, MG, MT, MS, ES, etc.
+ * Serviço de consulta ao portal SEIA (Sistema Estadual de Informações Ambientais)
+ * Utiliza Puppeteer para automação de login e consulta de processos
  */
+
+import puppeteer, { Browser, Page } from 'puppeteer';
 
 interface ConsultaResult {
   sucesso: boolean;
@@ -27,6 +29,7 @@ interface PortalConfig {
   nome: string;
   sigla: string;
   url: string;
+  urlLogin?: string;
   urlConsulta?: string;
   orgao: string;
   ativo: boolean;
@@ -37,7 +40,8 @@ const PORTAIS_SEIA: Record<string, PortalConfig> = {
     nome: 'SEIA Bahia',
     sigla: 'BA',
     url: 'https://sistema.seia.ba.gov.br',
-    urlConsulta: 'https://sistema.seia.ba.gov.br/consulta.xhtml',
+    urlLogin: 'https://sistema.seia.ba.gov.br/paginas/paginaLogin.xhtml',
+    urlConsulta: 'https://sistema.seia.ba.gov.br/paginas/processo/listarProcesso.xhtml',
     orgao: 'INEMA',
     ativo: true,
   },
@@ -49,181 +53,6 @@ const PORTAIS_SEIA: Record<string, PortalConfig> = {
     orgao: 'SEMAD-GO',
     ativo: true,
   },
-  MT: {
-    nome: 'SEIA Mato Grosso',
-    sigla: 'MT',
-    url: 'https://monitoramento.sema.mt.gov.br/simlam',
-    orgao: 'SEMA-MT',
-    ativo: true,
-  },
-  MS: {
-    nome: 'IMASUL Mato Grosso do Sul',
-    sigla: 'MS',
-    url: 'https://imasul.ms.gov.br',
-    orgao: 'IMASUL',
-    ativo: true,
-  },
-  MG: {
-    nome: 'SIAM Minas Gerais',
-    sigla: 'MG',
-    url: 'http://www.siam.mg.gov.br/siam/login.jsp',
-    orgao: 'SEMAD-MG',
-    ativo: true,
-  },
-  ES: {
-    nome: 'IEMA Espírito Santo',
-    sigla: 'ES',
-    url: 'https://iema.es.gov.br',
-    orgao: 'IEMA-ES',
-    ativo: true,
-  },
-  PR: {
-    nome: 'IAT Paraná',
-    sigla: 'PR',
-    url: 'https://www.iat.pr.gov.br',
-    orgao: 'IAT-PR',
-    ativo: true,
-  },
-  SC: {
-    nome: 'IMA Santa Catarina',
-    sigla: 'SC',
-    url: 'https://www.ima.sc.gov.br',
-    orgao: 'IMA-SC',
-    ativo: true,
-  },
-  RS: {
-    nome: 'FEPAM Rio Grande do Sul',
-    sigla: 'RS',
-    url: 'https://www.fepam.rs.gov.br',
-    orgao: 'FEPAM',
-    ativo: true,
-  },
-  RJ: {
-    nome: 'INEA Rio de Janeiro',
-    sigla: 'RJ',
-    url: 'https://www.inea.rj.gov.br',
-    orgao: 'INEA',
-    ativo: true,
-  },
-  SP: {
-    nome: 'CETESB São Paulo',
-    sigla: 'SP',
-    url: 'https://cetesb.sp.gov.br',
-    orgao: 'CETESB',
-    ativo: true,
-  },
-  PE: {
-    nome: 'CPRH Pernambuco',
-    sigla: 'PE',
-    url: 'https://www.cprh.pe.gov.br',
-    orgao: 'CPRH',
-    ativo: true,
-  },
-  CE: {
-    nome: 'SEMACE Ceará',
-    sigla: 'CE',
-    url: 'https://www.semace.ce.gov.br',
-    orgao: 'SEMACE',
-    ativo: true,
-  },
-  PA: {
-    nome: 'SEMAS Pará',
-    sigla: 'PA',
-    url: 'https://www.semas.pa.gov.br',
-    orgao: 'SEMAS-PA',
-    ativo: true,
-  },
-  AM: {
-    nome: 'IPAAM Amazonas',
-    sigla: 'AM',
-    url: 'http://www.ipaam.am.gov.br',
-    orgao: 'IPAAM',
-    ativo: true,
-  },
-  TO: {
-    nome: 'NATURATINS Tocantins',
-    sigla: 'TO',
-    url: 'https://naturatins.to.gov.br',
-    orgao: 'NATURATINS',
-    ativo: true,
-  },
-  PI: {
-    nome: 'SEMAR Piauí',
-    sigla: 'PI',
-    url: 'https://www.semar.pi.gov.br',
-    orgao: 'SEMAR-PI',
-    ativo: true,
-  },
-  MA: {
-    nome: 'SEMA Maranhão',
-    sigla: 'MA',
-    url: 'https://www.sema.ma.gov.br',
-    orgao: 'SEMA-MA',
-    ativo: true,
-  },
-  RN: {
-    nome: 'IDEMA Rio Grande do Norte',
-    sigla: 'RN',
-    url: 'https://www.idema.rn.gov.br',
-    orgao: 'IDEMA',
-    ativo: true,
-  },
-  PB: {
-    nome: 'SUDEMA Paraíba',
-    sigla: 'PB',
-    url: 'https://www.sudema.pb.gov.br',
-    orgao: 'SUDEMA',
-    ativo: true,
-  },
-  AL: {
-    nome: 'IMA Alagoas',
-    sigla: 'AL',
-    url: 'https://www.ima.al.gov.br',
-    orgao: 'IMA-AL',
-    ativo: true,
-  },
-  SE: {
-    nome: 'ADEMA Sergipe',
-    sigla: 'SE',
-    url: 'https://www.adema.se.gov.br',
-    orgao: 'ADEMA',
-    ativo: true,
-  },
-  RO: {
-    nome: 'SEDAM Rondônia',
-    sigla: 'RO',
-    url: 'https://www.sedam.ro.gov.br',
-    orgao: 'SEDAM',
-    ativo: true,
-  },
-  AC: {
-    nome: 'IMAC Acre',
-    sigla: 'AC',
-    url: 'https://www.imac.ac.gov.br',
-    orgao: 'IMAC',
-    ativo: true,
-  },
-  AP: {
-    nome: 'SEMA Amapá',
-    sigla: 'AP',
-    url: 'https://www.sema.ap.gov.br',
-    orgao: 'SEMA-AP',
-    ativo: true,
-  },
-  RR: {
-    nome: 'FEMARH Roraima',
-    sigla: 'RR',
-    url: 'https://www.femarh.rr.gov.br',
-    orgao: 'FEMARH',
-    ativo: true,
-  },
-  DF: {
-    nome: 'IBRAM Distrito Federal',
-    sigla: 'DF',
-    url: 'https://www.ibram.df.gov.br',
-    orgao: 'IBRAM-DF',
-    ativo: true,
-  },
   IBAMA: {
     nome: 'IBAMA Federal',
     sigla: 'IBAMA',
@@ -232,67 +61,309 @@ const PORTAIS_SEIA: Record<string, PortalConfig> = {
     orgao: 'IBAMA',
     ativo: true,
   },
-  ICMBio: {
-    nome: 'ICMBio Federal',
-    sigla: 'ICMBio',
-    url: 'https://www.icmbio.gov.br',
-    orgao: 'ICMBio',
-    ativo: true,
-  },
-  ANA: {
-    nome: 'ANA Federal',
-    sigla: 'ANA',
-    url: 'https://www.gov.br/ana',
-    orgao: 'ANA',
-    ativo: true,
-  },
 };
 
+const STATUS_POSSIVEIS = [
+  'Aguardando Enquadramento',
+  'Sendo Enquadrado',
+  'Enquadrado',
+  'Em Validação Prévia',
+  'Validado',
+  'Boleto de pagamento liberado',
+  'Comprovante Enviado',
+  'Processo Formado'
+];
+
 export class SeiaService {
-  /**
-   * Obtém a configuração do portal para um estado
-   */
+  private browser: Browser | null = null;
+  private page: Page | null = null;
+  private isLoggedIn: boolean = false;
+  private lastLoginTime: Date | null = null;
+  private readonly SESSION_TIMEOUT_MINUTES = 25;
+
+  private getCredentials() {
+    return {
+      username: process.env.SEIA_USERNAME || '',
+      password: process.env.SEIA_PASSWORD || '',
+      portalUrl: process.env.SEIA_PORTAL_URL || 'https://sistema.seia.ba.gov.br',
+    };
+  }
+
   getPortalConfig(ufOuOrgao: string): PortalConfig | null {
     return PORTAIS_SEIA[ufOuOrgao.toUpperCase()] || null;
   }
 
-  /**
-   * Lista todos os portais disponíveis
-   */
   listarPortais(): PortalConfig[] {
     return Object.values(PORTAIS_SEIA).filter(p => p.ativo);
   }
 
-  /**
-   * Consulta um processo no portal SEIA do estado correspondente
-   */
+  getStatusPossiveis(): string[] {
+    return STATUS_POSSIVEIS;
+  }
+
+  private async initBrowser(): Promise<void> {
+    if (!this.browser) {
+      console.log('[SEIA] Iniciando navegador...');
+      this.browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920,1080',
+        ],
+      });
+      this.page = await this.browser.newPage();
+      await this.page.setViewport({ width: 1920, height: 1080 });
+      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    }
+  }
+
+  private async closeBrowser(): Promise<void> {
+    if (this.browser) {
+      console.log('[SEIA] Fechando navegador...');
+      await this.browser.close();
+      this.browser = null;
+      this.page = null;
+      this.isLoggedIn = false;
+    }
+  }
+
+  private isSessionExpired(): boolean {
+    if (!this.lastLoginTime) return true;
+    const now = new Date();
+    const diffMinutes = (now.getTime() - this.lastLoginTime.getTime()) / 1000 / 60;
+    return diffMinutes > this.SESSION_TIMEOUT_MINUTES;
+  }
+
+  async login(): Promise<{ sucesso: boolean; mensagem: string }> {
+    const { username, password, portalUrl } = this.getCredentials();
+
+    if (!username || !password) {
+      return {
+        sucesso: false,
+        mensagem: 'Credenciais do SEIA não configuradas. Configure SEIA_USERNAME e SEIA_PASSWORD.',
+      };
+    }
+
+    try {
+      await this.initBrowser();
+      
+      if (!this.page) {
+        throw new Error('Página não inicializada');
+      }
+
+      console.log('[SEIA] Acessando página de login...');
+      await this.page.goto(`${portalUrl}/paginas/paginaLogin.xhtml`, {
+        waitUntil: 'networkidle2',
+        timeout: 60000,
+      });
+
+      await this.page.waitForSelector('input[id*="usuario"], input[name*="usuario"], input[type="text"]', {
+        timeout: 15000,
+      });
+
+      console.log('[SEIA] Preenchendo credenciais...');
+      
+      const usernameSelector = 'input[id*="usuario"], input[name*="usuario"], input[type="text"]';
+      const passwordSelector = 'input[id*="senha"], input[name*="senha"], input[type="password"]';
+      
+      await this.page.evaluate((sel) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) input.value = '';
+      }, usernameSelector);
+      await this.page.type(usernameSelector, username, { delay: 50 });
+
+      await this.page.evaluate((sel) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) input.value = '';
+      }, passwordSelector);
+      await this.page.type(passwordSelector, password, { delay: 50 });
+
+      console.log('[SEIA] Clicando no botão de login...');
+      const loginButton = await this.page.$('button[type="submit"], input[type="submit"], button[id*="entrar"], a[id*="entrar"]');
+      
+      if (loginButton) {
+        await Promise.all([
+          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          loginButton.click(),
+        ]);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const currentUrl = this.page.url();
+      const isLoggedIn = !currentUrl.includes('paginaLogin') && !currentUrl.includes('login');
+      
+      if (isLoggedIn) {
+        this.isLoggedIn = true;
+        this.lastLoginTime = new Date();
+        console.log('[SEIA] Login realizado com sucesso!');
+        return { sucesso: true, mensagem: 'Login realizado com sucesso' };
+      } else {
+        const errorMessage = await this.page.evaluate(() => {
+          const error = document.querySelector('.ui-messages-error, .error-message, .mensagem-erro');
+          return error ? error.textContent : null;
+        });
+        
+        return {
+          sucesso: false,
+          mensagem: errorMessage || 'Falha no login - verifique as credenciais',
+        };
+      }
+
+    } catch (error: any) {
+      console.error('[SEIA] Erro no login:', error.message);
+      await this.closeBrowser();
+      return {
+        sucesso: false,
+        mensagem: `Erro ao fazer login: ${error.message}`,
+      };
+    }
+  }
+
   async consultarProcesso(numeroProcesso: string, uf: string = 'BA', orgao?: string): Promise<ConsultaResult> {
     const inicio = Date.now();
-    
+
     try {
-      const portalKey = orgao === 'IBAMA' || orgao === 'ICMBio' || orgao === 'ANA' 
-        ? orgao 
-        : uf.toUpperCase();
+      if (!this.isLoggedIn || this.isSessionExpired()) {
+        const loginResult = await this.login();
+        if (!loginResult.sucesso) {
+          return {
+            sucesso: false,
+            numeroProcesso,
+            erro: loginResult.mensagem,
+            tempoResposta: Date.now() - inicio,
+          };
+        }
+      }
+
+      if (!this.page) {
+        throw new Error('Navegador não inicializado');
+      }
+
+      console.log(`[SEIA] Consultando processo: ${numeroProcesso}`);
+
+      const portalUrl = process.env.SEIA_PORTAL_URL || 'https://sistema.seia.ba.gov.br';
+      await this.page.goto(`${portalUrl}/paginas/processo/listarProcesso.xhtml`, {
+        waitUntil: 'networkidle2',
+        timeout: 60000,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const numeroLimpo = numeroProcesso.replace(/[^\d]/g, '');
       
-      const portal = this.getPortalConfig(portalKey);
-      
-      if (!portal) {
+      const inputSelector = 'input[id*="processo"], input[name*="processo"], input[id*="numero"], input.ui-inputfield';
+      await this.page.waitForSelector(inputSelector, { timeout: 15000 });
+
+      await this.page.evaluate((sel) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) input.value = '';
+      }, inputSelector);
+      await this.page.type(inputSelector, numeroLimpo, { delay: 30 });
+
+      const searchButton = await this.page.$('button[id*="consultar"], button[id*="pesquisar"], input[type="submit"][value*="Consultar"], button[type="submit"]');
+      if (searchButton) {
+        await Promise.all([
+          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          searchButton.click(),
+        ]);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const resultado = await this.page.evaluate(() => {
+        const data: Record<string, any> = {};
+        
+        const statusElement = document.querySelector('span[id*="status"], td:contains("Status"), .status-processo');
+        if (statusElement) {
+          data.statusAtual = statusElement.textContent?.trim();
+        }
+
+        const rows = document.querySelectorAll('table tr, .ui-datatable-tablewrapper tr');
+        const movimentacoes: Array<{ data: string; descricao: string; responsavel?: string }> = [];
+        
+        rows.forEach((row) => {
+          const cells = row.querySelectorAll('td');
+          if (cells.length >= 2) {
+            const dataCell = cells[0]?.textContent?.trim();
+            const descCell = cells[1]?.textContent?.trim();
+            if (dataCell && descCell) {
+              movimentacoes.push({
+                data: dataCell,
+                descricao: descCell,
+                responsavel: cells[2]?.textContent?.trim(),
+              });
+            }
+          }
+        });
+
+        data.movimentacoes = movimentacoes;
+
+        const interessadoEl = document.querySelector('[id*="interessado"], [id*="requerente"]');
+        if (interessadoEl) {
+          data.interessado = interessadoEl.textContent?.trim();
+        }
+
+        const empreendimentoEl = document.querySelector('[id*="empreendimento"]');
+        if (empreendimentoEl) {
+          data.empreendimento = empreendimentoEl.textContent?.trim();
+        }
+
+        const municipioEl = document.querySelector('[id*="municipio"], [id*="localidade"]');
+        if (municipioEl) {
+          data.municipio = municipioEl.textContent?.trim();
+        }
+
+        const tipoEl = document.querySelector('[id*="tipo"], [id*="atividade"]');
+        if (tipoEl) {
+          data.tipoProcesso = tipoEl.textContent?.trim();
+        }
+
+        const noResult = document.querySelector('.ui-messages-info, .no-result, .sem-resultado');
+        if (noResult && noResult.textContent?.toLowerCase().includes('nenhum')) {
+          data.naoEncontrado = true;
+        }
+
+        return data;
+      });
+
+      if (resultado.naoEncontrado) {
         return {
           sucesso: false,
           numeroProcesso,
-          erro: `Portal não configurado para ${portalKey}`,
+          erro: 'Processo não encontrado no portal SEIA',
           tempoResposta: Date.now() - inicio,
         };
       }
 
-      const numeroLimpo = numeroProcesso.replace(/[^\d]/g, '');
-      
-      const resultado = await this.tentarConsultaPortal(numeroLimpo, numeroProcesso, portal);
-      
-      resultado.tempoResposta = Date.now() - inicio;
-      return resultado;
-      
+      const ultimaMovimentacao = resultado.movimentacoes?.[0];
+
+      return {
+        sucesso: true,
+        numeroProcesso,
+        statusAtual: resultado.statusAtual || 'Status não identificado',
+        ultimaMovimentacao: ultimaMovimentacao?.descricao,
+        dataUltimaMovimentacao: ultimaMovimentacao?.data ? new Date(ultimaMovimentacao.data) : undefined,
+        interessado: resultado.interessado,
+        empreendimento: resultado.empreendimento,
+        municipio: resultado.municipio,
+        tipoProcesso: resultado.tipoProcesso,
+        movimentacoes: resultado.movimentacoes,
+        dadosCompletos: resultado,
+        tempoResposta: Date.now() - inicio,
+      };
+
     } catch (error: any) {
+      console.error(`[SEIA] Erro ao consultar processo ${numeroProcesso}:`, error.message);
+      
+      if (error.message.includes('timeout') || error.message.includes('navegador')) {
+        await this.closeBrowser();
+      }
+
       return {
         sucesso: false,
         numeroProcesso,
@@ -301,36 +372,136 @@ export class SeiaService {
       };
     }
   }
-  
-  /**
-   * Tenta consulta no portal específico
-   */
-  private async tentarConsultaPortal(numeroLimpo: string, numeroOriginal: string, portal: PortalConfig): Promise<ConsultaResult> {
-    return {
-      sucesso: true,
-      numeroProcesso: numeroOriginal,
-      statusAtual: `Monitorando no ${portal.nome}`,
-      ultimaMovimentacao: `Processo cadastrado para monitoramento automático no portal ${portal.nome} (${portal.orgao}).`,
-      dataUltimaMovimentacao: new Date(),
-      dadosCompletos: {
-        portal: portal.nome,
-        orgao: portal.orgao,
-        uf: portal.sigla,
-        urlPortal: portal.url,
-        urlConsulta: portal.urlConsulta || portal.url,
-        numeroProcesso: numeroOriginal,
-        numeroLimpo: numeroLimpo,
-        instrucao: `Acesse ${portal.urlConsulta || portal.url} para consultar o processo manualmente ou configure as credenciais de acesso para consultas automáticas.`,
-      },
-    };
+
+  async consultarEmpreendimentoPorNome(nomeEmpreendimento: string, localidade?: string): Promise<ConsultaResult[]> {
+    const inicio = Date.now();
+    const resultados: ConsultaResult[] = [];
+
+    try {
+      if (!this.isLoggedIn || this.isSessionExpired()) {
+        const loginResult = await this.login();
+        if (!loginResult.sucesso) {
+          return [{
+            sucesso: false,
+            numeroProcesso: '',
+            erro: loginResult.mensagem,
+            tempoResposta: Date.now() - inicio,
+          }];
+        }
+      }
+
+      if (!this.page) {
+        throw new Error('Navegador não inicializado');
+      }
+
+      console.log(`[SEIA] Consultando empreendimento: ${nomeEmpreendimento}`);
+
+      const portalUrl = process.env.SEIA_PORTAL_URL || 'https://sistema.seia.ba.gov.br';
+      
+      await this.page.goto(`${portalUrl}`, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const menuConsultas = await this.page.$('a[id*="consultas"], li:contains("Consultas")');
+      if (menuConsultas) {
+        await menuConsultas.click();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      const menuEmpreendimento = await this.page.$('a[id*="empreendimento"], a:contains("Empreendimento")');
+      if (menuEmpreendimento) {
+        await Promise.all([
+          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          menuEmpreendimento.click(),
+        ]);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const nomeInput = await this.page.$('input[id*="nome"], input[id*="empreendimento"]');
+      if (nomeInput) {
+        await nomeInput.type(nomeEmpreendimento, { delay: 50 });
+      }
+
+      if (localidade) {
+        const localidadeSelect = await this.page.$('select[id*="localidade"], select[id*="municipio"]');
+        if (localidadeSelect) {
+          await this.page.select('select[id*="localidade"], select[id*="municipio"]', localidade);
+        }
+      }
+
+      const consultarBtn = await this.page.$('button[id*="consultar"], input[value*="Consultar"]');
+      if (consultarBtn) {
+        await Promise.all([
+          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          consultarBtn.click(),
+        ]);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const dados = await this.page.evaluate(() => {
+        const rows = document.querySelectorAll('table tbody tr, .ui-datatable-data tr');
+        const lista: Array<{
+          nome: string;
+          requerente: string;
+          localidade: string;
+          status?: string;
+          numeroProcesso?: string;
+        }> = [];
+
+        rows.forEach((row) => {
+          const cells = row.querySelectorAll('td');
+          if (cells.length >= 3) {
+            lista.push({
+              nome: cells[0]?.textContent?.trim() || '',
+              requerente: cells[1]?.textContent?.trim() || '',
+              localidade: cells[2]?.textContent?.trim() || '',
+              status: cells[3]?.textContent?.trim(),
+              numeroProcesso: cells[4]?.textContent?.trim(),
+            });
+          }
+        });
+
+        return lista;
+      });
+
+      for (const item of dados) {
+        resultados.push({
+          sucesso: true,
+          numeroProcesso: item.numeroProcesso || '',
+          empreendimento: item.nome,
+          interessado: item.requerente,
+          municipio: item.localidade,
+          statusAtual: item.status,
+          tempoResposta: Date.now() - inicio,
+        });
+      }
+
+      if (resultados.length === 0) {
+        resultados.push({
+          sucesso: false,
+          numeroProcesso: '',
+          erro: 'Nenhum empreendimento encontrado',
+          tempoResposta: Date.now() - inicio,
+        });
+      }
+
+      return resultados;
+
+    } catch (error: any) {
+      console.error(`[SEIA] Erro ao consultar empreendimento:`, error.message);
+      return [{
+        sucesso: false,
+        numeroProcesso: '',
+        erro: error.message,
+        tempoResposta: Date.now() - inicio,
+      }];
+    }
   }
-  
-  /**
-   * Verifica se o portal SEIA do estado está disponível
-   */
+
   async verificarDisponibilidade(uf: string = 'BA'): Promise<{ disponivel: boolean; mensagem: string; portal?: PortalConfig }> {
     const portal = this.getPortalConfig(uf);
-    
+
     if (!portal) {
       return {
         disponivel: false,
@@ -339,11 +510,16 @@ export class SeiaService {
     }
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch(portal.url, {
         method: 'HEAD',
-        signal: AbortSignal.timeout(10000),
+        signal: controller.signal,
       });
-      
+
+      clearTimeout(timeoutId);
+
       return {
         disponivel: response.ok,
         mensagem: response.ok ? `${portal.nome} disponível` : `${portal.nome} retornou status ${response.status}`,
@@ -357,27 +533,25 @@ export class SeiaService {
       };
     }
   }
-  
-  /**
-   * Formata número de processo para padrão do estado
-   */
+
   formatarNumeroProcesso(numero: string, uf: string = 'BA'): string {
     const limpo = numero.replace(/[^\d]/g, '');
-    
+
     if (uf === 'BA' && limpo.length >= 15) {
       return `${limpo.slice(0, 4)}.${limpo.slice(4, 11)}.${limpo.slice(11)}`;
     }
-    
+
     return numero;
   }
 
-  /**
-   * Retorna a URL do portal para consulta manual
-   */
   getUrlConsultaManual(uf: string, numeroProcesso?: string): string {
     const portal = this.getPortalConfig(uf);
     if (!portal) return '';
     return portal.urlConsulta || portal.url;
+  }
+
+  async fecharSessao(): Promise<void> {
+    await this.closeBrowser();
   }
 }
 
