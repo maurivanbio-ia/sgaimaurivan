@@ -1,0 +1,155 @@
+/**
+ * OBJETIVO.
+ * Ao criar uma demanda, ela deve aparecer imediatamente no Kanban, sem depender de “recarregar” ou esperar o refetch.
+ *
+ * CENÁRIO ATUAL.
+ * Você já invalida /api/demandas no onSuccess. Isso normalmente funciona.
+ * Porém, pode falhar em aparecer “na hora” por 3 motivos comuns.
+ * 1. A lista do Kanban está vindo de um estado local (ex.: localDemandas) que não foi atualizado.
+ * 2. O backend cria, mas sua query demora a refazer o fetch.
+ * 3. A resposta do POST não é usada para inserir no cache imediatamente.
+ *
+ * SOLUÇÃO RECOMENDADA.
+ * Fazer “optimistic insert” no cache do React Query no onSuccess do POST.
+ * E, se você estiver usando localDemandas, também inserir nele.
+ *
+ * A seguir, patches diretos.
+ */
+
+/* =========================
+   1) CRIE UM HELPERS DE INSERT NO CACHE
+========================= */
+
+function insertDemandaInCache(queryClient: any, newDemanda: Demanda) {
+  queryClient.setQueryData(["/api/demandas"], (old: any) => {
+    const arr = ensureArray<Demanda>(old);
+    const exists = arr.some((d) => d.id === newDemanda.id);
+    if (exists) return arr;
+    return [newDemanda, ...arr];
+  });
+}
+
+/* =========================
+   2) AJUSTE A MUTATION DO DemandaForm PARA RETORNAR A DEMANDA CRIADA
+   IMPORTANTE.
+   Seu apiRequest já retorna o JSON. Vamos assumir que o POST devolve a demanda criada.
+   Se seu backend devolver { demanda: {...} }, ajuste o extractor.
+========================= */
+
+// Dentro de DemandaForm, troque a mutation por algo assim.
+
+const mutation = useMutation({
+  mutationFn: async (): Promise<Demanda> => {
+    const payload: any = {
+      titulo: form.titulo.trim(),
+      descricao: form.descricao.trim(),
+      setor: form.setor,
+      prioridade: form.prioridade,
+      complexidade: form.complexidade,
+      categoria: form.categoria,
+      dataEntrega: form.dataEntrega,
+      status: form.status ?? "a_fazer",
+    };
+
+    if (form.responsavelId) payload.responsavelId = form.responsavelId;
+    if (form.empreendimentoId) payload.empreendimentoId = Number(form.empreendimentoId);
+
+    if (isEdit && initial?.id != null) {
+      return apiRequest<Demanda>("PATCH", `/api/demandas/${initial.id}`, payload);
+    }
+
+    return apiRequest<Demanda>("POST", "/api/demandas", payload);
+  },
+  onSuccess: async (createdOrUpdated) => {
+    // 2.1 Atualiza o Kanban imediatamente no cache
+    if (!isEdit) {
+      insertDemandaInCache(queryClient, createdOrUpdated);
+    } else {
+      // Para edição, atualiza item no cache
+      queryClient.setQueryData(["/api/demandas"], (old: any) => {
+        const arr = ensureArray<Demanda>(old);
+        return arr.map((d) => (d.id === createdOrUpdated.id ? createdOrUpdated : d));
+      });
+    }
+
+    // 2.2 Invalida histórico (e opcionalmente demandas se quiser “garantir” consistência)
+    await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
+    // Se você quiser redundância, mantenha a invalidate de /api/demandas também.
+    // await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+
+    toast({ title: isEdit ? "Demanda atualizada!" : "Demanda criada!" });
+    onSuccess();
+  },
+  onError: (e: any) => {
+    toast({
+      title: "Falha ao salvar",
+      description: e?.message ?? "Erro desconhecido",
+      variant: "destructive",
+    });
+  },
+});
+
+
+/* =========================
+   3) SE VOCÊ ESTIVER USANDO localDemandas NO DemandasPage.
+   ENTÃO VOCÊ PRECISA INSERIR TAMBÉM NO ESTADO LOCAL.
+   Existem 2 formas.
+   A) Controlar tudo por cache e remover localDemandas.
+   B) Manter localDemandas e adicionar um callback onCreated para inserir nele.
+   Aqui vai a opção B.
+========================= */
+
+// No DemandasPage, crie um handler:
+const [localDemandas, setLocalDemandas] = useState<Demanda[]>([]);
+
+// Sempre sincronize quando vier do servidor
+useEffect(() => {
+  setLocalDemandas(demandas);
+}, [demandas]);
+
+const handleCreated = (d: Demanda) => {
+  setLocalDemandas((prev) => {
+    if (prev.some((x) => x.id === d.id)) return prev;
+    return [d, ...prev];
+  });
+};
+
+// E no Dialog de criação, passe uma prop opcional para o form.
+// Você precisa ajustar a assinatura do DemandaForm para aceitar onCreated.
+
+
+// Ajuste DemandaForm props:
+function DemandaForm({
+  initial,
+  onSuccess,
+  onCreated,
+}: {
+  initial?: Partial<Demanda>;
+  onSuccess: () => void;
+  onCreated?: (d: Demanda) => void;
+}) {
+  ...
+  onSuccess: async (createdOrUpdated) => {
+    if (!isEdit) {
+      insertDemandaInCache(queryClient, createdOrUpdated);
+      onCreated?.(createdOrUpdated);
+    }
+    ...
+  }
+}
+
+// No DemandasPage:
+<DemandaForm
+  onCreated={(d) => handleCreated(d)}
+  onSuccess={() => {
+    setCreateDialogOpen(false);
+  }}
+/>;
+
+
+/* =========================
+   4) GARANTIR STATUS INICIAL.
+   Para aparecer na coluna correta, o status inicial do POST tem que ser "a_fazer" (ou o que você escolher).
+   No seu form, você já usa status default.
+   Só garanta que o backend não sobrescreve para null.
+========================= */

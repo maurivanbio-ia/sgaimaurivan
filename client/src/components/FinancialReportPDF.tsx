@@ -17,11 +17,17 @@ interface FinancialStats {
   totalDespesas: number;
   totalPendente: number;
   saldoAtual: number;
-  porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
-  porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
+  porCategoria: Array<{ categoria: string; valor: number; tipo: string; unidade?: string }>;
+  porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number; unidade?: string }>;
   evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
   empreendimentoNome?: string;
 }
+
+const UNIDADES_CONFIG: { [key: string]: { label: string; sigla: string } } = {
+  salvador: { label: "Salvador (BA)", sigla: "BA" },
+  goiania: { label: "Goiânia (GO)", sigla: "GO" },
+  lem: { label: "Luís Eduardo Magalhães (LEM)", sigla: "LEM" }
+};
 
 interface Empreendimento {
   id: number;
@@ -398,9 +404,10 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
 
         autoTable(doc, {
           startY: yPos,
-          head: [['Projeto', 'Receitas', 'Despesas', 'Resultado']],
+          head: [['Projeto', 'Unidade', 'Receitas', 'Despesas', 'Resultado']],
           body: safeStats.porEmpreendimento.map(e => [
             e.empreendimento.length > 25 ? e.empreendimento.substring(0, 25) + '...' : e.empreendimento,
+            UNIDADES_CONFIG[e.unidade || '']?.sigla || e.unidade || '-',
             formatCurrency(e.receitas),
             formatCurrency(e.despesas),
             formatCurrency(e.lucro)
@@ -418,12 +425,13 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
             fillColor: [240, 248, 255]
           },
           columnStyles: {
-            1: { textColor: [34, 139, 34], halign: 'right' },
-            2: { textColor: [200, 50, 50], halign: 'right' },
-            3: { halign: 'right' }
+            1: { halign: 'center' },
+            2: { textColor: [34, 139, 34], halign: 'right' },
+            3: { textColor: [200, 50, 50], halign: 'right' },
+            4: { halign: 'right' }
           },
           didParseCell: (data: any) => {
-            if (data.section === 'body' && data.column.index === 3) {
+            if (data.section === 'body' && data.column.index === 4) {
               const value = safeStats.porEmpreendimento[data.row.index]?.lucro || 0;
               data.cell.styles.textColor = value >= 0 ? [34, 139, 34] : [200, 50, 50];
             }
