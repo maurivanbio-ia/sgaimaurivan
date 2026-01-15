@@ -52,17 +52,8 @@ import {
   type Orcamento,
   type InsertOrcamento,
   equipamentos,
-  equipamentoEventos,
-  equipamentoCheckouts,
-  equipamentoOcorrencias,
   type Equipamento,
   type InsertEquipamento,
-  type EquipamentoEvento,
-  type InsertEquipamentoEvento,
-  type EquipamentoCheckout,
-  type InsertEquipamentoCheckout,
-  type EquipamentoOcorrencia,
-  type InsertEquipamentoOcorrencia,
   veiculos,
   type Veiculo,
   type InsertVeiculo,
@@ -268,7 +259,6 @@ export interface IStorage {
     empreendimentoId?: number;
     categoriaId?: number;
     search?: string;
-    unidade?: string;
     startDate?: Date;
     endDate?: Date;
   }): Promise<FinanceiroLancamento[]>;
@@ -290,7 +280,7 @@ export interface IStorage {
   updateOrcamento(id: number, orcamento: Partial<InsertOrcamento>): Promise<Orcamento>;
   deleteOrcamento(id: number): Promise<boolean>;
   
-  getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date, unidade?: string): Promise<{
+  getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date): Promise<{
     totalReceitas: number;
     totalDespesas: number;
     totalPendente: number;
@@ -313,7 +303,6 @@ export interface IStorage {
     search?: string;
     localizacaoAtual?: string;
     empreendimentoId?: number;
-    unidade?: string;
   }): Promise<Equipamento[]>;
   getEquipamentoById(id: number): Promise<Equipamento | undefined>;
   createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento>;
@@ -814,163 +803,6 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getLicencasWithFilters(filters: {
-    status?: 'ativas' | 'vencer' | 'vencidas';
-    unidade?: string;
-    empreendimentoId?: number;
-    q?: string;
-    orgaoEmissor?: string;
-    tipo?: string;
-  }): Promise<any[]> {
-    const hoje = new Date();
-    const em60Dias = new Date();
-    em60Dias.setDate(em60Dias.getDate() + 60);
-
-    let query = db
-      .select({
-        id: licencasAmbientais.id,
-        numero: licencasAmbientais.numero,
-        tipo: licencasAmbientais.tipo,
-        orgaoEmissor: licencasAmbientais.orgaoEmissor,
-        dataEmissao: licencasAmbientais.dataEmissao,
-        validade: licencasAmbientais.validade,
-        status: licencasAmbientais.status,
-        arquivoPdf: licencasAmbientais.arquivoPdf,
-        empreendimentoId: licencasAmbientais.empreendimentoId,
-        criadoEm: licencasAmbientais.criadoEm,
-        empreendimentoNome: empreendimentos.nome,
-        empreendimentoCliente: empreendimentos.cliente,
-        unidade: empreendimentos.unidade,
-      })
-      .from(licencasAmbientais)
-      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
-
-    const conditions: any[] = [];
-
-    if (filters.unidade) {
-      conditions.push(eq(empreendimentos.unidade, filters.unidade));
-    }
-
-    if (filters.empreendimentoId) {
-      conditions.push(eq(licencasAmbientais.empreendimentoId, filters.empreendimentoId));
-    }
-
-    if (filters.orgaoEmissor) {
-      conditions.push(eq(licencasAmbientais.orgaoEmissor, filters.orgaoEmissor));
-    }
-
-    if (filters.tipo) {
-      conditions.push(eq(licencasAmbientais.tipo, filters.tipo));
-    }
-
-    if (filters.q) {
-      const searchTerm = `%${filters.q}%`;
-      conditions.push(
-        or(
-          ilike(licencasAmbientais.numero, searchTerm),
-          ilike(licencasAmbientais.tipo, searchTerm),
-          ilike(licencasAmbientais.orgaoEmissor, searchTerm),
-          ilike(empreendimentos.nome, searchTerm),
-          ilike(empreendimentos.cliente, searchTerm)
-        )
-      );
-    }
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
-    }
-
-    const licencas = await query.orderBy(desc(licencasAmbientais.criadoEm));
-
-    // Filtrar por status calculado
-    return licencas
-      .map(licenca => ({
-        ...licenca,
-        status: this.calculateLicenseStatus(licenca.validade)
-      }))
-      .filter(licenca => {
-        if (!filters.status) return true;
-        if (filters.status === 'ativas') return licenca.status === 'ativa';
-        if (filters.status === 'vencer') return licenca.status === 'a_vencer';
-        if (filters.status === 'vencidas') return licenca.status === 'vencida';
-        return true;
-      });
-  }
-
-  async getLicencasMetrics(unidade?: string): Promise<{
-    total: number;
-    ativas: number;
-    aVencer: number;
-    vencidas: number;
-    porOrgao: Record<string, number>;
-    porTipo: Record<string, number>;
-    vencimentosPorMes: Array<{ mes: string; quantidade: number }>;
-  }> {
-    const hoje = new Date();
-    const em60Dias = new Date();
-    em60Dias.setDate(em60Dias.getDate() + 60);
-
-    let query = db
-      .select({
-        id: licencasAmbientais.id,
-        tipo: licencasAmbientais.tipo,
-        orgaoEmissor: licencasAmbientais.orgaoEmissor,
-        validade: licencasAmbientais.validade,
-        unidade: empreendimentos.unidade,
-      })
-      .from(licencasAmbientais)
-      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
-
-    if (unidade) {
-      query = query.where(eq(empreendimentos.unidade, unidade)) as any;
-    }
-
-    const licencas = await query;
-
-    let ativas = 0, aVencer = 0, vencidas = 0;
-    const porOrgao: Record<string, number> = {};
-    const porTipo: Record<string, number> = {};
-    const vencimentosPorMesMap: Record<string, number> = {};
-
-    for (const licenca of licencas) {
-      const status = this.calculateLicenseStatus(licenca.validade);
-      if (status === 'ativa') ativas++;
-      else if (status === 'a_vencer') aVencer++;
-      else if (status === 'vencida') vencidas++;
-
-      // Contagem por órgão
-      const orgao = licenca.orgaoEmissor || 'Não informado';
-      porOrgao[orgao] = (porOrgao[orgao] || 0) + 1;
-
-      // Contagem por tipo
-      const tipo = licenca.tipo || 'Não informado';
-      porTipo[tipo] = (porTipo[tipo] || 0) + 1;
-
-      // Vencimentos por mês (próximos 12 meses)
-      const validade = new Date(licenca.validade);
-      if (validade >= hoje) {
-        const mesAno = `${validade.getFullYear()}-${String(validade.getMonth() + 1).padStart(2, '0')}`;
-        vencimentosPorMesMap[mesAno] = (vencimentosPorMesMap[mesAno] || 0) + 1;
-      }
-    }
-
-    // Ordenar vencimentos por mês
-    const vencimentosPorMes = Object.entries(vencimentosPorMesMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(0, 12)
-      .map(([mes, quantidade]) => ({ mes, quantidade }));
-
-    return {
-      total: licencas.length,
-      ativas,
-      aVencer,
-      vencidas,
-      porOrgao,
-      porTipo,
-      vencimentosPorMes,
-    };
-  }
-
   async getLicenca(id: number): Promise<LicencaAmbiental | undefined> {
     const [licenca] = await db.select().from(licencasAmbientais).where(eq(licencasAmbientais.id, id));
     if (!licenca) return undefined;
@@ -1044,141 +876,6 @@ export class DatabaseStorage implements IStorage {
       ...condicionante,
       status: this.calculateCondicionanteStatus(condicionante.prazo)
     }));
-  }
-
-  async getCondicionantesWithFilters(filters: {
-    status?: 'pendente' | 'cumprida' | 'vencida';
-    unidade?: string;
-    licencaId?: number;
-    empreendimentoId?: number;
-  }): Promise<any[]> {
-    let query = db
-      .select({
-        id: condicionantes.id,
-        titulo: condicionantes.titulo,
-        descricao: condicionantes.descricao,
-        prazo: condicionantes.prazo,
-        status: condicionantes.status,
-        arquivoPdf: condicionantes.arquivoPdf,
-        licencaId: condicionantes.licencaId,
-        criadoEm: condicionantes.criadoEm,
-        licencaTipo: licencasAmbientais.tipo,
-        licencaOrgao: licencasAmbientais.orgaoEmissor,
-        empreendimentoId: licencasAmbientais.empreendimentoId,
-        empreendimentoNome: empreendimentos.nome,
-        unidade: empreendimentos.unidade,
-      })
-      .from(condicionantes)
-      .leftJoin(licencasAmbientais, eq(condicionantes.licencaId, licencasAmbientais.id))
-      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
-
-    const conditions: any[] = [];
-
-    if (filters.unidade) {
-      conditions.push(eq(empreendimentos.unidade, filters.unidade));
-    }
-
-    if (filters.licencaId) {
-      conditions.push(eq(condicionantes.licencaId, filters.licencaId));
-    }
-
-    if (filters.empreendimentoId) {
-      conditions.push(eq(licencasAmbientais.empreendimentoId, filters.empreendimentoId));
-    }
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
-    }
-
-    const data = await query.orderBy(asc(condicionantes.prazo));
-
-    return data
-      .map(c => ({
-        ...c,
-        status: this.calculateCondicionanteStatus(c.prazo)
-      }))
-      .filter(c => {
-        if (!filters.status) return true;
-        return c.status === filters.status;
-      });
-  }
-
-  async getCondicionantesMetrics(unidade?: string): Promise<{
-    total: number;
-    pendentes: number;
-    cumpridas: number;
-    vencidas: number;
-    porLicenca: Array<{ licencaId: number; licencaTipo: string; quantidade: number }>;
-    vencimentosPorSemana: Array<{ semana: string; quantidade: number }>;
-  }> {
-    let query = db
-      .select({
-        id: condicionantes.id,
-        prazo: condicionantes.prazo,
-        status: condicionantes.status,
-        licencaId: condicionantes.licencaId,
-        licencaTipo: licencasAmbientais.tipo,
-        unidade: empreendimentos.unidade,
-      })
-      .from(condicionantes)
-      .leftJoin(licencasAmbientais, eq(condicionantes.licencaId, licencasAmbientais.id))
-      .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id));
-
-    if (unidade) {
-      query = query.where(eq(empreendimentos.unidade, unidade)) as any;
-    }
-
-    const data = await query;
-
-    let pendentes = 0, cumpridas = 0, vencidas = 0;
-    const porLicencaMap: Record<number, { licencaTipo: string; quantidade: number }> = {};
-    const vencimentosPorSemanaMap: Record<string, number> = {};
-
-    const hoje = new Date();
-
-    for (const c of data) {
-      const status = this.calculateCondicionanteStatus(c.prazo);
-      if (status === 'pendente') pendentes++;
-      else if (status === 'cumprida') cumpridas++;
-      else if (status === 'vencida') vencidas++;
-
-      // Por licença
-      if (c.licencaId) {
-        if (!porLicencaMap[c.licencaId]) {
-          porLicencaMap[c.licencaId] = { licencaTipo: c.licencaTipo || 'N/A', quantidade: 0 };
-        }
-        porLicencaMap[c.licencaId].quantidade++;
-      }
-
-      // Vencimentos por semana (próximas 8 semanas)
-      const prazo = new Date(c.prazo);
-      if (prazo >= hoje && status === 'pendente') {
-        const diffDays = Math.ceil((prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-        const semana = Math.ceil(diffDays / 7);
-        if (semana <= 8) {
-          const semanaKey = `Semana ${semana}`;
-          vencimentosPorSemanaMap[semanaKey] = (vencimentosPorSemanaMap[semanaKey] || 0) + 1;
-        }
-      }
-    }
-
-    const porLicenca = Object.entries(porLicencaMap)
-      .map(([licencaId, v]) => ({ licencaId: parseInt(licencaId), ...v }))
-      .sort((a, b) => b.quantidade - a.quantidade)
-      .slice(0, 10);
-
-    const vencimentosPorSemana = Object.entries(vencimentosPorSemanaMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([semana, quantidade]) => ({ semana, quantidade }));
-
-    return {
-      total: data.length,
-      pendentes,
-      cumpridas,
-      vencidas,
-      porLicenca,
-      vencimentosPorSemana,
-    };
   }
 
   async createCondicionante(condicionante: InsertCondicionante): Promise<Condicionante> {
@@ -1265,25 +962,19 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced Stats - MULTI-TENANCY
   async getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; proxVencer?: number }> {
-    // Se temos um empreendimentoId específico, usar direto
-    if (empreendimentoId) {
-      const licencas = await this.getLicencasByEmpreendimento(empreendimentoId);
-      return this.calcularLicenseStats(licencas);
-    }
-    
-    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
-    const emps = unidade && unidade.trim() !== '' 
-      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
-      : await db.select().from(empreendimentos);
+    // Busca empreendimentos da unidade
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
-    // Se nenhum empreendimento, retorna zeros
+    // Se nenhum empreendimento da unidade, retorna zeros
     if (empIds.length === 0) {
       return { active: 0, expiring: 0, expired: 0, proxVencer: 0 };
     }
     
-    // Busca licenças dos empreendimentos
-    const licencas = await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+    // Busca licenças dos empreendimentos da unidade
+    const licencas = empreendimentoId 
+      ? await this.getLicencasByEmpreendimento(empreendimentoId)
+      : await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
     
     const now = new Date();
     const ninetyDaysFromNow = new Date();
@@ -1313,41 +1004,9 @@ export class DatabaseStorage implements IStorage {
 
     return { active, expiring, expired, proxVencer };
   }
-  
-  private calcularLicenseStats(licencas: any[]): { active: number; expiring: number; expired: number; proxVencer: number } {
-    const now = new Date();
-    const ninetyDaysFromNow = new Date();
-    ninetyDaysFromNow.setDate(now.getDate() + 90);
-    const sixtyDaysFromNow = new Date();
-    sixtyDaysFromNow.setDate(now.getDate() + 60);
-
-    let active = 0;
-    let expiring = 0;
-    let expired = 0;
-    let proxVencer = 0;
-
-    licencas.forEach(licenca => {
-      const validadeDate = new Date(licenca.validade);
-      if (validadeDate < now) {
-        expired++;
-      } else if (validadeDate <= ninetyDaysFromNow) {
-        expiring++;
-        if (validadeDate <= sixtyDaysFromNow) {
-          proxVencer++;
-        }
-      } else {
-        active++;
-      }
-    });
-
-    return { active, expiring, expired, proxVencer };
-  }
 
   async getCondicionanteStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }> {
-    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
-    const emps = unidade && unidade.trim() !== ''
-      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
-      : await db.select().from(empreendimentos);
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
     if (empIds.length === 0) {
@@ -1368,10 +1027,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEntregaStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }> {
-    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
-    const emps = unidade && unidade.trim() !== ''
-      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
-      : await db.select().from(empreendimentos);
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
     if (empIds.length === 0) {
@@ -1392,10 +1048,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMonthlyExpiryData(unidade: string, empreendimentoId?: number): Promise<Array<{ month: string; count: number }>> {
-    // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
-    const emps = unidade && unidade.trim() !== ''
-      ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
-      : await db.select().from(empreendimentos);
+    const emps = await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
     if (empIds.length === 0) {
@@ -1505,12 +1158,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFrotaStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number; alugados: number }> {
-    // Build filters - only include unidade if not empty
-    const filters: { empreendimentoId?: number; unidade?: string } = {};
-    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
-    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
-    
-    const veiculos = Object.keys(filters).length > 0 ? await this.getVeiculos(filters) : await this.getVeiculos();
+    const veiculos = await this.getVeiculos(empreendimentoId ? { empreendimentoId, unidade } : { unidade });
     return {
       total: veiculos.length,
       disponiveis: veiculos.filter(v => v.status === 'disponivel').length,
@@ -1521,12 +1169,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEquipamentosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; disponiveis: number; emUso: number; manutencao: number }> {
-    // Build filters - only include unidade if not empty
-    const filters: { empreendimentoId?: number; unidade?: string } = {};
-    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
-    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
-    
-    const equipamentos = Object.keys(filters).length > 0 ? await this.getEquipamentos(filters) : await this.getEquipamentos();
+    const equipamentos = await this.getEquipamentos({ unidade, empreendimentoId });
     return {
       total: equipamentos.length,
       disponiveis: equipamentos.filter(e => e.status === 'disponivel').length,
@@ -1536,12 +1179,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRhStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; afastados: number }> {
-    // Build filters - only include unidade if not empty
-    const filters: { empreendimentoId?: number; unidade?: string } = {};
-    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
-    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
-    
-    const rh = Object.keys(filters).length > 0 ? await this.getRhRegistros(filters) : await this.getRhRegistros();
+    const rh = await this.getRhRegistros({ empreendimentoId, unidade });
     return {
       total: rh.length,
       ativos: rh.filter((r: any) => r.situacao === 'ativo').length,
@@ -1555,12 +1193,7 @@ export class DatabaseStorage implements IStorage {
     const filters: {
       unidade?: string;
       empreendimento?: string;
-    } = {};
-    
-    // Only filter by unidade if user has one assigned (admin without unidade sees all)
-    if (unidade && unidade.trim() !== '') {
-      filters.unidade = unidade;
-    }
+    } = { unidade };
     
     if (empreendimentoId) {
       filters.empreendimento = empreendimentoId.toString();
@@ -1577,12 +1210,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getContratosStats(unidade: string, empreendimentoId?: number): Promise<{ total: number; ativos: number; valorTotal: number }> {
-    // Build filters - only include unidade if not empty
-    const filters: { empreendimentoId?: number; unidade?: string } = {};
-    if (empreendimentoId) filters.empreendimentoId = empreendimentoId;
-    if (unidade && unidade.trim() !== '') filters.unidade = unidade;
-    
-    const contratos = Object.keys(filters).length > 0 ? await this.getContratos(filters) : await this.getContratos();
+    const contratos = await this.getContratos({ empreendimentoId, unidade });
     const ativos = contratos.filter(c => !c.deletedAt);
     const valorTotal = ativos.reduce((sum, c) => sum + (parseFloat(c.valorTotal || '0')), 0);
     return {
@@ -1916,42 +1544,46 @@ export class DatabaseStorage implements IStorage {
   }): Promise<(Demanda & { responsavel?: string })[]> {
     const conditions = [];
     
-    // Multi-tenant filtering with fallback for legacy data
-    console.log('[DEBUG getDemandas] Filters received:', JSON.stringify(filters));
-    
-    // For unidade filtering, we need to include:
-    // 1. Demandas that match the user's unidade
-    // 2. Demandas with null/empty unidade (legacy data)
-    // 3. Demandas that belong to empreendimentos in the user's unidade
+    // CRITICAL: Multi-tenant isolation with fallback for legacy data
+    // Demandas can be filtered by:
+    // 1. Direct unidade field on demandas table
+    // 2. OR by empreendimentoId belonging to the user's unidade (for legacy data without unidade field)
+    // 3. OR by responsavelId belonging to users of this unidade (for legacy data without unidade and empreendimentoId)
     if (filters?.unidade) {
+      // Get empreendimento IDs belonging to this unidade for fallback matching
       const emps = await db.select({ id: empreendimentos.id })
         .from(empreendimentos)
         .where(eq(empreendimentos.unidade, filters.unidade));
       const empIds = emps.map(e => e.id);
       
-      // Build unidade condition with legacy fallback
-      const unidadeConditions = [
-        eq(demandas.unidade, filters.unidade),
-        isNull(demandas.unidade),
-        eq(demandas.unidade, '')
+      // Get user IDs belonging to this unidade for fallback matching
+      const usersInUnidade = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.unidade, filters.unidade));
+      const userIds = usersInUnidade.map(u => u.id);
+      
+      // Build OR conditions for multi-tenant isolation
+      const orConditions = [
+        eq(demandas.unidade, filters.unidade)
       ];
       
-      // Also include demandas from empreendimentos of this unidade
       if (empIds.length > 0) {
-        unidadeConditions.push(inArray(demandas.empreendimentoId, empIds));
+        orConditions.push(inArray(demandas.empreendimentoId, empIds));
       }
       
-      conditions.push(or(...unidadeConditions));
-      console.log('[DEBUG getDemandas] Filtering by unidade:', filters.unidade, 'with legacy fallback');
+      if (userIds.length > 0) {
+        // Include demandas where responsável or criador is from this unidade
+        orConditions.push(inArray(demandas.responsavelId, userIds));
+        orConditions.push(inArray(demandas.criadoPor, userIds));
+      }
+      
+      conditions.push(or(...orConditions));
     }
     
     if (filters?.empreendimento && filters.empreendimento !== "todos") {
       const empId = parseInt(filters.empreendimento);
       if (!isNaN(empId)) {
         conditions.push(eq(demandas.empreendimentoId, empId));
-        console.log('[DEBUG getDemandas] Filtering by empreendimentoId:', empId);
-      } else {
-        console.log('[DEBUG getDemandas] Invalid empreendimentoId:', filters.empreendimento);
       }
     }
     
@@ -1978,8 +1610,6 @@ export class DatabaseStorage implements IStorage {
     }
     
     let results;
-    console.log('[DEBUG getDemandas] Conditions count:', conditions.length);
-    
     if (conditions.length > 0) {
       results = await db
         .select({
@@ -1999,11 +1629,6 @@ export class DatabaseStorage implements IStorage {
         .from(demandas)
         .leftJoin(users, eq(demandas.responsavelId, users.id))
         .orderBy(desc(demandas.criadoEm));
-    }
-    
-    console.log('[DEBUG getDemandas] Results count:', results.length);
-    if (results.length > 0) {
-      console.log('[DEBUG getDemandas] First result:', JSON.stringify(results[0]));
     }
     
     return results.map(r => ({
@@ -2060,11 +1685,6 @@ export class DatabaseStorage implements IStorage {
       .from(historicoDemandasMovimentacoes)
       .where(eq(historicoDemandasMovimentacoes.demandaId, demandaId))
       .orderBy(desc(historicoDemandasMovimentacoes.criadoEm));
-  }
-
-  async clearDemandasHistorico(): Promise<{ count: number }> {
-    const result = await db.delete(historicoDemandasMovimentacoes);
-    return { count: result.rowCount || 0 };
   }
 
   async getDemandasByDateRange(unidade: string, startDate: Date, endDate: Date): Promise<Demanda[]> {
@@ -2273,7 +1893,6 @@ export class DatabaseStorage implements IStorage {
     empreendimentoId?: number;
     categoriaId?: number;
     search?: string;
-    unidade?: string;
     startDate?: Date;
     endDate?: Date;
     empreendimentoIds?: number[];
@@ -2294,9 +1913,6 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.search) {
       conditions.push(ilike(financeiroLancamentos.descricao, `%${filters.search}%`));
-    }
-    if (filters?.unidade && filters.unidade !== 'todas') {
-      conditions.push(eq(financeiroLancamentos.unidade, filters.unidade));
     }
     // Filtro por lista de empreendimentos acessíveis (multi-tenancy)
     if (filters?.empreendimentoIds !== undefined) {
@@ -2424,13 +2040,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Financial statistics
-  async getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date, unidade?: string): Promise<{
+  async getFinancialStats(empreendimentoId?: number, startDate?: Date, endDate?: Date): Promise<{
     totalReceitas: number;
     totalDespesas: number;
     totalPendente: number;
     saldoAtual: number;
-    porCategoria: Array<{ categoria: string; valor: number; tipo: string; unidade?: string }>;
-    porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number; unidade?: string }>;
+    porCategoria: Array<{ categoria: string; valor: number; tipo: string }>;
+    porEmpreendimento: Array<{ empreendimento: string; empreendimentoId: number; receitas: number; despesas: number; lucro: number }>;
     evolucaoMensal: Array<{ mes: string; receitas: number; despesas: number; lucro: number }>;
     empreendimentoNome?: string;
   }> {
@@ -2441,11 +2057,6 @@ export class DatabaseStorage implements IStorage {
     let lancamentos = empreendimentoId 
       ? allLancamentos.filter(l => l.empreendimentoId === empreendimentoId)
       : allLancamentos;
-    
-    // Apply unidade filter if specified
-    if (unidade && unidade !== 'todas') {
-      lancamentos = lancamentos.filter(l => l.unidade === unidade);
-    }
     
     // Apply date range filter if specified
     if (startDate || endDate) {
@@ -2503,8 +2114,7 @@ export class DatabaseStorage implements IStorage {
         empreendimentoId: emp.id,
         receitas, 
         despesas, 
-        lucro: receitas - despesas,
-        unidade: emp.unidade || undefined
+        lucro: receitas - despesas 
       };
     }).filter(item => item.receitas > 0 || item.despesas > 0);
 
@@ -2618,7 +2228,6 @@ export class DatabaseStorage implements IStorage {
     search?: string;
     localizacaoAtual?: string;
     empreendimentoId?: number;
-    unidade?: string;
   }): Promise<Equipamento[]> {
     let query = db.select().from(equipamentos).$dynamic();
 
@@ -2639,10 +2248,6 @@ export class DatabaseStorage implements IStorage {
 
       if (filters.empreendimentoId) {
         conditions.push(eq(equipamentos.empreendimentoId, filters.empreendimentoId));
-      }
-
-      if (filters.unidade) {
-        conditions.push(eq(equipamentos.unidade, filters.unidade));
       }
 
       if (filters.search) {
@@ -2695,198 +2300,6 @@ export class DatabaseStorage implements IStorage {
   async deleteEquipamento(id: number): Promise<boolean> {
     const result = await db.delete(equipamentos).where(eq(equipamentos.id, id));
     return result.rowCount !== null && result.rowCount > 0;
-  }
-
-  // Equipment pagination and sorting
-  async getEquipamentosPaginated(options: {
-    page?: number;
-    pageSize?: number;
-    sort?: string;
-    dir?: 'asc' | 'desc';
-    tipo?: string;
-    status?: string;
-    search?: string;
-    unidade?: string;
-    empreendimentoId?: number;
-  }): Promise<{ data: Equipamento[]; total: number; page: number; pageSize: number; totalPages: number }> {
-    const page = options.page || 1;
-    const pageSize = Math.min(options.pageSize || 20, 100);
-    const offset = (page - 1) * pageSize;
-
-    let baseQuery = db.select().from(equipamentos).$dynamic();
-    const conditions: any[] = [];
-
-    if (options.tipo) conditions.push(eq(equipamentos.tipo, options.tipo));
-    if (options.status) conditions.push(eq(equipamentos.status, options.status));
-    if (options.unidade) conditions.push(eq(equipamentos.unidade, options.unidade));
-    if (options.empreendimentoId) conditions.push(eq(equipamentos.empreendimentoId, options.empreendimentoId));
-    if (options.search) {
-      conditions.push(
-        or(
-          ilike(equipamentos.nome, `%${options.search}%`),
-          ilike(equipamentos.marca, `%${options.search}%`),
-          ilike(equipamentos.modelo, `%${options.search}%`),
-          ilike(equipamentos.numeroPatrimonio, `%${options.search}%`)
-        )
-      );
-    }
-
-    if (conditions.length > 0) {
-      baseQuery = baseQuery.where(and(...conditions));
-    }
-
-    // Determine sort column
-    const sortColumn = options.sort === 'proximaManutencao' ? equipamentos.proximaManutencao 
-      : options.sort === 'nome' ? equipamentos.nome
-      : options.sort === 'tipo' ? equipamentos.tipo
-      : options.sort === 'status' ? equipamentos.status
-      : options.sort === 'dataAquisicao' ? equipamentos.dataAquisicao
-      : equipamentos.criadoEm;
-
-    const sortDir = options.dir === 'asc' ? asc : desc;
-
-    const data = await baseQuery
-      .orderBy(sortDir(sortColumn))
-      .limit(pageSize)
-      .offset(offset);
-
-    // Count total
-    let countQuery = db.select({ count: sql<number>`count(*)` }).from(equipamentos).$dynamic();
-    if (conditions.length > 0) {
-      countQuery = countQuery.where(and(...conditions));
-    }
-    const [{ count }] = await countQuery;
-    const total = Number(count);
-
-    return {
-      data,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
-  }
-
-  // Equipment Events (audit log)
-  async createEquipamentoEvento(evento: InsertEquipamentoEvento): Promise<EquipamentoEvento> {
-    const [newEvento] = await db
-      .insert(equipamentoEventos)
-      .values(evento)
-      .returning();
-    return newEvento;
-  }
-
-  async getEquipamentoEventos(equipamentoId: number): Promise<EquipamentoEvento[]> {
-    return db
-      .select()
-      .from(equipamentoEventos)
-      .where(eq(equipamentoEventos.equipamentoId, equipamentoId))
-      .orderBy(desc(equipamentoEventos.criadoEm));
-  }
-
-  // Equipment Checkouts (retirada/devolução)
-  async createEquipamentoCheckout(checkout: InsertEquipamentoCheckout): Promise<EquipamentoCheckout> {
-    const [newCheckout] = await db
-      .insert(equipamentoCheckouts)
-      .values(checkout)
-      .returning();
-    return newCheckout;
-  }
-
-  async getEquipamentoCheckouts(equipamentoId: number): Promise<EquipamentoCheckout[]> {
-    return db
-      .select()
-      .from(equipamentoCheckouts)
-      .where(eq(equipamentoCheckouts.equipamentoId, equipamentoId))
-      .orderBy(desc(equipamentoCheckouts.criadoEm));
-  }
-
-  async getCheckoutAtivo(equipamentoId: number): Promise<EquipamentoCheckout | undefined> {
-    const [checkout] = await db
-      .select()
-      .from(equipamentoCheckouts)
-      .where(
-        and(
-          eq(equipamentoCheckouts.equipamentoId, equipamentoId),
-          eq(equipamentoCheckouts.tipo, 'retirada'),
-          isNull(equipamentoCheckouts.dataDevolucaoReal)
-        )
-      )
-      .orderBy(desc(equipamentoCheckouts.criadoEm))
-      .limit(1);
-    return checkout;
-  }
-
-  async finalizarCheckout(checkoutId: number, data: {
-    dataDevolucaoReal: Date;
-    condicaoDevolucao?: string;
-    observacoes?: string;
-  }): Promise<EquipamentoCheckout> {
-    const [updated] = await db
-      .update(equipamentoCheckouts)
-      .set({
-        tipo: 'devolucao',
-        dataDevolucaoReal: data.dataDevolucaoReal,
-        condicaoDevolucao: data.condicaoDevolucao,
-        observacoes: data.observacoes,
-      })
-      .where(eq(equipamentoCheckouts.id, checkoutId))
-      .returning();
-    return updated;
-  }
-
-  // Equipment Ocorrências (avarias)
-  async createEquipamentoOcorrencia(ocorrencia: InsertEquipamentoOcorrencia): Promise<EquipamentoOcorrencia> {
-    const [newOcorrencia] = await db
-      .insert(equipamentoOcorrencias)
-      .values(ocorrencia)
-      .returning();
-    return newOcorrencia;
-  }
-
-  async getEquipamentoOcorrencias(equipamentoId: number): Promise<EquipamentoOcorrencia[]> {
-    return db
-      .select()
-      .from(equipamentoOcorrencias)
-      .where(eq(equipamentoOcorrencias.equipamentoId, equipamentoId))
-      .orderBy(desc(equipamentoOcorrencias.criadoEm));
-  }
-
-  async updateEquipamentoOcorrencia(id: number, updates: Partial<InsertEquipamentoOcorrencia>): Promise<EquipamentoOcorrencia> {
-    const [updated] = await db
-      .update(equipamentoOcorrencias)
-      .set({
-        ...updates,
-        atualizadoEm: new Date(),
-      })
-      .where(eq(equipamentoOcorrencias.id, id))
-      .returning();
-    return updated;
-  }
-
-  async getOcorrenciasAbertas(unidade?: string): Promise<EquipamentoOcorrencia[]> {
-    let query = db
-      .select({
-        ocorrencia: equipamentoOcorrencias,
-        equipamentoNome: equipamentos.nome,
-        equipamentoTipo: equipamentos.tipo,
-      })
-      .from(equipamentoOcorrencias)
-      .innerJoin(equipamentos, eq(equipamentoOcorrencias.equipamentoId, equipamentos.id))
-      .where(
-        and(
-          or(
-            eq(equipamentoOcorrencias.status, 'aberta'),
-            eq(equipamentoOcorrencias.status, 'em_analise'),
-            eq(equipamentoOcorrencias.status, 'em_reparo')
-          ),
-          unidade ? eq(equipamentos.unidade, unidade) : undefined
-        )
-      )
-      .$dynamic();
-
-    const results = await query.orderBy(desc(equipamentoOcorrencias.criadoEm));
-    return results.map(r => ({ ...r.ocorrencia, equipamentoNome: r.equipamentoNome, equipamentoTipo: r.equipamentoTipo })) as any;
   }
 
   // Veículos operations
@@ -3183,23 +2596,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
-    // Build unidade conditions:
-    // 1. Datasets that match the user's unidade
-    // 2. Legacy datasets (null/empty unidade) BUT only if they belong to empreendimentos of this unidade
-    const unidadeConditions = [
-      eq(datasets.unidade, unidade)
-    ];
-    
-    // Include datasets from empreendimentos of this unidade (including legacy ones)
     if (empIds.length > 0) {
-      unidadeConditions.push(inArray(datasets.empreendimentoId, empIds));
+      // Match datasets that either have the unidade field set OR belong to an empreendimento of this unidade
+      return db.select()
+        .from(datasets)
+        .where(and(
+          eq(datasets.pastaId, pastaId),
+          or(
+            eq(datasets.unidade, unidade),
+            inArray(datasets.empreendimentoId, empIds)
+          )
+        ))
+        .orderBy(desc(datasets.dataUpload));
     }
     
     return db.select()
       .from(datasets)
       .where(and(
         eq(datasets.pastaId, pastaId),
-        or(...unidadeConditions)
+        eq(datasets.unidade, unidade)
       ))
       .orderBy(desc(datasets.dataUpload));
   }
@@ -3212,22 +2627,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(empreendimentos.unidade, unidade));
     const empIds = emps.map(e => e.id);
     
-    // Build conditions: include folders that match unidade, belong to unit's empreendimentos,
-    // are institutional (macro type without empreendimentoId), or have no unidade set (legacy)
-    const conditions = [
-      eq(datasetPastas.unidade, unidade),
-      isNull(datasetPastas.unidade),
-      eq(datasetPastas.unidade, ''),
-      and(eq(datasetPastas.tipo, 'macro'), isNull(datasetPastas.empreendimentoId))
-    ];
-    
     if (empIds.length > 0) {
-      conditions.push(inArray(datasetPastas.empreendimentoId, empIds));
+      // Match pastas that either have the unidade field set OR belong to an empreendimento of this unidade
+      return db.select()
+        .from(datasetPastas)
+        .where(
+          or(
+            eq(datasetPastas.unidade, unidade),
+            inArray(datasetPastas.empreendimentoId, empIds)
+          )
+        )
+        .orderBy(asc(datasetPastas.caminho));
     }
     
+    // No empreendimentos in this unidade, filter by unidade field only
     return db.select()
       .from(datasetPastas)
-      .where(or(...conditions))
+      .where(eq(datasetPastas.unidade, unidade))
       .orderBy(asc(datasetPastas.caminho));
   }
 
@@ -4854,7 +4270,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ========== BASE DE CONHECIMENTO ==========
-  async getBaseConhecimento(filters?: { unidade?: string; status?: string; tipo?: string; categoria?: string; tema?: string; search?: string }): Promise<BaseConhecimento[]> {
+  async getBaseConhecimento(filters?: { unidade?: string; status?: string; tipo?: string; categoria?: string }): Promise<BaseConhecimento[]> {
     const conditions: any[] = [isNull(baseConhecimento.deletedAt)];
     
     if (filters?.unidade) {
@@ -4868,20 +4284,6 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.categoria) {
       conditions.push(eq(baseConhecimento.categoria, filters.categoria));
-    }
-    if (filters?.tema) {
-      conditions.push(eq(baseConhecimento.tema, filters.tema));
-    }
-    if (filters?.search) {
-      const searchTerm = `%${filters.search.toLowerCase()}%`;
-      conditions.push(
-        or(
-          ilike(baseConhecimento.titulo, searchTerm),
-          ilike(baseConhecimento.tags, searchTerm),
-          ilike(baseConhecimento.descricao, searchTerm),
-          ilike(baseConhecimento.autores, searchTerm)
-        )
-      );
     }
     
     return db.select().from(baseConhecimento)
