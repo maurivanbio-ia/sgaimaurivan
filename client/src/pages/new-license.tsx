@@ -200,10 +200,7 @@ export default function NewLicense() {
                     <FormLabel>Arquivo PDF da licença (opcional)</FormLabel>
                     <ObjectUploader
                       onGetUploadParameters={async () => {
-                        const response = await apiRequest("POST", "/api/upload/pdf", {
-                          filename: `licenca_nova_${Date.now()}.pdf`,
-                          contentType: "application/pdf",
-                        });
+                        const response = await apiRequest("POST", "/api/upload/pdf");
                         const data = await response.json();
                         return { 
                           method: data.method, 

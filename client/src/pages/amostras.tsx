@@ -1,18 +1,39 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { useState, useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, FlaskConical, Loader2, MapPin, Download, AlertTriangle, RefreshCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, FlaskConical, Loader2, MapPin, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,50 +44,36 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
-import { apiRequest } from "@/lib/queryClient";
-
-const isValidISODate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-
-const finiteOptionalNumber = z
-  .union([z.string(), z.number(), z.undefined(), z.null()])
-  .transform((v) => {
-    if (v === "" || v === undefined || v === null) return undefined;
-    const n = typeof v === "number" ? v : Number(v);
-    return Number.isFinite(n) ? n : undefined;
-  });
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const amostraSchema = z.object({
   id: z.number().optional(),
-  codigo: z.string().trim().min(1, "Código obrigatório"),
+  codigo: z.string().min(1, "Código obrigatório"),
   tipo: z.string().min(1, "Selecione o tipo"),
-  subtipo: z.string().trim().optional(),
-  pontoColeta: z.string().trim().min(1, "Ponto de coleta obrigatório"),
-
-  latitude: finiteOptionalNumber.refine((v) => v === undefined || (v >= -90 && v <= 90), {
-    message: "Latitude deve estar entre -90 e 90",
-  }).optional(),
-
-  longitude: finiteOptionalNumber.refine((v) => v === undefined || (v >= -180 && v <= 180), {
-    message: "Longitude deve estar entre -180 e 180",
-  }).optional(),
-
-  dataColeta: z
-    .string()
-    .min(1, "Data de coleta obrigatória")
-    .refine(isValidISODate, "Data inválida (formato esperado: AAAA-MM-DD)"),
-
+  subtipo: z.string().optional(),
+  pontoColeta: z.string().min(1, "Ponto de coleta obrigatório"),
+  latitude: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
+  longitude: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
+  dataColeta: z.string().min(1, "Data de coleta obrigatória"),
   horaColeta: z.string().optional(),
-  coletorNome: z.string().trim().optional(),
-  laboratorioNome: z.string().trim().optional(),
+  coletorNome: z.string().optional(),
+  laboratorioNome: z.string().optional(),
   status: z.string().min(1, "Status obrigatório"),
-  parametrosAnalisados: z.string().trim().optional(),
-  observacoes: z.string().trim().optional(),
-  empreendimentoId: finiteOptionalNumber.optional(),
+  parametrosAnalisados: z.string().optional(),
+  observacoes: z.string().optional(),
+  empreendimentoId: z.preprocess((v) => (v === "" || v === undefined || v === null ? undefined : Number(v)), z.number().optional()).optional(),
 });
 
 type Amostra = z.infer<typeof amostraSchema>;
@@ -79,7 +86,7 @@ const TIPO_OPTIONS = [
   { value: "efluente", label: "Efluente" },
   { value: "residuo", label: "Resíduo" },
   { value: "outro", label: "Outro" },
-] as const;
+];
 
 const STATUS_OPTIONS = [
   { value: "coletada", label: "Coletada", color: "bg-blue-500" },
@@ -88,44 +95,17 @@ const STATUS_OPTIONS = [
   { value: "resultado_parcial", label: "Resultado Parcial", color: "bg-orange-500" },
   { value: "concluida", label: "Concluída", color: "bg-green-500" },
   { value: "descartada", label: "Descartada", color: "bg-red-500" },
-] as const;
-
-type EmpreendimentoMini = { id: number; nome: string };
-
-async function safeJson(res: Response) {
-  const txt = await res.text().catch(() => "");
-  try {
-    return txt ? JSON.parse(txt) : {};
-  } catch {
-    return { message: txt };
-  }
-}
-
-function formatDateBR(dateStr?: string | null) {
-  if (!dateStr) return ".";
-  // suporta "YYYY-MM-DD" sem timezone
-  if (isValidISODate(dateStr)) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    return dt.toLocaleDateString("pt-BR");
-  }
-  const dt = new Date(dateStr);
-  if (Number.isNaN(dt.getTime())) return ".";
-  return dt.toLocaleDateString("pt-BR");
-}
+];
 
 export default function AmostrasPage() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 350);
   const [tipoFilter, setTipoFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAmostra, setEditingAmostra] = useState<Amostra | null>(null);
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [amostraToDelete, setAmostraToDelete] = useState<number | null>(null);
 
@@ -137,43 +117,19 @@ export default function AmostrasPage() {
     return params;
   }, [debouncedSearch, tipoFilter, statusFilter]);
 
-  const amostrasQuery = useQuery<Amostra[]>({
+  const { data: amostras = [], isLoading } = useQuery<Amostra[]>({
     queryKey: ["/api/amostras", filters],
     queryFn: async () => {
       const qs = new URLSearchParams(filters).toString();
       const res = await fetch(`/api/amostras${qs ? `?${qs}` : ""}`);
-      if (!res.ok) {
-        const data = await safeJson(res);
-        throw new Error(data?.message || "Erro ao buscar amostras");
-      }
+      if (!res.ok) throw new Error("Erro ao buscar amostras");
       return res.json();
     },
-    staleTime: 15_000,
-    retry: 2,
   });
 
-  const amostras = amostrasQuery.data ?? [];
-
-  const empreendimentosQuery = useQuery<EmpreendimentoMini[]>({
+  const { data: empreendimentos = [] } = useQuery<{ id: number; nome: string }[]>({
     queryKey: ["/api/empreendimentos"],
-    queryFn: async () => {
-      const res = await fetch("/api/empreendimentos");
-      if (!res.ok) {
-        const data = await safeJson(res);
-        throw new Error(data?.message || "Erro ao buscar empreendimentos");
-      }
-      return res.json();
-    },
-    staleTime: 60_000,
-    retry: 2,
   });
-
-  const empreendimentos = empreendimentosQuery.data ?? [];
-  const empreendimentoNameById = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const e of empreendimentos) map.set(e.id, e.nome);
-    return map;
-  }, [empreendimentos]);
 
   const form = useForm<Amostra>({
     resolver: zodResolver(amostraSchema),
@@ -189,84 +145,66 @@ export default function AmostrasPage() {
       status: "coletada",
       parametrosAnalisados: "",
       observacoes: "",
-      latitude: undefined,
-      longitude: undefined,
-      empreendimentoId: undefined,
     },
   });
 
-  const invalidateAmostras = () => {
-    // invalida todas as variações do queryKey /api/amostras, inclusive com filtros
-    queryClient.invalidateQueries({ queryKey: ["/api/amostras"] });
-  };
-
   const createMutation = useMutation({
-    mutationFn: async (data: Amostra) => {
-      const res = await apiRequest("POST", "/api/amostras", data);
-      const json = await safeJson(res);
-      if (!res.ok) throw new Error(json?.message || "Falha ao cadastrar amostra");
-      return json;
-    },
+    mutationFn: async (data: Amostra) => apiRequest("POST", "/api/amostras", data),
     onSuccess: () => {
-      invalidateAmostras();
+      queryClient.invalidateQueries({ queryKey: ["/api/amostras"] });
       toast({ title: "Sucesso", description: "Amostra cadastrada com sucesso!" });
       setIsDialogOpen(false);
-      setEditingAmostra(null);
       form.reset();
     },
     onError: (e: any) => {
-      toast({ title: "Erro", description: e?.message || "Falha ao cadastrar amostra", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: e?.message ?? "Falha ao cadastrar amostra",
+        variant: "destructive",
+      });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Amostra }) => {
-      const res = await apiRequest("PUT", `/api/amostras/${id}`, data);
-      const json = await safeJson(res);
-      if (!res.ok) throw new Error(json?.message || "Falha ao atualizar amostra");
-      return json;
-    },
+    mutationFn: async ({ id, data }: { id: number; data: Amostra }) =>
+      apiRequest("PUT", `/api/amostras/${id}`, data),
     onSuccess: () => {
-      invalidateAmostras();
+      queryClient.invalidateQueries({ queryKey: ["/api/amostras"] });
       toast({ title: "Sucesso", description: "Amostra atualizada!" });
       setIsDialogOpen(false);
       setEditingAmostra(null);
       form.reset();
     },
     onError: (e: any) => {
-      toast({ title: "Erro", description: e?.message || "Falha ao atualizar amostra", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: e?.message ?? "Falha ao atualizar amostra",
+        variant: "destructive",
+      });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/amostras/${id}`);
-      const json = await safeJson(res);
-      if (!res.ok) throw new Error(json?.message || "Falha ao excluir amostra");
-      return json;
-    },
-    onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/amostras"] });
-      const previous = queryClient.getQueryData<Amostra[]>(["/api/amostras", filters]);
-      // remove do cache atual (com filtros ativos)
-      queryClient.setQueryData<Amostra[]>(["/api/amostras", filters], (old) => (old ?? []).filter((x) => x.id !== id));
-      return { previous };
-    },
-    onError: (e: any, _id, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["/api/amostras", filters], ctx.previous);
-      toast({ title: "Erro", description: e?.message || "Falha ao excluir amostra", variant: "destructive" });
-    },
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/amostras/${id}`),
     onSuccess: () => {
-      invalidateAmostras();
+      queryClient.invalidateQueries({ queryKey: ["/api/amostras"] });
       toast({ title: "Sucesso", description: "Amostra removida!" });
       setDeleteDialogOpen(false);
       setAmostraToDelete(null);
     },
+    onError: (e: any) => {
+      toast({
+        title: "Erro",
+        description: e?.message ?? "Falha ao excluir amostra",
+        variant: "destructive",
+      });
+    },
   });
 
   const onSubmit = (data: Amostra) => {
-    if (editingAmostra?.id) updateMutation.mutate({ id: editingAmostra.id, data });
-    else createMutation.mutate(data);
+    editingAmostra
+      ? updateMutation.mutate({ id: editingAmostra.id!, data })
+      : createMutation.mutate(data);
   };
 
   const handleExportExcel = () => {
@@ -275,64 +213,72 @@ export default function AmostrasPage() {
       return;
     }
 
-    const exportData = amostras.map((a) => ({
-      "ID": a.id ?? "",
-      "Código": a.codigo,
-      "Tipo": TIPO_OPTIONS.find((t) => t.value === a.tipo)?.label || a.tipo,
-      "Subtipo": a.subtipo || "",
-      "Ponto de Coleta": a.pontoColeta,
-      "Latitude": Number.isFinite(Number(a.latitude)) ? Number(a.latitude) : "",
-      "Longitude": Number.isFinite(Number(a.longitude)) ? Number(a.longitude) : "",
-      "Data da Coleta": a.dataColeta ? formatDateBR(a.dataColeta) : "",
-      "Hora da Coleta": a.horaColeta || "",
-      "Coletor": a.coletorNome || "",
-      "Laboratório": a.laboratorioNome || "",
-      "Empreendimento": a.empreendimentoId ? (empreendimentoNameById.get(Number(a.empreendimentoId)) || String(a.empreendimentoId)) : "",
-      "Status": STATUS_OPTIONS.find((s) => s.value === a.status)?.label || a.status,
-      "Parâmetros Analisados": a.parametrosAnalisados || "",
-      "Observações": a.observacoes || "",
+    const exportData = amostras.map((amostra: any) => ({
+      "Código": amostra.codigo,
+      "Tipo": TIPO_OPTIONS.find(t => t.value === amostra.tipo)?.label || amostra.tipo,
+      "Subtipo": amostra.subtipo || "",
+      "Ponto de Coleta": amostra.pontoColeta,
+      "Latitude": amostra.latitude || "",
+      "Longitude": amostra.longitude || "",
+      "Data da Coleta": amostra.dataColeta ? new Date(amostra.dataColeta).toLocaleDateString('pt-BR') : "",
+      "Hora da Coleta": amostra.horaColeta || "",
+      "Coletor": amostra.coletorNome || "",
+      "Laboratório": amostra.laboratorioNome || "",
+      "Status": STATUS_OPTIONS.find(s => s.value === amostra.status)?.label || amostra.status,
+      "Parâmetros Analisados": amostra.parametrosAnalisados || "",
+      "Observações": amostra.observacoes || "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Amostras");
 
-    ws["!cols"] = [
-      { wch: 8 },   // ID
-      { wch: 15 },  // Código
-      { wch: 12 },  // Tipo
-      { wch: 14 },  // Subtipo
-      { wch: 28 },  // Ponto
-      { wch: 12 },  // Lat
-      { wch: 12 },  // Long
-      { wch: 14 },  // Data
-      { wch: 10 },  // Hora
-      { wch: 20 },  // Coletor
-      { wch: 20 },  // Lab
-      { wch: 25 },  // Empreendimento
-      { wch: 16 },  // Status
-      { wch: 30 },  // Parâmetros
-      { wch: 32 },  // Observações
+    const colWidths = [
+      { wch: 15 }, // Código
+      { wch: 12 }, // Tipo
+      { wch: 12 }, // Subtipo
+      { wch: 25 }, // Ponto de Coleta
+      { wch: 12 }, // Latitude
+      { wch: 12 }, // Longitude
+      { wch: 12 }, // Data
+      { wch: 10 }, // Hora
+      { wch: 20 }, // Coletor
+      { wch: 20 }, // Laboratório
+      { wch: 15 }, // Status
+      { wch: 30 }, // Parâmetros
+      { wch: 30 }, // Observações
     ];
+    ws["!cols"] = colWidths;
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toISOString().split('T')[0];
     XLSX.writeFile(wb, `amostras_${today}.xlsx`);
     toast({ title: "Excel exportado com sucesso!" });
   };
 
   const handleNew = () => {
     setEditingAmostra(null);
-    form.reset();
+    form.reset({
+      codigo: "",
+      tipo: "",
+      subtipo: "",
+      pontoColeta: "",
+      dataColeta: "",
+      horaColeta: "",
+      coletorNome: "",
+      laboratorioNome: "",
+      status: "coletada",
+      parametrosAnalisados: "",
+      observacoes: "",
+    });
     setIsDialogOpen(true);
   };
 
-  const handleEdit = (a: Amostra) => {
-    setEditingAmostra(a);
+  const handleEdit = (amostra: Amostra) => {
+    setEditingAmostra(amostra);
     form.reset({
-      ...a,
-      latitude: a.latitude ?? undefined,
-      longitude: a.longitude ?? undefined,
-      empreendimentoId: a.empreendimentoId ?? undefined,
+      ...amostra,
+      latitude: amostra.latitude ?? undefined,
+      longitude: amostra.longitude ?? undefined,
     });
     setIsDialogOpen(true);
   };
@@ -362,28 +308,29 @@ export default function AmostrasPage() {
     return t ? t.label : tipo;
   };
 
-  const hasCoords = (a: Amostra) => Number.isFinite(Number(a.latitude)) && Number.isFinite(Number(a.longitude));
-
-  // quando fechar manualmente o dialog, garante reset do estado
-  useEffect(() => {
-    if (!isDialogOpen) {
-      setEditingAmostra(null);
-      form.reset();
-    }
-  }, [isDialogOpen, form]);
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("pt-BR");
+  };
 
   return (
     <div className="container mx-auto py-8 space-y-6" data-testid="page-amostras">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <FlaskConical className="h-8 w-8" />
             Gestão de Amostras
           </h1>
-          <p className="text-muted-foreground mt-2">Gerencie amostras coletadas para análise ambiental</p>
+          <p className="text-muted-foreground mt-2">
+            Gerencie amostras coletadas para análise ambiental
+          </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleExportExcel} disabled={amostras.length === 0}>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportExcel}
+            disabled={amostras.length === 0}
+          >
             <Download className="h-4 w-4 mr-2" /> Exportar Excel
           </Button>
           <RefreshButton />
@@ -416,9 +363,7 @@ export default function AmostrasPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os Tipos</SelectItem>
                 {TIPO_OPTIONS.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -429,9 +374,7 @@ export default function AmostrasPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os Status</SelectItem>
                 {STATUS_OPTIONS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -447,25 +390,9 @@ export default function AmostrasPage() {
 
       <Card>
         <CardContent className="p-6">
-          {amostrasQuery.isLoading ? (
+          {isLoading ? (
             <div className="flex justify-center py-12" role="status" aria-live="polite">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : amostrasQuery.isError ? (
-            <div className="py-10">
-              <div className="flex items-start gap-4">
-                <AlertTriangle className="h-8 w-8 text-yellow-500 mt-1" />
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Erro ao carregar amostras</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {(amostrasQuery.error as any)?.message || "Falha desconhecida"}
-                  </p>
-                  <Button onClick={() => amostrasQuery.refetch()} className="gap-2" data-testid="button-retry-amostras">
-                    <RefreshCcw className="h-4 w-4" />
-                    Tentar novamente
-                  </Button>
-                </div>
-              </div>
             </div>
           ) : amostras.length === 0 ? (
             <div className="text-center py-12">
@@ -476,14 +403,10 @@ export default function AmostrasPage() {
                   ? "Tente ajustar os filtros para encontrar amostras."
                   : "Comece cadastrando sua primeira amostra."}
               </p>
-              {searchTerm || tipoFilter !== "all" || statusFilter !== "all" ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  Limpar Filtros
-                </Button>
+              {(searchTerm || tipoFilter !== "all" || statusFilter !== "all") ? (
+                <Button variant="outline" onClick={clearFilters}>Limpar Filtros</Button>
               ) : (
-                <Button onClick={handleNew}>
-                  <Plus className="h-4 w-4 mr-2" /> Cadastrar Primeira Amostra
-                </Button>
+                <Button onClick={handleNew}><Plus className="h-4 w-4 mr-2" /> Cadastrar Primeira Amostra</Button>
               )}
             </div>
           ) : (
@@ -507,19 +430,23 @@ export default function AmostrasPage() {
                       <TableCell>
                         <div>
                           <p>{getTipoLabel(a.tipo)}</p>
-                          {a.subtipo && <p className="text-xs text-muted-foreground">{a.subtipo}</p>}
+                          {a.subtipo && (
+                            <p className="text-xs text-muted-foreground">{a.subtipo}</p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{a.pontoColeta}</TableCell>
                       <TableCell>
                         <div>
-                          <p>{formatDateBR(a.dataColeta)}</p>
-                          {a.horaColeta && <p className="text-xs text-muted-foreground">{a.horaColeta}</p>}
+                          <p>{formatDate(a.dataColeta)}</p>
+                          {a.horaColeta && (
+                            <p className="text-xs text-muted-foreground">{a.horaColeta}</p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(a.status)}</TableCell>
                       <TableCell>
-                        {hasCoords(a) ? (
+                        {a.latitude && a.longitude ? (
                           <div className="flex items-center gap-1 text-sm">
                             <MapPin className="h-3 w-3 text-muted-foreground" />
                             <span className="text-xs">
@@ -527,15 +454,15 @@ export default function AmostrasPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">.</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button aria-label={`Editar amostra ${a.codigo}`} variant="ghost" size="sm" onClick={() => handleEdit(a)}>
+                          <Button aria-label="Editar" variant="ghost" size="sm" onClick={() => handleEdit(a)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button aria-label={`Excluir amostra ${a.codigo}`} variant="ghost" size="sm" onClick={() => handleDelete(a.id!)}>
+                          <Button aria-label="Excluir" variant="ghost" size="sm" onClick={() => handleDelete(a.id!)}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
@@ -553,7 +480,9 @@ export default function AmostrasPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAmostra ? "Editar Amostra" : "Nova Amostra"}</DialogTitle>
-            <DialogDescription>{editingAmostra ? "Atualize os dados da amostra." : "Preencha as informações para cadastrar."}</DialogDescription>
+            <DialogDescription>
+              {editingAmostra ? "Atualize os dados da amostra." : "Preencha as informações para cadastrar."}
+            </DialogDescription>
           </DialogHeader>
 
           <Form {...form}>
@@ -566,31 +495,26 @@ export default function AmostrasPage() {
                     <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="tipo" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {TIPO_OPTIONS.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
+                        {TIPO_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="subtipo" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Subtipo</FormLabel>
                     <FormControl><Input {...field} placeholder="Ex: Água Superficial" /></FormControl>
                   </FormItem>
                 )}/>
-
                 <FormField name="pontoColeta" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Ponto de Coleta *</FormLabel>
@@ -598,7 +522,6 @@ export default function AmostrasPage() {
                     <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="dataColeta" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Data de Coleta *</FormLabel>
@@ -606,20 +529,17 @@ export default function AmostrasPage() {
                     <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="horaColeta" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Hora da Coleta</FormLabel>
                     <FormControl><Input type="time" {...field} /></FormControl>
                   </FormItem>
                 )}/>
-
                 <FormField name="latitude" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Latitude</FormLabel>
                     <FormControl>
                       <Input
-                        inputMode="decimal"
                         type="number"
                         step="any"
                         placeholder="-23.550520"
@@ -628,16 +548,13 @@ export default function AmostrasPage() {
                         onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="longitude" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Longitude</FormLabel>
                     <FormControl>
                       <Input
-                        inputMode="decimal"
                         type="number"
                         step="any"
                         placeholder="-46.633308"
@@ -646,55 +563,50 @@ export default function AmostrasPage() {
                         onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="coletorNome" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nome do Coletor</FormLabel>
                     <FormControl><Input {...field} placeholder="Responsável pela coleta" /></FormControl>
                   </FormItem>
                 )}/>
-
                 <FormField name="laboratorioNome" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Laboratório</FormLabel>
                     <FormControl><Input {...field} placeholder="Nome do laboratório" /></FormControl>
                   </FormItem>
                 )}/>
-
                 <FormField name="status" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {STATUS_OPTIONS.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
+                        {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}/>
-
                 <FormField name="empreendimentoId" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Empreendimento</FormLabel>
                     <Select
-                      onValueChange={(v) => field.onChange(v === "none" ? undefined : Number(v))}
-                      value={field.value != null ? String(field.value) : "none"}
+                      onValueChange={(v) => field.onChange(v === "none" ? undefined : parseInt(v))}
+                      value={field.value?.toString() || "none"}
                     >
                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione (opcional)" />
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">Nenhum</SelectItem>
                         {empreendimentos.map((e) => (
-                          <SelectItem key={e.id} value={String(e.id)}>{e.nome}</SelectItem>
+                          <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -705,14 +617,18 @@ export default function AmostrasPage() {
               <FormField name="parametrosAnalisados" control={form.control} render={({ field }) => (
                 <FormItem>
                   <FormLabel>Parâmetros Analisados</FormLabel>
-                  <FormControl><Textarea {...field} placeholder="Ex: pH, DBO, DQO, Metais Pesados..." rows={2} /></FormControl>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Ex: pH, DBO, DQO, Metais Pesados..." rows={2} />
+                  </FormControl>
                 </FormItem>
               )}/>
 
               <FormField name="observacoes" control={form.control} render={({ field }) => (
                 <FormItem>
                   <FormLabel>Observações</FormLabel>
-                  <FormControl><Textarea {...field} placeholder="Observações adicionais sobre a amostra..." rows={3} /></FormControl>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Observações adicionais sobre a amostra..." rows={3} />
+                  </FormControl>
                 </FormItem>
               )}/>
 
@@ -721,7 +637,9 @@ export default function AmostrasPage() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {(createMutation.isPending || updateMutation.isPending) && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
                   {editingAmostra ? "Atualizar" : "Cadastrar"}
                 </Button>
               </DialogFooter>
@@ -734,7 +652,9 @@ export default function AmostrasPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>Tem certeza que deseja excluir esta amostra? Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta amostra? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
