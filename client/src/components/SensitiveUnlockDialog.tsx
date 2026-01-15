@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import {
   Dialog,
   DialogContent,
@@ -139,7 +139,8 @@ export function SensitiveUnlockDialog({
 }
 
 export function useSensitiveStatus() {
-  return useQuery<{ unlocked: boolean; modules: string[] }>({
+  return useQuery<{ unlocked: boolean; modules: string[] } | null>({
     queryKey: ["/api/auth/sensitive-status"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 }
