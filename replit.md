@@ -81,8 +81,11 @@ Manages interactive geospatial layers for the `empreendimentos` map, supporting 
 
 ### Monitoramento de Processos Ambientais (SEIA/INEMA)
 An automated system for tracking environmental license processes in government portals (INEMA/SEIA, IBAMA, etc.). Features include:
+- **Puppeteer-based automation**: Automated login and process status extraction using headless browser
+- **Credentials via environment variables**: SEIA_USERNAME, SEIA_PASSWORD, SEIA_PORTAL_URL for secure credential management
+- **Concurrency control**: Lock mechanism prevents overlapping queries between cron jobs and manual requests
+- **Status detection**: Automatically detects status changes (Aguardando Enquadramento, Sendo Enquadrado, Enquadrado, Em Validação Prévia, Validado, Boleto de pagamento liberado, Comprovante Enviado, Processo Formado)
 - Database tables for monitored processes (processosMonitorados) and consultation history (consultasProcessos)
-- SeiaService for querying the SEIA portal (currently placeholder, ready for real credentials)
 - Full CRUD API endpoints with unit-based data isolation
 - Frontend page for managing monitored processes, manual consultation, and viewing history
 - Automatic cron job running every 6 hours to check all active processes

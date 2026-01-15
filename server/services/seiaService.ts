@@ -76,10 +76,11 @@ const STATUS_POSSIVEIS = [
 
 export class SeiaService {
   private browser: Browser | null = null;
-  private page: Page | null = null;
   private isLoggedIn: boolean = false;
   private lastLoginTime: Date | null = null;
+  private isProcessing: boolean = false;
   private readonly SESSION_TIMEOUT_MINUTES = 25;
+  private readonly LOCK_TIMEOUT_MS = 120000;
 
   private getCredentials() {
     return {
@@ -101,9 +102,26 @@ export class SeiaService {
     return STATUS_POSSIVEIS;
   }
 
-  private async initBrowser(): Promise<void> {
-    if (!this.browser) {
-      console.log('[SEIA] Iniciando navegador...');
+  private async acquireLock(): Promise<boolean> {
+    const start = Date.now();
+    while (this.isProcessing) {
+      if (Date.now() - start > this.LOCK_TIMEOUT_MS) {
+        console.log('[SEIA] Timeout aguardando lock');
+        return false;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    this.isProcessing = true;
+    return true;
+  }
+
+  private releaseLock(): void {
+    this.isProcessing = false;
+  }
+
+  private async initBrowser(): Promise<Page> {
+    if (!this.browser || !this.browser.isConnected()) {
+      console.log('[SEIA] Iniciando novo navegador...');
       this.browser = await puppeteer.launch({
         headless: true,
         args: [
@@ -115,18 +133,24 @@ export class SeiaService {
           '--window-size=1920,1080',
         ],
       });
-      this.page = await this.browser.newPage();
-      await this.page.setViewport({ width: 1920, height: 1080 });
-      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      this.isLoggedIn = false;
     }
+    
+    const page = await this.browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    return page;
   }
 
   private async closeBrowser(): Promise<void> {
     if (this.browser) {
       console.log('[SEIA] Fechando navegador...');
-      await this.browser.close();
+      try {
+        await this.browser.close();
+      } catch (e) {
+        console.error('[SEIA] Erro ao fechar navegador:', e);
+      }
       this.browser = null;
-      this.page = null;
       this.isLoggedIn = false;
     }
   }
@@ -138,7 +162,7 @@ export class SeiaService {
     return diffMinutes > this.SESSION_TIMEOUT_MINUTES;
   }
 
-  async login(): Promise<{ sucesso: boolean; mensagem: string }> {
+  async login(page: Page): Promise<{ sucesso: boolean; mensagem: string }> {
     const { username, password, portalUrl } = this.getCredentials();
 
     if (!username || !password) {
@@ -149,53 +173,57 @@ export class SeiaService {
     }
 
     try {
-      await this.initBrowser();
-      
-      if (!this.page) {
-        throw new Error('Página não inicializada');
-      }
-
       console.log('[SEIA] Acessando página de login...');
-      await this.page.goto(`${portalUrl}/paginas/paginaLogin.xhtml`, {
+      await page.goto(`${portalUrl}/paginas/paginaLogin.xhtml`, {
         waitUntil: 'networkidle2',
         timeout: 60000,
       });
 
-      await this.page.waitForSelector('input[id*="usuario"], input[name*="usuario"], input[type="text"]', {
-        timeout: 15000,
-      });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const usernameInput = await page.$('input[type="text"]');
+      const passwordInput = await page.$('input[type="password"]');
+      
+      if (!usernameInput || !passwordInput) {
+        const pageContent = await page.content();
+        if (pageContent.includes('Tela Inicial') || pageContent.includes('Sair') || pageContent.includes('ecobrasil')) {
+          this.isLoggedIn = true;
+          this.lastLoginTime = new Date();
+          return { sucesso: true, mensagem: 'Já está logado' };
+        }
+        return { sucesso: false, mensagem: 'Campos de login não encontrados' };
+      }
 
       console.log('[SEIA] Preenchendo credenciais...');
-      
-      const usernameSelector = 'input[id*="usuario"], input[name*="usuario"], input[type="text"]';
-      const passwordSelector = 'input[id*="senha"], input[name*="senha"], input[type="password"]';
-      
-      await this.page.evaluate((sel) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) input.value = '';
-      }, usernameSelector);
-      await this.page.type(usernameSelector, username, { delay: 50 });
+      await usernameInput.click({ clickCount: 3 });
+      await usernameInput.type(username, { delay: 50 });
 
-      await this.page.evaluate((sel) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) input.value = '';
-      }, passwordSelector);
-      await this.page.type(passwordSelector, password, { delay: 50 });
+      await passwordInput.click({ clickCount: 3 });
+      await passwordInput.type(password, { delay: 50 });
 
       console.log('[SEIA] Clicando no botão de login...');
-      const loginButton = await this.page.$('button[type="submit"], input[type="submit"], button[id*="entrar"], a[id*="entrar"]');
+      const submitButton = await page.$('button[type="submit"], input[type="submit"], button[id*="entrar"], input[value*="Entrar"]');
       
-      if (loginButton) {
+      if (submitButton) {
         await Promise.all([
-          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
-          loginButton.click(),
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          submitButton.click(),
         ]);
+      } else {
+        await page.keyboard.press('Enter');
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
       }
 
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      const currentUrl = this.page.url();
-      const isLoggedIn = !currentUrl.includes('paginaLogin') && !currentUrl.includes('login');
+      const currentUrl = page.url();
+      const pageContent = await page.content();
+      
+      const isLoggedIn = (
+        !currentUrl.includes('paginaLogin') && 
+        !currentUrl.includes('login') &&
+        (pageContent.includes('Sair') || pageContent.includes('ecobrasil') || pageContent.includes('Tela Inicial'))
+      );
       
       if (isLoggedIn) {
         this.isLoggedIn = true;
@@ -203,20 +231,18 @@ export class SeiaService {
         console.log('[SEIA] Login realizado com sucesso!');
         return { sucesso: true, mensagem: 'Login realizado com sucesso' };
       } else {
-        const errorMessage = await this.page.evaluate(() => {
-          const error = document.querySelector('.ui-messages-error, .error-message, .mensagem-erro');
-          return error ? error.textContent : null;
-        });
+        const hasError = pageContent.includes('Usuário ou senha inválidos') || 
+                        pageContent.includes('incorreto') ||
+                        pageContent.includes('inválido');
         
         return {
           sucesso: false,
-          mensagem: errorMessage || 'Falha no login - verifique as credenciais',
+          mensagem: hasError ? 'Usuário ou senha inválidos' : 'Falha no login - verifique as credenciais',
         };
       }
 
     } catch (error: any) {
       console.error('[SEIA] Erro no login:', error.message);
-      await this.closeBrowser();
       return {
         sucesso: false,
         mensagem: `Erro ao fazer login: ${error.message}`,
@@ -227,9 +253,22 @@ export class SeiaService {
   async consultarProcesso(numeroProcesso: string, uf: string = 'BA', orgao?: string): Promise<ConsultaResult> {
     const inicio = Date.now();
 
+    if (!await this.acquireLock()) {
+      return {
+        sucesso: false,
+        numeroProcesso,
+        erro: 'Sistema ocupado, tente novamente em alguns segundos',
+        tempoResposta: Date.now() - inicio,
+      };
+    }
+
+    let page: Page | null = null;
+
     try {
+      page = await this.initBrowser();
+
       if (!this.isLoggedIn || this.isSessionExpired()) {
-        const loginResult = await this.login();
+        const loginResult = await this.login(page);
         if (!loginResult.sucesso) {
           return {
             sucesso: false,
@@ -240,93 +279,144 @@ export class SeiaService {
         }
       }
 
-      if (!this.page) {
-        throw new Error('Navegador não inicializado');
-      }
-
       console.log(`[SEIA] Consultando processo: ${numeroProcesso}`);
 
       const portalUrl = process.env.SEIA_PORTAL_URL || 'https://sistema.seia.ba.gov.br';
-      await this.page.goto(`${portalUrl}/paginas/processo/listarProcesso.xhtml`, {
-        waitUntil: 'networkidle2',
-        timeout: 60000,
-      });
+      
+      await page.goto(`${portalUrl}`, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const menuProcesso = await page.$('a[href*="processo"], span[id*="processo"]');
+      if (menuProcesso) {
+        await menuProcesso.click();
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      const menuListar = await page.$('a[href*="listarProcesso"], a[href*="consultarProcesso"]');
+      if (menuListar) {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          menuListar.click(),
+        ]);
+      }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const numeroLimpo = numeroProcesso.replace(/[^\d]/g, '');
       
-      const inputSelector = 'input[id*="processo"], input[name*="processo"], input[id*="numero"], input.ui-inputfield';
-      await this.page.waitForSelector(inputSelector, { timeout: 15000 });
+      const inputFields = await page.$$('input[type="text"]:not([readonly])');
+      let processInputFound = false;
+      
+      for (const input of inputFields) {
+        const id = await page.evaluate(el => el.id || '', input);
+        const name = await page.evaluate(el => el.name || '', input);
+        const placeholder = await page.evaluate(el => el.placeholder || '', input);
+        
+        if (id.toLowerCase().includes('processo') || 
+            id.toLowerCase().includes('numero') ||
+            name.toLowerCase().includes('processo') ||
+            name.toLowerCase().includes('numero') ||
+            placeholder.toLowerCase().includes('processo')) {
+          await input.click({ clickCount: 3 });
+          await input.type(numeroLimpo, { delay: 30 });
+          processInputFound = true;
+          break;
+        }
+      }
 
-      await this.page.evaluate((sel) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) input.value = '';
-      }, inputSelector);
-      await this.page.type(inputSelector, numeroLimpo, { delay: 30 });
+      if (!processInputFound && inputFields.length > 0) {
+        await inputFields[0].click({ clickCount: 3 });
+        await inputFields[0].type(numeroLimpo, { delay: 30 });
+      }
 
-      const searchButton = await this.page.$('button[id*="consultar"], button[id*="pesquisar"], input[type="submit"][value*="Consultar"], button[type="submit"]');
+      const searchButton = await page.$('button[type="submit"], input[type="submit"], button[id*="pesquisar"], button[id*="consultar"]');
       if (searchButton) {
         await Promise.all([
-          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
           searchButton.click(),
         ]);
       }
 
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      const resultado = await this.page.evaluate(() => {
-        const data: Record<string, any> = {};
-        
-        const statusElement = document.querySelector('span[id*="status"], td:contains("Status"), .status-processo');
-        if (statusElement) {
-          data.statusAtual = statusElement.textContent?.trim();
+      const resultado = await page.evaluate(() => {
+        const data: Record<string, any> = {
+          movimentacoes: [],
+          statusAtual: null,
+          interessado: null,
+          empreendimento: null,
+          municipio: null,
+          tipoProcesso: null,
+          naoEncontrado: false,
+        };
+
+        const allText = document.body.innerText || '';
+        if (allText.toLowerCase().includes('nenhum registro') || 
+            allText.toLowerCase().includes('não encontrado') ||
+            allText.toLowerCase().includes('sem resultados')) {
+          data.naoEncontrado = true;
+          return data;
         }
 
-        const rows = document.querySelectorAll('table tr, .ui-datatable-tablewrapper tr');
-        const movimentacoes: Array<{ data: string; descricao: string; responsavel?: string }> = [];
-        
-        rows.forEach((row) => {
-          const cells = row.querySelectorAll('td');
-          if (cells.length >= 2) {
-            const dataCell = cells[0]?.textContent?.trim();
-            const descCell = cells[1]?.textContent?.trim();
-            if (dataCell && descCell) {
-              movimentacoes.push({
-                data: dataCell,
-                descricao: descCell,
-                responsavel: cells[2]?.textContent?.trim(),
-              });
+        const statusLabels = ['Status:', 'Situação:', 'Status Atual:'];
+        for (const label of statusLabels) {
+          const idx = allText.indexOf(label);
+          if (idx !== -1) {
+            const afterLabel = allText.substring(idx + label.length, idx + label.length + 100);
+            const match = afterLabel.trim().split(/[\n\r\t]/)[0].trim();
+            if (match && match.length < 50) {
+              data.statusAtual = match;
+              break;
+            }
+          }
+        }
+
+        const tables = document.querySelectorAll('table');
+        tables.forEach((table) => {
+          const rows = table.querySelectorAll('tr');
+          rows.forEach((row) => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 2) {
+              const firstCell = cells[0]?.textContent?.trim() || '';
+              const secondCell = cells[1]?.textContent?.trim() || '';
+              
+              const dateMatch = firstCell.match(/^\d{2}\/\d{2}\/\d{4}/);
+              if (dateMatch && secondCell) {
+                data.movimentacoes.push({
+                  data: firstCell,
+                  descricao: secondCell,
+                  responsavel: cells[2]?.textContent?.trim() || undefined,
+                });
+              }
+
+              if (firstCell.toLowerCase().includes('interessado') || firstCell.toLowerCase().includes('requerente')) {
+                data.interessado = secondCell;
+              }
+              if (firstCell.toLowerCase().includes('empreendimento')) {
+                data.empreendimento = secondCell;
+              }
+              if (firstCell.toLowerCase().includes('município') || firstCell.toLowerCase().includes('localidade')) {
+                data.municipio = secondCell;
+              }
+              if (firstCell.toLowerCase().includes('tipo') || firstCell.toLowerCase().includes('atividade')) {
+                data.tipoProcesso = secondCell;
+              }
+            }
+          });
+        });
+
+        const allElements = document.querySelectorAll('span, label, td, div');
+        allElements.forEach((el) => {
+          const text = el.textContent?.trim() || '';
+          const lowerText = text.toLowerCase();
+          
+          if (!data.statusAtual) {
+            const statusMatch = text.match(/(Aguardando Enquadramento|Sendo Enquadrado|Enquadrado|Em Validação Prévia|Validado|Boleto de pagamento liberado|Comprovante Enviado|Processo Formado)/i);
+            if (statusMatch) {
+              data.statusAtual = statusMatch[1];
             }
           }
         });
-
-        data.movimentacoes = movimentacoes;
-
-        const interessadoEl = document.querySelector('[id*="interessado"], [id*="requerente"]');
-        if (interessadoEl) {
-          data.interessado = interessadoEl.textContent?.trim();
-        }
-
-        const empreendimentoEl = document.querySelector('[id*="empreendimento"]');
-        if (empreendimentoEl) {
-          data.empreendimento = empreendimentoEl.textContent?.trim();
-        }
-
-        const municipioEl = document.querySelector('[id*="municipio"], [id*="localidade"]');
-        if (municipioEl) {
-          data.municipio = municipioEl.textContent?.trim();
-        }
-
-        const tipoEl = document.querySelector('[id*="tipo"], [id*="atividade"]');
-        if (tipoEl) {
-          data.tipoProcesso = tipoEl.textContent?.trim();
-        }
-
-        const noResult = document.querySelector('.ui-messages-info, .no-result, .sem-resultado');
-        if (noResult && noResult.textContent?.toLowerCase().includes('nenhum')) {
-          data.naoEncontrado = true;
-        }
 
         return data;
       });
@@ -341,13 +431,21 @@ export class SeiaService {
       }
 
       const ultimaMovimentacao = resultado.movimentacoes?.[0];
+      let dataUltimaMovimentacao: Date | undefined;
+      
+      if (ultimaMovimentacao?.data) {
+        const parts = ultimaMovimentacao.data.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (parts) {
+          dataUltimaMovimentacao = new Date(parseInt(parts[3]), parseInt(parts[2]) - 1, parseInt(parts[1]));
+        }
+      }
 
       return {
         sucesso: true,
         numeroProcesso,
         statusAtual: resultado.statusAtual || 'Status não identificado',
         ultimaMovimentacao: ultimaMovimentacao?.descricao,
-        dataUltimaMovimentacao: ultimaMovimentacao?.data ? new Date(ultimaMovimentacao.data) : undefined,
+        dataUltimaMovimentacao,
         interessado: resultado.interessado,
         empreendimento: resultado.empreendimento,
         municipio: resultado.municipio,
@@ -360,7 +458,7 @@ export class SeiaService {
     } catch (error: any) {
       console.error(`[SEIA] Erro ao consultar processo ${numeroProcesso}:`, error.message);
       
-      if (error.message.includes('timeout') || error.message.includes('navegador')) {
+      if (error.message.includes('timeout') || error.message.includes('Target closed')) {
         await this.closeBrowser();
       }
 
@@ -370,16 +468,37 @@ export class SeiaService {
         erro: error.message || 'Erro desconhecido ao consultar processo',
         tempoResposta: Date.now() - inicio,
       };
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch (e) {
+          // Ignore page close errors
+        }
+      }
+      this.releaseLock();
     }
   }
 
   async consultarEmpreendimentoPorNome(nomeEmpreendimento: string, localidade?: string): Promise<ConsultaResult[]> {
     const inicio = Date.now();
-    const resultados: ConsultaResult[] = [];
+
+    if (!await this.acquireLock()) {
+      return [{
+        sucesso: false,
+        numeroProcesso: '',
+        erro: 'Sistema ocupado, tente novamente em alguns segundos',
+        tempoResposta: Date.now() - inicio,
+      }];
+    }
+
+    let page: Page | null = null;
 
     try {
+      page = await this.initBrowser();
+
       if (!this.isLoggedIn || this.isSessionExpired()) {
-        const loginResult = await this.login();
+        const loginResult = await this.login(page);
         if (!loginResult.sucesso) {
           return [{
             sucesso: false,
@@ -390,57 +509,60 @@ export class SeiaService {
         }
       }
 
-      if (!this.page) {
-        throw new Error('Navegador não inicializado');
-      }
-
       console.log(`[SEIA] Consultando empreendimento: ${nomeEmpreendimento}`);
 
       const portalUrl = process.env.SEIA_PORTAL_URL || 'https://sistema.seia.ba.gov.br';
-      
-      await this.page.goto(`${portalUrl}`, { waitUntil: 'networkidle2', timeout: 60000 });
+      await page.goto(`${portalUrl}`, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const menuConsultas = await this.page.$('a[id*="consultas"], li:contains("Consultas")');
+      const menuConsultas = await page.$('a[href*="consulta"], span[id*="consulta"]');
       if (menuConsultas) {
         await menuConsultas.click();
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
-      const menuEmpreendimento = await this.page.$('a[id*="empreendimento"], a:contains("Empreendimento")');
+      const menuEmpreendimento = await page.$('a[href*="empreendimento"]');
       if (menuEmpreendimento) {
         await Promise.all([
-          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
           menuEmpreendimento.click(),
         ]);
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const nomeInput = await this.page.$('input[id*="nome"], input[id*="empreendimento"]');
+      const nomeInput = await page.$('input[id*="nome"], input[id*="empreendimento"], input[type="text"]:first-of-type');
       if (nomeInput) {
         await nomeInput.type(nomeEmpreendimento, { delay: 50 });
       }
 
       if (localidade) {
-        const localidadeSelect = await this.page.$('select[id*="localidade"], select[id*="municipio"]');
-        if (localidadeSelect) {
-          await this.page.select('select[id*="localidade"], select[id*="municipio"]', localidade);
+        const selectElements = await page.$$('select');
+        for (const sel of selectElements) {
+          const options = await sel.$$('option');
+          for (const opt of options) {
+            const text = await page.evaluate(el => el.textContent, opt);
+            if (text && text.toLowerCase().includes(localidade.toLowerCase())) {
+              const value = await page.evaluate(el => el.value, opt);
+              await sel.select(value);
+              break;
+            }
+          }
         }
       }
 
-      const consultarBtn = await this.page.$('button[id*="consultar"], input[value*="Consultar"]');
+      const consultarBtn = await page.$('button[type="submit"], input[type="submit"], button[id*="consultar"]');
       if (consultarBtn) {
         await Promise.all([
-          this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
           consultarBtn.click(),
         ]);
       }
 
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      const dados = await this.page.evaluate(() => {
-        const rows = document.querySelectorAll('table tbody tr, .ui-datatable-data tr');
+      const dados = await page.evaluate(() => {
+        const rows = document.querySelectorAll('table tbody tr, table tr');
         const lista: Array<{
           nome: string;
           requerente: string;
@@ -465,6 +587,8 @@ export class SeiaService {
         return lista;
       });
 
+      const resultados: ConsultaResult[] = [];
+      
       for (const item of dados) {
         resultados.push({
           sucesso: true,
@@ -496,6 +620,15 @@ export class SeiaService {
         erro: error.message,
         tempoResposta: Date.now() - inicio,
       }];
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch (e) {
+          // Ignore page close errors
+        }
+      }
+      this.releaseLock();
     }
   }
 
@@ -520,9 +653,14 @@ export class SeiaService {
 
       clearTimeout(timeoutId);
 
+      const { username, password } = this.getCredentials();
+      const credenciaisConfiguradas = !!(username && password);
+
       return {
         disponivel: response.ok,
-        mensagem: response.ok ? `${portal.nome} disponível` : `${portal.nome} retornou status ${response.status}`,
+        mensagem: response.ok 
+          ? `${portal.nome} disponível${credenciaisConfiguradas ? ' (credenciais configuradas)' : ' (credenciais não configuradas)'}`
+          : `${portal.nome} retornou status ${response.status}`,
         portal,
       };
     } catch (error: any) {
