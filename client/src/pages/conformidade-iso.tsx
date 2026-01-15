@@ -346,7 +346,11 @@ const NormaTabContent = React.memo(function NormaTabContent({
 
 export default function ConformidadeISO() {
   const { unidadeSelecionada } = useUnidade();
-  const unidadeId = React.useMemo(() => getUnidadeId(unidadeSelecionada), [unidadeSelecionada]);
+  const unidadeParam = React.useMemo(() => {
+    const id = getUnidadeId(unidadeSelecionada);
+    if (!id) return '';
+    return String(id);
+  }, [unidadeSelecionada]);
 
   const {
     data: conformidade,
@@ -356,30 +360,19 @@ export default function ConformidadeISO() {
     refetch,
     isFetching,
   } = useQuery<ConformidadeData>({
-    queryKey: ["conformidade-iso", unidadeId],
-    enabled: Boolean(unidadeId),
-    queryFn: () => fetchJsonStrict<ConformidadeData>(
-      `/api/conformidade-iso${unidadeId ? `?unidade=${encodeURIComponent(String(unidadeId))}` : ''}`
-    ),
+    queryKey: ["conformidade-iso", unidadeParam],
+    queryFn: async () => {
+      const url = unidadeParam 
+        ? `/api/conformidade-iso?unidade=${encodeURIComponent(unidadeParam)}`
+        : '/api/conformidade-iso';
+      return fetchJsonStrict<ConformidadeData>(url);
+    },
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
-    retry: 1,
+    retry: 2,
   });
-
-  if (!unidadeId) {
-    return (
-      <div className="p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Selecione uma unidade</CardTitle>
-            <CardDescription>Escolha uma unidade para visualizar a conformidade ISO.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
