@@ -258,8 +258,6 @@ function normalizeDemanda(raw: any): Demanda | null {
   const titulo = String(raw?.titulo ?? "").trim();
   const descricao = String(raw?.descricao ?? "").trim();
   const dataEntrega = normalizeDateYmd(raw?.dataEntrega ?? raw?.data_entrega);
-
-  // mantido: descrição obrigatória
   if (!titulo || !descricao || !dataEntrega) return null;
 
   const dataInicio = normalizeDateYmd(raw?.dataInicio ?? raw?.data_inicio) || null;
@@ -350,20 +348,16 @@ async function apiRequest<T = any>(method: string, url: string, body?: any): Pro
 // Persistência de ordem local por status
 // ===================================================
 
-const ORDER_STORAGE_KEY = "ecobrasil_demandas_order_v2";
+const ORDER_STORAGE_KEY = "ecobrasil_demandas_order_v1";
 
 type OrderState = Record<Status, number[]>;
-
-function defaultOrderState(): OrderState {
-  return { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
-}
 
 function loadOrder(): OrderState | null {
   try {
     const raw = localStorage.getItem(ORDER_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    const base = defaultOrderState();
+    const base: OrderState = { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
     for (const st of VALID_STATUSES) {
       const arr = Array.isArray(parsed?.[st]) ? parsed[st].map((x: any) => safeNumber(x)).filter(Boolean) : [];
       base[st] = arr as number[];
@@ -383,7 +377,7 @@ function saveOrder(order: OrderState) {
 }
 
 function buildOrderFromDemandas(demandas: Demanda[], prev?: OrderState | null): OrderState {
-  const byStatus: Record<Status, number[]> = defaultOrderState();
+  const byStatus: Record<Status, number[]> = { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
 
   const idsByStatus = new Map<Status, number[]>();
   for (const st of VALID_STATUSES) idsByStatus.set(st, []);
@@ -402,24 +396,6 @@ function buildOrderFromDemandas(demandas: Demanda[], prev?: OrderState | null): 
   }
 
   return byStatus;
-}
-
-function stableStringifyOrder(order: OrderState): string {
-  return JSON.stringify(VALID_STATUSES.reduce((acc, st) => {
-    acc[st] = order[st] ?? [];
-    return acc;
-  }, {} as any));
-}
-
-// ===================================================
-// Helpers de invalidação
-// ===================================================
-
-function invalidateDashboard(queryClient: ReturnType<typeof useQueryClient>) {
-  return queryClient.invalidateQueries({
-    predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
-    refetchType: "all",
-  });
 }
 
 // ===================================================
@@ -524,7 +500,10 @@ function DemandaForm({
       });
 
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await invalidateDashboard(queryClient);
+      await queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
+        refetchType: "all",
+      });
 
       toast({ title: isEdit ? "Demanda atualizada." : "Demanda criada." });
       onSuccess();
@@ -822,7 +801,6 @@ function DemandaCard({
                   setShowDetails(true);
                 }}
                 title="Visualizar detalhes"
-                aria-label="Visualizar detalhes"
               >
                 <Eye className="h-4 w-4 text-blue-500 hover:text-blue-700" />
               </Button>
@@ -837,7 +815,6 @@ function DemandaCard({
                   onEdit(demanda);
                 }}
                 title="Editar demanda"
-                aria-label="Editar demanda"
               >
                 <Pencil className="h-4 w-4 text-gray-500 hover:text-gray-700" />
               </Button>
@@ -852,7 +829,6 @@ function DemandaCard({
                   onAskDelete(demanda);
                 }}
                 title="Excluir demanda"
-                aria-label="Excluir demanda"
               >
                 <Trash2 className="h-4 w-4 text-destructive hover:text-destructive/70" />
               </Button>
@@ -870,7 +846,7 @@ function DemandaCard({
               {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
             </Badge>
             <Badge variant="outline" className="text-xs">
-              {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", { locale: ptBR }) : "."}
+              {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", { locale: ptBR }) : "-"}
             </Badge>
           </div>
 
@@ -922,7 +898,7 @@ function DemandaCard({
                   <Calendar className="h-3 w-3" /> Data de Entrega
                 </Label>
                 <p className="mt-1 text-sm">
-                  {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "."}
+                  {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "-"}
                 </p>
               </div>
 
@@ -961,7 +937,7 @@ function DemandaCard({
 }
 
 // ===================================================
-// Coluna do Kanban. Droppable
+// Coluna do Kanban (Droppable)
 // ===================================================
 
 function KanbanColumn({
@@ -1021,7 +997,7 @@ function KanbanColumn({
 }
 
 // ===================================================
-// Calendário EcoBrasil. mês
+// Calendário EcoBrasil (mês)
 // ===================================================
 
 function CalendarioEcoBrasil({
@@ -1042,7 +1018,9 @@ function CalendarioEcoBrasil({
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
 
+  // ptBR normalmente começa na segunda. então cabeçalho deve começar na segunda.
   const weekStartsOn = 1;
+
   const startDate = startOfWeek(monthStart, { locale: ptBR, weekStartsOn });
   const endDate = endOfWeek(monthEnd, { locale: ptBR, weekStartsOn });
 
@@ -1060,6 +1038,8 @@ function CalendarioEcoBrasil({
 
   const byDate = useMemo(() => {
     const map = new Map<string, Demanda[]>();
+
+    // otimização: só expandir intervalos que intersectam o mês exibido
     const visibleStart = startDate;
     const visibleEnd = endDate;
 
@@ -1067,11 +1047,9 @@ function CalendarioEcoBrasil({
       const entregaYmd = normalizeDateYmd(d.dataEntrega);
       if (!entregaYmd) continue;
 
-      const fim = parseLocalYMD(entregaYmd) ?? (entregaYmd.includes("T") ? parseISO(entregaYmd) : new Date(entregaYmd));
+      const fim = parseLocalYMD(entregaYmd) ?? parseISO(entregaYmd);
       const inicioYmd = d.dataInicio ? normalizeDateYmd(d.dataInicio) : "";
-      const ini = inicioYmd
-        ? (parseLocalYMD(inicioYmd) ?? (inicioYmd.includes("T") ? parseISO(inicioYmd) : new Date(inicioYmd)))
-        : fim;
+      const ini = inicioYmd ? (parseLocalYMD(inicioYmd) ?? parseISO(inicioYmd)) : fim;
 
       if (!isValidDate(ini) || !isValidDate(fim)) continue;
 
@@ -1400,26 +1378,15 @@ export default function DemandasPage() {
 
   const [order, setOrder] = useState<OrderState>(() => {
     const loaded = typeof window !== "undefined" ? loadOrder() : null;
-    return loaded ?? defaultOrderState();
+    return loaded ?? { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
   });
 
-  // fingerprint: muda quando IDs/status mudam. evita reset indevido
-  const demandasFingerprint = useMemo(() => {
-    const base = demandas.map((d) => `${d.id}:${normalizeStatus(d.status)}`).sort().join("|");
-    return base;
-  }, [demandas]);
-
-  // mantém ordem consistente com o conjunto atual
   useEffect(() => {
     const next = buildOrderFromDemandas(demandas, order);
-    const prevStr = stableStringifyOrder(order);
-    const nextStr = stableStringifyOrder(next);
-    if (prevStr !== nextStr) {
-      setOrder(next);
-      saveOrder(next);
-    }
+    setOrder(next);
+    saveOrder(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demandasFingerprint]);
+  }, [demandas.length]);
 
   // ===================================================
   // Downloads
@@ -1485,10 +1452,8 @@ export default function DemandasPage() {
       const el = calendarExportRef.current;
       if (!el) throw new Error("Calendário não encontrado para exportação.");
 
-      const scale = Math.min(3, (window.devicePixelRatio || 1) * 2);
-
       const canvas = await html2canvas(el, {
-        scale,
+        scale: 2,
         backgroundColor: "#ffffff",
         useCORS: true,
       });
@@ -1551,7 +1516,10 @@ export default function DemandasPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await invalidateDashboard(queryClient);
+      await queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
+        refetchType: "all",
+      });
       toast({ title: "Demanda movida." });
     },
   });
@@ -1579,7 +1547,10 @@ export default function DemandasPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/demandas/historico/all"] });
-      await invalidateDashboard(queryClient);
+      await queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === "/api/dashboard/stats",
+        refetchType: "all",
+      });
       toast({ title: "Demanda excluída." });
     },
   });
@@ -1609,18 +1580,17 @@ export default function DemandasPage() {
   }, [demandas]);
 
   const columns = useMemo(() => {
-    const grouped: Record<Status, Demanda[]> = defaultOrderState() as any;
+    const grouped: Record<Status, Demanda[]> = { a_fazer: [], em_andamento: [], em_revisao: [], concluido: [], cancelado: [] };
 
     for (const st of VALID_STATUSES) {
       const ids = order[st] ?? [];
       const list: Demanda[] = [];
-
       for (const id of ids) {
         const d = demandaById.get(id);
         if (d && normalizeStatus(d.status) === st) list.push(d);
       }
 
-      // fallback: itens não presentes na ordem
+      // fallback para itens não presentes na ordem
       const present = new Set(list.map((x) => x.id));
       for (const d of demandas) {
         const s = normalizeStatus(d.status);
@@ -1653,51 +1623,6 @@ export default function DemandasPage() {
   }
 
   // ===================================================
-  // Preview DnD com throttle via requestAnimationFrame
-  // ===================================================
-
-  const rafRef = useRef<number | null>(null);
-  const pendingOverRef = useRef<{ activeId: number; toStatus: Status; fromStatus: Status } | null>(null);
-
-  const applyPreviewMove = (activeId: number, fromStatus: Status, toStatus: Status) => {
-    // atualiza ordem (sem salvar storage aqui. salvar no end)
-    setOrder((prev) => {
-      const next: OrderState = {
-        ...prev,
-        [fromStatus]: (prev[fromStatus] ?? []).filter((x) => x !== activeId),
-        [toStatus]: [activeId, ...((prev[toStatus] ?? []).filter((x) => x !== activeId))],
-      };
-      return next;
-    });
-
-    // aplica status no cache para render consistente no preview
-    queryClient.setQueryData<Demanda[]>(["/api/demandas"], (old) => {
-      const arr = Array.isArray(old) ? old : [];
-      return arr.map((x) => (x.id === activeId ? { ...x, status: toStatus } : x));
-    });
-  };
-
-  const schedulePreview = (activeId: number, fromStatus: Status, toStatus: Status) => {
-    pendingOverRef.current = { activeId, fromStatus, toStatus };
-    if (rafRef.current != null) return;
-
-    rafRef.current = window.requestAnimationFrame(() => {
-      rafRef.current = null;
-      const p = pendingOverRef.current;
-      pendingOverRef.current = null;
-      if (!p) return;
-      if (p.fromStatus === p.toStatus) return;
-      applyPreviewMove(p.activeId, p.fromStatus, p.toStatus);
-    });
-  };
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
-  // ===================================================
   // Drag handlers
   // ===================================================
 
@@ -1715,13 +1640,13 @@ export default function DemandasPage() {
     const activeId = parseCardId(active.id);
     if (!activeId) return;
 
+    const overStatus = parseColumnStatus(over.id);
+    const overCardId = parseCardId(over.id);
+
     const d = demandaById.get(activeId);
     if (!d) return;
 
     const fromStatus = normalizeStatus(d.status);
-
-    const overStatus = parseColumnStatus(over.id);
-    const overCardId = parseCardId(over.id);
 
     let toStatus: Status | null = null;
     if (overStatus) toStatus = overStatus;
@@ -1733,39 +1658,32 @@ export default function DemandasPage() {
     if (!toStatus) return;
     if (toStatus === fromStatus) return;
 
-    // preview com throttle. sem localStorage, sem backend
-    schedulePreview(activeId, fromStatus, toStatus);
+    // preview otimista da mudança de coluna. sem chamar backend aqui
+    setOrder((prev) => {
+      const next: OrderState = { ...prev };
+      next[fromStatus] = (next[fromStatus] ?? []).filter((x) => x !== activeId);
+      next[toStatus!] = [activeId, ...((next[toStatus!] ?? []).filter((x) => x !== activeId))];
+      saveOrder(next);
+      return next;
+    });
+
+    // também aplica status local no cache para render consistente
+    queryClient.setQueryData<Demanda[]>(["/api/demandas"], (old) => {
+      const arr = Array.isArray(old) ? old : [];
+      return arr.map((x) => (x.id === activeId ? { ...x, status: toStatus! } : x));
+    });
   };
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     setActiveDemanda(null);
-
-    // sempre persistir a ordem final do estado atual
-    const persistNow = (next?: OrderState) => {
-      const toSave = next ?? order;
-      saveOrder(toSave);
-    };
-
-    if (!over) {
-      persistNow();
-      return;
-    }
+    if (!over) return;
 
     const activeId = parseCardId(active.id);
-    if (!activeId) {
-      persistNow();
-      return;
-    }
+    if (!activeId) return;
 
-    // status “atual” pode ter sido alterado pelo preview no cache
-    const current = queryClient.getQueryData<Demanda[]>(["/api/demandas"]) ?? [];
-    const activeDem = (Array.isArray(current) ? current : []).find((x) => x.id === activeId) ?? demandaById.get(activeId);
-
-    if (!activeDem) {
-      persistNow();
-      return;
-    }
+    const activeDem = demandaById.get(activeId);
+    if (!activeDem) return;
 
     const fromStatus = normalizeStatus(activeDem.status);
 
@@ -1779,30 +1697,17 @@ export default function DemandasPage() {
       if (target) toStatus = normalizeStatus(target.status);
     }
 
-    if (!toStatus) {
-      persistNow();
-      return;
-    }
+    if (!toStatus) return;
 
     // reorder dentro da mesma coluna
     if (toStatus === fromStatus && overCardId && overCardId !== activeId) {
       setOrder((prev) => {
         const ids = [...(prev[toStatus!] ?? [])];
-
-        // garante que ids contenha todos os cards renderizados
-        const renderedIds = columns[toStatus!].map((d) => d.id);
-        const merged = [
-          ...ids.filter((id) => renderedIds.includes(id)),
-          ...renderedIds.filter((id) => !ids.includes(id)),
-        ];
-
-        const oldIndex = merged.indexOf(activeId);
-        const newIndex = merged.indexOf(overCardId);
+        const oldIndex = ids.indexOf(activeId);
+        const newIndex = ids.indexOf(overCardId);
         if (oldIndex === -1 || newIndex === -1) return prev;
-
-        const moved = arrayMove(merged, oldIndex, newIndex);
+        const moved = arrayMove(ids, oldIndex, newIndex);
         const next = { ...prev, [toStatus!]: moved };
-
         saveOrder(next);
         return next;
       });
@@ -1811,17 +1716,6 @@ export default function DemandasPage() {
 
     // mover para outra coluna. confirmação se concluir
     if (toStatus !== fromStatus) {
-      // atualiza ordem final e salva
-      setOrder((prev) => {
-        const next: OrderState = {
-          ...prev,
-          [fromStatus]: (prev[fromStatus] ?? []).filter((x) => x !== activeId),
-          [toStatus!]: [activeId, ...((prev[toStatus!] ?? []).filter((x) => x !== activeId))],
-        };
-        saveOrder(next);
-        return next;
-      });
-
       if (toStatus === "concluido") {
         setDemandaPendenteConclusao({ id: activeId, titulo: activeDem.titulo });
         setConfirmDocumentoDialogOpen(true);
@@ -1830,8 +1724,6 @@ export default function DemandasPage() {
 
       // persistir mudança no backend
       moveMutation.mutate({ id: activeId, status: toStatus });
-    } else {
-      persistNow();
     }
   };
 
@@ -1845,10 +1737,7 @@ export default function DemandasPage() {
 
   const handleConfirmComDocumento = () => {
     if (demandaPendenteConclusao) {
-      localStorage.setItem("demandaPendenteConclusao", JSON.stringify({
-        ...demandaPendenteConclusao,
-        createdAt: Date.now(),
-      }));
+      localStorage.setItem("demandaPendenteConclusao", JSON.stringify(demandaPendenteConclusao));
       setLocation("/gestao-dados");
     }
     setConfirmDocumentoDialogOpen(false);
@@ -2011,7 +1900,6 @@ export default function DemandasPage() {
                       onChange={(e) => setClearHistoricoSenha(e.target.value)}
                       placeholder="Senha"
                       autoFocus
-                      autoComplete="current-password"
                     />
                   </div>
 
@@ -2058,21 +1946,21 @@ export default function DemandasPage() {
                   {historico30d.map((h: any) => (
                     <tr key={h.id} className="border-b hover:bg-muted/50">
                       <td className="p-2">
-                        {h.criadoEm ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "."}
+                        {h.criadoEm ? formatDate(new Date(h.criadoEm), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}
                       </td>
-                      <td className="p-2">{h.demandaTitulo || "."}</td>
-                      <td className="p-2">{h.acao || "."}</td>
+                      <td className="p-2">{h.demandaTitulo || "-"}</td>
+                      <td className="p-2">{h.acao || "-"}</td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-xs">
-                          {h.statusAnterior || "."}
+                          {h.statusAnterior || "-"}
                         </Badge>
                       </td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-xs">
-                          {h.statusNovo || "."}
+                          {h.statusNovo || "-"}
                         </Badge>
                       </td>
-                      <td className="p-2">{h.usuarioEmail || "."}</td>
+                      <td className="p-2">{h.usuarioEmail || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
