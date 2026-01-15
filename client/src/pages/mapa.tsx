@@ -335,8 +335,7 @@ export default function MapaEmpreendimentos() {
           },
         }).addTo(mapInstanceRef.current!);
 
-        // Fit bounds to the first visible layer to help plot it
-        if (visibleLayers.size === 1) {
+        if (visibleLayers.size === 1 && mapInstanceRef.current) {
           try {
             const bounds = geojsonLayer.getBounds();
             if (bounds.isValid()) {
@@ -591,91 +590,101 @@ export default function MapaEmpreendimentos() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Layers className="h-5 w-5" />
-              Camadas Geoespaciais
+        <Card className="lg:col-span-1 border-0 shadow-sm bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="flex items-center justify-between text-sm font-medium text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Layers className="h-4 w-4" />
+                Camadas
+              </div>
+              {camadas.length > 0 && (
+                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                  {visibleLayers.size}/{camadas.length}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
+          <CardContent className="px-3 pb-3 pt-0 max-h-[400px] overflow-y-auto">
             {loadingCamadas ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-6 w-full" />
+                <Skeleton className="h-6 w-full" />
               </div>
             ) : camadas.length === 0 ? (
-              <div className="text-center text-muted-foreground py-4">
-                <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Nenhuma camada cadastrada</p>
-                <p className="text-xs">Clique em "Carregar Camada" para adicionar</p>
+              <div className="text-center text-muted-foreground py-6">
+                <Layers className="h-6 w-6 mx-auto mb-1.5 opacity-40" />
+                <p className="text-xs">Nenhuma camada</p>
               </div>
             ) : (
-              Object.entries(camadasPorCategoria).map(([categoria, camadasCategoria]) => {
-                const config = categoriaConfig[categoria] || categoriaConfig.outro;
-                const allVisible = camadasCategoria.every(c => visibleLayers.has(c.id));
-                const someVisible = camadasCategoria.some(c => visibleLayers.has(c.id));
+              <div className="space-y-1">
+                {Object.entries(camadasPorCategoria).map(([categoria, camadasCategoria]) => {
+                  const config = categoriaConfig[categoria] || categoriaConfig.outro;
+                  const allVisible = camadasCategoria.every(c => visibleLayers.has(c.id));
+                  const visibleCount = camadasCategoria.filter(c => visibleLayers.has(c.id)).length;
 
-                return (
-                  <div key={categoria} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span>{config.icon}</span>
-                        <span className="font-medium text-sm">{config.label}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {camadasCategoria.length}
-                        </Badge>
+                  return (
+                    <div key={categoria} className="border-b border-muted/50 last:border-0 pb-2 last:pb-0">
+                      <div 
+                        className="flex items-center justify-between py-1.5 cursor-pointer hover:bg-muted/30 rounded px-1.5 -mx-1.5 transition-colors"
+                        onClick={() => toggleCategoryLayers(categoria, !allVisible)}
+                      >
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="text-sm">{config.icon}</span>
+                          <span className="font-medium truncate max-w-[100px]">{config.label}</span>
+                          <span className="text-muted-foreground">
+                            ({visibleCount}/{camadasCategoria.length})
+                          </span>
+                        </div>
+                        <Switch
+                          checked={allVisible}
+                          onCheckedChange={(checked) => {
+                            toggleCategoryLayers(categoria, checked);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="scale-[0.6] data-[state=checked]:bg-green-500"
+                        />
                       </div>
-                      <Switch
-                        checked={allVisible}
-                        onCheckedChange={(checked) => toggleCategoryLayers(categoria, checked)}
-                        className="scale-75"
-                      />
-                    </div>
-                    <div className="pl-6 space-y-1">
-                      {camadasCategoria.map(camada => (
-                        <div 
-                          key={camada.id} 
-                          className="flex items-center justify-between group hover:bg-muted/50 rounded px-2 py-1"
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="ml-5 space-y-0.5 mt-0.5">
+                        {camadasCategoria.map(camada => {
+                          const isVisible = visibleLayers.has(camada.id);
+                          return (
                             <div 
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: camada.cor || config.color }}
-                            />
-                            <span className="text-sm truncate" title={camada.nome}>
-                              {camada.nome}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
+                              key={camada.id} 
+                              className={`flex items-center justify-between group rounded px-1.5 py-0.5 cursor-pointer transition-all text-xs
+                                ${isVisible ? 'bg-green-50 dark:bg-green-900/20' : 'hover:bg-muted/30'}`}
                               onClick={() => toggleLayer(camada.id)}
                             >
-                              {visibleLayers.has(camada.id) ? (
-                                <Eye className="h-3 w-3" />
-                              ) : (
-                                <EyeOff className="h-3 w-3" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-destructive"
-                              onClick={() => handleDeleteCamada(camada.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                <div 
+                                  className={`w-2 h-2 rounded-full flex-shrink-0 transition-transform ${isVisible ? 'scale-110' : 'scale-75 opacity-50'}`}
+                                  style={{ backgroundColor: camada.cor || config.color }}
+                                />
+                                <span 
+                                  className={`truncate ${isVisible ? 'text-foreground' : 'text-muted-foreground'}`} 
+                                  title={camada.nome}
+                                >
+                                  {camada.nome}
+                                </span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCamada(camada.id);
+                                }}
+                              >
+                                <Trash2 className="h-2.5 w-2.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </CardContent>
         </Card>
