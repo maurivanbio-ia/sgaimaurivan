@@ -29,6 +29,8 @@ const licenseSchema = z.object({
   dataEmissao: z.string().min(1, "Data de emissão é obrigatória"),
   validade: z.string().min(1, "Validade é obrigatória"),
   arquivoPdf: z.string().optional(),
+  observacao: z.string().optional(),
+  numeroParqueEolico: z.string().optional(),
 });
 
 type LicenseFormData = z.infer<typeof licenseSchema>;
@@ -64,6 +66,8 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       dataEmissao: "",
       validade: "",
       arquivoPdf: "",
+      observacao: "",
+      numeroParqueEolico: "",
     },
   });
 
@@ -159,6 +163,8 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       dataEmissao: license.dataEmissao,
       validade: license.validade,
       arquivoPdf: license.arquivoPdf || "",
+      observacao: license.observacao || "",
+      numeroParqueEolico: license.numeroParqueEolico || "",
     });
     setIsDialogOpen(true);
   };
@@ -172,6 +178,8 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       dataEmissao: "",
       validade: "",
       arquivoPdf: "",
+      observacao: "",
+      numeroParqueEolico: "",
     });
     setIsDialogOpen(true);
   };
@@ -303,6 +311,41 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="numeroParqueEolico"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número do Parque Eólico (opcional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="Ex: PE-001, Parque Eólico Norte"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="observacao"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observação (opcional)</FormLabel>
+                        <FormControl>
+                          <textarea 
+                            {...field}
+                            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Observações adicionais sobre esta licença..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -451,6 +494,20 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                         </p>
                       </div>
                     </div>
+                    {license.numeroParqueEolico && (
+                      <div className="mt-2 text-sm">
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Parque Eólico:</span> {license.numeroParqueEolico}
+                        </p>
+                      </div>
+                    )}
+                    {license.observacao && (
+                      <div className="mt-2 text-sm">
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Observação:</span> {license.observacao}
+                        </p>
+                      </div>
+                    )}
                     {license.arquivoPdf && (
                       <div className="mt-2">
                         <a 
