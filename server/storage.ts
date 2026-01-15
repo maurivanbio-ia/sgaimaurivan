@@ -52,8 +52,17 @@ import {
   type Orcamento,
   type InsertOrcamento,
   equipamentos,
+  equipamentoEventos,
+  equipamentoCheckouts,
+  equipamentoOcorrencias,
   type Equipamento,
   type InsertEquipamento,
+  type EquipamentoEvento,
+  type InsertEquipamentoEvento,
+  type EquipamentoCheckout,
+  type InsertEquipamentoCheckout,
+  type EquipamentoOcorrencia,
+  type InsertEquipamentoOcorrencia,
   veiculos,
   type Veiculo,
   type InsertVeiculo,
@@ -2680,6 +2689,198 @@ export class DatabaseStorage implements IStorage {
   async deleteEquipamento(id: number): Promise<boolean> {
     const result = await db.delete(equipamentos).where(eq(equipamentos.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Equipment pagination and sorting
+  async getEquipamentosPaginated(options: {
+    page?: number;
+    pageSize?: number;
+    sort?: string;
+    dir?: 'asc' | 'desc';
+    tipo?: string;
+    status?: string;
+    search?: string;
+    unidade?: string;
+    empreendimentoId?: number;
+  }): Promise<{ data: Equipamento[]; total: number; page: number; pageSize: number; totalPages: number }> {
+    const page = options.page || 1;
+    const pageSize = Math.min(options.pageSize || 20, 100);
+    const offset = (page - 1) * pageSize;
+
+    let baseQuery = db.select().from(equipamentos).$dynamic();
+    const conditions: any[] = [];
+
+    if (options.tipo) conditions.push(eq(equipamentos.tipo, options.tipo));
+    if (options.status) conditions.push(eq(equipamentos.status, options.status));
+    if (options.unidade) conditions.push(eq(equipamentos.unidade, options.unidade));
+    if (options.empreendimentoId) conditions.push(eq(equipamentos.empreendimentoId, options.empreendimentoId));
+    if (options.search) {
+      conditions.push(
+        or(
+          ilike(equipamentos.nome, `%${options.search}%`),
+          ilike(equipamentos.marca, `%${options.search}%`),
+          ilike(equipamentos.modelo, `%${options.search}%`),
+          ilike(equipamentos.numeroPatrimonio, `%${options.search}%`)
+        )
+      );
+    }
+
+    if (conditions.length > 0) {
+      baseQuery = baseQuery.where(and(...conditions));
+    }
+
+    // Determine sort column
+    const sortColumn = options.sort === 'proximaManutencao' ? equipamentos.proximaManutencao 
+      : options.sort === 'nome' ? equipamentos.nome
+      : options.sort === 'tipo' ? equipamentos.tipo
+      : options.sort === 'status' ? equipamentos.status
+      : options.sort === 'dataAquisicao' ? equipamentos.dataAquisicao
+      : equipamentos.criadoEm;
+
+    const sortDir = options.dir === 'asc' ? asc : desc;
+
+    const data = await baseQuery
+      .orderBy(sortDir(sortColumn))
+      .limit(pageSize)
+      .offset(offset);
+
+    // Count total
+    let countQuery = db.select({ count: sql<number>`count(*)` }).from(equipamentos).$dynamic();
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions));
+    }
+    const [{ count }] = await countQuery;
+    const total = Number(count);
+
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  // Equipment Events (audit log)
+  async createEquipamentoEvento(evento: InsertEquipamentoEvento): Promise<EquipamentoEvento> {
+    const [newEvento] = await db
+      .insert(equipamentoEventos)
+      .values(evento)
+      .returning();
+    return newEvento;
+  }
+
+  async getEquipamentoEventos(equipamentoId: number): Promise<EquipamentoEvento[]> {
+    return db
+      .select()
+      .from(equipamentoEventos)
+      .where(eq(equipamentoEventos.equipamentoId, equipamentoId))
+      .orderBy(desc(equipamentoEventos.criadoEm));
+  }
+
+  // Equipment Checkouts (retirada/devolução)
+  async createEquipamentoCheckout(checkout: InsertEquipamentoCheckout): Promise<EquipamentoCheckout> {
+    const [newCheckout] = await db
+      .insert(equipamentoCheckouts)
+      .values(checkout)
+      .returning();
+    return newCheckout;
+  }
+
+  async getEquipamentoCheckouts(equipamentoId: number): Promise<EquipamentoCheckout[]> {
+    return db
+      .select()
+      .from(equipamentoCheckouts)
+      .where(eq(equipamentoCheckouts.equipamentoId, equipamentoId))
+      .orderBy(desc(equipamentoCheckouts.criadoEm));
+  }
+
+  async getCheckoutAtivo(equipamentoId: number): Promise<EquipamentoCheckout | undefined> {
+    const [checkout] = await db
+      .select()
+      .from(equipamentoCheckouts)
+      .where(
+        and(
+          eq(equipamentoCheckouts.equipamentoId, equipamentoId),
+          eq(equipamentoCheckouts.tipo, 'retirada'),
+          isNull(equipamentoCheckouts.dataDevolucaoReal)
+        )
+      )
+      .orderBy(desc(equipamentoCheckouts.criadoEm))
+      .limit(1);
+    return checkout;
+  }
+
+  async finalizarCheckout(checkoutId: number, data: {
+    dataDevolucaoReal: Date;
+    condicaoDevolucao?: string;
+    observacoes?: string;
+  }): Promise<EquipamentoCheckout> {
+    const [updated] = await db
+      .update(equipamentoCheckouts)
+      .set({
+        tipo: 'devolucao',
+        dataDevolucaoReal: data.dataDevolucaoReal,
+        condicaoDevolucao: data.condicaoDevolucao,
+        observacoes: data.observacoes,
+      })
+      .where(eq(equipamentoCheckouts.id, checkoutId))
+      .returning();
+    return updated;
+  }
+
+  // Equipment Ocorrências (avarias)
+  async createEquipamentoOcorrencia(ocorrencia: InsertEquipamentoOcorrencia): Promise<EquipamentoOcorrencia> {
+    const [newOcorrencia] = await db
+      .insert(equipamentoOcorrencias)
+      .values(ocorrencia)
+      .returning();
+    return newOcorrencia;
+  }
+
+  async getEquipamentoOcorrencias(equipamentoId: number): Promise<EquipamentoOcorrencia[]> {
+    return db
+      .select()
+      .from(equipamentoOcorrencias)
+      .where(eq(equipamentoOcorrencias.equipamentoId, equipamentoId))
+      .orderBy(desc(equipamentoOcorrencias.criadoEm));
+  }
+
+  async updateEquipamentoOcorrencia(id: number, updates: Partial<InsertEquipamentoOcorrencia>): Promise<EquipamentoOcorrencia> {
+    const [updated] = await db
+      .update(equipamentoOcorrencias)
+      .set({
+        ...updates,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(equipamentoOcorrencias.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getOcorrenciasAbertas(unidade?: string): Promise<EquipamentoOcorrencia[]> {
+    let query = db
+      .select({
+        ocorrencia: equipamentoOcorrencias,
+        equipamentoNome: equipamentos.nome,
+        equipamentoTipo: equipamentos.tipo,
+      })
+      .from(equipamentoOcorrencias)
+      .innerJoin(equipamentos, eq(equipamentoOcorrencias.equipamentoId, equipamentos.id))
+      .where(
+        and(
+          or(
+            eq(equipamentoOcorrencias.status, 'aberta'),
+            eq(equipamentoOcorrencias.status, 'em_analise'),
+            eq(equipamentoOcorrencias.status, 'em_reparo')
+          ),
+          unidade ? eq(equipamentos.unidade, unidade) : undefined
+        )
+      )
+      .$dynamic();
+
+    const results = await query.orderBy(desc(equipamentoOcorrencias.criadoEm));
+    return results.map(r => ({ ...r.ocorrencia, equipamentoNome: r.equipamentoNome, equipamentoTipo: r.equipamentoTipo })) as any;
   }
 
   // Veículos operations
