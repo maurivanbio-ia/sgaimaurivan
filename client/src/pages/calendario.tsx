@@ -560,19 +560,17 @@ export default function Calendario() {
       else map.set(key, [e]);
     }
 
-    for (const [k, arr] of map.entries()) {
-      arr.sort((a, b) => {
-        // atrasado primeiro
+    const entries = Array.from(map.entries());
+    for (const [k, arr] of entries) {
+      arr.sort((a: CalendarEvent, b: CalendarEvent) => {
         const oa = a.overdue ? 1 : 0;
         const ob = b.overdue ? 1 : 0;
         if (oa !== ob) return ob - oa;
 
-        // prioridade (urgente > alta > media > baixa)
-        const pa = a.prioridade ? PRIORITY_RANK[a.prioridade] ?? 0 : 0;
-        const pb = b.prioridade ? PRIORITY_RANK[b.prioridade] ?? 0 : 0;
+        const pa = a.prioridade ? (PRIORITY_RANK[a.prioridade] ?? 0) : 0;
+        const pb = b.prioridade ? (PRIORITY_RANK[b.prioridade] ?? 0) : 0;
         if (pa !== pb) return pb - pa;
 
-        // tipo (licença/condicionante antes)
         const ta = EVENT_TYPE_RANK[a.type] ?? 0;
         const tb = EVENT_TYPE_RANK[b.type] ?? 0;
         if (ta !== tb) return tb - ta;
