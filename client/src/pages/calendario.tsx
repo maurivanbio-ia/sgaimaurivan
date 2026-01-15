@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useCallback, useEffect, useRef, useDeferredValue } from "react";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
 import { apiRequest } from "@/lib/queryClient";
@@ -137,10 +137,14 @@ interface CalendarEvent {
 }
 
 /* =========================
-   Estilos e utilitários
+   Constantes
    ========================= */
 
-const eventDotClass: Record<EventType, string> = {
+const LS_KEY = "calendario:pref:v3";
+
+const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] as const;
+
+const EVENT_DOT_CLASS: Record<EventType, string> = {
   licenca: "bg-red-500",
   demanda: "bg-blue-500",
   condicionante: "bg-amber-500",
@@ -148,19 +152,59 @@ const eventDotClass: Record<EventType, string> = {
   tarefa: "bg-emerald-500",
 };
 
-const priorityClass: Record<string, string> = {
+const PRIORITY_CLASS: Record<string, string> = {
   urgente: "border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20",
   alta: "border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-900/40 dark:text-orange-200 dark:bg-orange-900/20",
   media: "border-yellow-300 text-yellow-800 bg-yellow-50 dark:border-yellow-900/40 dark:text-yellow-200 dark:bg-yellow-900/20",
   baixa: "border-emerald-300 text-emerald-800 bg-emerald-50 dark:border-emerald-900/40 dark:text-emerald-200 dark:bg-emerald-900/20",
 };
 
-const priorityRank: Record<string, number> = {
+const PRIORITY_RANK: Record<string, number> = {
   urgente: 4,
   alta: 3,
   media: 2,
   baixa: 1,
 };
+
+type StoredPrefs = {
+  viewMode: ViewMode;
+  filterType: "todos" | EventType;
+  agendaRange: AgendaRange;
+  onlyOverdue: boolean;
+};
+
+function readPrefs(): StoredPrefs {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { viewMode: "month", filterType: "todos", agendaRange: "7d", onlyOverdue: false };
+
+    const p = JSON.parse(raw) as Partial<StoredPrefs>;
+    const filterType =
+      p.filterType === "licenca" ||
+      p.filterType === "demanda" ||
+      p.filterType === "condicionante" ||
+      p.filterType === "cronograma" ||
+      p.filterType === "tarefa"
+        ? p.filterType
+        : "todos";
+
+    const agendaRange = p.agendaRange === "hoje" || p.agendaRange === "30d" ? p.agendaRange : "7d";
+    const viewMode = p.viewMode === "agenda" ? "agenda" : "month";
+    const onlyOverdue = Boolean(p.onlyOverdue);
+
+    return { viewMode, filterType, agendaRange, onlyOverdue };
+  } catch {
+    return { viewMode: "month", filterType: "todos", agendaRange: "7d", onlyOverdue: false };
+  }
+}
+
+function writePrefs(prefs: StoredPrefs) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(prefs));
+  } catch {
+    void 0;
+  }
+}
 
 function safeParseISO(value?: string | null): Date | null {
   if (!value) return null;
@@ -195,8 +239,6 @@ function getTipoLabel(type: EventType) {
       return "Cronograma";
     case "tarefa":
       return "Tarefa";
-    default:
-      return "Evento";
   }
 }
 
@@ -231,8 +273,8 @@ function sortEvents(a: CalendarEvent, b: CalendarEvent) {
   const ob = b.overdue ? 1 : 0;
   if (oa !== ob) return ob - oa;
 
-  const pa = a.prioridade ? priorityRank[a.prioridade] ?? 0 : 0;
-  const pb = b.prioridade ? priorityRank[b.prioridade] ?? 0 : 0;
+  const pa = a.prioridade ? PRIORITY_RANK[a.prioridade] ?? 0 : 0;
+  const pb = b.prioridade ? PRIORITY_RANK[b.prioridade] ?? 0 : 0;
   if (pa !== pb) return pb - pa;
 
   const typeRank: Record<EventType, number> = {
@@ -249,52 +291,6 @@ function sortEvents(a: CalendarEvent, b: CalendarEvent) {
   return a.title.localeCompare(b.title, "pt-BR");
 }
 
-/* =========================
-   Persistência leve de preferências
-   ========================= */
-
-const LS_KEY = "calendario:pref:v2";
-
-type StoredPrefs = {
-  viewMode: ViewMode;
-  filterType: "todos" | EventType;
-  agendaRange: AgendaRange;
-  onlyOverdue: boolean;
-};
-
-function readPrefs(): StoredPrefs {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { viewMode: "month", filterType: "todos", agendaRange: "7d", onlyOverdue: false };
-    const p = JSON.parse(raw) as Partial<StoredPrefs>;
-
-    const filterType =
-      p.filterType === "licenca" ||
-      p.filterType === "demanda" ||
-      p.filterType === "condicionante" ||
-      p.filterType === "cronograma" ||
-      p.filterType === "tarefa"
-        ? p.filterType
-        : "todos";
-
-    const agendaRange = p.agendaRange === "hoje" || p.agendaRange === "30d" ? p.agendaRange : "7d";
-    const viewMode = p.viewMode === "agenda" ? "agenda" : "month";
-    const onlyOverdue = Boolean(p.onlyOverdue);
-
-    return { viewMode, filterType, agendaRange, onlyOverdue };
-  } catch {
-    return { viewMode: "month", filterType: "todos", agendaRange: "7d", onlyOverdue: false };
-  }
-}
-
-function writePrefs(prefs: StoredPrefs) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(prefs));
-  } catch {
-    void 0;
-  }
-}
-
 function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   const as = startOfDay(aStart).getTime();
   const ae = startOfDay(aEnd).getTime();
@@ -303,111 +299,67 @@ function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return as <= be && bs <= ae;
 }
 
+async function fetcher<T>(url: string): Promise<T> {
+  const res = await apiRequest("GET", url);
+
+  if (res.status === 204 || res.status === 404) return ([] as unknown) as T;
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(msg || `Falha ao buscar dados (${res.status}).`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const txt = await res.text().catch(() => "");
+    if (!txt) return ([] as unknown) as T;
+    throw new Error("Resposta inesperada. Conteúdo não JSON.");
+  }
+
+  return (await res.json()) as T;
+}
+
 /* =========================
    Componente
    ========================= */
 
 export default function Calendario() {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
   const [prefs, setPrefs] = useState<StoredPrefs>(() => readPrefs());
 
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const debouncedSearch = useMemo(() => normalizeText(deferredSearch), [deferredSearch]);
+
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     writePrefs(prefs);
   }, [prefs]);
 
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(search), 180);
-    return () => window.clearTimeout(t);
-  }, [search]);
+  const setViewMode = useCallback((viewMode: ViewMode) => setPrefs((p) => ({ ...p, viewMode })), []);
+  const setFilterType = useCallback((filterType: "todos" | EventType) => setPrefs((p) => ({ ...p, filterType })), []);
+  const setAgendaRange = useCallback((agendaRange: AgendaRange) => setPrefs((p) => ({ ...p, agendaRange })), []);
+  const setOnlyOverdue = useCallback((onlyOverdue: boolean) => setPrefs((p) => ({ ...p, onlyOverdue })), []);
 
-  const setViewMode = (viewMode: ViewMode) => setPrefs((p) => ({ ...p, viewMode }));
-  const setFilterType = (filterType: "todos" | EventType) => setPrefs((p) => ({ ...p, filterType }));
-  const setAgendaRange = (agendaRange: AgendaRange) => setPrefs((p) => ({ ...p, agendaRange }));
-  const setOnlyOverdue = (onlyOverdue: boolean) => setPrefs((p) => ({ ...p, onlyOverdue }));
-
-  /* =========================
-     Fetch padronizado
-     Ajustes.
-     404 e 204 retornam lista vazia, evitando quebra do calendário quando não há registros.
-     ========================= */
-
-  const fetcher = useCallback(async <T,>(url: string): Promise<T> => {
-    const res = await apiRequest("GET", url);
-
-    if (res.status === 204) return ([] as unknown) as T;
-    if (res.status === 404) return ([] as unknown) as T;
-
-    if (!res.ok) {
-      const msg = await res.text().catch(() => "");
-      throw new Error(msg || `Falha ao buscar dados (${res.status}).`);
-    }
-
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      const txt = await res.text().catch(() => "");
-      if (!txt) return ([] as unknown) as T;
-      throw new Error("Resposta inesperada (não JSON).");
-    }
-
-    return (await res.json()) as T;
-  }, []);
-
-  const licencasQ = useQuery<Licenca[]>({
-    queryKey: ["/api/licencas"],
-    queryFn: () => fetcher<Licenca[]>("/api/licencas"),
-    staleTime: 60_000,
-    retry: 2,
+  const results = useQueries({
+    queries: [
+      { queryKey: ["/api/licencas"], queryFn: () => fetcher<Licenca[]>("/api/licencas"), staleTime: 60_000, retry: 2 },
+      { queryKey: ["/api/demandas"], queryFn: () => fetcher<Demanda[]>("/api/demandas"), staleTime: 60_000, retry: 2 },
+      { queryKey: ["/api/condicionantes"], queryFn: () => fetcher<Condicionante[]>("/api/condicionantes"), staleTime: 60_000, retry: 2 },
+      { queryKey: ["/api/cronograma"], queryFn: () => fetcher<CronogramaItem[]>("/api/cronograma"), staleTime: 60_000, retry: 2 },
+      { queryKey: ["/api/tarefas"], queryFn: () => fetcher<Tarefa[]>("/api/tarefas"), staleTime: 60_000, retry: 2 },
+    ],
   });
 
-  const demandasQ = useQuery<Demanda[]>({
-    queryKey: ["/api/demandas"],
-    queryFn: () => fetcher<Demanda[]>("/api/demandas"),
-    staleTime: 60_000,
-    retry: 2,
-  });
+  const [licencasQ, demandasQ, condicionantesQ, cronogramaQ, tarefasQ] = results;
 
-  const condicionantesQ = useQuery<Condicionante[]>({
-    queryKey: ["/api/condicionantes"],
-    queryFn: () => fetcher<Condicionante[]>("/api/condicionantes"),
-    staleTime: 60_000,
-    retry: 2,
-  });
-
-  const cronogramaQ = useQuery<CronogramaItem[]>({
-    queryKey: ["/api/cronograma"],
-    queryFn: () => fetcher<CronogramaItem[]>("/api/cronograma"),
-    staleTime: 60_000,
-    retry: 2,
-  });
-
-  const tarefasQ = useQuery<Tarefa[]>({
-    queryKey: ["/api/tarefas"],
-    queryFn: () => fetcher<Tarefa[]>("/api/tarefas"),
-    staleTime: 60_000,
-    retry: 2,
-  });
-
-  const anyLoading =
-    licencasQ.isLoading ||
-    demandasQ.isLoading ||
-    condicionantesQ.isLoading ||
-    cronogramaQ.isLoading ||
-    tarefasQ.isLoading;
-
-  const anyFetching =
-    licencasQ.isFetching ||
-    demandasQ.isFetching ||
-    condicionantesQ.isFetching ||
-    cronogramaQ.isFetching ||
-    tarefasQ.isFetching;
+  const anyLoading = results.some((r) => r.isLoading);
+  const anyFetching = results.some((r) => r.isFetching);
 
   const errorSources = useMemo(() => {
     const errs: Array<{ name: string; message: string; refetch: () => void }> = [];
@@ -419,7 +371,37 @@ export default function Calendario() {
     if (tarefasQ.isError) errs.push({ name: "Tarefas", message: (tarefasQ.error as any)?.message || "Erro", refetch: tarefasQ.refetch });
 
     return errs;
-  }, [licencasQ, demandasQ, condicionantesQ, cronogramaQ, tarefasQ]);
+  }, [licencasQ.isError, demandasQ.isError, condicionantesQ.isError, cronogramaQ.isError, tarefasQ.isError, licencasQ.error, demandasQ.error, condicionantesQ.error, cronogramaQ.error, tarefasQ.error, licencasQ.refetch, demandasQ.refetch, condicionantesQ.refetch, cronogramaQ.refetch, tarefasQ.refetch]);
+
+  const refetchAll = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["/api/licencas"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/demandas"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/condicionantes"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/cronograma"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/tarefas"] });
+  }, [queryClient]);
+
+  const resetFilters = useCallback(() => {
+    setPrefs((p) => ({ ...p, filterType: "todos", onlyOverdue: false }));
+    setSearch("");
+    setSelectedDate(null);
+  }, []);
+
+  const goPrevMonth = useCallback(() => {
+    setCurrentDate((d) => subMonths(d, 1));
+    setSelectedDate(null);
+  }, []);
+
+  const goNextMonth = useCallback(() => {
+    setCurrentDate((d) => addMonths(d, 1));
+    setSelectedDate(null);
+  }, []);
+
+  const goToday = useCallback(() => {
+    const now = new Date();
+    setCurrentDate(now);
+    setSelectedDate(now);
+  }, []);
 
   /* =========================
      Construção dos eventos
@@ -429,11 +411,11 @@ export default function Calendario() {
     const all: CalendarEvent[] = [];
     const today = startOfDay(new Date());
 
-    const licencas = licencasQ.data ?? [];
-    const demandas = demandasQ.data ?? [];
-    const condicionantes = condicionantesQ.data ?? [];
-    const cronograma = cronogramaQ.data ?? [];
-    const tarefas = tarefasQ.data ?? [];
+    const licencas = (licencasQ.data ?? []) as Licenca[];
+    const demandas = (demandasQ.data ?? []) as Demanda[];
+    const condicionantes = (condicionantesQ.data ?? []) as Condicionante[];
+    const cronograma = (cronogramaQ.data ?? []) as CronogramaItem[];
+    const tarefas = (tarefasQ.data ?? []) as Tarefa[];
 
     for (const lic of licencas) {
       const d = parseLocalDate(lic.validade);
@@ -500,7 +482,6 @@ export default function Calendario() {
 
       const desc = cond.descricao?.trim() || "Sem descrição";
       const title = desc.length > 52 ? `Cond.: ${desc.substring(0, 52)}...` : `Cond.: ${desc}`;
-
       const searchText = normalizeText(`${title} ${desc} ${cond.licencaNumero} ${cond.status}`);
 
       all.push({
@@ -527,13 +508,7 @@ export default function Calendario() {
       const overdue = isBefore(startOfDay(end), today) && !done;
 
       const tipoLabel =
-        item.tipo === "campanha"
-          ? "Campanha"
-          : item.tipo === "relatorio"
-          ? "Relatório"
-          : item.tipo === "marco"
-          ? "Marco"
-          : "Etapa";
+        item.tipo === "campanha" ? "Campanha" : item.tipo === "relatorio" ? "Relatório" : item.tipo === "marco" ? "Marco" : "Etapa";
 
       const title = `${tipoLabel}: ${item.titulo}`;
       const pri = item.prioridade ? normalizeText(item.prioridade) : "";
@@ -593,24 +568,25 @@ export default function Calendario() {
      ========================= */
 
   const filteredEvents = useMemo(() => {
-    const type = prefs.filterType;
-    const q = normalizeText(debouncedSearch);
-
     let list = events;
 
-    if (type !== "todos") list = list.filter((e) => e.type === type);
+    if (prefs.filterType !== "todos") list = list.filter((e) => e.type === prefs.filterType);
     if (prefs.onlyOverdue) list = list.filter((e) => Boolean(e.overdue) && !isDoneStatus(e.status));
-    if (q) list = list.filter((e) => e.searchText.includes(q));
+    if (debouncedSearch) list = list.filter((e) => e.searchText.includes(debouncedSearch));
 
     return list;
   }, [events, prefs.filterType, prefs.onlyOverdue, debouncedSearch]);
 
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  /* =========================
+     Datas do mês atual
+     ========================= */
 
-  const firstDayIndex = (monthStart.getDay() + 6) % 7;
-  const paddingDays = Array(firstDayIndex).fill(null);
+  const monthStart = useMemo(() => startOfMonth(currentDate), [currentDate]);
+  const monthEnd = useMemo(() => endOfMonth(currentDate), [currentDate]);
+  const daysInMonth = useMemo(() => eachDayOfInterval({ start: monthStart, end: monthEnd }), [monthStart, monthEnd]);
+
+  const firstDayIndex = useMemo(() => (monthStart.getDay() + 6) % 7, [monthStart]);
+  const paddingDays = useMemo(() => Array.from({ length: firstDayIndex }), [firstDayIndex]);
 
   /* =========================
      Indexação por dia
@@ -653,8 +629,7 @@ export default function Calendario() {
     for (const [k, arr] of map.entries()) {
       const dedup = new Map<string, CalendarEvent>();
       for (const it of arr) dedup.set(it.entityId, it);
-      const unique = Array.from(dedup.values()).sort(sortEvents);
-      map.set(k, unique);
+      map.set(k, Array.from(dedup.values()).sort(sortEvents));
     }
 
     return map;
@@ -667,6 +642,11 @@ export default function Calendario() {
     },
     [eventsByDayKey]
   );
+
+  const selectedDayEvents = useMemo(() => {
+    if (!selectedDate) return [];
+    return getEventsForDay(selectedDate);
+  }, [selectedDate, getEventsForDay]);
 
   /* =========================
      KPI e contagens
@@ -687,11 +667,11 @@ export default function Calendario() {
     const in7 = addDays(today, 7);
 
     const sets: Record<EventType, Set<string>> = {
-      licenca: new Set<string>(),
-      demanda: new Set<string>(),
-      condicionante: new Set<string>(),
-      cronograma: new Set<string>(),
-      tarefa: new Set<string>(),
+      licenca: new Set(),
+      demanda: new Set(),
+      condicionante: new Set(),
+      cronograma: new Set(),
+      tarefa: new Set(),
     };
 
     let overdueCount = 0;
@@ -707,8 +687,7 @@ export default function Calendario() {
       if (!done && (isSameDay(dueDate, today) || (isAfter(dueDate, today) && !isAfter(dueDate, in7)))) due7Count += 1;
     }
 
-    const totalEntities =
-      sets.licenca.size + sets.demanda.size + sets.condicionante.size + sets.cronograma.size + sets.tarefa.size;
+    const totalEntities = Object.values(sets).reduce((acc, s) => acc + s.size, 0);
 
     return {
       licencas: sets.licenca.size,
@@ -728,7 +707,6 @@ export default function Calendario() {
 
   const agendaWindow = useMemo(() => {
     const today = startOfDay(new Date());
-
     if (prefs.agendaRange === "hoje") return { start: today, end: today };
     if (prefs.agendaRange === "30d") return { start: today, end: addDays(today, 30) };
     return { start: today, end: addDays(today, 7) };
@@ -752,67 +730,13 @@ export default function Calendario() {
     });
 
     const dedup = new Map<string, CalendarEvent>();
-    for (const it of list) {
-      if (!dedup.has(it.entityId)) dedup.set(it.entityId, it);
-    }
+    for (const it of list) if (!dedup.has(it.entityId)) dedup.set(it.entityId, it);
 
     return Array.from(dedup.values());
   }, [filteredEvents, agendaWindow]);
 
   /* =========================
-     Seleção do dia
-     ========================= */
-
-  const selectedDayEvents = useMemo(() => {
-    if (!selectedDate) return [];
-    return getEventsForDay(selectedDate);
-  }, [selectedDate, getEventsForDay]);
-
-  /* =========================
-     Navegação e ações
-     ========================= */
-
-  const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-
-  const goPrevMonth = useCallback(() => {
-    const newDate = subMonths(currentDate, 1);
-    setCurrentDate(newDate);
-    setSelectedDate(null);
-  }, [currentDate]);
-
-  const goNextMonth = useCallback(() => {
-    const newDate = addMonths(currentDate, 1);
-    setCurrentDate(newDate);
-    setSelectedDate(null);
-  }, [currentDate]);
-
-  const goToday = useCallback(() => {
-    const now = new Date();
-    setCurrentDate(now);
-    setSelectedDate(now);
-  }, []);
-
-  const clearSearch = () => setSearch("");
-
-  const refetchAll = () => {
-    licencasQ.refetch();
-    demandasQ.refetch();
-    condicionantesQ.refetch();
-    cronogramaQ.refetch();
-    tarefasQ.refetch();
-  };
-
-  const resetFilters = () => {
-    setPrefs((p) => ({ ...p, filterType: "todos", onlyOverdue: false }));
-    setSearch("");
-  };
-
-  /* =========================
      Atalhos de teclado
-     . / foca busca
-     . t vai para hoje
-     . setas trocam mês (quando não estiver digitando)
-     . esc limpa busca ou desmarca dia
      ========================= */
 
   useEffect(() => {
@@ -886,6 +810,8 @@ export default function Calendario() {
 
   const hasActiveFilters = prefs.filterType !== "todos" || prefs.onlyOverdue || Boolean(search);
 
+  const clearSearch = () => setSearch("");
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex flex-col gap-4">
@@ -910,7 +836,6 @@ export default function Calendario() {
               onClick={() => setViewMode("month")}
               className="gap-2"
               aria-label="Visualização mensal"
-              data-testid="view-month"
             >
               <LayoutGrid className="h-4 w-4" />
               Mês
@@ -922,7 +847,6 @@ export default function Calendario() {
               onClick={() => setViewMode("agenda")}
               className="gap-2"
               aria-label="Visualização em agenda"
-              data-testid="view-agenda"
             >
               <List className="h-4 w-4" />
               Agenda
@@ -934,7 +858,6 @@ export default function Calendario() {
               onClick={() => setOnlyOverdue(!prefs.onlyOverdue)}
               className="gap-2"
               aria-label="Filtrar somente atrasados"
-              data-testid="filter-only-overdue"
             >
               <Filter className="h-4 w-4" />
               {prefs.onlyOverdue ? "Somente atrasados" : "Atrasados"}
@@ -947,7 +870,6 @@ export default function Calendario() {
                 onClick={resetFilters}
                 className="gap-2"
                 aria-label="Limpar filtros"
-                data-testid="button-reset-filters"
               >
                 <X className="h-4 w-4" />
                 Limpar
@@ -960,7 +882,6 @@ export default function Calendario() {
               onClick={refetchAll}
               className="gap-2"
               aria-label="Atualizar dados"
-              data-testid="button-refresh"
               disabled={anyFetching}
             >
               <RefreshCcw className={`h-4 w-4 ${anyFetching ? "animate-spin" : ""}`} />
@@ -1005,7 +926,6 @@ export default function Calendario() {
               placeholder="Buscar por título, empreendimento, número, status"
               className="pl-9 pr-9"
               aria-label="Buscar eventos"
-              data-testid="search-events"
             />
             {search && (
               <button
@@ -1020,61 +940,31 @@ export default function Calendario() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant={prefs.filterType === "todos" ? "default" : "outline"} onClick={() => setFilterType("todos")} data-testid="filter-todos">
+            <Button size="sm" variant={prefs.filterType === "todos" ? "default" : "outline"} onClick={() => setFilterType("todos")}>
               Todos
             </Button>
 
-            <Button
-              size="sm"
-              variant={prefs.filterType === "licenca" ? "default" : "outline"}
-              onClick={() => setFilterType(prefs.filterType === "licenca" ? "todos" : "licenca")}
-              data-testid="filter-licencas"
-              className="gap-2"
-            >
+            <Button size="sm" variant={prefs.filterType === "licenca" ? "default" : "outline"} onClick={() => setFilterType(prefs.filterType === "licenca" ? "todos" : "licenca")} className="gap-2">
               <FileText className="h-4 w-4" />
               Licenças
             </Button>
 
-            <Button
-              size="sm"
-              variant={prefs.filterType === "demanda" ? "default" : "outline"}
-              onClick={() => setFilterType(prefs.filterType === "demanda" ? "todos" : "demanda")}
-              data-testid="filter-demandas"
-              className="gap-2"
-            >
+            <Button size="sm" variant={prefs.filterType === "demanda" ? "default" : "outline"} onClick={() => setFilterType(prefs.filterType === "demanda" ? "todos" : "demanda")} className="gap-2">
               <ClipboardList className="h-4 w-4" />
               Demandas
             </Button>
 
-            <Button
-              size="sm"
-              variant={prefs.filterType === "condicionante" ? "default" : "outline"}
-              onClick={() => setFilterType(prefs.filterType === "condicionante" ? "todos" : "condicionante")}
-              data-testid="filter-condicionantes"
-              className="gap-2"
-            >
+            <Button size="sm" variant={prefs.filterType === "condicionante" ? "default" : "outline"} onClick={() => setFilterType(prefs.filterType === "condicionante" ? "todos" : "condicionante")} className="gap-2">
               <AlertTriangle className="h-4 w-4" />
               Condicionantes
             </Button>
 
-            <Button
-              size="sm"
-              variant={prefs.filterType === "cronograma" ? "default" : "outline"}
-              onClick={() => setFilterType(prefs.filterType === "cronograma" ? "todos" : "cronograma")}
-              data-testid="filter-cronograma"
-              className="gap-2"
-            >
+            <Button size="sm" variant={prefs.filterType === "cronograma" ? "default" : "outline"} onClick={() => setFilterType(prefs.filterType === "cronograma" ? "todos" : "cronograma")} className="gap-2">
               <Target className="h-4 w-4" />
               Cronograma
             </Button>
 
-            <Button
-              size="sm"
-              variant={prefs.filterType === "tarefa" ? "default" : "outline"}
-              onClick={() => setFilterType(prefs.filterType === "tarefa" ? "todos" : "tarefa")}
-              data-testid="filter-tarefas"
-              className="gap-2"
-            >
+            <Button size="sm" variant={prefs.filterType === "tarefa" ? "default" : "outline"} onClick={() => setFilterType(prefs.filterType === "tarefa" ? "todos" : "tarefa")} className="gap-2">
               <CheckCircle className="h-4 w-4" />
               Tarefas
             </Button>
@@ -1089,106 +979,19 @@ export default function Calendario() {
             </Badge>
             {prefs.filterType !== "todos" && <Badge variant="outline">Tipo: {getTipoLabel(prefs.filterType as EventType)}</Badge>}
             {prefs.onlyOverdue && <Badge variant="outline">Somente atrasados</Badge>}
-            {debouncedSearch && <Badge variant="outline">Busca: {debouncedSearch}</Badge>}
+            {debouncedSearch && <Badge variant="outline">Busca: {deferredSearch}</Badge>}
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-          <Card className="lg:col-span-1" data-testid="kpi-licencas">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/20">
-                <FileText className="h-5 w-5 text-red-600 dark:text-red-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.licencas}</p>
-                <p className="text-xs text-muted-foreground">Licenças</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-demandas">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/20">
-                <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.demandas}</p>
-                <p className="text-xs text-muted-foreground">Demandas</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-condicionantes">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/20">
-                <AlertTriangle className="h-5 w-5 text-amber-700 dark:text-amber-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.condicionantes}</p>
-                <p className="text-xs text-muted-foreground">Condicionantes</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-cronograma">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/20">
-                <Target className="h-5 w-5 text-purple-700 dark:text-purple-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.cronograma}</p>
-                <p className="text-xs text-muted-foreground">Cronograma</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-tarefas">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/20">
-                <CheckCircle className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.tarefas}</p>
-                <p className="text-xs text-muted-foreground">Tarefas</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-overdue">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/20">
-                <Clock className="h-5 w-5 text-red-700 dark:text-red-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.overdueCount}</p>
-                <p className="text-xs text-muted-foreground">Atrasados</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-due7">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/20">
-                <CalendarIcon className="h-5 w-5 text-amber-700 dark:text-amber-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.due7Count}</p>
-                <p className="text-xs text-muted-foreground">Próximos 7 dias</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-1" data-testid="kpi-total-entities">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800">
-                <Clock className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{monthKPIs.totalEntities}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
-              </div>
-            </CardContent>
-          </Card>
+          <KpiCard icon={FileText} label="Licenças" value={monthKPIs.licencas} iconWrapClass="bg-red-100 dark:bg-red-900/20" iconClass="text-red-600 dark:text-red-300" />
+          <KpiCard icon={ClipboardList} label="Demandas" value={monthKPIs.demandas} iconWrapClass="bg-blue-100 dark:bg-blue-900/20" iconClass="text-blue-600 dark:text-blue-300" />
+          <KpiCard icon={AlertTriangle} label="Condicionantes" value={monthKPIs.condicionantes} iconWrapClass="bg-amber-100 dark:bg-amber-900/20" iconClass="text-amber-700 dark:text-amber-300" />
+          <KpiCard icon={Target} label="Cronograma" value={monthKPIs.cronograma} iconWrapClass="bg-purple-100 dark:bg-purple-900/20" iconClass="text-purple-700 dark:text-purple-300" />
+          <KpiCard icon={CheckCircle} label="Tarefas" value={monthKPIs.tarefas} iconWrapClass="bg-emerald-100 dark:bg-emerald-900/20" iconClass="text-emerald-700 dark:text-emerald-300" />
+          <KpiCard icon={Clock} label="Atrasados" value={monthKPIs.overdueCount} iconWrapClass="bg-red-100 dark:bg-red-900/20" iconClass="text-red-700 dark:text-red-300" />
+          <KpiCard icon={CalendarIcon} label="Próximos 7 dias" value={monthKPIs.due7Count} iconWrapClass="bg-amber-100 dark:bg-amber-900/20" iconClass="text-amber-700 dark:text-amber-300" />
+          <KpiCard icon={Clock} label="Total" value={monthKPIs.totalEntities} iconWrapClass="bg-gray-100 dark:bg-gray-800" iconClass="text-gray-600 dark:text-gray-300" />
         </div>
       </div>
 
@@ -1203,13 +1006,13 @@ export default function Calendario() {
                 </CardTitle>
 
                 <div className="flex gap-2 flex-wrap">
-                  <Button size="sm" variant={prefs.agendaRange === "hoje" ? "default" : "outline"} onClick={() => setAgendaRange("hoje")} data-testid="agenda-range-hoje">
+                  <Button size="sm" variant={prefs.agendaRange === "hoje" ? "default" : "outline"} onClick={() => setAgendaRange("hoje")}>
                     Hoje
                   </Button>
-                  <Button size="sm" variant={prefs.agendaRange === "7d" ? "default" : "outline"} onClick={() => setAgendaRange("7d")} data-testid="agenda-range-7d">
+                  <Button size="sm" variant={prefs.agendaRange === "7d" ? "default" : "outline"} onClick={() => setAgendaRange("7d")}>
                     7 dias
                   </Button>
-                  <Button size="sm" variant={prefs.agendaRange === "30d" ? "default" : "outline"} onClick={() => setAgendaRange("30d")} data-testid="agenda-range-30d">
+                  <Button size="sm" variant={prefs.agendaRange === "30d" ? "default" : "outline"} onClick={() => setAgendaRange("30d")}>
                     30 dias
                   </Button>
                 </div>
@@ -1228,67 +1031,9 @@ export default function Calendario() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {agendaItems.map((event) => {
-                    const now = new Date();
-                    const done = isDoneStatus(event.status);
-                    const dueText = daysToLabel(event.date, now, done);
-
-                    return (
-                      <div
-                        key={event.id}
-                        className="p-3 rounded-lg border cursor-pointer hover:bg-muted transition-colors"
-                        onClick={() => navigate(event.link)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") navigate(event.link);
-                        }}
-                        data-testid={`agenda-${event.id}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${eventDotClass[event.type]}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="font-medium text-sm truncate">{event.title}</div>
-                                  <Badge variant="outline" className="text-xs">
-                                    {getTipoLabel(event.type)}
-                                  </Badge>
-                                  {event.prioridade && (
-                                    <Badge variant="outline" className={`text-xs ${priorityClass[event.prioridade] || ""}`}>
-                                      {event.prioridade}
-                                    </Badge>
-                                  )}
-                                  {event.overdue && (
-                                    <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20">
-                                      Atrasado
-                                    </Badge>
-                                  )}
-                                </div>
-
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Data: {format(event.date, "dd/MM/yyyy")} . {dueText}
-                                </div>
-
-                                {event.empreendimentoNome && <div className="text-xs text-muted-foreground mt-1 truncate">Empreendimento: {event.empreendimentoNome}</div>}
-                                {event.licencaNumero && <div className="text-xs text-muted-foreground mt-1 truncate">Licença: {event.licencaNumero}</div>}
-                                {event.status && <div className="text-xs text-muted-foreground mt-1 truncate">Status: {event.status}</div>}
-                              </div>
-
-                              <div className="text-xs text-muted-foreground whitespace-nowrap">{format(event.date, "EEE", { locale: ptBR })}</div>
-                            </div>
-
-                            {event.rangeStart && event.rangeEnd && (event.type === "demanda" || event.type === "cronograma") && (
-                              <div className="text-xs text-muted-foreground mt-2">
-                                Intervalo: {format(event.rangeStart, "dd/MM/yyyy")} até {format(event.rangeEnd, "dd/MM/yyyy")}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {agendaItems.map((event) => (
+                    <AgendaRow key={event.entityId} event={event} onOpen={() => navigate(event.link)} />
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -1325,14 +1070,17 @@ export default function Calendario() {
                 <CardTitle className="text-xl">
                   {format(currentDate, "MMMM yyyy", { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}
                 </CardTitle>
+
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={goPrevMonth} data-testid="button-prev-month" aria-label="Mês anterior">
+                  <Button variant="outline" size="icon" onClick={goPrevMonth} aria-label="Mês anterior">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={goToday} data-testid="button-today" aria-label="Ir para hoje">
+
+                  <Button variant="outline" size="sm" onClick={goToday} aria-label="Ir para hoje">
                     Hoje
                   </Button>
-                  <Button variant="outline" size="icon" onClick={goNextMonth} data-testid="button-next-month" aria-label="Próximo mês">
+
+                  <Button variant="outline" size="icon" onClick={goNextMonth} aria-label="Próximo mês">
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -1343,7 +1091,7 @@ export default function Calendario() {
 
             <CardContent>
               <div className="grid grid-cols-7 gap-1">
-                {weekDays.map((day) => (
+                {WEEK_DAYS.map((day) => (
                   <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
                     {day}
                   </div>
@@ -1355,7 +1103,7 @@ export default function Calendario() {
 
                 {daysInMonth.map((day) => {
                   const dayEvents = getEventsForDay(day);
-                  const isSelected = selectedDate && isSameDay(day, selectedDate);
+                  const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
                   const hasEvents = dayEvents.length > 0;
 
                   const countsByType = dayEvents.reduce<Record<EventType, number>>(
@@ -1372,7 +1120,7 @@ export default function Calendario() {
 
                   return (
                     <button
-                      key={day.toString()}
+                      key={format(day, "yyyy-MM-dd")}
                       type="button"
                       onClick={() => setSelectedDate(day)}
                       className={`
@@ -1384,17 +1132,14 @@ export default function Calendario() {
                         focus:outline-none focus:ring-2 focus:ring-primary/60
                       `}
                       aria-label={ariaLabel}
-                      data-testid={`day-${format(day, "yyyy-MM-dd")}`}
                     >
                       <div className="flex flex-col h-full">
-                        <span className={`text-sm ${isToday(day) ? "font-bold text-green-600" : ""}`}>
-                          {format(day, "d")}
-                        </span>
+                        <span className={`text-sm ${isToday(day) ? "font-bold text-green-600" : ""}`}>{format(day, "d")}</span>
 
                         {hasEvents && (
-                          <div className="flex flex-wrap gap-0.5 mt-1">
+                          <div className="flex flex-wrap gap-0.5 mt-1" aria-hidden="true">
                             {dayEvents.slice(0, 4).map((event) => (
-                              <div key={event.entityId} className={`w-2 h-2 rounded-full ${eventDotClass[event.type]}`} title={event.title} />
+                              <div key={event.entityId} className={`w-2 h-2 rounded-full ${EVENT_DOT_CLASS[event.type]}`} title={event.title} />
                             ))}
                             {dayEvents.length > 4 && <span className="text-xs text-muted-foreground">+{dayEvents.length - 4}</span>}
                           </div>
@@ -1408,7 +1153,7 @@ export default function Calendario() {
               <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t">
                 {(["licenca", "demanda", "condicionante", "cronograma", "tarefa"] as EventType[]).map((t) => (
                   <div key={t} className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${eventDotClass[t]}`} />
+                    <div className={`w-3 h-3 rounded-full ${EVENT_DOT_CLASS[t]}`} />
                     <span className="text-sm text-muted-foreground">{getTipoLabel(t)}</span>
                   </div>
                 ))}
@@ -1433,88 +1178,23 @@ export default function Calendario() {
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[420px] overflow-y-auto">
-                  {selectedDayEvents.map((event) => {
-                    const now = new Date();
-                    const done = isDoneStatus(event.status);
-                    const dueText = daysToLabel(event.date, now, done);
-
-                    return (
-                      <div
-                        key={event.entityId}
-                        className="p-3 rounded-lg border cursor-pointer hover:bg-muted transition-colors"
-                        onClick={() => navigate(event.link)}
-                        data-testid={`event-${event.entityId}`}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") navigate(event.link);
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${eventDotClass[event.type]}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="font-medium text-sm truncate">{event.title}</p>
-                                <div className="text-xs text-muted-foreground mt-1">{dueText}</div>
-                              </div>
-
-                              {event.overdue && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20"
-                                >
-                                  Atrasado
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                              <Badge variant="outline" className="text-xs">
-                                {getTipoLabel(event.type)}
-                              </Badge>
-
-                              {event.prioridade && (
-                                <Badge variant="outline" className={`text-xs ${priorityClass[event.prioridade] || ""}`}>
-                                  {event.prioridade}
-                                </Badge>
-                              )}
-
-                              {event.cronogramaTipo && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {event.cronogramaTipo}
-                                </Badge>
-                              )}
-                            </div>
-
-                            {event.empreendimentoNome && <p className="text-xs text-muted-foreground mt-2 truncate">Empreendimento: {event.empreendimentoNome}</p>}
-                            {event.licencaNumero && <p className="text-xs text-muted-foreground mt-1 truncate">Licença: {event.licencaNumero}</p>}
-                            {event.status && <p className="text-xs text-muted-foreground mt-1 truncate">Status: {event.status}</p>}
-
-                            {event.rangeStart && event.rangeEnd && (event.type === "demanda" || event.type === "cronograma") && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                Intervalo: {format(event.rangeStart, "dd/MM/yyyy")} até {format(event.rangeEnd, "dd/MM/yyyy")}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {selectedDayEvents.map((event) => (
+                    <SideEventCard key={event.entityId} event={event} onOpen={() => navigate(event.link)} />
+                  ))}
                 </div>
               )}
 
               {selectedDate && (
                 <div className="mt-4 pt-4 border-t space-y-2">
-                  <Button variant="outline" className="w-full justify-start" onClick={() => setViewMode("agenda")} data-testid="button-open-agenda">
+                  <Button variant="outline" className="w-full justify-start" onClick={() => setViewMode("agenda")}>
                     Abrir em Agenda
                   </Button>
 
-                  <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/demandas")} data-testid="button-open-demandas">
+                  <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/demandas")}>
                     Abrir Demandas
                   </Button>
 
-                  <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/condicionantes/pendentes")} data-testid="button-open-condicionantes">
+                  <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/condicionantes/pendentes")}>
                     Abrir Condicionantes
                   </Button>
                 </div>
@@ -1523,6 +1203,166 @@ export default function Calendario() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+/* =========================
+   Subcomponentes
+   ========================= */
+
+function KpiCard(props: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+  iconWrapClass: string;
+  iconClass: string;
+}) {
+  const Icon = props.icon;
+  return (
+    <Card className="lg:col-span-1">
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className={`p-2 rounded-full ${props.iconWrapClass}`}>
+          <Icon className={`h-5 w-5 ${props.iconClass}`} />
+        </div>
+        <div>
+          <p className="text-2xl font-bold">{props.value}</p>
+          <p className="text-xs text-muted-foreground">{props.label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AgendaRow({ event, onOpen }: { event: CalendarEvent; onOpen: () => void }) {
+  const now = new Date();
+  const done = isDoneStatus(event.status);
+  const dueText = daysToLabel(event.date, now, done);
+
+  return (
+    <div
+      className="p-3 rounded-lg border cursor-pointer hover:bg-muted transition-colors"
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen();
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${EVENT_DOT_CLASS[event.type]}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="font-medium text-sm truncate">{event.title}</div>
+
+                <Badge variant="outline" className="text-xs">
+                  {getTipoLabel(event.type)}
+                </Badge>
+
+                {event.prioridade && (
+                  <Badge variant="outline" className={`text-xs ${PRIORITY_CLASS[event.prioridade] || ""}`}>
+                    {event.prioridade}
+                  </Badge>
+                )}
+
+                {event.overdue && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20"
+                  >
+                    Atrasado
+                  </Badge>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground mt-1">
+                Data: {format(event.date, "dd/MM/yyyy")} . {dueText}
+              </div>
+
+              {event.empreendimentoNome && <div className="text-xs text-muted-foreground mt-1 truncate">Empreendimento: {event.empreendimentoNome}</div>}
+              {event.licencaNumero && <div className="text-xs text-muted-foreground mt-1 truncate">Licença: {event.licencaNumero}</div>}
+              {event.status && <div className="text-xs text-muted-foreground mt-1 truncate">Status: {event.status}</div>}
+            </div>
+
+            <div className="text-xs text-muted-foreground whitespace-nowrap">{format(event.date, "EEE", { locale: ptBR })}</div>
+          </div>
+
+          {event.rangeStart && event.rangeEnd && (event.type === "demanda" || event.type === "cronograma") && (
+            <div className="text-xs text-muted-foreground mt-2">
+              Intervalo: {format(event.rangeStart, "dd/MM/yyyy")} até {format(event.rangeEnd, "dd/MM/yyyy")}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SideEventCard({ event, onOpen }: { event: CalendarEvent; onOpen: () => void }) {
+  const now = new Date();
+  const done = isDoneStatus(event.status);
+  const dueText = daysToLabel(event.date, now, done);
+
+  return (
+    <div
+      className="p-3 rounded-lg border cursor-pointer hover:bg-muted transition-colors"
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen();
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${EVENT_DOT_CLASS[event.type]}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{event.title}</p>
+              <div className="text-xs text-muted-foreground mt-1">{dueText}</div>
+            </div>
+
+            {event.overdue && (
+              <Badge
+                variant="outline"
+                className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20"
+              >
+                Atrasado
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <Badge variant="outline" className="text-xs">
+              {getTipoLabel(event.type)}
+            </Badge>
+
+            {event.prioridade && (
+              <Badge variant="outline" className={`text-xs ${PRIORITY_CLASS[event.prioridade] || ""}`}>
+                {event.prioridade}
+              </Badge>
+            )}
+
+            {event.cronogramaTipo && (
+              <Badge variant="secondary" className="text-xs">
+                {event.cronogramaTipo}
+              </Badge>
+            )}
+          </div>
+
+          {event.empreendimentoNome && <p className="text-xs text-muted-foreground mt-2 truncate">Empreendimento: {event.empreendimentoNome}</p>}
+          {event.licencaNumero && <p className="text-xs text-muted-foreground mt-1 truncate">Licença: {event.licencaNumero}</p>}
+          {event.status && <p className="text-xs text-muted-foreground mt-1 truncate">Status: {event.status}</p>}
+
+          {event.rangeStart && event.rangeEnd && (event.type === "demanda" || event.type === "cronograma") && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Intervalo: {format(event.rangeStart, "dd/MM/yyyy")} até {format(event.rangeEnd, "dd/MM/yyyy")}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
