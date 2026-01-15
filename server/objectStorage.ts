@@ -51,7 +51,7 @@ export class ObjectStorageService {
   }
 
   // Gets the upload URL for a PDF document.
-  async getPdfUploadURL(): Promise<{ uploadUrl: string; filePath: string }> {
+  async getPdfUploadURL(customFilename?: string): Promise<{ uploadUrl: string; filePath: string }> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
@@ -61,7 +61,10 @@ export class ObjectStorageService {
     }
 
     const objectId = randomUUID();
-    const fullPath = `${privateObjectDir}/pdfs/${objectId}.pdf`;
+    const safeFilename = customFilename 
+      ? customFilename.replace(/[^\w.\-() ]+/g, "_").replace(/\.pdf$/i, "") + ".pdf"
+      : `${objectId}.pdf`;
+    const fullPath = `${privateObjectDir}/pdfs/${safeFilename}`;
 
     const { bucketName, objectName } = parseObjectPath(fullPath);
 
@@ -75,7 +78,7 @@ export class ObjectStorageService {
 
     return {
       uploadUrl,
-      filePath: `/files/pdfs/${objectId}.pdf`
+      filePath: `/files/pdfs/${safeFilename}`
     };
   }
 
