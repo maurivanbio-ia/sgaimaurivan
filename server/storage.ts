@@ -313,6 +313,7 @@ export interface IStorage {
     search?: string;
     localizacaoAtual?: string;
     empreendimentoId?: number;
+    unidade?: string;
   }): Promise<Equipamento[]>;
   getEquipamentoById(id: number): Promise<Equipamento | undefined>;
   createEquipamento(equipamento: InsertEquipamento): Promise<Equipamento>;
@@ -2617,6 +2618,7 @@ export class DatabaseStorage implements IStorage {
     search?: string;
     localizacaoAtual?: string;
     empreendimentoId?: number;
+    unidade?: string;
   }): Promise<Equipamento[]> {
     let query = db.select().from(equipamentos).$dynamic();
 
@@ -2637,6 +2639,10 @@ export class DatabaseStorage implements IStorage {
 
       if (filters.empreendimentoId) {
         conditions.push(eq(equipamentos.empreendimentoId, filters.empreendimentoId));
+      }
+
+      if (filters.unidade) {
+        conditions.push(eq(equipamentos.unidade, filters.unidade));
       }
 
       if (filters.search) {

@@ -2776,8 +2776,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all equipamentos with pagination, filters and sorting
   app.get('/api/equipamentos', requireAuth, async (req, res) => {
     try {
-      const { tipo, status, search, localizacaoAtual, empreendimentoId, page, pageSize, sort, dir } = req.query;
+      const { tipo, status, search, localizacaoAtual, empreendimentoId, page, pageSize, sort, dir, unidade } = req.query;
       const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      
+      // Multi-tenant: admin/diretor can access all units or filter by specific one
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      const effectiveUnidade = isPrivileged 
+        ? (unidade ? String(unidade) : undefined) 
+        : userUnidade;
       
       // Se tem parâmetros de paginação, usar método paginado
       if (page || pageSize || sort) {
@@ -2789,20 +2796,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tipo: tipo ? String(tipo) : undefined,
           status: status ? String(status) : undefined,
           search: search ? String(search) : undefined,
-          unidade: userUnidade,
+          unidade: effectiveUnidade,
           empreendimentoId: empreendimentoId ? parseInt(String(empreendimentoId)) : undefined,
         };
         const result = await storage.getEquipamentosPaginated(options);
         return res.json(result);
       }
       
-      // Sem paginação, retorna lista simples (compatibilidade)
+      // Sem paginação, retorna lista simples (com filtro multi-tenant)
       const filters: any = {};
       if (tipo) filters.tipo = String(tipo);
       if (status) filters.status = String(status);
       if (search) filters.search = String(search);
       if (localizacaoAtual) filters.localizacaoAtual = String(localizacaoAtual);
       if (empreendimentoId) filters.empreendimentoId = parseInt(String(empreendimentoId));
+      if (effectiveUnidade) filters.unidade = effectiveUnidade;
 
       const equipamentos = await storage.getEquipamentos(filters);
       res.json(equipamentos);
@@ -2842,6 +2850,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to check equipment access (multi-tenant) - defined early for use in all routes
+  async function checkEquipamentoAccessEarly(equipamentoId: number, userUnidade: string | undefined, userRole: string | undefined): Promise<{ allowed: boolean; equipamento: any | null; error?: string }> {
+    const equipamento = await storage.getEquipamentoById(equipamentoId);
+    if (!equipamento) {
+      return { allowed: false, equipamento: null, error: 'Equipamento not found' };
+    }
+    const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+    if (!isPrivileged && equipamento.unidade && equipamento.unidade !== userUnidade) {
+      return { allowed: false, equipamento: null, error: 'Acesso negado a este equipamento' };
+    }
+    return { allowed: true, equipamento };
+  }
+
   // Get single equipamento
   app.get('/api/equipamentos/:id', requireAuth, async (req, res) => {
     try {
@@ -2849,10 +2870,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
       res.json(equipamento);
     } catch (error) {
       console.error('Error fetching equipamento:', error);
@@ -2863,8 +2884,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create equipamento
   app.post('/api/equipamentos', requireAuth, async (req, res) => {
     try {
+      const userUnidade = req.user?.unidade;
+      const userRole = req.user?.role;
+      const isPrivileged = userRole === 'admin' || userRole === 'diretor';
+      
+      // Non-privileged users can only create equipment for their own unit
+      const equipamentoUnidade = req.body.unidade || userUnidade;
+      if (!isPrivileged && equipamentoUnidade !== userUnidade) {
+        return res.status(403).json({ error: 'Não é permitido criar equipamento para outra unidade' });
+      }
+
       const validatedData = insertEquipamentoSchema.parse({
         ...req.body,
+        unidade: equipamentoUnidade,
         criadoPor: req.session.userId,
       });
       const equipamento = await storage.createEquipamento(validatedData);
@@ -2885,6 +2917,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
+      
+      const { allowed, equipamento: existing, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(existing ? 403 : 404).json({ error });
+      
       const equipamento = await storage.updateEquipamento(id, req.body);
       res.json(equipamento);
     } catch (error) {
@@ -2900,6 +2936,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
+      
+      const { allowed, equipamento: existing, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(existing ? 403 : 404).json({ error });
+      
       const deleted = await storage.deleteEquipamento(id);
       if (!deleted) {
         return res.status(404).json({ error: 'Equipamento not found' });
@@ -2919,10 +2959,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { extension = 'jpg' } = req.body;
       const { ObjectStorageService } = await import("./objectStorage");
@@ -2944,10 +2982,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { filePath, descricao } = req.body;
       if (!filePath) {
@@ -2991,10 +3027,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       let imagens: Array<{ filePath: string; descricao?: string; dataUpload: string }> = [];
       if (equipamento.imagensDanoJson) {
@@ -3036,10 +3070,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid equipamento ID' });
       }
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) {
-        return res.status(404).json({ error: 'Equipamento not found' });
-      }
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { filePath } = req.body;
       if (!filePath) {
@@ -3088,8 +3120,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
       
       const eventos = await storage.getEquipamentoEventos(id);
       res.json(eventos);
@@ -3105,16 +3137,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { tipo, descricao, detalhesJson } = req.body;
-      if (!tipo) return res.status(400).json({ error: 'tipo is required' });
+      if (!tipo || typeof tipo !== 'string') return res.status(400).json({ error: 'tipo is required and must be a string' });
 
       const evento = await storage.createEquipamentoEvento({
         equipamentoId: id,
         tipo,
-        descricao: descricao || null,
+        descricao: typeof descricao === 'string' ? descricao : null,
         detalhesJson: detalhesJson ? JSON.stringify(detalhesJson) : null,
         criadoPor: req.session.userId || null,
       });
@@ -3134,8 +3166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
       
       const checkouts = await storage.getEquipamentoCheckouts(id);
       res.json(checkouts);
@@ -3151,6 +3183,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+      
       const checkout = await storage.getCheckoutAtivo(id);
       res.json(checkout || null);
     } catch (error) {
@@ -3165,8 +3200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       // Check if there's already an active checkout
       const checkoutAtivo = await storage.getCheckoutAtivo(id);
@@ -3175,7 +3210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { responsavel, dataRetirada, dataDevolucaoPrevista, projeto, localDestino, observacoes } = req.body;
-      if (!responsavel) return res.status(400).json({ error: 'responsavel is required' });
+      if (!responsavel || typeof responsavel !== 'string') {
+        return res.status(400).json({ error: 'responsavel is required and must be a string' });
+      }
 
       const checkout = await storage.createEquipamentoCheckout({
         equipamentoId: id,
@@ -3183,10 +3220,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responsavel,
         dataRetirada: dataRetirada ? new Date(dataRetirada) : new Date(),
         dataDevolucaoPrevista: dataDevolucaoPrevista ? new Date(dataDevolucaoPrevista) : null,
-        projeto: projeto || null,
-        localDestino: localDestino || null,
+        projeto: typeof projeto === 'string' ? projeto : null,
+        localDestino: typeof localDestino === 'string' ? localDestino : null,
         condicaoRetirada: 'bom',
-        observacoes: observacoes || null,
+        observacoes: typeof observacoes === 'string' ? observacoes : null,
       });
 
       // Update equipment status to "em_uso"
@@ -3217,18 +3254,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid IDs' });
       }
 
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(equipamentoId, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
       const { condicaoDevolucao, observacoes, novaLocalizacao } = req.body;
 
       const checkout = await storage.finalizarCheckout(checkoutId, {
         dataDevolucaoReal: new Date(),
-        condicaoDevolucao: condicaoDevolucao || 'bom',
-        observacoes,
+        condicaoDevolucao: typeof condicaoDevolucao === 'string' ? condicaoDevolucao : 'bom',
+        observacoes: typeof observacoes === 'string' ? observacoes : undefined,
       });
 
       // Update equipment status back to "disponivel"
       await storage.updateEquipamento(equipamentoId, { 
         status: 'disponivel', 
-        localizacaoAtual: novaLocalizacao || 'Escritório' 
+        localizacaoAtual: typeof novaLocalizacao === 'string' ? novaLocalizacao : 'Escritório' 
       });
 
       // Log evento
@@ -3255,8 +3295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
       
       const ocorrencias = await storage.getEquipamentoOcorrencias(id);
       res.json(ocorrencias);
@@ -3272,27 +3312,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipamento ID' });
       
-      const equipamento = await storage.getEquipamentoById(id);
-      if (!equipamento) return res.status(404).json({ error: 'Equipamento not found' });
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(id, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
 
       const { tipo, descricao, gravidade, dataOcorrencia, reportadoPor, imagensJson } = req.body;
-      if (!tipo || !descricao) {
-        return res.status(400).json({ error: 'tipo and descricao are required' });
+      if (!tipo || typeof tipo !== 'string' || !descricao || typeof descricao !== 'string') {
+        return res.status(400).json({ error: 'tipo and descricao are required and must be strings' });
       }
+
+      const validGravidades = ['baixa', 'media', 'alta', 'critica'];
+      const gravidadeValue = validGravidades.includes(gravidade) ? gravidade : 'media';
 
       const ocorrencia = await storage.createEquipamentoOcorrencia({
         equipamentoId: id,
         tipo,
         descricao,
-        gravidade: gravidade || 'media',
+        gravidade: gravidadeValue,
         status: 'aberta',
         dataOcorrencia: dataOcorrencia ? new Date(dataOcorrencia) : new Date(),
-        reportadoPor: reportadoPor || null,
+        reportadoPor: typeof reportadoPor === 'string' ? reportadoPor : null,
         imagensJson: imagensJson ? JSON.stringify(imagensJson) : null,
       });
 
       // If severity is high, update equipment status
-      if (gravidade === 'alta' || gravidade === 'critica') {
+      if (gravidadeValue === 'alta' || gravidadeValue === 'critica') {
         await storage.updateEquipamento(id, { status: 'em_manutencao' });
       }
 
@@ -3301,7 +3344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         equipamentoId: id,
         tipo: 'ocorrencia',
         descricao: `Ocorrência registrada: ${tipo} - ${descricao.substring(0, 100)}`,
-        detalhesJson: JSON.stringify({ ocorrenciaId: ocorrencia.id, gravidade }),
+        detalhesJson: JSON.stringify({ ocorrenciaId: ocorrencia.id, gravidade: gravidadeValue }),
         criadoPor: req.session.userId || null,
       });
       
@@ -3321,19 +3364,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid IDs' });
       }
 
+      const { allowed, equipamento, error } = await checkEquipamentoAccessEarly(equipamentoId, req.user?.unidade, req.user?.role);
+      if (!allowed) return res.status(equipamento ? 403 : 404).json({ error });
+
       const { status, resolucao, custoReparo, dataResolucao } = req.body;
+
+      const validStatuses = ['aberta', 'em_analise', 'em_reparo', 'resolvida', 'cancelada'];
+      if (status && !validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status value' });
+      }
 
       const ocorrencia = await storage.updateEquipamentoOcorrencia(ocorrenciaId, {
         status,
-        resolucao,
+        resolucao: typeof resolucao === 'string' ? resolucao : undefined,
         custoReparo: custoReparo ? String(custoReparo) : undefined,
         dataResolucao: dataResolucao ? new Date(dataResolucao) : (status === 'resolvida' ? new Date() : undefined),
       });
 
       // If resolved, update equipment status back to disponivel
       if (status === 'resolvida') {
-        const equipamento = await storage.getEquipamentoById(equipamentoId);
-        if (equipamento?.status === 'em_manutencao') {
+        const currentEquipamento = await storage.getEquipamentoById(equipamentoId);
+        if (currentEquipamento?.status === 'em_manutencao') {
           await storage.updateEquipamento(equipamentoId, { status: 'disponivel' });
         }
       }
