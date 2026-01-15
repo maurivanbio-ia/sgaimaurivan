@@ -763,101 +763,14 @@ export const equipamentos = pgTable("equipamentos", {
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
 });
 
-// Eventos de Equipamentos (log de auditoria)
-export const equipamentoEventos = pgTable("equipamento_eventos", {
-  id: serial("id").primaryKey(),
-  equipamentoId: integer("equipamento_id").references(() => equipamentos.id).notNull(),
-  tipo: text("tipo").notNull(), // criacao, edicao, manutencao, calibracao, inspecao, transferencia, baixa
-  descricao: text("descricao").notNull(),
-  dadosAnteriores: text("dados_anteriores"), // JSON com estado anterior
-  dadosNovos: text("dados_novos"), // JSON com novo estado
-  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
-  criadoEm: timestamp("criado_em").defaultNow().notNull(),
-});
-
-// Checkouts de Equipamentos (retirada e devolução)
-export const equipamentoCheckouts = pgTable("equipamento_checkouts", {
-  id: serial("id").primaryKey(),
-  equipamentoId: integer("equipamento_id").references(() => equipamentos.id).notNull(),
-  tipo: text("tipo").notNull(), // retirada, devolucao
-  responsavel: text("responsavel").notNull(),
-  destino: text("destino"), // local ou empreendimento de destino
-  finalidade: text("finalidade"), // motivo da retirada
-  dataRetirada: timestamp("data_retirada").notNull(),
-  dataDevolucaoPrevista: timestamp("data_devolucao_prevista"),
-  dataDevolucaoReal: timestamp("data_devolucao_real"),
-  condicaoRetirada: text("condicao_retirada"), // bom, regular, ruim
-  condicaoDevolucao: text("condicao_devolucao"),
-  observacoes: text("observacoes"),
-  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
-  criadoEm: timestamp("criado_em").defaultNow().notNull(),
-});
-
-// Ocorrências de Equipamentos (avarias, danos, incidentes)
-export const equipamentoOcorrencias = pgTable("equipamento_ocorrencias", {
-  id: serial("id").primaryKey(),
-  equipamentoId: integer("equipamento_id").references(() => equipamentos.id).notNull(),
-  tipo: text("tipo").notNull(), // avaria, perda, furto, acidente, desgaste, outro
-  gravidade: text("gravidade").notNull(), // leve, moderada, grave, critica
-  descricao: text("descricao").notNull(),
-  dataOcorrencia: timestamp("data_ocorrencia").notNull(),
-  localOcorrencia: text("local_ocorrencia"),
-  responsavelReporte: text("responsavel_reporte").notNull(),
-  custoEstimado: decimal("custo_estimado", { precision: 12, scale: 2 }),
-  custoReal: decimal("custo_real", { precision: 12, scale: 2 }),
-  status: text("status").notNull().default("aberta"), // aberta, em_analise, em_reparo, resolvida, baixada
-  resolucao: text("resolucao"),
-  dataResolucao: timestamp("data_resolucao"),
-  imagensJson: text("imagens_json"), // JSON array de URLs
-  usuarioId: integer("usuario_id").references(() => users.id).notNull(),
-  criadoEm: timestamp("criado_em").defaultNow().notNull(),
-  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
-});
-
 // Relations
-export const equipamentosRelations = relations(equipamentos, ({ one, many }) => ({
+export const equipamentosRelations = relations(equipamentos, ({ one }) => ({
   empreendimento: one(empreendimentos, {
     fields: [equipamentos.empreendimentoId],
     references: [empreendimentos.id],
   }),
   criadoPorUser: one(users, {
     fields: [equipamentos.criadoPor],
-    references: [users.id],
-  }),
-  eventos: many(equipamentoEventos),
-  checkouts: many(equipamentoCheckouts),
-  ocorrencias: many(equipamentoOcorrencias),
-}));
-
-export const equipamentoEventosRelations = relations(equipamentoEventos, ({ one }) => ({
-  equipamento: one(equipamentos, {
-    fields: [equipamentoEventos.equipamentoId],
-    references: [equipamentos.id],
-  }),
-  usuario: one(users, {
-    fields: [equipamentoEventos.usuarioId],
-    references: [users.id],
-  }),
-}));
-
-export const equipamentoCheckoutsRelations = relations(equipamentoCheckouts, ({ one }) => ({
-  equipamento: one(equipamentos, {
-    fields: [equipamentoCheckouts.equipamentoId],
-    references: [equipamentos.id],
-  }),
-  usuario: one(users, {
-    fields: [equipamentoCheckouts.usuarioId],
-    references: [users.id],
-  }),
-}));
-
-export const equipamentoOcorrenciasRelations = relations(equipamentoOcorrencias, ({ one }) => ({
-  equipamento: one(equipamentos, {
-    fields: [equipamentoOcorrencias.equipamentoId],
-    references: [equipamentos.id],
-  }),
-  usuario: one(users, {
-    fields: [equipamentoOcorrencias.usuarioId],
     references: [users.id],
   }),
 }));
@@ -1110,22 +1023,6 @@ export const insertEquipamentoSchema = createInsertSchema(equipamentos).omit({
   atualizadoEm: true,
 });
 
-export const insertEquipamentoEventoSchema = createInsertSchema(equipamentoEventos).omit({
-  id: true,
-  criadoEm: true,
-});
-
-export const insertEquipamentoCheckoutSchema = createInsertSchema(equipamentoCheckouts).omit({
-  id: true,
-  criadoEm: true,
-});
-
-export const insertEquipamentoOcorrenciaSchema = createInsertSchema(equipamentoOcorrencias).omit({
-  id: true,
-  criadoEm: true,
-  atualizadoEm: true,
-});
-
 // Financial insert schemas
 export const insertCategoriaFinanceiraSchema = createInsertSchema(categoriasFinanceiras).omit({
   id: true,
@@ -1168,15 +1065,6 @@ export type HistoricoMovimentacao = typeof historicoDemandasMovimentacoes.$infer
 // Equipment types
 export type InsertEquipamento = z.infer<typeof insertEquipamentoSchema>;
 export type Equipamento = typeof equipamentos.$inferSelect;
-
-export type InsertEquipamentoEvento = z.infer<typeof insertEquipamentoEventoSchema>;
-export type EquipamentoEvento = typeof equipamentoEventos.$inferSelect;
-
-export type InsertEquipamentoCheckout = z.infer<typeof insertEquipamentoCheckoutSchema>;
-export type EquipamentoCheckout = typeof equipamentoCheckouts.$inferSelect;
-
-export type InsertEquipamentoOcorrencia = z.infer<typeof insertEquipamentoOcorrenciaSchema>;
-export type EquipamentoOcorrencia = typeof equipamentoOcorrencias.$inferSelect;
 
 // Financial types
 export type InsertCategoriaFinanceira = z.infer<typeof insertCategoriaFinanceiraSchema>;
