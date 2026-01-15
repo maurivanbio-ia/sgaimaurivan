@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
@@ -24,6 +24,8 @@ import {
   List,
   LayoutGrid,
   RefreshCcw,
+  Filter,
+  Slash,
 } from "lucide-react";
 
 import {
@@ -251,33 +253,37 @@ function sortEvents(a: CalendarEvent, b: CalendarEvent) {
    Persistência leve de preferências
    ========================= */
 
-const LS_KEY = "calendario:pref:v1";
+const LS_KEY = "calendario:pref:v2";
 
 type StoredPrefs = {
   viewMode: ViewMode;
   filterType: "todos" | EventType;
   agendaRange: AgendaRange;
+  onlyOverdue: boolean;
 };
 
 function readPrefs(): StoredPrefs {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { viewMode: "month", filterType: "todos", agendaRange: "7d" };
+    if (!raw) return { viewMode: "month", filterType: "todos", agendaRange: "7d", onlyOverdue: false };
     const p = JSON.parse(raw) as Partial<StoredPrefs>;
-    return {
-      viewMode: p.viewMode === "agenda" ? "agenda" : "month",
-      filterType:
-        p.filterType === "licenca" ||
-        p.filterType === "demanda" ||
-        p.filterType === "condicionante" ||
-        p.filterType === "cronograma" ||
-        p.filterType === "tarefa"
-          ? p.filterType
-          : "todos",
-      agendaRange: p.agendaRange === "hoje" || p.agendaRange === "30d" ? p.agendaRange : "7d",
-    };
+
+    const filterType =
+      p.filterType === "licenca" ||
+      p.filterType === "demanda" ||
+      p.filterType === "condicionante" ||
+      p.filterType === "cronograma" ||
+      p.filterType === "tarefa"
+        ? p.filterType
+        : "todos";
+
+    const agendaRange = p.agendaRange === "hoje" || p.agendaRange === "30d" ? p.agendaRange : "7d";
+    const viewMode = p.viewMode === "agenda" ? "agenda" : "month";
+    const onlyOverdue = Boolean(p.onlyOverdue);
+
+    return { viewMode, filterType, agendaRange, onlyOverdue };
   } catch {
-    return { viewMode: "month", filterType: "todos", agendaRange: "7d" };
+    return { viewMode: "month", filterType: "todos", agendaRange: "7d", onlyOverdue: false };
   }
 }
 
@@ -308,15 +314,24 @@ export default function Calendario() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [prefs, setPrefs] = useState<StoredPrefs>(() => readPrefs());
+
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     writePrefs(prefs);
   }, [prefs]);
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 180);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
   const setViewMode = (viewMode: ViewMode) => setPrefs((p) => ({ ...p, viewMode }));
   const setFilterType = (filterType: "todos" | EventType) => setPrefs((p) => ({ ...p, filterType }));
   const setAgendaRange = (agendaRange: AgendaRange) => setPrefs((p) => ({ ...p, agendaRange }));
+  const setOnlyOverdue = (onlyOverdue: boolean) => setPrefs((p) => ({ ...p, onlyOverdue }));
 
   /* =========================
      Fetch padronizado
@@ -327,13 +342,8 @@ export default function Calendario() {
   const fetcher = useCallback(async <T,>(url: string): Promise<T> => {
     const res = await apiRequest("GET", url);
 
-    if (res.status === 204) {
-      return ([] as unknown) as T;
-    }
-
-    if (res.status === 404) {
-      return ([] as unknown) as T;
-    }
+    if (res.status === 204) return ([] as unknown) as T;
+    if (res.status === 404) return ([] as unknown) as T;
 
     if (!res.ok) {
       const msg = await res.text().catch(() => "");
@@ -384,11 +394,6 @@ export default function Calendario() {
     staleTime: 60_000,
     retry: 2,
   });
-
-  /* =========================
-     Loading.
-     Ajuste importante: era && e isso impede skeleton na maioria dos cenários.
-     ========================= */
 
   const anyLoading =
     licencasQ.isLoading ||
@@ -465,6 +470,7 @@ export default function Calendario() {
       const overdue = isBefore(startOfDay(end), today) && !done;
 
       const title = dem.titulo;
+      const pri = normalizeText(dem.prioridade || "");
       const searchText = normalizeText(`${title} ${dem.empreendimentoNome} ${dem.status} ${dem.prioridade}`);
 
       all.push({
@@ -475,7 +481,7 @@ export default function Calendario() {
         type: "demanda",
         status: dem.status,
         link: `/demandas`,
-        prioridade: normalizeText(dem.prioridade),
+        prioridade: pri || undefined,
         overdue,
         empreendimentoId: dem.empreendimentoId,
         empreendimentoNome: dem.empreendimentoNome,
@@ -530,6 +536,7 @@ export default function Calendario() {
           : "Etapa";
 
       const title = `${tipoLabel}: ${item.titulo}`;
+      const pri = item.prioridade ? normalizeText(item.prioridade) : "";
       const searchText = normalizeText(`${title} ${item.tipo} ${item.status} ${item.responsavel || ""} ${item.prioridade || ""}`);
 
       all.push({
@@ -540,7 +547,7 @@ export default function Calendario() {
         type: "cronograma",
         status: item.status,
         link: `/cronograma`,
-        prioridade: item.prioridade ? normalizeText(item.prioridade) : undefined,
+        prioridade: pri || undefined,
         cronogramaTipo: item.tipo,
         overdue,
         empreendimentoId: item.empreendimentoId,
@@ -561,6 +568,7 @@ export default function Calendario() {
       const overdue = isBefore(startOfDay(d), today) && !done;
 
       const title = `Tarefa: ${tarefa.titulo}`;
+      const pri = normalizeText(tarefa.prioridade || "");
       const searchText = normalizeText(`${title} ${tarefa.status} ${tarefa.prioridade} ${tarefa.descricao || ""}`);
 
       all.push({
@@ -571,7 +579,7 @@ export default function Calendario() {
         type: "tarefa",
         status: tarefa.status,
         link: `/gestao-equipe`,
-        prioridade: normalizeText(tarefa.prioridade),
+        prioridade: pri || undefined,
         overdue,
         searchText,
       });
@@ -586,15 +594,16 @@ export default function Calendario() {
 
   const filteredEvents = useMemo(() => {
     const type = prefs.filterType;
-    const q = normalizeText(search);
+    const q = normalizeText(debouncedSearch);
 
     let list = events;
 
     if (type !== "todos") list = list.filter((e) => e.type === type);
+    if (prefs.onlyOverdue) list = list.filter((e) => Boolean(e.overdue) && !isDoneStatus(e.status));
     if (q) list = list.filter((e) => e.searchText.includes(q));
 
     return list;
-  }, [events, prefs.filterType, search]);
+  }, [events, prefs.filterType, prefs.onlyOverdue, debouncedSearch]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -661,7 +670,6 @@ export default function Calendario() {
 
   /* =========================
      KPI e contagens
-     Ajuste importante: ranges não podem entrar sempre. Precisam sobrepor o mês.
      ========================= */
 
   const monthKPIs = useMemo(() => {
@@ -761,28 +769,28 @@ export default function Calendario() {
   }, [selectedDate, getEventsForDay]);
 
   /* =========================
-     Navegação
+     Navegação e ações
      ========================= */
 
   const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
-  const goPrevMonth = () => {
+  const goPrevMonth = useCallback(() => {
     const newDate = subMonths(currentDate, 1);
     setCurrentDate(newDate);
     setSelectedDate(null);
-  };
+  }, [currentDate]);
 
-  const goNextMonth = () => {
+  const goNextMonth = useCallback(() => {
     const newDate = addMonths(currentDate, 1);
     setCurrentDate(newDate);
     setSelectedDate(null);
-  };
+  }, [currentDate]);
 
-  const goToday = () => {
+  const goToday = useCallback(() => {
     const now = new Date();
     setCurrentDate(now);
     setSelectedDate(now);
-  };
+  }, []);
 
   const clearSearch = () => setSearch("");
 
@@ -793,6 +801,70 @@ export default function Calendario() {
     cronogramaQ.refetch();
     tarefasQ.refetch();
   };
+
+  const resetFilters = () => {
+    setPrefs((p) => ({ ...p, filterType: "todos", onlyOverdue: false }));
+    setSearch("");
+  };
+
+  /* =========================
+     Atalhos de teclado
+     . / foca busca
+     . t vai para hoje
+     . setas trocam mês (quando não estiver digitando)
+     . esc limpa busca ou desmarca dia
+     ========================= */
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        (target as any)?.isContentEditable;
+
+      if (e.key === "/" && !isTyping) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if ((e.key === "t" || e.key === "T") && !isTyping) {
+        e.preventDefault();
+        goToday();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        if (search) {
+          e.preventDefault();
+          setSearch("");
+          return;
+        }
+        if (selectedDate) {
+          e.preventDefault();
+          setSelectedDate(null);
+        }
+        return;
+      }
+
+      if (!isTyping && prefs.viewMode === "month") {
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          goPrevMonth();
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          goNextMonth();
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goToday, goPrevMonth, goNextMonth, prefs.viewMode, search, selectedDate]);
 
   /* =========================
      Loading inicial
@@ -812,6 +884,8 @@ export default function Calendario() {
      Render
      ========================= */
 
+  const hasActiveFilters = prefs.filterType !== "todos" || prefs.onlyOverdue || Boolean(search);
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex flex-col gap-4">
@@ -821,7 +895,12 @@ export default function Calendario() {
               <CalendarIcon className="h-8 w-8 text-green-600" />
               Calendário
             </h1>
-            <p className="text-muted-foreground">Acompanhe vencimentos, entregas e compromissos</p>
+            <p className="text-muted-foreground">
+              Acompanhe vencimentos, entregas e compromissos.
+              <span className="ml-2 text-xs opacity-75">
+                Atalhos. <span className="inline-flex items-center gap-1"><Slash className="h-3 w-3" /> buscar</span>. T hoje. Esc limpar.
+              </span>
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -848,6 +927,32 @@ export default function Calendario() {
               <List className="h-4 w-4" />
               Agenda
             </Button>
+
+            <Button
+              variant={prefs.onlyOverdue ? "default" : "outline"}
+              size="sm"
+              onClick={() => setOnlyOverdue(!prefs.onlyOverdue)}
+              className="gap-2"
+              aria-label="Filtrar somente atrasados"
+              data-testid="filter-only-overdue"
+            >
+              <Filter className="h-4 w-4" />
+              {prefs.onlyOverdue ? "Somente atrasados" : "Atrasados"}
+            </Button>
+
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetFilters}
+                className="gap-2"
+                aria-label="Limpar filtros"
+                data-testid="button-reset-filters"
+              >
+                <X className="h-4 w-4" />
+                Limpar
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -894,6 +999,7 @@ export default function Calendario() {
           <div className="relative flex-1">
             <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
+              ref={searchInputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por título, empreendimento, número, status"
@@ -974,6 +1080,18 @@ export default function Calendario() {
             </Button>
           </div>
         </div>
+
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant="secondary" className="gap-1">
+              <Filter className="h-3 w-3" />
+              Filtros ativos
+            </Badge>
+            {prefs.filterType !== "todos" && <Badge variant="outline">Tipo: {getTipoLabel(prefs.filterType as EventType)}</Badge>}
+            {prefs.onlyOverdue && <Badge variant="outline">Somente atrasados</Badge>}
+            {debouncedSearch && <Badge variant="outline">Busca: {debouncedSearch}</Badge>}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <Card className="lg:col-span-1" data-testid="kpi-licencas">
@@ -1204,7 +1322,9 @@ export default function Calendario() {
           <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">{format(currentDate, "MMMM yyyy", { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}</CardTitle>
+                <CardTitle className="text-xl">
+                  {format(currentDate, "MMMM yyyy", { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}
+                </CardTitle>
                 <div className="flex gap-2">
                   <Button variant="outline" size="icon" onClick={goPrevMonth} data-testid="button-prev-month" aria-label="Mês anterior">
                     <ChevronLeft className="h-4 w-4" />
@@ -1267,7 +1387,9 @@ export default function Calendario() {
                       data-testid={`day-${format(day, "yyyy-MM-dd")}`}
                     >
                       <div className="flex flex-col h-full">
-                        <span className={`text-sm ${isToday(day) ? "font-bold text-green-600" : ""}`}>{format(day, "d")}</span>
+                        <span className={`text-sm ${isToday(day) ? "font-bold text-green-600" : ""}`}>
+                          {format(day, "d")}
+                        </span>
 
                         {hasEvents && (
                           <div className="flex flex-wrap gap-0.5 mt-1">
@@ -1296,7 +1418,9 @@ export default function Calendario() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">{selectedDate ? format(selectedDate, "dd 'de' MMMM", { locale: ptBR }) : "Selecione um dia"}</CardTitle>
+              <CardTitle className="text-lg">
+                {selectedDate ? format(selectedDate, "dd 'de' MMMM", { locale: ptBR }) : "Selecione um dia"}
+              </CardTitle>
             </CardHeader>
 
             <CardContent>
@@ -1336,7 +1460,10 @@ export default function Calendario() {
                               </div>
 
                               {event.overdue && (
-                                <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs border-red-300 text-red-700 bg-red-50 dark:border-red-900/40 dark:text-red-200 dark:bg-red-900/20"
+                                >
                                   Atrasado
                                 </Badge>
                               )}
