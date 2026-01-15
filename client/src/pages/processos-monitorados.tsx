@@ -1,29 +1,54 @@
-import { useMemo, useState, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  RefreshCw,
+import { 
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  FileSearch, 
+  RefreshCw, 
   AlertCircle,
   CheckCircle,
+  Clock,
   ExternalLink,
+  Building,
   MapPin,
+  Calendar,
   History,
   Loader2,
+  Activity
 } from "lucide-react";
-
 import { RefreshButton } from "@/components/RefreshButton";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,52 +59,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const emailListSchema = z
-  .string()
-  .optional()
-  .transform((v) => (v ?? "").trim())
-  .refine((v) => {
-    if (!v) return true;
-    const emails = v.split(",").map((s) => s.trim()).filter(Boolean);
-    // validação simples. para produção, pode usar regex melhor ou lib
-    return emails.every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-  }, "Informe e-mails válidos separados por vírgula");
-
 const processoSchema = z.object({
   id: z.number().optional(),
-  numeroProcesso: z
-    .string()
-    .min(1, "Número do processo é obrigatório")
-    .transform((v) => v.trim().replace(/\s+/g, " ")),
+  numeroProcesso: z.string().min(1, "Número do processo é obrigatório"),
   orgao: z.string().min(1, "Órgão é obrigatório"),
   tipoProcesso: z.string().optional(),
   empreendimentoId: z.number().optional().nullable(),
   licencaId: z.number().optional().nullable(),
-  nomeEmpreendimento: z.string().optional().transform((v) => (v ?? "").trim() || undefined),
-  interessado: z.string().optional().transform((v) => (v ?? "").trim() || undefined),
-  municipio: z.string().optional().transform((v) => (v ?? "").trim() || undefined),
-  uf: z
-    .string()
-    .default("BA")
-    .transform((v) => (v ?? "BA").toUpperCase().trim())
-    .refine((v) => v.length === 2, "UF inválida"),
-  frequenciaConsulta: z.preprocess(
-    (v) => (v === "" || v === undefined || v === null ? 24 : Number(v)),
-    z.number().min(1, "Mínimo 1h").max(168, "Máximo 168h")
-  ),
+  nomeEmpreendimento: z.string().optional(),
+  interessado: z.string().optional(),
+  municipio: z.string().optional(),
+  uf: z.string().default("BA"),
+  frequenciaConsulta: z.preprocess((v) => (v === "" || v === undefined || v === null ? 24 : Number(v)), z.number().min(1).max(168)),
   alertasAtivos: z.boolean().default(true),
-  emailsNotificacao: emailListSchema,
+  emailsNotificacao: z.string().optional(),
 });
 
 type ProcessoForm = z.infer<typeof processoSchema>;
@@ -124,11 +137,11 @@ interface Consulta {
 }
 
 const ORGAO_OPTIONS = [
-  { value: "INEMA", label: "INEMA. Instituto do Meio Ambiente e Recursos Hídricos" },
-  { value: "IBAMA", label: "IBAMA. Instituto Brasileiro do Meio Ambiente" },
-  { value: "ICMBio", label: "ICMBio. Instituto Chico Mendes" },
-  { value: "ANA", label: "ANA. Agência Nacional de Águas" },
-  { value: "IPHAN", label: "IPHAN. Instituto do Patrimônio Histórico" },
+  { value: "INEMA", label: "INEMA - Instituto do Meio Ambiente e Recursos Hídricos" },
+  { value: "IBAMA", label: "IBAMA - Instituto Brasileiro do Meio Ambiente" },
+  { value: "ICMBio", label: "ICMBio - Instituto Chico Mendes" },
+  { value: "ANA", label: "ANA - Agência Nacional de Águas" },
+  { value: "IPHAN", label: "IPHAN - Instituto do Patrimônio Histórico" },
   { value: "OUTRO", label: "Outro" },
 ];
 
@@ -145,7 +158,7 @@ const TIPO_PROCESSO_OPTIONS = [
 const UF_OPTIONS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
   "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
 const PORTAIS_SEIA: Record<string, { nome: string; url: string; orgao: string }> = {
@@ -182,29 +195,21 @@ const PORTAIS_SEIA: Record<string, { nome: string; url: string; orgao: string }>
 };
 
 const getPortalUrl = (uf?: string, orgao?: string): string => {
-  if (orgao === "IBAMA" || orgao === "ICMBio" || orgao === "ANA") return PORTAIS_SEIA[orgao]?.url || "";
-  return PORTAIS_SEIA[(uf || "BA").toUpperCase()]?.url || "https://sistema.seia.ba.gov.br";
+  if (orgao === "IBAMA" || orgao === "ICMBio" || orgao === "ANA") {
+    return PORTAIS_SEIA[orgao]?.url || "";
+  }
+  return PORTAIS_SEIA[uf || "BA"]?.url || "https://sistema.seia.ba.gov.br";
 };
 
 const getPortalNome = (uf?: string, orgao?: string): string => {
-  if (orgao === "IBAMA" || orgao === "ICMBio" || orgao === "ANA") return PORTAIS_SEIA[orgao]?.nome || orgao;
-  return PORTAIS_SEIA[(uf || "BA").toUpperCase()]?.nome || "Portal SEIA";
-};
-
-const getStatusBadgeClass = (status?: string) => {
-  if (!status) return "bg-muted text-foreground border";
-  const s = status.toLowerCase();
-
-  if (s.includes("defer") || s.includes("aprov")) return "bg-green-600 text-white border-transparent";
-  if (s.includes("indefer") || s.includes("arquiv")) return "bg-red-600 text-white border-transparent";
-  if (s.includes("anális") || s.includes("analise") || s.includes("aguard")) return "bg-yellow-600 text-white border-transparent";
-
-  return "bg-blue-600 text-white border-transparent";
+  if (orgao === "IBAMA" || orgao === "ICMBio" || orgao === "ANA") {
+    return PORTAIS_SEIA[orgao]?.nome || orgao;
+  }
+  return PORTAIS_SEIA[uf || "BA"]?.nome || "Portal SEIA";
 };
 
 export default function ProcessosMonitorados() {
   const { toast } = useToast();
-
   const [search, setSearch] = useState("");
   const [orgaoFilter, setOrgaoFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -212,59 +217,39 @@ export default function ProcessosMonitorados() {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedProcesso, setSelectedProcesso] = useState<Processo | null>(null);
   const [consultingId, setConsultingId] = useState<number | null>(null);
-
+  
   const debouncedSearch = useDebounce(search, 300);
-
-  const defaultValues: Partial<ProcessoForm> = {
-    orgao: "INEMA",
-    uf: "BA",
-    frequenciaConsulta: 24,
-    alertasAtivos: true,
-  };
 
   const form = useForm<ProcessoForm>({
     resolver: zodResolver(processoSchema),
-    defaultValues,
+    defaultValues: {
+      orgao: "INEMA",
+      uf: "BA",
+      frequenciaConsulta: 24,
+      alertasAtivos: true,
+    },
   });
 
-  const processosQuery = useQuery<Processo[]>({
+  const { data: processos = [], isLoading, error: processosError } = useQuery<Processo[]>({
     queryKey: ["/api/processos-monitorados"],
-    queryFn: async () => {
-      const res = await fetch("/api/processos-monitorados");
-      if (!res.ok) throw new Error("Falha ao buscar processos monitorados");
-      return res.json();
-    },
     retry: 1,
   });
 
-  const { data: processos = [], isLoading, error: processosError } = processosQuery;
-
   const { data: empreendimentos = [] } = useQuery<any[]>({
     queryKey: ["/api/empreendimentos"],
-    queryFn: async () => {
-      const res = await fetch("/api/empreendimentos");
-      if (!res.ok) return [];
-      return res.json();
-    },
   });
 
-  const { data: seiaStatus, isLoading: isSeiaLoading } = useQuery<{ disponivel: boolean; mensagem: string }>({
+  const { data: licencas = [] } = useQuery<any[]>({
+    queryKey: ["/api/licencas"],
+  });
+
+  const { data: seiaStatus } = useQuery<{ disponivel: boolean; mensagem: string }>({
     queryKey: ["/api/processos-monitorados/servico/status"],
-    queryFn: async () => {
-      const res = await fetch("/api/processos-monitorados/servico/status");
-      if (!res.ok) throw new Error("Falha ao consultar status do serviço");
-      return res.json();
-    },
     refetchInterval: 60000,
   });
 
-  const { data: consultas = [], isLoading: isConsultasLoading } = useQuery<Consulta[]>({
+  const { data: consultas = [] } = useQuery<Consulta[]>({
     queryKey: ["/api/processos-monitorados", selectedProcesso?.id, "consultas"],
-    queryFn: async () => {
-      const res = await fetch(`/api/processos-monitorados/${selectedProcesso?.id}/consultas`);
-      if (!res.ok) return [];
-      return res.json();
-    },
     enabled: !!selectedProcesso?.id && isHistoryDialogOpen,
   });
 
@@ -272,13 +257,12 @@ export default function ProcessosMonitorados() {
     mutationFn: (data: ProcessoForm) => apiRequest("POST", "/api/processos-monitorados", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/processos-monitorados"] });
-      toast({ title: "Processo adicionado ao monitoramento" });
       setIsDialogOpen(false);
-      setSelectedProcesso(null);
-      form.reset(defaultValues);
+      form.reset();
+      toast({ title: "Processo adicionado ao monitoramento" });
     },
-    onError: (e: any) => {
-      toast({ title: "Erro ao adicionar processo", description: e?.message, variant: "destructive" });
+    onError: () => {
+      toast({ title: "Erro ao adicionar processo", variant: "destructive" });
     },
   });
 
@@ -287,13 +271,13 @@ export default function ProcessosMonitorados() {
       apiRequest("PATCH", `/api/processos-monitorados/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/processos-monitorados"] });
-      toast({ title: "Processo atualizado" });
       setIsDialogOpen(false);
       setSelectedProcesso(null);
-      form.reset(defaultValues);
+      form.reset();
+      toast({ title: "Processo atualizado" });
     },
-    onError: (e: any) => {
-      toast({ title: "Erro ao atualizar processo", description: e?.message, variant: "destructive" });
+    onError: () => {
+      toast({ title: "Erro ao atualizar processo", variant: "destructive" });
     },
   });
 
@@ -301,58 +285,55 @@ export default function ProcessosMonitorados() {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/processos-monitorados/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/processos-monitorados"] });
-      toast({ title: "Processo removido do monitoramento" });
       setIsDeleteDialogOpen(false);
       setSelectedProcesso(null);
+      toast({ title: "Processo removido do monitoramento" });
     },
-    onError: (e: any) => {
-      toast({ title: "Erro ao remover processo", description: e?.message, variant: "destructive" });
+    onError: () => {
+      toast({ title: "Erro ao remover processo", variant: "destructive" });
     },
   });
 
   const consultMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/processos-monitorados/${id}/consultar`),
-    onSuccess: async (data: any) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/processos-monitorados"] });
       setConsultingId(null);
-
-      const ok = !!data?.resultado?.sucesso;
-      toast({
-        title: ok ? "Consulta realizada com sucesso" : "Consulta realizada com aviso",
-        description: ok ? (data?.resultado?.statusAtual || "Status verificado") : (data?.resultado?.erro || "Verifique os detalhes"),
-        variant: ok ? "default" : "destructive",
-      });
+      if (data?.resultado?.sucesso) {
+        toast({ 
+          title: "Consulta realizada com sucesso",
+          description: data.resultado.statusAtual || "Status verificado",
+        });
+      } else {
+        toast({ 
+          title: "Consulta realizada",
+          description: data?.resultado?.erro || "Verifique os detalhes",
+          variant: "destructive",
+        });
+      }
     },
-    onError: (e: any) => {
+    onError: () => {
       setConsultingId(null);
-      toast({ title: "Erro ao consultar processo", description: e?.message, variant: "destructive" });
+      toast({ title: "Erro ao consultar processo", variant: "destructive" });
     },
   });
 
   const filteredProcessos = useMemo(() => {
-    const s = (debouncedSearch || "").toLowerCase().trim();
-
     return processos.filter((p) => {
       const matchesSearch =
-        !s ||
-        p.numeroProcesso.toLowerCase().includes(s) ||
-        p.nomeEmpreendimento?.toLowerCase().includes(s) ||
-        p.interessado?.toLowerCase().includes(s) ||
-        p.municipio?.toLowerCase().includes(s);
-
+        !debouncedSearch ||
+        p.numeroProcesso.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.nomeEmpreendimento?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.interessado?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.municipio?.toLowerCase().includes(debouncedSearch.toLowerCase());
+      
       const matchesOrgao = orgaoFilter === "all" || p.orgao === orgaoFilter;
-
+      
       return matchesSearch && matchesOrgao;
     });
   }, [processos, debouncedSearch, orgaoFilter]);
 
-  const openCreateDialog = useCallback(() => {
-    setSelectedProcesso(null);
-    form.reset(defaultValues);
-    setIsDialogOpen(true);
-  }, [form]);
-
-  const handleEdit = useCallback((processo: Processo) => {
+  const handleEdit = (processo: Processo) => {
     setSelectedProcesso(processo);
     form.reset({
       id: processo.id,
@@ -364,55 +345,59 @@ export default function ProcessosMonitorados() {
       nomeEmpreendimento: processo.nomeEmpreendimento || undefined,
       interessado: processo.interessado || undefined,
       municipio: processo.municipio || undefined,
-      uf: (processo.uf || "BA").toUpperCase(),
+      uf: processo.uf || "BA",
       frequenciaConsulta: processo.frequenciaConsulta || 24,
       alertasAtivos: processo.alertasAtivos ?? true,
       emailsNotificacao: processo.emailsNotificacao || undefined,
     });
     setIsDialogOpen(true);
-  }, [form]);
+  };
 
-  const handleDelete = useCallback((processo: Processo) => {
+  const handleDelete = (processo: Processo) => {
     setSelectedProcesso(processo);
     setIsDeleteDialogOpen(true);
-  }, []);
+  };
 
-  const handleViewHistory = useCallback((processo: Processo) => {
+  const handleViewHistory = (processo: Processo) => {
     setSelectedProcesso(processo);
     setIsHistoryDialogOpen(true);
-  }, []);
+  };
 
-  const handleConsult = useCallback((id: number) => {
+  const handleConsult = (id: number) => {
     setConsultingId(id);
     consultMutation.mutate(id);
-  }, [consultMutation]);
+  };
 
   const onSubmit = (data: ProcessoForm) => {
-    // normalização final opcional
-    const payload: ProcessoForm = {
-      ...data,
-      numeroProcesso: data.numeroProcesso.trim(),
-      uf: (data.uf || "BA").toUpperCase(),
-      emailsNotificacao: (data.emailsNotificacao ?? "").trim() || undefined,
-    };
+    if (selectedProcesso?.id) {
+      updateMutation.mutate({ ...data, id: selectedProcesso.id });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
 
-    if (selectedProcesso?.id) updateMutation.mutate({ ...payload, id: selectedProcesso.id });
-    else createMutation.mutate(payload);
+  const getStatusColor = (status?: string) => {
+    if (!status) return "bg-gray-500";
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes("deferido") || statusLower.includes("aprovado")) return "bg-green-500";
+    if (statusLower.includes("indeferido") || statusLower.includes("arquivado")) return "bg-red-500";
+    if (statusLower.includes("análise") || statusLower.includes("aguardando")) return "bg-yellow-500";
+    return "bg-blue-500";
   };
 
   if (processosError) {
     return (
       <div className="container mx-auto p-4">
-        <Card className="border-destructive">
+        <Card className="border-red-500">
           <CardHeader>
-            <CardTitle className="text-destructive flex items-center gap-2">
+            <CardTitle className="text-red-600 flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
               Erro ao carregar processos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              {(processosError as Error)?.message || "Erro desconhecido. Verifique sua conexão e tente novamente."}
+              {(processosError as Error)?.message || 'Erro desconhecido. Verifique sua conexão e tente novamente.'}
             </p>
             <Button className="mt-4" onClick={() => window.location.reload()}>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -424,41 +409,27 @@ export default function ProcessosMonitorados() {
     );
   }
 
-  const totalMonitorados = processos.length;
-  const totalAlertasAtivos = processos.filter((p) => p.alertasAtivos).length;
-
-  const ultimaConsultaTexto = (() => {
-    const processosComConsulta = processos.filter((p) => p.dataUltimaConsulta);
-    if (processosComConsulta.length === 0) return "Nenhuma consulta";
-
-    const timestamps = processosComConsulta
-      .map((p) => new Date(p.dataUltimaConsulta as string).getTime())
-      .filter((t) => Number.isFinite(t));
-
-    if (timestamps.length === 0) return "Nenhuma consulta";
-
-    const maxTimestamp = Math.max(...timestamps);
-    return formatDistanceToNow(new Date(maxTimestamp), { addSuffix: true, locale: ptBR });
-  })();
-
-  const seiaLabel = isSeiaLoading
-    ? { icon: <Loader2 className="h-4 w-4 animate-spin" />, text: "Verificando...", className: "text-muted-foreground" }
-    : seiaStatus?.disponivel
-      ? { icon: <CheckCircle className="h-4 w-4 text-green-500" />, text: "Online", className: "text-green-600" }
-      : { icon: <AlertCircle className="h-4 w-4 text-yellow-500" />, text: "Offline", className: "text-yellow-600" };
-
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Monitoramento de Processos</h1>
           <p className="text-muted-foreground">
-            Acompanhe processos ambientais no INEMA. SEIA e outros órgãos
+            Acompanhe processos ambientais no INEMA/SEIA e outros órgãos
           </p>
         </div>
         <div className="flex items-center gap-2">
           <RefreshButton />
-          <Button onClick={openCreateDialog}>
+          <Button onClick={() => {
+            setSelectedProcesso(null);
+            form.reset({
+              orgao: "INEMA",
+              uf: "BA",
+              frequenciaConsulta: 24,
+              alertasAtivos: true,
+            });
+            setIsDialogOpen(true);
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Processo
           </Button>
@@ -471,40 +442,58 @@ export default function ProcessosMonitorados() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Monitorados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalMonitorados}</div>
+            <div className="text-2xl font-bold">{processos.length}</div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Com Alertas Ativos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{totalAlertasAtivos}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {processos.filter(p => p.alertasAtivos).length}
+            </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Última Consulta</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm">{ultimaConsultaTexto}</div>
+            <div className="text-sm">
+              {(() => {
+                const processosComConsulta = processos.filter(p => p.dataUltimaConsulta);
+                if (processosComConsulta.length === 0) return "Nenhuma consulta";
+                try {
+                  const timestamps = processosComConsulta.map(p => new Date(p.dataUltimaConsulta!).getTime());
+                  const maxTimestamp = Math.max(...timestamps);
+                  if (!isFinite(maxTimestamp)) return "Nenhuma consulta";
+                  return formatDistanceToNow(new Date(maxTimestamp), { addSuffix: true, locale: ptBR });
+                } catch {
+                  return "Nenhuma consulta";
+                }
+              })()}
+            </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Status do Serviço</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status SEIA</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              {seiaLabel.icon}
-              <span className={`text-sm ${seiaLabel.className}`}>{seiaLabel.text}</span>
+              {seiaStatus?.disponivel ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-green-600">Online</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm text-yellow-600">Verificando...</span>
+                </>
+              )}
             </div>
-            {seiaStatus?.mensagem ? (
-              <div className="text-xs text-muted-foreground mt-1">{seiaStatus.mensagem}</div>
-            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -512,9 +501,10 @@ export default function ProcessosMonitorados() {
       <Card>
         <CardHeader>
           <CardTitle>Processos Monitorados</CardTitle>
-          <CardDescription>Lista de processos ambientais em acompanhamento</CardDescription>
+          <CardDescription>
+            Lista de processos ambientais em acompanhamento
+          </CardDescription>
         </CardHeader>
-
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <div className="relative flex-1">
@@ -526,9 +516,8 @@ export default function ProcessosMonitorados() {
                 className="pl-10"
               />
             </div>
-
             <Select value={orgaoFilter} onValueChange={setOrgaoFilter}>
-              <SelectTrigger className="w-[220px]">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Todos os órgãos" />
               </SelectTrigger>
               <SelectContent>
@@ -547,7 +536,9 @@ export default function ProcessosMonitorados() {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : filteredProcessos.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">Nenhum processo encontrado</div>
+            <div className="text-center py-10 text-muted-foreground">
+              Nenhum processo encontrado
+            </div>
           ) : (
             <div className="rounded-md border">
               <Table>
@@ -555,118 +546,114 @@ export default function ProcessosMonitorados() {
                   <TableRow>
                     <TableHead>Processo</TableHead>
                     <TableHead>Órgão</TableHead>
-                    <TableHead>Empreendimento. Interessado</TableHead>
+                    <TableHead>Empreendimento/Interessado</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Última Consulta</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
-
                 <TableBody>
-                  {filteredProcessos.map((processo) => {
-                    const isConsultingThis = consultingId === processo.id;
-
-                    return (
-                      <TableRow key={processo.id}>
-                        <TableCell>
-                          <div className="font-medium">{processo.numeroProcesso}</div>
-                          {processo.tipoProcesso ? (
-                            <div className="text-xs text-muted-foreground">
-                              {TIPO_PROCESSO_OPTIONS.find((t) => t.value === processo.tipoProcesso)?.label || processo.tipoProcesso}
-                            </div>
-                          ) : null}
-                        </TableCell>
-
-                        <TableCell>
-                          <Badge variant="outline">{processo.orgao}</Badge>
-                        </TableCell>
-
-                        <TableCell>
-                          <div>{processo.nomeEmpreendimento || processo.interessado || "-"}</div>
-                          {processo.municipio ? (
-                            <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {processo.municipio}/{(processo.uf || "BA").toUpperCase()}
-                            </div>
-                          ) : null}
-                        </TableCell>
-
-                        <TableCell>
-                          <Badge className={getStatusBadgeClass(processo.statusAtual)}>
-                            {processo.statusAtual || "Aguardando consulta"}
-                          </Badge>
-                          {processo.ultimaMovimentacao ? (
-                            <div className="text-xs text-muted-foreground mt-1 max-w-[240px] truncate" title={processo.ultimaMovimentacao}>
-                              {processo.ultimaMovimentacao}
-                            </div>
-                          ) : null}
-                        </TableCell>
-
-                        <TableCell>
-                          {processo.dataUltimaConsulta ? (
-                            <div className="text-sm">
-                              {formatDistanceToNow(new Date(processo.dataUltimaConsulta), { addSuffix: true, locale: ptBR })}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">Nunca</span>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleConsult(processo.id)}
-                              disabled={isConsultingThis}
-                              aria-label="Consultar agora"
-                              title="Consultar agora"
-                            >
-                              {isConsultingThis ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleViewHistory(processo)}
-                              aria-label="Ver histórico"
-                              title="Ver histórico"
-                            >
-                              <History className="h-4 w-4" />
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(processo)}
-                              disabled={isConsultingThis}
-                              aria-label="Editar"
-                              title="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(processo)}
-                              disabled={isConsultingThis}
-                              aria-label="Remover"
-                              title="Remover"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-
-                            <Button variant="ghost" size="icon" asChild aria-label="Abrir portal" title={`Abrir ${getPortalNome(processo.uf, processo.orgao)}`}>
-                              <a href={getPortalUrl(processo.uf, processo.orgao)} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </Button>
+                  {filteredProcessos.map((processo) => (
+                    <TableRow key={processo.id}>
+                      <TableCell>
+                        <div className="font-medium">{processo.numeroProcesso}</div>
+                        {processo.tipoProcesso && (
+                          <div className="text-xs text-muted-foreground">
+                            {TIPO_PROCESSO_OPTIONS.find(t => t.value === processo.tipoProcesso)?.label || processo.tipoProcesso}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{processo.orgao}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div>{processo.nomeEmpreendimento || processo.interessado || "-"}</div>
+                        {processo.municipio && (
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {processo.municipio}/{processo.uf}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(processo.statusAtual)}>
+                          {processo.statusAtual || "Aguardando consulta"}
+                        </Badge>
+                        {processo.ultimaMovimentacao && (
+                          <div className="text-xs text-muted-foreground mt-1 max-w-[200px] truncate">
+                            {processo.ultimaMovimentacao}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {processo.dataUltimaConsulta ? (
+                          <div className="text-sm">
+                            {formatDistanceToNow(new Date(processo.dataUltimaConsulta), {
+                              addSuffix: true,
+                              locale: ptBR,
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Nunca</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleConsult(processo.id)}
+                            disabled={consultingId === processo.id}
+                            title="Consultar agora"
+                          >
+                            {consultingId === processo.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewHistory(processo)}
+                            title="Ver histórico"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(processo)}
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(processo)}
+                            title="Remover"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            title={`Abrir ${getPortalNome(processo.uf, processo.orgao)}`}
+                          >
+                            <a
+                              href={getPortalUrl(processo.uf, processo.orgao)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -674,22 +661,16 @@ export default function ProcessosMonitorados() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setSelectedProcesso(null);
-            form.reset(defaultValues);
-          }
-        }}
-      >
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedProcesso ? "Editar Processo" : "Adicionar Processo ao Monitoramento"}</DialogTitle>
-            <DialogDescription>Cadastre um processo para acompanhamento automático de status</DialogDescription>
+            <DialogTitle>
+              {selectedProcesso ? "Editar Processo" : "Adicionar Processo ao Monitoramento"}
+            </DialogTitle>
+            <DialogDescription>
+              Cadastre um processo para acompanhamento automático de status
+            </DialogDescription>
           </DialogHeader>
-
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -706,7 +687,6 @@ export default function ProcessosMonitorados() {
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="orgao"
@@ -758,14 +738,16 @@ export default function ProcessosMonitorados() {
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="empreendimentoId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Vincular a Empreendimento</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(v ? parseInt(v, 10) : null)} value={field.value?.toString() || ""}>
+                      <Select
+                        onValueChange={(v) => field.onChange(v ? parseInt(v) : null)}
+                        value={field.value?.toString() || ""}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione (opcional)" />
@@ -780,7 +762,6 @@ export default function ProcessosMonitorados() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormDescription>Ajuda a cruzar processos e condicionantes do mesmo projeto</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -795,19 +776,18 @@ export default function ProcessosMonitorados() {
                     <FormItem>
                       <FormLabel>Nome do Empreendimento</FormLabel>
                       <FormControl>
-                        <Input placeholder="Para referência interna" {...field} />
+                        <Input placeholder="Para referência" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="interessado"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Interessado. Requerente</FormLabel>
+                      <FormLabel>Interessado/Requerente</FormLabel>
                       <FormControl>
                         <Input placeholder="Nome do interessado" {...field} />
                       </FormControl>
@@ -831,14 +811,13 @@ export default function ProcessosMonitorados() {
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="uf"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>UF</FormLabel>
-                      <Select onValueChange={field.onChange} value={(field.value || "BA").toUpperCase()}>
+                      <Select onValueChange={field.onChange} value={field.value || "BA"}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="UF" />
@@ -868,12 +847,13 @@ export default function ProcessosMonitorados() {
                       <FormControl>
                         <Input type="number" min={1} max={168} {...field} />
                       </FormControl>
-                      <FormDescription>Intervalo entre consultas automáticas (1.168h)</FormDescription>
+                      <FormDescription>
+                        Intervalo entre consultas automáticas (1-168h)
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="emailsNotificacao"
@@ -883,7 +863,9 @@ export default function ProcessosMonitorados() {
                       <FormControl>
                         <Input placeholder="email1@exemplo.com, email2@exemplo.com" {...field} />
                       </FormControl>
-                      <FormDescription>Separados por vírgula</FormDescription>
+                      <FormDescription>
+                        Separados por vírgula
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -897,10 +879,15 @@ export default function ProcessosMonitorados() {
                   <FormItem className="flex items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Alertas Ativos</FormLabel>
-                      <FormDescription>Receber notificações quando houver movimentação no processo</FormDescription>
+                      <FormDescription>
+                        Receber notificações quando houver movimentação no processo
+                      </FormDescription>
                     </div>
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
@@ -911,7 +898,9 @@ export default function ProcessosMonitorados() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {createMutation.isPending || updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {createMutation.isPending || updateMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
                   {selectedProcesso ? "Salvar" : "Adicionar"}
                 </Button>
               </DialogFooter>
@@ -920,13 +909,7 @@ export default function ProcessosMonitorados() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={(open) => {
-          setIsDeleteDialogOpen(open);
-          if (!open) setSelectedProcesso(null);
-        }}
-      >
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover processo do monitoramento?</AlertDialogTitle>
@@ -939,7 +922,7 @@ export default function ProcessosMonitorados() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => selectedProcesso && deleteMutation.mutate(selectedProcesso.id)}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-500 hover:bg-red-600"
             >
               Remover
             </AlertDialogAction>
@@ -947,70 +930,63 @@ export default function ProcessosMonitorados() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog
-        open={isHistoryDialogOpen}
-        onOpenChange={(open) => {
-          setIsHistoryDialogOpen(open);
-          if (!open) setSelectedProcesso(null);
-        }}
-      >
+      <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Histórico de Consultas</DialogTitle>
-            <DialogDescription>Processo: {selectedProcesso?.numeroProcesso}</DialogDescription>
+            <DialogDescription>
+              Processo: {selectedProcesso?.numeroProcesso}
+            </DialogDescription>
           </DialogHeader>
-
           <ScrollArea className="h-[400px]">
-            {isConsultasLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin" />
+            {consultas.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                Nenhuma consulta realizada ainda
               </div>
-            ) : consultas.length === 0 ? (
-              <div className="text-center py-10 text-muted-foreground">Nenhuma consulta realizada ainda</div>
             ) : (
-              <div className="space-y-3 pr-2">
+              <div className="space-y-3">
                 {consultas.map((consulta) => (
                   <Card key={consulta.id}>
                     <CardContent className="pt-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
                           {consulta.sucesso ? (
                             <CheckCircle className="h-4 w-4 text-green-500" />
                           ) : (
                             <AlertCircle className="h-4 w-4 text-red-500" />
                           )}
-
                           <span className="text-sm font-medium">
                             {format(new Date(consulta.dataConsulta), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                           </span>
-
-                          {consulta.houveMudanca ? (
+                          {consulta.houveMudanca && (
                             <Badge variant="secondary" className="text-xs">
                               Nova movimentação
                             </Badge>
-                          ) : null}
+                          )}
                         </div>
-
-                        {consulta.tempoResposta ? (
-                          <span className="text-xs text-muted-foreground">{consulta.tempoResposta}ms</span>
-                        ) : null}
+                        {consulta.tempoResposta && (
+                          <span className="text-xs text-muted-foreground">
+                            {consulta.tempoResposta}ms
+                          </span>
+                        )}
                       </div>
-
-                      {consulta.statusEncontrado ? (
+                      {consulta.statusEncontrado && (
                         <div className="mt-2">
-                          <Badge className={getStatusBadgeClass(consulta.statusEncontrado)}>
+                          <Badge className={getStatusColor(consulta.statusEncontrado)}>
                             {consulta.statusEncontrado}
                           </Badge>
                         </div>
-                      ) : null}
-
-                      {consulta.movimentacaoEncontrada ? (
-                        <p className="mt-2 text-sm text-muted-foreground">{consulta.movimentacaoEncontrada}</p>
-                      ) : null}
-
-                      {consulta.erro ? (
-                        <p className="mt-2 text-sm text-red-600">Erro: {consulta.erro}</p>
-                      ) : null}
+                      )}
+                      {consulta.movimentacaoEncontrada && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {consulta.movimentacaoEncontrada}
+                        </p>
+                      )}
+                      {consulta.erro && (
+                        <p className="mt-2 text-sm text-red-500">
+                          Erro: {consulta.erro}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}

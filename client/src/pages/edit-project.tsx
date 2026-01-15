@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,7 +23,7 @@ interface Colaborador {
   nome: string;
   cargo: string | null;
   email: string | null;
-  tipo: string; // exemplo: "user" ou "rh" etc
+  tipo: string;
 }
 
 const tipologiaOptions = [
@@ -55,59 +46,23 @@ const statusOptions = [
   { value: "cancelado", label: "❌ Cancelado" },
 ];
 
-function toNumberOrNull(v: unknown) {
-  if (v === null || v === undefined) return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  if (typeof v === "string") {
-    const t = v.trim();
-    if (!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-function makeSearchParams(unidadeSelecionada?: string | null) {
-  const params = new URLSearchParams();
-  if (unidadeSelecionada) params.set("unidade", unidadeSelecionada);
-  return params;
-}
-
-/**
- * Melhoria importante.
- * 1) Persistir IDs em vez de nomes para responsável interno.
- * 2) Ainda enviar o nome como fallback para manter compatibilidade com backend antigo.
- * 3) Normalizar latitude e longitude para número ou null.
- * 4) Passar unidade nas rotas GET e PUT.
- * 5) Corrigir queryKeys e invalidações.
- */
 const projectSchema = z.object({
-  codigo: z
-    .string()
-    .trim()
-    .regex(/^[A-Z0-9_-]*$/, "Use apenas A-Z, 0-9, _ ou -")
-    .optional()
-    .or(z.literal("")),
+  codigo: z.string().optional(),
   nome: z.string().min(1, "Nome é obrigatório"),
   cliente: z.string().min(1, "Cliente é obrigatório"),
   localizacao: z.string().min(1, "Localização é obrigatória"),
-
-  latitude: z.preprocess(
-    (v) => (typeof v === "string" && v.trim() === "" ? null : Number(v)),
-    z.number().min(-90, "Latitude deve estar entre -90 e 90").max(90, "Latitude deve estar entre -90 e 90").nullable()
-  ),
-  longitude: z.preprocess(
-    (v) => (typeof v === "string" && v.trim() === "" ? null : Number(v)),
-    z.number().min(-180, "Longitude deve estar entre -180 e 180").max(180, "Longitude deve estar entre -180 e 180").nullable()
-  ),
-
-  // Novo padrão.
-  responsavelInternoId: z.coerce.number().int().positive("Responsável interno é obrigatório"),
-
-  // Compatibilidade.
-  responsavelInterno: z.string().optional(),
-
-  coordenadorId: z.coerce.number().int().positive().nullable().optional(),
+  latitude: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    const num = Number(val);
+    return !isNaN(num) && num >= -90 && num <= 90;
+  }, "Latitude deve estar entre -90 e 90"),
+  longitude: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    const num = Number(val);
+    return !isNaN(num) && num >= -180 && num <= 180;
+  }, "Longitude deve estar entre -180 e 180"),
+  responsavelInterno: z.string().min(1, "Responsável interno é obrigatório"),
+  coordenadorId: z.number().nullable().optional(),
   tipo: z.string().default("outro"),
   status: z.string().default("ativo"),
 });
@@ -120,50 +75,24 @@ export default function EditProject() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { unidadeSelecionada } = useUnidade();
-
   const [openResponsavel, setOpenResponsavel] = useState(false);
   const [openCoordenador, setOpenCoordenador] = useState(false);
 
-  const empreendimentoId = Number(id);
-  const idOk = Number.isFinite(empreendimentoId);
-
-  const unidadeParams = useMemo(() => makeSearchParams(unidadeSelecionada), [unidadeSelecionada]);
-  const unidadeQuerySuffix = unidadeParams.toString();
-
-  const {
-    data: colaboradores = [],
-    isLoading: isLoadingColabs,
-    error: colabError,
-  } = useQuery<Colaborador[]>({
-    queryKey: ["/api/colaboradores", unidadeSelecionada],
-    enabled: !!unidadeSelecionada,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const url = unidadeQuerySuffix ? `/api/colaboradores?${unidadeQuerySuffix}` : "/api/colaboradores";
-      const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) throw new Error("Falha ao carregar colaboradores");
-      return (await r.json()) as Colaborador[];
-    },
+  const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
+    queryKey: ['/api/colaboradores'],
+    staleTime: 0,
   });
 
-  const usuariosSistema = useMemo(() => colaboradores.filter((c) => c.tipo === "user"), [colaboradores]);
-
-  const {
-    data: project,
-    isLoading,
-    error: projectError,
-  } = useQuery<Empreendimento>({
-    queryKey: ["/api/empreendimentos", empreendimentoId, unidadeSelecionada],
-    enabled: idOk && !!unidadeSelecionada,
-    staleTime: 30_000,
+  const { data: project, isLoading } = useQuery<Empreendimento>({
+    queryKey: ["/api/empreendimentos", id, unidadeSelecionada],
     queryFn: async () => {
-      const url = unidadeQuerySuffix
-        ? `/api/empreendimentos/${empreendimentoId}?${unidadeQuerySuffix}`
-        : `/api/empreendimentos/${empreendimentoId}`;
-
-      const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) throw new Error("Falha ao carregar empreendimento");
-      return (await r.json()) as Empreendimento;
+      const params = new URLSearchParams();
+      if (unidadeSelecionada) {
+        params.set("unidade", unidadeSelecionada);
+      }
+      const response = await fetch(`/api/empreendimentos/${id}?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch project");
+      return response.json();
     },
   });
 
@@ -174,102 +103,50 @@ export default function EditProject() {
       nome: "",
       cliente: "",
       localizacao: "",
-      latitude: null,
-      longitude: null,
-      responsavelInternoId: 0 as any, // será setado no reset.
+      latitude: "",
+      longitude: "",
       responsavelInterno: "",
-      coordenadorId: null,
       tipo: "outro",
       status: "ativo",
     },
-    mode: "onChange",
   });
 
-  const responsavelInternoId = form.watch("responsavelInternoId");
-  const coordenadorId = form.watch("coordenadorId");
-
-  const responsavelSelecionado = useMemo(() => {
-    if (!responsavelInternoId) return null;
-    return colaboradores.find((c) => c.id === responsavelInternoId) ?? null;
-  }, [colaboradores, responsavelInternoId]);
-
-  const coordenadorSelecionado = useMemo(() => {
-    if (!coordenadorId) return null;
-    return usuariosSistema.find((c) => c.id === coordenadorId) ?? null;
-  }, [usuariosSistema, coordenadorId]);
-
+  // Update form when project data loads
   useEffect(() => {
-    if (!project) return;
-
-    // Compatibilidade.
-    // Caso seu backend ainda não tenha responsavelInternoId, tentamos inferir pelo nome.
-    const possibleRespId =
-      (project as any).responsavelInternoId ??
-      (project as any).responsavelInterno_id ??
-      null;
-
-    const respIdFromName =
-      possibleRespId
-        ? Number(possibleRespId)
-        : (() => {
-            const nome = (project as any).responsavelInterno as string | undefined;
-            if (!nome) return null;
-            const found = colaboradores.find((c) => c.nome === nome);
-            return found?.id ?? null;
-          })();
-
-    const finalRespId = toNumberOrNull(respIdFromName) ?? 0;
-
-    form.reset({
-      codigo: (project.codigo || "").toUpperCase(),
-      nome: project.nome ?? "",
-      cliente: project.cliente ?? "",
-      localizacao: project.localizacao ?? "",
-      latitude: toNumberOrNull((project as any).latitude) as any,
-      longitude: toNumberOrNull((project as any).longitude) as any,
-      responsavelInternoId: finalRespId as any,
-      responsavelInterno: (project as any).responsavelInterno ?? "",
-      coordenadorId: toNumberOrNull((project as any).coordenadorId) as any,
-      tipo: (project as any).tipo || "outro",
-      status: (project as any).status || "ativo",
-    });
-  }, [project, colaboradores, form]);
+    if (project) {
+      form.reset({
+        codigo: project.codigo || "",
+        nome: project.nome,
+        cliente: project.cliente,
+        localizacao: project.localizacao,
+        latitude: project.latitude || "",
+        longitude: project.longitude || "",
+        responsavelInterno: project.responsavelInterno,
+        coordenadorId: project.coordenadorId || null,
+        tipo: project.tipo || "outro",
+        status: project.status || "ativo",
+      });
+    }
+  }, [project, form]);
 
   const updateProject = useMutation({
     mutationFn: async (data: ProjectFormData) => {
-      // Envia ID e nome como fallback, mantendo compatibilidade.
-      const respName = colaboradores.find((c) => c.id === data.responsavelInternoId)?.nome ?? data.responsavelInterno ?? "";
-
-      const payload = {
-        ...data,
-        responsavelInterno: respName,
-      };
-
-      const url = unidadeQuerySuffix
-        ? `/api/empreendimentos/${empreendimentoId}?${unidadeQuerySuffix}`
-        : `/api/empreendimentos/${empreendimentoId}`;
-
-      const response = await apiRequest("PUT", url, payload);
+      const response = await apiRequest("PUT", `/api/empreendimentos/${id}`, data);
       return response.json();
     },
     onSuccess: () => {
-      // Corrige invalidação para bater com queryKey real.
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, unidadeSelecionada] });
-
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", id] });
       toast({
         title: "Sucesso",
         description: "Empreendimento atualizado com sucesso!",
       });
-
-      setOpenResponsavel(false);
-      setOpenCoordenador(false);
-      setLocation(`/empreendimentos/${empreendimentoId}`);
+      setLocation(`/empreendimentos/${id}`);
     },
-    onError: (err: any) => {
+    onError: () => {
       toast({
         title: "Erro",
-        description: err?.message || "Erro ao atualizar empreendimento. Tente novamente.",
+        description: "Erro ao atualizar empreendimento. Tente novamente.",
         variant: "destructive",
       });
     },
@@ -279,14 +156,6 @@ export default function EditProject() {
     updateProject.mutate(data);
   };
 
-  if (!idOk) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">ID inválido.</div>
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -295,21 +164,10 @@ export default function EditProject() {
     );
   }
 
-  if (projectError) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-2">
-        <div className="text-center">Falha ao carregar empreendimento.</div>
-        <div className="text-center text-sm text-muted-foreground">
-          {(projectError as any)?.message || "Erro desconhecido"}
-        </div>
-      </div>
-    );
-  }
-
   if (!project) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">Empreendimento não encontrado.</div>
+        <div className="text-center">Empreendimento não encontrado</div>
       </div>
     );
   }
@@ -318,7 +176,7 @@ export default function EditProject() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-card-foreground">Editar Empreendimento</h2>
-        <p className="text-muted-foreground mt-2">Atualize as informações do empreendimento.</p>
+        <p className="text-muted-foreground mt-2">Atualize as informações do empreendimento</p>
       </div>
 
       <Card className="shadow-sm">
@@ -335,8 +193,8 @@ export default function EditProject() {
                       Código do Projeto
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
+                      <Input 
+                        {...field} 
                         placeholder="Ex: PROJ001"
                         className="uppercase"
                         onChange={(e) => field.onChange(e.target.value.toUpperCase())}
@@ -344,7 +202,7 @@ export default function EditProject() {
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground">
-                      Código usado para identificação nas pastas. Use letras maiúsculas, números, _ ou .
+                      Código usado para identificação nas pastas. Use letras maiúsculas, números, _ ou -
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -358,7 +216,11 @@ export default function EditProject() {
                   <FormItem>
                     <FormLabel>Nome do Empreendimento</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Nome do empreendimento" data-testid="input-nome" />
+                      <Input 
+                        {...field} 
+                        placeholder="Nome do empreendimento"
+                        data-testid="input-nome"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -424,7 +286,11 @@ export default function EditProject() {
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Nome do cliente" data-testid="input-cliente" />
+                      <Input 
+                        {...field} 
+                        placeholder="Nome do cliente"
+                        data-testid="input-cliente"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -438,7 +304,11 @@ export default function EditProject() {
                   <FormItem>
                     <FormLabel>Localização</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Localização do empreendimento" data-testid="input-localizacao" />
+                      <Input 
+                        {...field} 
+                        placeholder="Localização do empreendimento"
+                        data-testid="input-localizacao"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -453,11 +323,9 @@ export default function EditProject() {
                     <FormItem>
                       <FormLabel>Latitude</FormLabel>
                       <FormControl>
-                        <Input
-                          value={field.value === null || field.value === undefined ? "" : String(field.value)}
-                          onChange={(e) => field.onChange(e.target.value)}
+                        <Input 
+                          {...field} 
                           placeholder="Ex: -12.345678"
-                          inputMode="decimal"
                           data-testid="input-latitude"
                         />
                       </FormControl>
@@ -473,11 +341,9 @@ export default function EditProject() {
                     <FormItem>
                       <FormLabel>Longitude</FormLabel>
                       <FormControl>
-                        <Input
-                          value={field.value === null || field.value === undefined ? "" : String(field.value)}
-                          onChange={(e) => field.onChange(e.target.value)}
+                        <Input 
+                          {...field} 
                           placeholder="Ex: -38.123456"
-                          inputMode="decimal"
                           data-testid="input-longitude"
                         />
                       </FormControl>
@@ -489,11 +355,10 @@ export default function EditProject() {
 
               <FormField
                 control={form.control}
-                name="responsavelInternoId"
+                name="responsavelInterno"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Responsável Interno *</FormLabel>
-
                     <Popover open={openResponsavel} onOpenChange={setOpenResponsavel}>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -501,23 +366,18 @@ export default function EditProject() {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openResponsavel}
-                            disabled={isLoadingColabs || !!colabError}
-                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
                             data-testid="input-responsavel"
                           >
-                            {isLoadingColabs
-                              ? "Carregando colaboradores..."
-                              : colabError
-                                ? "Falha ao carregar colaboradores"
-                                : responsavelSelecionado
-                                  ? responsavelSelecionado.nome
-                                  : "Selecione um colaborador do RH"}
+                            {field.value || "Selecione um colaborador do RH"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-
-                      <PopoverContent className="w-[420px] p-0">
+                      <PopoverContent className="w-[400px] p-0">
                         <Command>
                           <CommandInput placeholder="Buscar colaborador..." />
                           <CommandList>
@@ -525,28 +385,27 @@ export default function EditProject() {
                             <CommandGroup>
                               {colaboradores.map((colab) => (
                                 <CommandItem
-                                  key={`resp-${colab.id}`}
-                                  value={`${colab.nome} ${colab.email ?? ""} ${colab.cargo ?? ""}`}
+                                  key={`${colab.tipo}-${colab.id}`}
+                                  value={colab.nome}
                                   onSelect={() => {
-                                    field.onChange(colab.id);
+                                    field.onChange(colab.nome);
                                     setOpenResponsavel(false);
                                   }}
-                                  aria-selected={field.value === colab.id}
                                 >
                                   <User className="mr-2 h-4 w-4" />
                                   <div className="flex flex-col">
                                     <span>{colab.nome}</span>
-                                    {colab.cargo ? (
+                                    {colab.cargo && (
                                       <span className="text-xs text-primary font-medium">{colab.cargo}</span>
-                                    ) : null}
-                                    {colab.email ? (
+                                    )}
+                                    {colab.email && (
                                       <span className="text-xs text-muted-foreground">{colab.email}</span>
-                                    ) : null}
+                                    )}
                                   </div>
                                   <Check
                                     className={cn(
                                       "ml-auto h-4 w-4",
-                                      field.value === colab.id ? "opacity-100" : "opacity-0"
+                                      field.value === colab.nome ? "opacity-100" : "opacity-0"
                                     )}
                                   />
                                 </CommandItem>
@@ -556,7 +415,6 @@ export default function EditProject() {
                         </Command>
                       </PopoverContent>
                     </Popover>
-
                     <FormMessage />
                   </FormItem>
                 )}
@@ -568,7 +426,6 @@ export default function EditProject() {
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Coordenador do Projeto</FormLabel>
-
                     <Popover open={openCoordenador} onOpenChange={setOpenCoordenador}>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -576,47 +433,49 @@ export default function EditProject() {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openCoordenador}
-                            disabled={isLoadingColabs || !!colabError}
-                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
                             data-testid="input-coordenador"
                           >
-                            {isLoadingColabs
-                              ? "Carregando coordenadores..."
-                              : colabError
-                                ? "Falha ao carregar coordenadores"
-                                : coordenadorSelecionado
-                                  ? coordenadorSelecionado.nome
-                                  : "Selecione um coordenador"}
+                            {field.value
+                              ? colaboradores.find((c) => c.tipo === 'user' && c.id === field.value)?.nome || "Selecione um coordenador"
+                              : "Selecione um coordenador"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-
-                      <PopoverContent className="w-[420px] p-0">
+                      <PopoverContent className="w-[400px] p-0">
                         <Command>
                           <CommandInput placeholder="Buscar coordenador..." />
                           <CommandList>
-                            <CommandEmpty>Nenhum coordenador encontrado.</CommandEmpty>
+                            {isLoadingColabs ? (
+                              <div className="p-4 text-center text-sm text-muted-foreground">Carregando...</div>
+                            ) : colaboradores.filter(c => c.tipo === 'user').length === 0 ? (
+                              <CommandEmpty>Nenhum usuário do sistema encontrado.</CommandEmpty>
+                            ) : (
+                              <CommandEmpty>Nenhum coordenador encontrado.</CommandEmpty>
+                            )}
                             <CommandGroup>
-                              {usuariosSistema.map((colab) => (
+                              {colaboradores.filter(c => c.tipo === 'user').map((colab) => (
                                 <CommandItem
                                   key={`coord-${colab.id}`}
-                                  value={`${colab.nome} ${colab.email ?? ""} ${colab.cargo ?? ""}`}
+                                  value={colab.nome}
                                   onSelect={() => {
                                     field.onChange(colab.id);
                                     setOpenCoordenador(false);
                                   }}
-                                  aria-selected={field.value === colab.id}
                                 >
                                   <User className="mr-2 h-4 w-4" />
                                   <div className="flex flex-col">
                                     <span>{colab.nome}</span>
-                                    {colab.cargo ? (
+                                    {colab.cargo && (
                                       <span className="text-xs text-primary font-medium">{colab.cargo}</span>
-                                    ) : null}
-                                    {colab.email ? (
+                                    )}
+                                    {colab.email && (
                                       <span className="text-xs text-muted-foreground">{colab.email}</span>
-                                    ) : null}
+                                    )}
                                   </div>
                                   <Check
                                     className={cn(
@@ -631,39 +490,33 @@ export default function EditProject() {
                         </Command>
                       </PopoverContent>
                     </Popover>
-
                     <p className="text-xs text-muted-foreground">
-                      Selecione o coordenador responsável pelo projeto para que apareça no Dashboard do Coordenador.
+                      Selecione o coordenador responsável pelo projeto para que apareça no Dashboard do Coordenador
                     </p>
-
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
               <div className="flex justify-between">
-                <Button
+                <Button 
                   type="button"
                   variant="outline"
-                  onClick={() => setLocation(`/empreendimentos/${empreendimentoId}`)}
+                  onClick={() => setLocation(`/empreendimentos/${id}`)}
                   data-testid="button-cancel"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Cancelar
                 </Button>
-
-                <Button type="submit" disabled={updateProject.isPending} data-testid="button-save">
+                <Button 
+                  type="submit" 
+                  disabled={updateProject.isPending}
+                  data-testid="button-save"
+                >
                   <Save className="mr-2 h-4 w-4" />
                   {updateProject.isPending ? "Salvando..." : "Atualizar"}
                 </Button>
               </div>
-
-              {/* Diagnóstico opcional para desenvolvimento */}
-              {process.env.NODE_ENV !== "production" && (
-                <div className="text-xs text-muted-foreground">
-                  Unidade: {unidadeSelecionada || "nenhuma"}. EmpreendimentoId: {empreendimentoId}.
-                </div>
-              )}
             </form>
           </Form>
         </CardContent>
