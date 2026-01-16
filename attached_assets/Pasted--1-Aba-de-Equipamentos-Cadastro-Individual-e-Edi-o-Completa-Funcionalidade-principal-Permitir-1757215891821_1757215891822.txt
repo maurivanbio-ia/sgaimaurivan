@@ -1,0 +1,156 @@
+✅ 1. Aba de Equipamentos – Cadastro Individual e Edição Completa
+Funcionalidade principal:
+
+Permitir o cadastro e controle de cada unidade de equipamento separadamente, garantindo rastreabilidade por patrimônio, status individual e vínculo com empreendimentos.
+
+🔹 Formulário de Cadastro (modal ou tela)
+
+Campos:
+
+Número de Patrimônio (obrigatório e único)
+
+Tipo de Equipamento (dropdown: GPS, notebook, medidor, etc.)
+
+Marca e Modelo
+
+Data de Aquisição
+
+Status Atual (funcionando, com defeito, manutenção, descartado)
+
+Localização Atual (sede, cliente, colaborador)
+
+Empreendimento Vinculado (dropdown com busca e múltiplos vínculos possíveis)
+
+Observações gerais (campo de texto)
+
+Ações:
+
+Botão Salvar
+
+Validação de patrimônio único
+
+Atualização dinâmica dos dashboards e quantidade disponível
+
+🔹 Formulário de Edição
+
+Permite alteração de qualquer campo, incluindo status, localização e empreendimento. Ao alterar para “descartado”, solicitar confirmação.
+
+🔹 Atualização Automática
+
+Quantidade total de equipamentos = total de patrimônios cadastrados
+
+Quantidade disponível = total – retiradas não devolvidas
+
+Atualização automática após cada retirada/devolução
+
+📊 2. Aba Painel – Dashboards Integrados
+
+A aba “Painel” deve consolidar os indicadores principais da plataforma e conter três subpainéis dinâmicos:
+
+🔸 2.1 Seletor de Visualização (Tabs ou Dropdown)
+
+Opções: Licenças, Equipamentos, Demandas
+
+Ao selecionar uma, apenas os gráficos correspondentes aparecem
+
+Exibição responsiva e intuitiva
+
+🧮 2.2 Dashboards por Módulo
+🔧 Equipamentos
+
+Total de Equipamentos
+
+Disponíveis
+
+Em Uso
+
+Em Manutenção
+
+Com Defeito
+
+Por Empreendimento
+
+Por Tipo
+
+Tempo Médio em Campo
+
+Transferências Diretas entre Empreendimentos
+
+Histórico de Retiradas e Devoluções
+
+📄 Licenças
+
+Total de Licenças Ativas
+
+Por Tipo (LP, LI, LO, etc.)
+
+Próximas a vencer (90, 60, 30 dias)
+
+Empreendimentos com mais pendências
+
+Situação por Cliente
+
+📌 Demandas (Kanban)
+
+Total de Demandas
+
+Por Status (A Fazer, Em Andamento, Concluído)
+
+Por Responsável
+
+Por Projeto
+
+Por Prioridade (Alta, Média, Baixa)
+
+% Conclusão por período
+
+🧱 3. Banco de Dados (Equipamentos)
+
+Tabela: equipamentos
+
+Campo	Tipo	Descrição
+id	string	ID único
+patrimonio	string	Número de patrimônio (único)
+tipo	string	Tipo de equipamento
+marca_modelo	string	Marca e modelo
+data_aquisicao	date	Data da compra
+status	string	Funcionando, Defeituoso, Manutenção, Descartado
+localizacao	string	Onde está atualmente
+empreendimento_id	string	Relacionado a outro registro de empreendimentos
+observacoes	text	Comentários adicionais
+historico_movimentacoes	array	Lista de entradas/saídas/manutenções
+criado_em	timestamp	Data de criação
+atualizado_em	timestamp	Data da última atualização
+🧠 4. Inteligência Integrada
+
+Sempre que uma movimentação ocorrer (ex: retirada), atualizar a quantidade disponível dinamicamente
+
+Ao devolver, abrir modal com campos:
+
+Condição na devolução (funcionando / com defeito)
+
+Necessita manutenção (sim/não)
+
+Comentário adicional
+
+🔧 5. Kanban de Demandas (Aba “Demandas”)
+
+Visão Kanban com colunas: A Fazer, Em Andamento, Concluído
+
+Cartões de tarefa com:
+
+Nome da demanda
+
+Responsável
+
+Empreendimento vinculado
+
+Prioridade
+
+Prazo
+
+Movimentação manual entre colunas
+
+Filtro por empreendimento, coordenador ou status
+
+Atualização automática no dashboard da aba Painel

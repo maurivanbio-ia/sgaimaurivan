@@ -1,0 +1,169 @@
+Contexto: Já existe a aba “Gestão de Dados” no sistema EcoBrasil. NÃO criar uma aba nova. NÃO refazer a UI inteira. Implementar tudo como extensão incremental nessa aba existente, reaproveitando componentes, rotas, estilo, autenticação e banco atuais.
+
+Objetivo: Na aba existente “Gestão de Dados”, implementar:
+1) Inicialização e manutenção da estrutura macro de pastas institucional.
+2) Criação automática da estrutura padrão por projeto quando um projeto for cadastrado (ou ao primeiro upload).
+3) Formulário de upload com metadados obrigatórios para gerar automaticamente o código do arquivo (nome padronizado).
+4) Roteamento automático do arquivo para a pasta correta dentro do projeto, baseado em DOC, STATUS e extensão.
+5) Seção fixa “Dicionário de Siglas” (curta, pesquisável) dentro da própria aba.
+6) Rodapé fixo com texto normativo (ISO + FAIR + LGPD).
+7) Controle de versões e trilha de auditoria (audit trail) para cada documento, mantendo histórico.
+
+Diretrizes obrigatórias:
+- Prefixo fixo do código: ECOBRASIL
+- Nome do arquivo gerado automaticamente:
+  ECOBRASIL-[CLIENTE]-[UF]-[PROJ]-[SUBPROJ]-[DISC]-[ENTREGA]-[DOC]-[AREA]-[PERIODO]-[DATA]-[RESP]-[Vx.y]-[STATUS].[ext]
+- Campos opcionais vazios devem ser omitidos sem deixar separadores duplicados.
+- Normalização: remover acentos, remover caracteres especiais, espaço -> underscore, tudo em maiúsculas.
+- DATA no padrão AAAAMMDD. default no dia do upload.
+- Versão inicia em V0.1, e incrementa se já existir o mesmo código.
+- Armazenar hash (SHA-256) e timestamps para integridade e rastreabilidade.
+- Não quebrar o que já funciona. criar migrações compatíveis.
+
+Tarefa 0: Entender o projeto existente
+- Localizar a aba “Gestão de Dados” no front-end e identificar:
+  a) rota/página/componente responsável
+  b) componentes de formulário e tabela já usados
+  c) endpoints já existentes para upload/listagem
+  d) modelo de dados atual (tabela/coleção) e storage (local, S3, supabase, filesystem etc.)
+- Implementar com mínimo de mudanças, seguindo padrões do repo.
+
+Tarefa 1: Criar a função “Garantir Estrutura Macro”
+- Na primeira carga da aba “Gestão de Dados” (ou em um botão “Inicializar Estrutura”), executar um endpoint que:
+  cria /ECOBRASIL_GESTAO_DADOS e subpastas:
+  01_ADMINISTRATIVO
+  02_PROJETOS
+  03_CLIENTES
+  04_BASE_TECNICA
+  05_MODELOS_E_PADROES
+  06_SISTEMA_E_BACKUP
+  07_ARQUIVO_MORTO
+- Deve ser idempotente (rodar várias vezes sem duplicar ou falhar).
+
+Tarefa 2: Criar a função “Garantir Estrutura do Projeto”
+- Quando existir um projeto selecionado na aba (CLIENTE, UF, PROJ), garantir que exista:
+  /02_PROJETOS/ECOBRASIL_[CLIENTE]_[UF]_[PROJ]/
+    01_GESTAO_E_CONTRATOS
+    02_PLANEJAMENTO_E_CRONOGRAMA
+    03_BANCOS_DE_DADOS
+    04_RELATORIOS_E_PARECERES
+    05_SIG_E_CARTOGRAFIA
+    06_IMAGENS_E_MIDIAS
+    07_SCRIPTS_E_ANALISES
+    08_COMUNICACAO_OFICIAL
+    09_AUDITORIA_E_COMPLIANCE
+    10_ENTREGAS_FINAIS
+- E criar também a árvore detalhada de 03_BANCOS_DE_DADOS, 04_RELATORIOS_E_PARECERES, 05_SIG_E_CARTOGRAFIA, 06_IMAGENS_E_MIDIAS, 07_SCRIPTS_E_ANALISES, 08_COMUNICACAO_OFICIAL, 09_AUDITORIA_E_COMPLIANCE conforme especificação abaixo.
+- Deve ser idempotente.
+
+Árvore detalhada obrigatória:
+03_BANCOS_DE_DADOS:
+  01_DADOS_BRUTOS/{FAUNA,FLORA,FISICO_QUIMICA,SOCIOECONOMIA,OUTROS}
+  02_DADOS_PROCESSADOS/{FAUNA,FLORA,SIG,ESTATISTICA}
+  03_DADOS_CONSOLIDADOS/BASE_OFICIAL_PROJETO
+  04_METADADOS_E_DICIONARIOS/{DICIONARIO_DE_VARIAVEIS,METODOLOGIAS}
+
+04_RELATORIOS_E_PARECERES:
+  01_RASCUNHOS
+  02_PRELIMINARES
+  03_REVISOES
+  04_FINAIS
+  05_ASSINADOS_E_PROTOCOLADOS
+
+06_IMAGENS_E_MIDIAS:
+  01_FOTOS_CAMPO
+  02_DRONES_E_VIDEOS
+  03_MAPAS_E_FIGURAS
+  04_GRAFICOS_E_DIAGRAMAS
+  05_MEMORIAL_FOTOGRAFICO
+
+05_SIG_E_CARTOGRAFIA:
+  01_DADOS_VETORIAIS
+  02_DADOS_RASTER
+  03_PROJETOS_QGIS
+  04_LAYOUTS_E_MAPAS
+  05_METADADOS_SIG
+
+07_SCRIPTS_E_ANALISES:
+  01_R
+  02_PYTHON
+  03_SQL
+  04_NOTEBOOKS
+  05_LOGS_E_RESULTADOS
+
+08_COMUNICACAO_OFICIAL:
+  01_OFICIOS
+  02_EMAILS_PDF
+  03_RESPOSTAS_A_ORGAOS
+  04_PROTOCOLADOS
+
+09_AUDITORIA_E_COMPLIANCE:
+  01_CHECKLISTS_ISO
+  02_RASTREABILIDADE
+  03_LGPD_E_CONFIDENCIALIDADE
+  04_REGISTROS_DE_MUDANCA
+
+Tarefa 3: Upgrade do formulário de upload dentro da aba existente
+- Dentro da aba já existente, adicionar os campos (dropdowns) e autopreenchimentos:
+Obrigatórios:
+  CLIENTE, UF, PROJ, SUBPROJ, DISC, DOC, ENTREGA, STATUS
+  DATA (auto)
+  RESP (auto via usuário logado, editável)
+  VERSAO (auto V0.1)
+Opcionais:
+  AREA, PERIODO, CLASS (PUB/INT/CONF/LGPD), TIT (titulo curto)
+- Antes de enviar, mostrar “Preview do Código Gerado” e o “Destino (pasta)” calculado.
+- Ao salvar/upload, o backend deve:
+  a) garantir estrutura macro
+  b) garantir estrutura do projeto
+  c) gerar o nome final (código)
+  d) rotear para a subpasta correta
+  e) gravar metadados + hash + audit trail
+
+Tarefa 4: Roteamento automático (pasta destino)
+- Definir função que retorna destino com base em DOC, STATUS e extensão:
+  DOC=DAT => 03_BANCOS_DE_DADOS
+  DOC=REL ou DOC=NT => 04_RELATORIOS_E_PARECERES
+    STATUS=RASC => 01_RASCUNHOS
+    STATUS=PRELIM => 02_PRELIMINARES
+    STATUS=FINAL => 04_FINAIS
+    STATUS=ASSIN ou PROTOC => 05_ASSINADOS_E_PROTOCOLADOS
+  Ext (jpg/png/tif) => 06_IMAGENS_E_MIDIAS/01_FOTOS_CAMPO (default) com opção de escolha interna
+  Ext (mp4) => 06_IMAGENS_E_MIDIAS/02_DRONES_E_VIDEOS
+  Ext (gpkg/shp/qgz/tif) => 05_SIG_E_CARTOGRAFIA (subpasta conforme tipo. vetor/raster/projeto/layout)
+  Ext (R/py/ipynb/sql) => 07_SCRIPTS_E_ANALISES
+  DOC=OF => 08_COMUNICACAO_OFICIAL/01_OFICIOS
+  STATUS=PROTOC => 08_COMUNICACAO_OFICIAL/04_PROTOCOLADOS
+  10_ENTREGAS_FINAIS deve receber cópia somente quando STATUS for FINAL/ASSIN/PROTOC e ENTREGA for D2
+
+Tarefa 5: Versionamento e histórico
+- Se um upload gerar o mesmo código base, incrementar versão automaticamente (V0.1 -> V0.2).
+- Criar tabela/coleção de versões ligada ao documento principal:
+  document_id, version, filename, storage_path, hash, created_at, created_by, status
+- Registrar audit trail:
+  action (upload, update_status, new_version, move, delete lógico), user_id, timestamp, payload resumido
+
+Tarefa 6: Seção “Dicionário de Siglas” dentro da aba
+- Inserir um card fixo colapsável “Dicionário de Siglas” com busca rápida:
+DISC: FAU,FLO,HID,QUI,GEO,SOC,SIG,ENG,JUR,ESG,GPR
+DOC: REL,NT,OF,MEM,ATA,APR,MAP,DAT,MET,LAU
+ENTREGA: D0,D1,D2,REV,RES,PROT
+STATUS: RASC,PRELIM,FINAL,ASSIN,PROTOC,ENVIADO,ARQ
+CLASS: PUB,INT,CONF,LGPD
+PERIODO: CHEIAaaaa, SECAaaaa, aaaaQn, aaaa-aaaa
+
+Tarefa 7: Rodapé normativo fixo na aba
+Inserir no rodapé da aba “Gestão de Dados” o texto:
+“Sistema de gestão de dados e documentos da EcoBrasil Consultoria Ambiental, estruturado com base nas normas e boas práticas internacionais, incluindo: ISO 15489 e ABNT NBR ISO 30301, ISO 9001, ISO 14001, ISO/IEC 27001, ISO 21502, ISO 31000, Princípios FAIR, LGPD (Lei nº 13.709/2018).”
+
+Requisitos técnicos:
+- Respeitar arquitetura existente (mesma stack e padrões do repo).
+- Se storage for S3/supabase/drive. criar path lógico equivalente às pastas.
+- Se for filesystem local. criar diretórios reais.
+- Criar testes unitários para: normalização, geração de código, incremento de versão, roteamento.
+- Criar migrações seguras para novas tabelas/colunas sem perder dados existentes.
+
+Entrega esperada:
+- PR/commit com mudanças mínimas e bem organizadas.
+- Aba “Gestão de Dados” funcionando com preview do código, upload, roteamento e versionamento.
+- Documentação rápida no README ou docs internos explicando como cadastrar projeto, como o código é formado, e como buscar documentos.

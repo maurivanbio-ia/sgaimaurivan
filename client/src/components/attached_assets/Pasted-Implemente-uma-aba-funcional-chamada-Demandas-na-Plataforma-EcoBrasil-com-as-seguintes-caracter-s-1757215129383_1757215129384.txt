@@ -1,0 +1,145 @@
+Implemente uma aba funcional chamada "Demandas" na Plataforma EcoBrasil, com as seguintes características principais:
+
+🔹 1. Visual principal da aba: Kanban
+
+A aba "Demandas" deve adotar o método Kanban com colunas representando o status da demanda. Os cards (demandas) devem poder ser movidos manualmente entre colunas via drag-and-drop. Cada mudança deve atualizar automaticamente o status da demanda no banco de dados.
+
+📦 Colunas do Kanban (status):
+
+📥 A Fazer
+
+⚙️ Em Andamento
+
+🧪 Em Revisão
+
+✅ Concluído
+
+🚫 Cancelado
+
+🧾 Cada card de demanda deve conter:
+
+Título (texto curto)
+
+Descrição (markdown ou rich text)
+
+Setor responsável (dropdown)
+
+Responsável atual (usuário)
+
+Data de entrega (obrigatória)
+
+Empreendimento vinculado (dropdown)
+
+Prioridade (baixa, média, alta – cor ou tag)
+
+Anexos (upload de arquivos)
+
+Tags (opcional)
+
+🧠 Funcionalidades obrigatórias:
+
+Drag-and-drop manual entre colunas com atualização do status
+
+Botão “+ Nova Demanda” com modal de criação
+
+Filtros por setor, responsável, empreendimento, prioridade e data
+
+Campo de busca por palavras-chave
+
+Notificações opcionais ao atribuir demanda ou quando o prazo estiver próximo (ex: <48h)
+
+🧩 Recursos adicionais sugeridos:
+
+Checklist e subtarefas por demanda
+
+Comentários internos ou histórico de movimentações (audit trail)
+
+Controle de tempo (estimado vs real)
+
+Templates reutilizáveis (ex: “Demanda de Relatório de Fauna”)
+
+🔹 2. Integração com o Painel (dashboard de demandas)
+
+Na aba Painel da Plataforma EcoBrasil (onde já existem os painéis de Licenças e Equipamentos), inclua um novo item de visualização chamado “Demandas”.
+
+Ao selecionar “Demandas”, exibir os seguintes elementos:
+
+📊 Indicadores (cards numéricos):
+
+Total de demandas
+
+Demandas concluídas
+
+Demandas em andamento
+
+Demandas atrasadas
+
+Demandas por setor (ou gráfico compacto)
+
+📈 Gráficos:
+
+Demandas por status (donut ou pizza)
+
+Demandas por prioridade (barra)
+
+Evolução por semana/mês
+
+Ranking de colaboradores com mais demandas
+
+🔍 Filtros no dashboard:
+
+Empreendimento
+
+Responsável
+
+Setor
+
+Período
+
+Status
+
+Prioridade
+
+📥 Ações rápidas:
+
+Botão: + Nova Demanda (abre modal)
+
+Botão: Ver Kanban (redireciona para a aba Demandas)
+
+🧱 Estrutura de Dados (Banco)
+📄 Tabela: demandas
+Campo	Tipo	Observações
+id	UUID	Chave primária
+titulo	STRING	Nome da demanda
+descricao	TEXT	Pode conter markdown
+setor	STRING	Ex: Fauna, RH, Licenciamento
+status	ENUM	A Fazer, Em Andamento, etc.
+prioridade	ENUM	Baixa, Média, Alta
+data_entrega	DATE	Obrigatória
+data_conclusao	DATE	Preenchida automaticamente
+empreendimento_id	UUID (FK)	Referência cruzada com projetos
+responsavel_id	UUID (FK)	Referência a colaborador
+anexos	ARRAY<URL>	Upload opcional
+tags	ARRAY<STRING>	Opcional
+criado_em	TIMESTAMP	Auto preenchido
+🧠 Tecnologias sugeridas:
+
+Frontend: React + Tailwind + dnd-kit ou react-beautiful-dnd para Kanban
+
+Gráficos: Recharts, ECharts ou Chart.js
+
+Backend: Supabase, Firebase, ou Node com PostgreSQL
+
+Estado: React Query ou Zustand
+
+Controle de acesso: Permitir visualizações setoriais se necessário
+
+✨ Recursos adicionais estratégicos:
+
+Exportação das demandas por filtro (CSV, XLS, PDF)
+
+Vinculação direta com tarefas do cronograma de projetos
+
+Painéis setoriais por colaborador, empreendimento ou gerente
+
+Dashboard de eficiência (tempo médio de conclusão por setor)
