@@ -61,8 +61,6 @@ export const licencasAmbientais = pgTable("licencas_ambientais", {
   status: text("status").notNull(),
   arquivoPdf: text("arquivo_pdf"),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
-  observacao: text("observacao"),
-  numeroParqueEolico: text("numero_parque_eolico"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
