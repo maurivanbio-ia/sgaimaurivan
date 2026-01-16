@@ -1,0 +1,274 @@
+Transformar o EcoGestor em uma plataforma totalmente integrada por empreendimento, garantindo que todas as informações se relacionem. Todos os empreendimentos devem aparecer no Dashboard com status e no Mapa com símbolos por tipo. Ao clicar no símbolo, deve abrir um painel com todos os dados do empreendimento (licenças, cronograma, demandas, contratos, pagamentos, frota, equipamentos, SST, gestão de dados, RH, financeiro, arquivos).
+
+Escopo de implementação
+
+Criar a página de empreendimento detalhado em /empreendimentos/:id com abas internas:
+Cronograma executivo. Demandas. Documentos de SST. Gestão de dados. Equipamentos utilizados. Frota utilizada. Contratos. RH.
+Cada aba com CRUD completo e filtrada por empreendimento_id.
+
+Implementar módulo de Contratos com base no “espelho” enviado. Incluir upload de PDF, aditivos, pagamentos, status de atraso e gráficos de execução × faturamento.
+
+Implementar alerta único de licenças com 150 dias de antecedência.
+
+Implementar relatório semanal automático toda segunda-feira por e-mail ao gestor do projeto. Enviar alertas automáticos de prazo de entrega vencido.
+
+Implementar looping de demandas fixas com data final definida pelo contrato. Renovar instâncias conforme periodicidade.
+
+Integrar vigência do contrato à visibilidade do empreendimento. Quando vencer, permitir marcar como oculto.
+
+Criar aba de RH vinculada ao empreendimento. Armazenar fornecedor, documentos pessoais, certificados, exames, seguro, valores.
+
+Mapear tipos de empreendimento para ícones no mapa Leaflet. Exibir popup rico com todas as informações e botões de ação.
+
+Modelo de dados. Drizzle ORM
+
+Criar ou ajustar tabelas no PostgreSQL. Todas com id primário, created_at, updated_at, deleted_at opcional, empreendimento_id quando aplicável.
+
+Núcleo
+
+empreendimentos(id, nome, cliente, tipo, status, latitude, longitude, municipio, uf, descricao, gestor_nome, gestor_email, gestor_telefone, visivel, data_inicio, data_fim_prevista, data_fim_real)
+
+campanhas(id, nome, empreendimento_id, periodo_inicio, periodo_fim, descricao)
+
+Licenças e condicionantes
+
+licencas(id, empreendimento_id, titulo, orgao, numero, data_emissao, data_validade, situacao, arquivo_pdf_id)
+
+condicionantes(id, licenca_id, titulo, descricao, data_prazo, status, data_entrega, arquivo_id)
+Implementar índice em data_validade e data_prazo.
+
+Contratos
+
+contratos(id, empreendimento_id, numero, objeto, centro_custo, municipio_uf, data_proposta, referencia, vigencia_inicio, vigencia_fim, situacao, valor_total, cond_pagto, forma_pagto, banco, agencia, conta, observacoes, contratada_razao, contratada_cnpj, contratada_endereco, contratada_bairro, contratada_municipio_uf, contratante_razao, contratante_cnpj, contratante_representante, contratante_cargo, contratante_qualificacao, contratante_endereco, contratante_municipio_uf, contratante_contato, representante_nome, representante_email_telefone, arquivo_pdf_id)
+
+contrato_aditivos(id, contrato_id, descricao, valor_adicional, vigencia_nova_fim, data_assinatura, arquivo_pdf_id)
+
+contrato_pagamentos(id, contrato_id, descricao, valor_previsto, data_prevista, valor_pago, data_pagamento, status)
+Status calculado: Pago. Pendente. Atrasado (data atual > data_prevista e data_pagamento nula). Criar view materializada ou campo derivado por job.
+
+Operação e gestão
+
+cronograma_itens(id, empreendimento_id, etapa, data_inicio, data_fim, concluido, responsavel)
+
+demandas(id, empreendimento_id, titulo, descricao, prioridade, status, responsavel_id, data_criacao, data_prazo, data_conclusao, origem, campanha_id, contrato_id, recorrente, recorrencia_cron, recorrencia_fim)
+
+comentarios(id, demanda_id, autor_id, texto)
+
+subtarefas(id, demanda_id, titulo, status)
+
+SST e RH
+
+sst_documentos(id, empreendimento_id, colaborador_id, tipo, numero, data_emissao, data_validade, arquivo_id, status)
+
+rh_registros(id, empreendimento_id, fornecedor, nome_colaborador, cpf, rg, cnh, certificados_json, exames_json, seguro_numero, valor_tipo, valor, data_inicio, data_fim, contato_email, contato_telefone, arquivos_ids_json)
+
+Ativos
+
+frota(id, empreendimento_id, placa, modelo, marca, status, localizacao, km_atual, manutencoes_json)
+
+equipamentos(id, empreendimento_id, tipo, identificador, status, localizacao, resp_nome, manutencoes_json)
+
+Arquivos
+
+arquivos(id, nome, mime, tamanho, caminho, checksum, origem, uploader_id)
+
+Notificações e agendamentos
+
+notificacoes(id, tipo, referencia, payload_json, destinatario_email, enviado_em)
+
+jobs_agendados(id, tipo, referencia, proxima_execucao_em, cron, ativo)
+
+Gerar migrations Drizzle.
+
+Backend. API Express + Drizzle
+
+Criar endpoints REST com autenticação. Exemplos mínimos:
+
+Empreendimentos. GET /api/empreendimentos. GET /api/empreendimentos/:id. POST /api/empreendimentos. PATCH /api/empreendimentos/:id. DELETE /api/empreendimentos/:id com deleção em cascata via transação.
+
+Contratos. GET /api/empreendimentos/:id/contratos. POST /api/contratos. PATCH /api/contratos/:id. POST /api/contratos/:id/aditivos. POST /api/contratos/:id/upload (multer para PDF).
+
+Pagamentos. GET /api/contratos/:id/pagamentos. POST /api/pagamentos. PATCH /api/pagamentos/:id atualizando pagamento e recalculando status.
+
+Licenças. POST /api/licencas. GET /api/licencas?empreendimento_id=.... Job de alerta 150 dias dispara POST /api/notificacoes.
+
+Demandas. CRUD completo incluindo recorrente, recorrencia_cron, recorrencia_fim. Job gera instâncias futuras até recorrencia_fim.
+
+SST, RH, Frota, Equipamentos, Gestão de dados. CRUD completo, todos filtráveis por empreendimento_id.
+
+Relatórios. POST /api/relatorios/semanal/:empreendimentoId e POST /api/relatorios/semanal/global. Endpoint gera PDF/HTML e dispara e-mail.
+
+Regras de negócio no back
+
+Alerta de licenças com 150 dias. Verificação diária. Registrar “primeiro envio” para não duplicar.
+
+Atraso de pagamentos. Recalcular status diariamente. Enviar e-mail ao gestor quando um item muda para “Atrasado”.
+
+Relatório semanal. Toda segunda 08:00 local. Consolidar: demandas pendentes/concluídas. licenças por status. condicionantes por prazo. pagamentos previstos e pagos. uso de frota e manutenções. SST a vencer. anexar gráficos.
+
+Visibilidade por vigência. Se contratos.vigencia_fim vencido e sem aditivo vigente, permitir marcar empreendimento visivel=false. Excluir do mapa e de listagens padrão. Manter acessível por filtro “histórico”.
+
+Integração com e-mail
+
+Usar Nodemailer ou Resend. Templates HTML reutilizáveis com componentes.
+Assunto e conteúdo:
+
+“Alerta de vencimento de licença em 150 dias”. Dados: empreendimento. licença. data_validade. link de ação.
+
+“Pagamento atrasado”. Dados: contrato. item. valor. dias de atraso.
+
+“Relatório semanal do empreendimento X”. Anexar PDF. Link para painel.
+
+Frontend. React + TS
+Rotas
+
+/ Dashboard.
+
+/empreendimentos. Lista e mapa.
+
+/empreendimentos/:id página container com Tabs Shadcn: Cronograma. Demandas. SST. Gestão de dados. Equipamentos. Frota. Contratos. RH.
+
+Subcomponentes com TanStack Query, React Hook Form e Zod.
+
+Dashboard
+
+KPIs já existentes, agora agregando por empreendimento.
+
+Todos os empreendimentos listados com status e mini-sumário.
+
+Gráfico de vencimentos mensais.
+
+Top 10 prazos urgentes entre licenças, condicionantes, entregas e pagamentos.
+
+Mapa Leaflet
+
+Camada de marcadores para todos os empreendimentos com ícone por tipo.
+
+Mapeamento de ícones:
+
+hidreletrica → ícone barragem.
+
+parque_eolico → ícone turbina eólica.
+
+termoeletrica → chaminé.
+
+linha_transmissao → torre.
+
+mina → picareta.
+
+pchs → ícone PCH.
+
+outro → pin genérico.
+
+Popup rico com:
+Nome. Cliente. Tipo. Status. Coordenadas. Botões: “Abrir empreendimento”. “Ver licenças”. “Ver contratos”. “Ver demandas”.
+
+Tooltip com contagem de prazos críticos.
+
+Clustering opcional para muitos pontos.
+
+Página do Empreendimento
+
+Header com dados do empreendimento e botões rápidos.
+
+Tabs:
+
+Cronograma. Tabela + Gantt simples.
+
+Demandas. Quadro Kanban filtrado por empreendimento. Cadastro e recorrência.
+
+SST. Lista de documentos com validade e alerta.
+
+Gestão de dados. Upload múltiplo. Tagging. Pré-visualização.
+
+Equipamentos. CRUD e histórico.
+
+Frota. CRUD. histórico de manutenção. quilometragem.
+
+Contratos. Formulário espelhado. upload PDF. aditivos. pagamentos. gráficos de execução e faturamento.
+
+RH. Fornecedor. dados pessoais mínimos. certificados. exames. seguro. valores. uploads.
+
+Formulários e validação
+
+Zod schemas alinhados ao Drizzle.
+
+Máscaras para CNPJ, CPF, datas, moeda.
+
+Upload de PDF com pré-visualização e salvamento em arquivos.
+
+Jobs e automações
+
+Node-cron
+Diariamente 06:00. checar licenças com 150 dias. checar pagamentos atrasados.
+Segundas 08:00. gerar relatório semanal por empreendimento e global.
+
+Serviço de recorrência de demandas. Executar diariamente. Instanciar tarefas para períodos definidos em recorrencia_cron até recorrencia_fim.
+
+Segurança e integridade
+
+Autenticação atual mantida. Proteger todas as rotas com sessão/JWT.
+
+Autorização por papel. Administrador. Gestor. Coordenador. RH. Financeiro.
+
+Logs de auditoria por usuário nas operações críticas.
+
+Soft delete com deleted_at nas entidades sensíveis.
+
+Performance e DX
+
+Indexar colunas de datas e chaves estrangeiras.
+
+Paginação server-side nas tabelas grandes.
+
+Cache com TanStack Query e invalidação por chave.
+
+Promise.all no dashboard.
+
+Lazy loading nas abas pesadas.
+
+Entregáveis
+
+Migrations Drizzle criadas e aplicadas.
+
+Endpoints Express implementados e testados.
+
+Páginas React com Tabs e CRUD por aba.
+
+Mapa com ícones por tipo e popups ricos.
+
+Jobs de e-mail e relatórios operacionais.
+
+Upload e armazenamento de PDFs de contratos e aditivos.
+
+Documentação README com rotas, envs, comandos e cron.
+
+Variáveis de ambiente
+
+DATABASE_URL
+
+SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
+
+APP_BASE_URL
+
+FILE_STORAGE_PATH ou credenciais do storage usado
+
+Critérios de aceite
+
+Todo empreendimento aparece no Dashboard e no Mapa com ícone correto.
+
+Clique no ícone abre painel com links e dados consolidados.
+
+Abas internas do empreendimento funcionam com CRUD completo e filtragem por empreendimento_id.
+
+Alerta de 150 dias dispara somente uma vez por licença e fica registrado.
+
+Relatório semanal chega ao e-mail do gestor com métricas e anexos.
+
+Itens de pagamento mostram status correto e mudam para “Atrasado” quando aplicável.
+
+Demandas recorrentes geram instâncias novas até a data final configurada.
+
+Empreendimento pode ser ocultado ao fim da vigência contratual.
+
+Upload de PDF de contrato e aditivos funcionando, com vínculo ao contrato.

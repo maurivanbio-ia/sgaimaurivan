@@ -1,0 +1,154 @@
+Estrutura Funcional – Gestão de Equipamentos
+🔹 1. Cadastro Avançado de Equipamentos
+
+Número de Patrimônio (único e obrigatório)
+
+Nome/Título do equipamento (ex: “GPS Garmin Etrex 32x”)
+
+Tipo (ex: Notebook, GPS, Medidor, Drone, etc.)
+
+Marca e Modelo
+
+Data de aquisição
+
+Quantidade total (estoque)
+
+Status: Ativo / Inativo / Obsoleto / Em Avaliação
+
+Localização padrão
+
+Valor estimado (opcional – para depreciação)
+
+Vida útil estimada
+
+Observações
+
+🟢 Diferencial: Equipamentos podem ser unitários ou múltiplos por lote (ex: 5 rádios de comunicação).
+
+🔹 2. Tabela Intuitiva de Equipamentos
+
+Colunas: Patrimônio | Nome | Tipo | Qtd. Total | Qtd. Disponível | Status | Localização | Ações
+
+Botões: Ver Histórico | Nova Movimentação | Editar | Inativar
+
+Filtros: Por tipo, status, setor, disponibilidade
+
+🔹 3. Movimentações Registradas com Acompanhamento
+
+Tipo: Entrada / Retirada / Devolução / Manutenção / Descarte
+
+Data e hora
+
+Responsável (colaborador ou setor)
+
+Quantidade movimentada
+
+Finalidade (ex: campo, empréstimo interno, manutenção corretiva)
+
+Observações
+
+Upload de comprovante
+
+Status no momento da movimentação: funcionando / com defeito / avaria leve / manutenção programada
+
+🟢 Diferencial: Cada retirada cria uma "pendência" até que o item seja devolvido ou descartado.
+
+🔹 4. Botão "Devolvido" com Formulário de Retorno
+
+Ao clicar em "Devolvido", abrir modal com os seguintes campos:
+
+Data e hora da devolução (automática ou editável)
+
+Responsável pela devolução
+
+Estado do equipamento ao retornar:
+
+Funcionando normalmente
+
+Com defeito
+
+Necessita manutenção preventiva
+
+Danificado sem uso
+
+Observações (ex: quebrou tela no transporte)
+
+Indicar se será enviado para manutenção ou substituído
+
+Upload de imagem, se desejar
+
+🔄 Após devolução, o sistema atualiza automaticamente:
+
+Qtd. disponível no estoque
+
+Status do item
+
+Histórico completo do ciclo
+
+🔹 5. Dashboard de Equipamentos (Visão Geral)
+
+Total de equipamentos cadastrados
+
+Quantidade atualmente em uso
+
+Equipamentos com devolução pendente
+
+Equipamentos em manutenção
+
+Alertas: Equipamentos com mais de X dias fora sem retorno
+
+Gráfico de movimentações por tipo ou setor
+
+🔹 6. Notificações e Alertas Automatizados
+
+Notificar por e-mail/WhatsApp:
+
+Equipamento retirado sem devolução há mais de X dias
+
+Equipamento devolvido com status de defeito
+
+Equipamento sem movimentação nos últimos 90 dias
+
+Alertar equipe de manutenção para avaliações necessárias
+
+🔹 7. Relatórios Exportáveis
+
+Histórico de cada equipamento (movimentações, usuários, datas)
+
+Relatórios por período (ex: último trimestre)
+
+Relatórios por setor, tipo de equipamento, status funcional
+
+Relatórios de manutenção programada e executada
+
+🔹 8. Permissões e Responsabilidades
+
+Perfil de administrador pode:
+
+Cadastrar e editar equipamentos
+
+Gerar relatórios
+
+Encerrar pendências de outros usuários
+
+Perfil de colaborador pode:
+
+Visualizar seus próprios equipamentos
+
+Registrar retirada e devolução
+
+Sugerir manutenção
+
+🌱 Funcionalidades Futuras (v2 e além)
+
+Integração com QR Code ou NFC para leitura rápida
+
+Módulo de depreciação e controle contábil
+
+Checklist de uso obrigatório ao retirar ou devolver
+
+Avaliação de equipamentos por quem devolve (feedback de uso)
+
+Controle de acessórios (baterias extras, cabos etc.) associados ao item principal
+
+Módulo de Requisição de Empréstimo (solicitação + aprovação)

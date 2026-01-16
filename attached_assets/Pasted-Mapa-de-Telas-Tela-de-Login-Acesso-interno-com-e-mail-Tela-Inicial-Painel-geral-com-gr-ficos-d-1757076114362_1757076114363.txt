@@ -1,0 +1,199 @@
+Mapa de Telas
+
+Tela de Login – Acesso interno com e-mail
+
+Tela Inicial – Painel geral com gráficos de status e resumo
+
+Tela de Empreendimentos – Lista dos empreendimentos cadastrados
+
+Tela de Novo Empreendimento – Formulário de cadastro
+
+Tela de Detalhe do Empreendimento – Licenças vinculadas ao empreendimento
+
+Tela de Nova Licença – Cadastro de uma nova licença ambiental
+
+Tela de Edição de Licença – Edição dos dados de uma licença já cadastrada
+
+Tela: Tela de Login
+
+Objetivo da tela: permitir o acesso restrito ao sistema
+
+Componentes obrigatórios:
+
+Título da página: “Acesso ao LicençaFácil”
+
+Campo de texto: “E-mail corporativo”
+
+Campo de senha: “Senha”
+
+Botão: “Entrar” (ação: autenticar e redirecionar para Tela Inicial)
+
+Mensagem de erro: “Usuário ou senha inválidos”
+
+Condições especiais ou variações:
+
+Modo carregando: botão desabilitado com indicador
+
+Tela: Tela Inicial
+
+Objetivo da tela: oferecer uma visão geral rápida da situação das licenças
+
+Componentes obrigatórios:
+
+Título da página: “Painel Geral”
+
+Gráfico de status das licenças:
+
+Licenças ativas
+
+Licenças próximas do vencimento (em até 90 dias)
+
+Licenças vencidas
+
+Botão: “Ver empreendimentos” (ação: redirecionar para Tela de Empreendimentos)
+
+Menu superior: “Painel | Empreendimentos | Sair”
+
+Condições especiais ou variações:
+
+Gráfico vazio: mensagem “Nenhuma licença cadastrada ainda”
+
+Tela: Tela de Empreendimentos
+
+Objetivo da tela: listar todos os empreendimentos cadastrados
+
+Componentes obrigatórios:
+
+Título da página: “Empreendimentos”
+
+Lista com cards ou linhas contendo:
+
+Nome do empreendimento
+
+Cliente
+
+Localização
+
+Responsável interno
+
+Botão: “Ver detalhes” (ação: abrir Tela de Detalhe do Empreendimento)
+
+Botão: “Novo empreendimento” (ação: abrir Tela de Novo Empreendimento)
+
+Condições especiais ou variações:
+
+Lista vazia: mensagem “Nenhum empreendimento cadastrado ainda”
+
+Tela: Tela de Novo Empreendimento
+
+Objetivo da tela: cadastrar um novo empreendimento
+
+Componentes obrigatórios:
+
+Título da página: “Novo Empreendimento”
+
+Campo de texto: “Nome do empreendimento”
+
+Campo de texto: “Cliente”
+
+Campo de texto: “Localização”
+
+Campo de texto: “Responsável interno”
+
+Botão: “Salvar empreendimento” (ação: salvar e voltar para a Tela de Empreendimentos)
+
+Mensagem de erro: “Preencha todos os campos obrigatórios”
+
+Mensagem de sucesso: “Empreendimento cadastrado com sucesso!”
+
+Tela: Tela de Detalhe do Empreendimento
+
+Objetivo da tela: visualizar e gerenciar as licenças vinculadas ao empreendimento
+
+Componentes obrigatórios:
+
+Título da página: “[Nome do Empreendimento]”
+
+Subtítulo: “Licenças Ambientais”
+
+Lista com cards ou linhas contendo:
+
+Tipo de licença
+
+Órgão emissor
+
+Data de emissão
+
+Validade
+
+Status (ativo, vencido, a vencer)
+
+Link para download do PDF (se houver)
+
+Botão: “Editar” (ação: abrir Tela de Edição de Licença)
+
+Botão: “Nova licença” (ação: abrir Tela de Nova Licença)
+
+Condições especiais ou variações:
+
+Lista vazia: mensagem “Nenhuma licença cadastrada para este empreendimento”
+
+Tela: Tela de Nova Licença
+
+Objetivo da tela: cadastrar uma nova licença ambiental vinculada ao empreendimento
+
+Componentes obrigatórios:
+
+Título da página: “Nova Licença”
+
+Campo de texto: “Tipo de licença”
+
+Campo de texto: “Órgão emissor”
+
+Campo de data: “Data de emissão”
+
+Campo de data: “Validade”
+
+Campo de upload: “Arquivo PDF da licença (opcional)”
+
+Botão: “Salvar licença” (ação: salvar e voltar para a Tela de Detalhe do Empreendimento)
+
+Mensagem de erro: “Preencha todos os campos obrigatórios”
+
+Mensagem de sucesso: “Licença cadastrada com sucesso!”
+
+Tela: Tela de Edição de Licença
+
+Objetivo da tela: editar as informações de uma licença já cadastrada
+
+Componentes obrigatórios:
+
+Título da página: “Editar Licença”
+
+Campos preenchidos conforme cadastro original:
+
+Tipo de licença
+
+Órgão emissor
+
+Data de emissão
+
+Validade
+
+Arquivo PDF (com opção de substituir)
+
+Botão: “Salvar alterações” (ação: atualizar e voltar para a Tela de Detalhe do Empreendimento)
+
+Mensagem de sucesso: “Licença atualizada com sucesso!”
+
+Fluxograma Mermaid
+
+Você pode visualizar o fluxograma colando o código no site https://mermaid.live
+
+graph TD
+  Login --> Inicial
+  Inicial --> Empreendimentos
+  Empreendimentos --> NovoEmpreendimento
+  Empreendimentos --> DetalheEmpreendimento
+  DetalheEmpreendimento --> NovaLicenca
+  DetalheEmpreendimento --> EditarLicenca
