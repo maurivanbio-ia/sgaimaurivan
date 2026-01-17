@@ -626,6 +626,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get licenses for a specific empreendimento
+  app.get("/api/empreendimentos/:id/licencas", requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+      
+      // Verify the empreendimento belongs to user's unit
+      const empreendimento = await storage.getEmpreendimento(empreendimentoId, userUnidade);
+      if (!empreendimento) {
+        return res.status(404).json({ message: "Empreendimento not found" });
+      }
+      
+      const licencas = await storage.getLicencasByEmpreendimento(empreendimentoId);
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licencas by empreendimento error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Licenca routes
   app.get("/api/licencas", requireAuth, async (req, res) => {
     try {
