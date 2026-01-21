@@ -6706,6 +6706,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/newsletter/edicoes/:id', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+      await newsletterService.deleteEdicao(id);
+      res.json({ success: true, message: 'Edição excluída com sucesso' });
+    } catch (error) {
+      console.error('Error deleting newsletter edition:', error);
+      res.status(500).json({ error: 'Erro ao excluir edição' });
+    }
+  });
+
   app.post('/api/newsletter/send', requireAuth, requireNewsletterAdmin, async (req, res) => {
     try {
       const result = await newsletterService.generateAndSendNewsletter();

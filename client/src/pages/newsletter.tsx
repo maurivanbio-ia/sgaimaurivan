@@ -169,6 +169,18 @@ export default function NewsletterPage() {
     },
   });
 
+  const deleteEdicaoMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest("DELETE", `/api/newsletter/edicoes/${id}`),
+    onSuccess: () => {
+      toast({ title: "Edição excluída com sucesso" });
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter/edicoes"] });
+    },
+    onError: () => {
+      toast({ title: "Erro ao excluir edição", variant: "destructive" });
+    },
+  });
+
   const assinantesAtivos = assinantes.filter(a => a.ativo).length;
 
   return (
@@ -549,6 +561,18 @@ export default function NewsletterPage() {
                             )}
                           </DialogContent>
                         </Dialog>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-100"
+                          onClick={() => {
+                            if (confirm(`Deseja excluir a Edição #${edicao.numero}?`)) {
+                              deleteEdicaoMutation.mutate(edicao.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}

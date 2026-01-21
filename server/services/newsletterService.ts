@@ -672,6 +672,11 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     return edicao;
   }
 
+  async deleteEdicao(id: number) {
+    await db.delete(newsletterEdicoes).where(eq(newsletterEdicoes.id, id));
+    return { success: true };
+  }
+
   async getConfig() {
     const [config] = await db.select().from(newsletterConfig).limit(1);
     return config;
