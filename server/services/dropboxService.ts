@@ -4,7 +4,7 @@ import { Dropbox } from 'dropbox';
 let connectionSettings: any;
 
 async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
+  if (connectionSettings && connectionSettings.settings?.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
     return connectionSettings.settings.access_token;
   }
   
@@ -15,11 +15,15 @@ async function getAccessToken() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
+  console.log('[Dropbox] Verificando conexão...');
+  console.log('[Dropbox] Hostname:', hostname);
+  console.log('[Dropbox] Token type:', xReplitToken ? (xReplitToken.startsWith('repl') ? 'repl' : 'depl') : 'none');
+
   if (!xReplitToken) {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  connectionSettings = await fetch(
+  const response = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=dropbox',
     {
       headers: {
@@ -27,13 +31,21 @@ async function getAccessToken() {
         'X_REPLIT_TOKEN': xReplitToken
       }
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  );
+  
+  const data = await response.json();
+  console.log('[Dropbox] API response items count:', data.items?.length || 0);
+  
+  connectionSettings = data.items?.[0];
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
 
   if (!connectionSettings || !accessToken) {
-    throw new Error('Dropbox not connected');
+    console.log('[Dropbox] Connection not found or no access token');
+    throw new Error('Dropbox não conectado. Por favor, conecte o Dropbox nas configurações do Replit (Connectors).');
   }
+  
+  console.log('[Dropbox] Conexão encontrada com sucesso');
   return accessToken;
 }
 
