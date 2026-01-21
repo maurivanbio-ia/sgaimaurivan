@@ -627,6 +627,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get licenças by empreendimento
+  app.get("/api/empreendimentos/:id/licencas", requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.id);
+      const userUnidade = req.user?.unidade;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Verify the empreendimento belongs to user's unit (unless admin/diretor)
+      if (!isAdmin) {
+        const emp = await storage.getEmpreendimento(empreendimentoId, userUnidade);
+        if (!emp) {
+          return res.status(403).json({ message: "Acesso negado" });
+        }
+      }
+      
+      const licencas = await storage.getLicencasByEmpreendimento(empreendimentoId);
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licencas by empreendimento error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Licenca routes
   app.get("/api/licencas", requireAuth, async (req, res) => {
     try {
