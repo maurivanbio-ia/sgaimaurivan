@@ -26,8 +26,10 @@ async function getAccessToken(): Promise<string> {
   }
 
   console.log('[OneDrive] Fetching connection settings...');
+  
+  // Try fetching all connections first to find OneDrive
   const response = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=onedrive',
+    'https://' + hostname + '/api/v2/connection?include_secrets=true',
     {
       headers: {
         'Accept': 'application/json',
@@ -38,9 +40,24 @@ async function getAccessToken(): Promise<string> {
   
   const data = await response.json();
   console.log('[OneDrive] Connection response status:', response.status);
-  console.log('[OneDrive] Found connections:', data.items?.length || 0);
+  console.log('[OneDrive] Found total connections:', data.items?.length || 0);
   
-  connectionSettings = data.items?.[0];
+  // Find OneDrive connection by connector name
+  const onedriveConnection = data.items?.find((item: any) => 
+    item.connector_name === 'onedrive' || 
+    item.connector?.name === 'onedrive' ||
+    item.id?.includes('onedrive')
+  );
+  
+  if (onedriveConnection) {
+    console.log('[OneDrive] Found OneDrive connection:', onedriveConnection.id);
+    connectionSettings = onedriveConnection;
+  } else {
+    // Log available connectors for debugging
+    const connectorNames = data.items?.map((item: any) => item.connector_name || item.connector?.name || item.id) || [];
+    console.log('[OneDrive] Available connectors:', connectorNames);
+    connectionSettings = null;
+  }
 
   const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
 
