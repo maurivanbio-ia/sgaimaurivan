@@ -618,10 +618,17 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
   async sendTestNewsletter(email: string): Promise<{ success: boolean; message: string }> {
     try {
       const [config] = await db.select().from(newsletterConfig).limit(1);
+      const termos = config?.termosChave || "meio ambiente, IBAMA, licenciamento ambiental";
       
-      let news = await this.searchEnvironmentalNews(config?.termosChave || "meio ambiente");
+      console.log(`[Newsletter] Buscando notícias com termos: ${termos}`);
+      let news = await this.searchEnvironmentalNews(termos);
+      console.log(`[Newsletter] Notícias encontradas via NewsAPI: ${news.length}`);
+      
       if (news.length < 3) {
+        console.log("[Newsletter] Menos de 3 notícias reais, usando simuladas como complemento");
         news = this.getSimulatedNews();
+      } else {
+        console.log("[Newsletter] Usando notícias REAIS da NewsAPI");
       }
       
       const aiSummary = await this.generateAISummary(news.slice(0, 5));
