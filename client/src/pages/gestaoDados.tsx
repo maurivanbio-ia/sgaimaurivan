@@ -41,7 +41,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -210,7 +209,6 @@ export default function GestaoDados() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
   const [dictionarySearch, setDictionarySearch] = useState("");
-  const [activeTab, setActiveTab] = useState("documentos");
   
   // Estados para edição e preview
   const [editingDataset, setEditingDataset] = useState<Dataset | null>(null);
@@ -229,7 +227,6 @@ export default function GestaoDados() {
   const [parentFolderId, setParentFolderId] = useState<number | null>(null);
   const [isUploadingToFolder, setIsUploadingToFolder] = useState(false);
   const [folderFiles, setFolderFiles] = useState<Dataset[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
   
   // Estados para proteção por senha (senha validada no servidor)
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -748,40 +745,6 @@ export default function GestaoDados() {
     return classColors[classificacao || ""] || "bg-gray-100 text-gray-600";
   };
 
-  // Helper: Toggle folder expansion
-  const toggleFolderExpanded = (folderId: number) => {
-    setExpandedFolders(prev => {
-      const next = new Set(prev);
-      if (next.has(folderId)) {
-        next.delete(folderId);
-      } else {
-        next.add(folderId);
-      }
-      return next;
-    });
-  };
-
-  // Helper: Expand all folders
-  const expandAllFolders = () => {
-    const allIds = new Set(pastas.map(p => p.id));
-    setExpandedFolders(allIds);
-  };
-
-  // Helper: Collapse all folders
-  const collapseAllFolders = () => {
-    setExpandedFolders(new Set());
-  };
-
-  // Helper: Build folder tree from flat list
-  const buildFolderTree = (allPastas: DatasetPasta[]) => {
-    const rootFolders = allPastas.filter(p => !p.paiId);
-    return rootFolders;
-  };
-
-  // Helper: Get subfolders of a folder
-  const getSubfolders = (folderId: number) => {
-    return pastas.filter(p => p.paiId === folderId);
-  };
 
   // Helper: Handle folder selection
   const handleSelectFolder = (pasta: DatasetPasta) => {
@@ -1172,14 +1135,8 @@ export default function GestaoDados() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="documentos">Documentos</TabsTrigger>
-          <TabsTrigger value="estrutura">Estrutura de Pastas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="documentos" className="space-y-4">
+      {/* Documentos */}
+      <div className="space-y-4">
           {/* Dicionário de Siglas Colapsável */}
           <Collapsible open={isDictionaryOpen} onOpenChange={setIsDictionaryOpen}>
             <Card>
@@ -1363,339 +1320,7 @@ export default function GestaoDados() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="estrutura">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Sidebar: Folder Tree */}
-            <Card className="lg:col-span-1">
-              <CardHeader className="py-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <FolderTree className="h-5 w-5 text-primary" />
-                    Pastas
-                  </CardTitle>
-                  <div className="flex items-center gap-1">
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={collapseAllFolders}
-                      title="Recolher todas"
-                      className="h-7 w-7 p-0"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={expandAllFolders}
-                      title="Expandir todas"
-                      className="h-7 w-7 p-0"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => { setParentFolderId(null); setIsCreateFolderOpen(true); }}>
-                      <FolderPlus className="h-4 w-4 mr-1" />
-                      Nova
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {pastasLoading ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
-                    <p className="text-sm">Carregando...</p>
-                  </div>
-                ) : pastas.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground px-4">
-                    <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Nenhuma pasta encontrada.</p>
-                    <Button size="sm" className="mt-3" onClick={() => initMacroMutation.mutate()}>
-                      <FolderPlus className="h-4 w-4 mr-1" />
-                      Criar Estrutura Inicial
-                    </Button>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[450px] px-2 pb-2">
-                    <div className="space-y-0.5">
-                      {buildFolderTree(pastas).map((pasta) => {
-                        const isExpanded = expandedFolders.has(pasta.id);
-                        const subfolders = getSubfolders(pasta.id);
-                        const isSelected = selectedPasta?.id === pasta.id;
-                        
-                        return (
-                          <div key={pasta.id}>
-                            <div 
-                              className={`flex items-center gap-1 py-1.5 px-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                            >
-                              <button
-                                onClick={() => toggleFolderExpanded(pasta.id)}
-                                className="p-0.5 hover:bg-muted-foreground/10 rounded"
-                              >
-                                {subfolders.length > 0 ? (
-                                  isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
-                                ) : <span className="w-3" />}
-                              </button>
-                              <FolderOpen className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-amber-500'}`} />
-                              <span 
-                                className="font-mono text-xs flex-1 truncate" 
-                                onClick={() => handleSelectFolder(pasta)}
-                                title={pasta.nome}
-                              >
-                                {pasta.nome}
-                              </span>
-                              <button
-                                onClick={() => { setParentFolderId(pasta.id); setIsCreateFolderOpen(true); }}
-                                className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted rounded"
-                                title="Criar subpasta"
-                              >
-                                <Plus className="h-3 w-3 text-muted-foreground" />
-                              </button>
-                            </div>
-                            
-                            {/* Subfolders */}
-                            {isExpanded && subfolders.length > 0 && (
-                              <div className="ml-4 pl-2 border-l border-muted">
-                                {subfolders.map((sub) => {
-                                  const subIsExpanded = expandedFolders.has(sub.id);
-                                  const subSubfolders = getSubfolders(sub.id);
-                                  const subIsSelected = selectedPasta?.id === sub.id;
-                                  
-                                  return (
-                                    <div key={sub.id}>
-                                      <div 
-                                        className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${subIsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                                      >
-                                        <button
-                                          onClick={() => toggleFolderExpanded(sub.id)}
-                                          className="p-0.5"
-                                        >
-                                          {subSubfolders.length > 0 ? (
-                                            subIsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
-                                          ) : <span className="w-3" />}
-                                        </button>
-                                        <FolderOpen className={`h-3 w-3 ${subIsSelected ? 'text-primary' : 'text-amber-400'}`} />
-                                        <span 
-                                          className="font-mono text-xs flex-1 truncate"
-                                          onClick={() => handleSelectFolder(sub)}
-                                          title={sub.nome}
-                                        >
-                                          {sub.nome}
-                                        </span>
-                                      </div>
-                                      
-                                      {/* Third level */}
-                                      {subIsExpanded && subSubfolders.length > 0 && (
-                                        <div className="ml-4 pl-2 border-l border-muted">
-                                          {subSubfolders.map((ssub) => {
-                                            const ssubIsExpanded = expandedFolders.has(ssub.id);
-                                            const ssubSubfolders = getSubfolders(ssub.id);
-                                            const ssubIsSelected = selectedPasta?.id === ssub.id;
-                                            return (
-                                              <div key={ssub.id}>
-                                                <div 
-                                                  className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${ssubIsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                                                >
-                                                  <button
-                                                    onClick={() => toggleFolderExpanded(ssub.id)}
-                                                    className="p-0.5"
-                                                  >
-                                                    {ssubSubfolders.length > 0 ? (
-                                                      ssubIsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
-                                                    ) : <span className="w-3" />}
-                                                  </button>
-                                                  <FolderOpen className={`h-3 w-3 ${ssubIsSelected ? 'text-primary' : 'text-amber-300'}`} />
-                                                  <span 
-                                                    className="font-mono text-xs truncate flex-1"
-                                                    onClick={() => handleSelectFolder(ssub)}
-                                                    title={ssub.nome}
-                                                  >
-                                                    {ssub.nome}
-                                                  </span>
-                                                </div>
-                                                
-                                                {/* Fourth level */}
-                                                {ssubIsExpanded && ssubSubfolders.length > 0 && (
-                                                  <div className="ml-4 pl-2 border-l border-muted">
-                                                    {ssubSubfolders.map((l4) => {
-                                                      const l4IsSelected = selectedPasta?.id === l4.id;
-                                                      return (
-                                                        <div 
-                                                          key={l4.id}
-                                                          className={`flex items-center gap-1 py-1 px-2 rounded cursor-pointer transition-colors ${l4IsSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                                                          onClick={() => handleSelectFolder(l4)}
-                                                        >
-                                                          <span className="w-3" />
-                                                          <FolderOpen className={`h-3 w-3 ${l4IsSelected ? 'text-primary' : 'text-amber-200'}`} />
-                                                          <span className="font-mono text-xs truncate" title={l4.nome}>{l4.nome}</span>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Main Content: Selected Folder Files */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="py-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <FileText className="h-5 w-5 text-primary" />
-                      {selectedPasta ? selectedPasta.nome : "Selecione uma pasta"}
-                    </CardTitle>
-                    {selectedPasta && (
-                      <CardDescription className="text-xs mt-1">
-                        Caminho: {selectedPasta.caminho}
-                      </CardDescription>
-                    )}
-                  </div>
-                  {selectedPasta && (
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        onClick={() => {
-                          if (confirm("Tem certeza que deseja excluir esta pasta e todos os arquivos?")) {
-                            deleteFolderMutation.mutate(selectedPasta.id);
-                          }
-                        }}
-                        disabled={deleteFolderMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Excluir Pasta
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!selectedPasta ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <FolderOpen className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                    <p>Selecione uma pasta na arvore para ver seus arquivos.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* File Upload Section - Opens structured upload modal */}
-                    <div className="border rounded-lg p-4 bg-muted/30">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Upload className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-sm">Cadastrar documento nesta pasta</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Para enviar um arquivo, use o processo estruturado de cadastro com geracao automatica de codigo.
-                      </p>
-                      <Button 
-                        className="w-full"
-                        onClick={() => {
-                          // Pre-fill pasta destino based on selected folder
-                          if (selectedPasta) {
-                            setPastaDestino(selectedPasta.caminho);
-                            // Try to extract empreendimento from folder path
-                            const empFromPath = pastas.find(p => 
-                              selectedPasta.caminho.startsWith(p.caminho) && p.empreendimentoId
-                            );
-                            if (empFromPath?.empreendimentoId) {
-                              setSelectedEmpreendimento(empFromPath.empreendimentoId.toString());
-                            }
-                          }
-                          setIsUploadDialogOpen(true);
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Cadastrar Documento com Codigo
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        O codigo sera gerado automaticamente baseado nos metadados informados
-                      </p>
-                    </div>
-
-                    {/* Files List */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-sm">Arquivos ({selectedFolderFiles.length})</span>
-                      </div>
-                      {selectedFolderFiles.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
-                          <File className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                          <p className="text-sm">Nenhum arquivo nesta pasta.</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {selectedFolderFiles.map((arquivo) => (
-                            <div 
-                              key={arquivo.id} 
-                              className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                            >
-                              <FileText className="h-8 w-8 text-blue-500 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate" title={arquivo.nome}>
-                                  {arquivo.codigoArquivo || arquivo.nome}
-                                </p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>{formatFileSize(arquivo.tamanho)}</span>
-                                  <span>•</span>
-                                  <span>{new Intl.DateTimeFormat("pt-BR").format(new Date(arquivo.dataUpload))}</span>
-                                  {arquivo.status && (
-                                    <>
-                                      <span>•</span>
-                                      <Badge className={getStatusBadge(arquivo.status)} variant="outline">{arquivo.status}</Badge>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handlePreview(arquivo)} title="Visualizar">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleDownload(arquivo)} title="Baixar">
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-8 w-8 text-destructive" 
-                                  onClick={() => {
-                                    if (confirm("Excluir este arquivo?")) {
-                                      deleteFileMutation.mutate(arquivo.id);
-                                    }
-                                  }}
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {/* Rodapé Normativo */}
       <Card className="bg-muted/30 border-t-4 border-t-primary">
