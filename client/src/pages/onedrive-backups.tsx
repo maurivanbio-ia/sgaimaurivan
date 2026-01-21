@@ -443,7 +443,7 @@ export default function OneDriveBackupsPage() {
               ) : !connectionStatus?.success ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <XCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Conecte ao Dropbox para ver as pastas</p>
+                  <p>Conecte ao OneDrive para ver as pastas</p>
                 </div>
               ) : folderContents?.entries?.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -620,7 +620,7 @@ export default function OneDriveBackupsPage() {
 
       <div className="text-center text-sm text-muted-foreground space-y-2">
         <p>
-          <strong>Estrutura de Pastas:</strong> Todos os arquivos são organizados em <strong>/ECOBRASIL_CONSULTORIA_AMBIENTAL/</strong> no seu Dropbox.
+          <strong>Estrutura de Pastas:</strong> Todos os arquivos são organizados em <strong>/ECOBRASIL_CONSULTORIA_AMBIENTAL/</strong> no seu OneDrive.
         </p>
         <p>
           Cada empreendimento tem sua própria pasta em <strong>/03_PROJETOS/</strong> com subpastas padronizadas (Gestão, Relatórios, Mapas, etc.).
