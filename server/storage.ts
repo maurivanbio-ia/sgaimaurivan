@@ -1997,12 +1997,14 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(financeiroLancamentos.unidade, filters.unidade));
     }
     // Filtro por lista de empreendimentos acessíveis (multi-tenancy)
+    // Inclui também lançamentos com empreendimentoId null (Escritório)
     if (filters?.empreendimentoIds !== undefined) {
       if (filters.empreendimentoIds.length === 0) {
-        // Se não há empreendimentos acessíveis, retornar lista vazia
-        return [];
+        // Se não há empreendimentos acessíveis, retornar apenas lançamentos do Escritório
+        conditions.push(sql`${financeiroLancamentos.empreendimentoId} IS NULL`);
+      } else {
+        conditions.push(sql`(${financeiroLancamentos.empreendimentoId} IN (${sql.join(filters.empreendimentoIds.map(id => sql`${id}`), sql`, `)}) OR ${financeiroLancamentos.empreendimentoId} IS NULL)`);
       }
-      conditions.push(sql`${financeiroLancamentos.empreendimentoId} IN (${sql.join(filters.empreendimentoIds.map(id => sql`${id}`), sql`, `)})`);
     }
 
     let query = db.select().from(financeiroLancamentos);

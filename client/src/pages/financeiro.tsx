@@ -126,7 +126,7 @@ const UNIDADES_CONFIG = {
 // Create form schema for Novo Lançamento
 const novoLancamentoSchema = z.object({
   tipo: z.enum(["receita", "despesa", "reembolso", "solicitacao_recurso"], { required_error: "Tipo é obrigatório" }),
-  empreendimentoId: z.number({ required_error: "Empreendimento é obrigatório" }),
+  empreendimentoId: z.number({ required_error: "Empreendimento é obrigatório" }).nullable(),
   categoriaId: z.number({ required_error: "Categoria é obrigatória" }),
   categoriaOutros: z.string().optional(),
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
@@ -282,13 +282,16 @@ function NovoLancamentoForm({ onSuccess }: NovoLancamentoFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Empreendimento *</FormLabel>
-                <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+                <Select onValueChange={(value) => field.onChange(value === "escritorio" ? null : Number(value))} value={field.value === null ? "escritorio" : field.value?.toString()}>
                   <FormControl>
                     <SelectTrigger data-testid="select-empreendimento">
                       <SelectValue placeholder="Selecione o empreendimento" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value="escritorio" className="font-medium text-blue-600">
+                      Escritório (Despesas Administrativas)
+                    </SelectItem>
                     {empreendimentos.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.nome}
@@ -1135,7 +1138,10 @@ export default function FinanceiroPage() {
   });
 
   // Create empreendimento lookup map
-  const empMap = new Map(empreendimentos.map(e => [e.id, e.nome]));
+  const empMap = new Map<number | null, string>([
+    [null, 'Escritório'],
+    ...empreendimentos.map(e => [e.id, e.nome] as [number, string])
+  ]);
 
   // Calculate totals for dashboard cards
   const totalReceitas = lancamentos
@@ -1845,7 +1851,9 @@ export default function FinanceiroPage() {
                             <td className="p-4">
                               <div className="flex items-center gap-2">
                                 <Building className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">{empMap.get(lancamento.empreendimentoId) || `#${lancamento.empreendimentoId}`}</span>
+                                <span className={`text-sm ${lancamento.empreendimentoId === null ? 'font-medium text-blue-600' : ''}`}>
+                                  {empMap.get(lancamento.empreendimentoId) || (lancamento.empreendimentoId ? `#${lancamento.empreendimentoId}` : 'Escritório')}
+                                </span>
                               </div>
                             </td>
                             <td className="p-4">

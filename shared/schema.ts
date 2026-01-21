@@ -896,7 +896,7 @@ export const categoriasFinanceiras = pgTable("categorias_financeiras", {
 export const financeiroLancamentos = pgTable("financeiro_lancamentos", {
   id: serial("id").primaryKey(),
   tipo: text("tipo").notNull(), // receita, despesa, reembolso, solicitacao_recurso
-  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id), // null = Escritório (despesas administrativas)
   projetoId: integer("projeto_id").references(() => projetos.id), // Projeto vinculado (opcional)
   categoriaId: integer("categoria_id").references(() => categoriasFinanceiras.id).notNull(),
   valor: decimal("valor", { precision: 12, scale: 2 }).notNull(),
