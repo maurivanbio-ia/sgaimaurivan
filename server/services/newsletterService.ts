@@ -5,7 +5,13 @@ import { sendEmail } from "../emailService";
 import cron from "node-cron";
 import OpenAI from "openai";
 
-// Usa Replit AI Integrations se disponível, senão usa OpenAI padrão
+// Usa DeepSeek como provedor principal de IA (compatível com API OpenAI)
+const deepseek = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: "https://api.deepseek.com",
+});
+
+// Fallback para OpenAI/Replit AI se DeepSeek não estiver configurado
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
@@ -261,12 +267,39 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
   ]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 2000,
-      });
+      // Tenta DeepSeek primeiro se a chave estiver configurada
+      let response;
+      let providerUsed = "OpenAI";
+      
+      if (process.env.DEEPSEEK_API_KEY) {
+        console.log("[Newsletter] Tentando gerar resumo com DeepSeek...");
+        try {
+          response = await deepseek.chat.completions.create({
+            model: "deepseek-chat",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 2000,
+          });
+          providerUsed = "DeepSeek";
+        } catch (deepseekError: any) {
+          console.error("[Newsletter] Erro com DeepSeek, tentando OpenAI:", deepseekError.message);
+          // Fallback para OpenAI
+          response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 2000,
+          });
+        }
+      } else {
+        console.log("[Newsletter] Gerando resumo com OpenAI...");
+        response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 2000,
+        });
+      }
 
       const content = response.choices[0]?.message?.content;
       
@@ -274,7 +307,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          console.log("[Newsletter] Resumo gerado com sucesso via OpenAI");
+          console.log(`[Newsletter] Resumo gerado com sucesso via ${providerUsed}`);
           return {
             introducao: parsed.introducao || "",
             resumoGeral: parsed.resumoGeral || "",
@@ -282,8 +315,8 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           };
         }
       }
-    } catch (error) {
-      console.error("[Newsletter] Erro ao gerar resumo com OpenAI, usando fallback:", error);
+    } catch (error: any) {
+      console.error("[Newsletter] Erro ao gerar resumo com IA, usando fallback:", error.message);
     }
 
     // Fallback para resumo simples
@@ -342,8 +375,8 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <div style="display: inline-block; background: white; padding: 12px 24px; border-radius: 8px; margin-bottom: 16px;">
-                      <span style="font-size: 24px; font-weight: 700; color: #059669;">🌿 EcoBrasil</span>
+                    <div style="display: inline-block; background: white; padding: 16px 28px; border-radius: 12px; margin-bottom: 16px;">
+                      <img src="https://ecobrasil.bio.br/wp-content/uploads/2020/10/logo-ecobrasil.png" alt="EcoBrasil" style="height: 50px; width: auto;" />
                     </div>
                     <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">
                       Newsletter Ambiental
