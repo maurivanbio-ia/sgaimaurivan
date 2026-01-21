@@ -68,17 +68,41 @@ async function getResendClient() {
   };
 }
 
-function createGmailTransporter() {
+function createSmtpTransporter() {
   const user = process.env.SMTP_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
+  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587');
   
   if (!user || !pass) {
-    console.log('[Email] Gmail não configurado: credenciais ausentes');
+    console.log('[Email] SMTP não configurado: credenciais ausentes');
     return null;
   }
   
+  // Se tiver host customizado, usa ele
+  if (host) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass }
+    });
+  }
+  
+  // Fallback para Gmail se o email for @gmail.com
+  if (user.includes('@gmail.com')) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
+  }
+  
+  // Tenta detectar o host baseado no domínio
+  const domain = user.split('@')[1];
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: `smtp.${domain}`,
+    port: 587,
+    secure: false,
     auth: { user, pass }
   });
 }
@@ -88,9 +112,9 @@ export async function sendEmail(emailData: EmailData): Promise<void> {
   
   console.log(`[Email] Tentando enviar email para ${emailData.to}...`);
   
-  // Tenta Gmail primeiro (mais confiável)
-  const gmailTransporter = createGmailTransporter();
-  if (gmailTransporter) {
+  // Tenta SMTP primeiro
+  const smtpTransporter = createSmtpTransporter();
+  if (smtpTransporter) {
     try {
       const mailOptions = {
         from: `"EcoGestor" <${defaultFromEmail}>`,
@@ -100,12 +124,12 @@ export async function sendEmail(emailData: EmailData): Promise<void> {
         html: emailData.html || emailData.text.replace(/\n/g, '<br>'),
       };
 
-      console.log(`[Email] Usando Gmail com from: ${defaultFromEmail}`);
-      const info = await gmailTransporter.sendMail(mailOptions);
-      console.log(`[Email] Enviado via Gmail para ${emailData.to}. ID: ${info.messageId}`);
+      console.log(`[Email] Usando SMTP (${process.env.SMTP_HOST}) com from: ${defaultFromEmail}`);
+      const info = await smtpTransporter.sendMail(mailOptions);
+      console.log(`[Email] Enviado via SMTP para ${emailData.to}. ID: ${info.messageId}`);
       return;
     } catch (error: any) {
-      console.error('[Email] Erro no Gmail:', error.message);
+      console.error('[Email] Erro no SMTP:', error.message);
     }
   }
   
