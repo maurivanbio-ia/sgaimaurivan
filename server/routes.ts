@@ -508,8 +508,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Empreendimento routes
   app.get("/api/empreendimentos", requireAuth, async (req, res) => {
     try {
-      // Use unidade from authenticated user, not from query string (security)
-      const unidade = req.user?.unidade;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Admin/diretor vê todos; outros veem apenas da sua unidade
+      const unidade = isAdmin ? undefined : req.user?.unidade;
       const empreendimentos = await storage.getEmpreendimentos(unidade);
       res.json(empreendimentos);
     } catch (error) {
@@ -521,8 +524,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      // Use unidade from authenticated user, not from query string (security)
-      const unidade = req.user?.unidade;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Admin/diretor pode ver qualquer empreendimento
+      const unidade = isAdmin ? undefined : req.user?.unidade;
       const empreendimento = await storage.getEmpreendimento(id, unidade);
       if (!empreendimento) {
         return res.status(404).json({ message: "Empreendimento not found" });
@@ -1374,8 +1380,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all demandas with filters (filtered by user's unidade for multi-tenant isolation)
   app.get('/api/demandas', requireAuth, async (req, res) => {
     try {
-      const userUnidade = req.user?.unidade;
-      console.log('[DEBUG DEMANDAS] User:', req.user?.email, 'Unidade:', userUnidade, 'UserId:', req.session.userId);
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
       
       const filters: any = {
         setor: req.query.setor as string,
@@ -1386,10 +1392,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search: req.query.search as string,
       };
       
-      // Only add unidade filter if user has a unidade assigned
-      // This allows admins without unidade to see all demandas
-      if (userUnidade) {
-        filters.unidade = userUnidade;
+      // Admin/diretor vê todas as demandas; outros veem apenas da sua unidade
+      if (!isAdmin && req.user?.unidade) {
+        filters.unidade = req.user.unidade;
       }
       
       // Clean undefined values
@@ -1399,9 +1404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      console.log('[DEBUG DEMANDAS] Filters:', JSON.stringify(filters));
       const demandas = await storage.getDemandas(filters);
-      console.log('[DEBUG DEMANDAS] Found:', demandas.length, 'demandas');
       res.json(demandas);
     } catch (error) {
       console.error('Error fetching demandas:', error);
@@ -5055,12 +5058,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/rh', requireAuth, async (req, res) => {
     try {
       const { search, fornecedor, empreendimento } = req.query;
-      const userUnidade = req.user?.unidade;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
       
       const conditions: SQL[] = [isNull(rhRegistros.deletedAt)];
       
-      if (userUnidade) {
-        conditions.push(eq(rhRegistros.unidade, userUnidade));
+      // Admin/diretor vê todos; outros veem apenas da sua unidade
+      if (!isAdmin && req.user?.unidade) {
+        conditions.push(eq(rhRegistros.unidade, req.user.unidade));
       }
       
       if (empreendimento && empreendimento !== 'all') {
@@ -5771,7 +5776,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/clientes - List all clientes (for internal users)
   app.get("/api/clientes", requireAuth, async (req, res) => {
     try {
-      const unidade = req.user?.unidade;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Admin/diretor vê todos; outros veem apenas da sua unidade
+      const unidade = isAdmin ? undefined : req.user?.unidade;
       
       const result = await db
         .select()
@@ -7122,6 +7131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tarefas', requireAuth, async (req, res) => {
     try {
       const { status, prioridade, categoria, empreendimentoId, dataInicio, dataFim } = req.query;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
       
       const filters: any = {};
       if (status) filters.status = status as string;
@@ -7131,9 +7142,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (dataInicio) filters.dataInicio = dataInicio as string;
       if (dataFim) filters.dataFim = dataFim as string;
       
-      // Filtrar por usuário (responsável OU criador) - privacidade de tarefas
-      // Apenas admin/diretor podem ver todas as tarefas
-      if (req.user.cargo !== 'diretor' && req.user.role !== 'admin') {
+      // Admin/diretor vê todas; outros veem apenas suas próprias tarefas
+      if (!isAdmin) {
         filters.userId = req.user.id;
         filters.unidade = req.user.unidade;
       }
@@ -8540,8 +8550,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/fornecedores', requireAuth, async (req, res) => {
     try {
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
       const filters = {
-        unidade: req.user.unidade,
+        unidade: isAdmin ? undefined : req.user.unidade,
         status: req.query.status as string | undefined,
         tipo: req.query.tipo as string | undefined,
       };
@@ -9080,10 +9093,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Murais - Listar por unidade
   app.get('/api/murais', requireAuth, async (req, res) => {
     try {
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Admin/diretor vê todos; outros veem apenas da sua unidade
+      const unidadeFilter = isAdmin ? undefined : eq(murais.unidade, req.user.unidade);
+      
       const result = await db
         .select()
         .from(murais)
-        .where(eq(murais.unidade, req.user.unidade))
+        .where(unidadeFilter)
         .orderBy(murais.ordem);
       res.json(result);
     } catch (error: any) {
@@ -9146,6 +9165,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/comunicados', requireAuth, async (req, res) => {
     try {
       const { muralId, status, tipo } = req.query;
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      
+      // Admin/diretor vê todos; outros veem apenas da sua unidade
+      const unidadeFilter = isAdmin ? undefined : eq(comunicados.unidade, req.user.unidade);
       
       let query = db
         .select({
@@ -9158,7 +9182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(comunicados)
         .leftJoin(users, eq(comunicados.autorId, users.id))
         .where(and(
-          eq(comunicados.unidade, req.user.unidade),
+          unidadeFilter,
           isNull(comunicados.deletedAt),
           muralId ? eq(comunicados.muralId, parseInt(muralId as string)) : undefined,
           status ? eq(comunicados.status, status as string) : undefined,
