@@ -4,6 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { sendEmail } from "../emailService";
 import cron from "node-cron";
 import OpenAI from "openai";
+import { ECOBRASIL_LOGO_BASE64 } from "../constants/logo";
 
 // Usa DeepSeek como provedor principal de IA (compatível com API OpenAI)
 const deepseek = new OpenAI({
@@ -376,7 +377,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                 <tr>
                   <td align="center">
                     <div style="display: inline-block; background: white; padding: 16px 28px; border-radius: 12px; margin-bottom: 16px;">
-                      <img src="https://ecobrasil.bio.br/wp-content/uploads/2020/10/logo-ecobrasil.png" alt="EcoBrasil" style="height: 50px; width: auto;" />
+                      <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="height: 50px; width: auto;" />
                     </div>
                     <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">
                       Newsletter Ambiental
