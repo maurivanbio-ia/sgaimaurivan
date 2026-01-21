@@ -391,12 +391,12 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <span style="display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 1px;">
+                          <span style="display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;">
                             Edição ${String(edicao.numero).padStart(3, '0')}
                           </span>
                         </td>
                         <td align="right">
-                          <span style="color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500;">
+                          <span style="color: rgba(255,255,255,0.95); font-size: 14px; font-weight: 500;">
                             ${mesCapitalizado}
                           </span>
                         </td>
@@ -405,23 +405,27 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding: 10px 30px;">
-                    <h1 style="margin: 0; font-size: 42px; font-weight: 800; letter-spacing: -1px;">
-                      <span style="color: #fef3c7;">NOTÍCIAS</span>
+                  <td align="center" style="padding: 30px 30px 15px 30px;">
+                    <h1 style="margin: 0; font-size: 48px; font-weight: 900; font-style: italic; letter-spacing: 2px; color: #fbbf24; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+                      NOTÍCIAS
                     </h1>
-                    <h1 style="margin: -5px 0 0 0; font-size: 42px; font-weight: 800; letter-spacing: -1px;">
-                      <span style="color: white;">ECO</span>
-                    </h1>
-                    <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px; font-weight: 500;">
+                    <table cellpadding="0" cellspacing="0" style="margin-top: 5px;">
+                      <tr>
+                        <td>
+                          <span style="font-size: 48px; font-weight: 900; color: #fbbf24; letter-spacing: 2px;">EC</span>
+                        </td>
+                        <td style="padding: 0 2px;">
+                          <img src="${BRASILEIRINHO_BASE64}" alt="O" style="width: 55px; height: auto; vertical-align: middle; margin-top: -5px;" />
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 15px 0 0 0; color: rgba(255,255,255,0.95); font-size: 15px; font-weight: 500; letter-spacing: 1px;">
                       Soluções Sustentáveis em Ação
                     </p>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding: 20px 30px 30px 30px;">
-                    <div style="display: inline-block; background: white; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
-                      <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="height: 40px; width: auto;" />
-                    </div>
+                  <td style="padding: 20px 30px 30px 30px;">
                   </td>
                 </tr>
               </table>
