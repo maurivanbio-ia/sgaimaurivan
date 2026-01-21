@@ -28,7 +28,6 @@ import {
   AlertCircle,
   Mail
 } from "lucide-react";
-import { Link } from "wouter";
 
 interface OneDriveFile {
   name: string;
@@ -240,11 +239,11 @@ export default function OneDriveBackupsPage() {
   return (
     <div className="container mx-auto py-6 px-4 max-w-6xl">
       <div className="flex items-center gap-4 mb-6">
-        <Link href="/admin">
+        <a href="/">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-        </Link>
+        </a>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Cloud className="h-6 w-6 text-blue-500" />
@@ -508,7 +507,7 @@ export default function OneDriveBackupsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Ações de Backup</CardTitle>
-              <CardDescription>Gerencie seus backups no Dropbox</CardDescription>
+              <CardDescription>Gerencie seus backups no OneDrive</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-3">
@@ -570,7 +569,7 @@ export default function OneDriveBackupsPage() {
               ) : !connectionStatus?.success ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <XCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Conecte ao Dropbox para ver os backups</p>
+                  <p>Conecte ao OneDrive para ver os backups</p>
                 </div>
               ) : backupsList?.files?.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
