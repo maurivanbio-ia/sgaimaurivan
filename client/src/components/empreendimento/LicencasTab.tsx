@@ -122,8 +122,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
 
   const deleteLicense = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/licencas/${id}`);
-      return response.json();
+      await apiRequest("DELETE", `/api/licencas/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "licencas"] });
