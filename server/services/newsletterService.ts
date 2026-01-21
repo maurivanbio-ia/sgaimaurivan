@@ -384,19 +384,20 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           
           <!-- Header Principal -->
           <tr>
-            <td style="background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%); border-radius: 20px 20px 0 0; padding: 0;">
+            <td style="background: linear-gradient(180deg, #3d8b6e 0%, #2d7a5e 30%, #1d6a4e 70%, #0d5a3e 100%); border-radius: 24px 24px 0 0; padding: 0;">
               <table width="100%" cellpadding="0" cellspacing="0">
+                <!-- Top Bar -->
                 <tr>
-                  <td style="padding: 30px 30px 20px 30px;">
+                  <td style="padding: 25px 35px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <span style="display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                          <span style="display: inline-block; background: #1a1a1a; color: white; padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 700; letter-spacing: 0.5px;">
                             Edição ${String(edicao.numero).padStart(3, '0')}
                           </span>
                         </td>
                         <td align="right">
-                          <span style="color: rgba(255,255,255,0.95); font-size: 14px; font-weight: 500;">
+                          <span style="color: white; font-size: 15px; font-weight: 500;">
                             ${mesCapitalizado}
                           </span>
                         </td>
@@ -404,28 +405,33 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     </table>
                   </td>
                 </tr>
+                <!-- Logo Central -->
                 <tr>
-                  <td align="center" style="padding: 30px 30px 15px 30px;">
-                    <h1 style="margin: 0; font-size: 48px; font-weight: 900; font-style: italic; letter-spacing: 2px; color: #fbbf24; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+                  <td align="center" style="padding: 40px 30px 25px 30px;">
+                    <h1 style="margin: 0; font-size: 56px; font-weight: 800; font-style: italic; color: #f5c842; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 3px;">
                       NOTÍCIAS
                     </h1>
-                    <table cellpadding="0" cellspacing="0" style="margin-top: 5px;">
-                      <tr>
-                        <td>
-                          <span style="font-size: 48px; font-weight: 900; color: #fbbf24; letter-spacing: 2px;">EC</span>
-                        </td>
-                        <td style="padding: 0 2px;">
-                          <img src="${BRASILEIRINHO_BASE64}" alt="O" style="width: 55px; height: auto; vertical-align: middle; margin-top: -5px;" />
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="margin: 15px 0 0 0; color: rgba(255,255,255,0.95); font-size: 15px; font-weight: 500; letter-spacing: 1px;">
-                      Soluções Sustentáveis em Ação
-                    </p>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding: 20px 30px 30px 30px;">
+                  <td align="center" style="padding: 0 30px 20px 30px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align: middle;">
+                          <span style="font-size: 52px; font-weight: 800; color: #f5c842; font-family: Arial, sans-serif; letter-spacing: 1px;">EC</span>
+                        </td>
+                        <td style="vertical-align: middle; padding-left: 3px;">
+                          <img src="${BRASILEIRINHO_BASE64}" alt="O" style="width: 65px; height: auto;" />
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding: 15px 30px 50px 30px;">
+                    <p style="margin: 0; color: #d4e8dc; font-size: 17px; font-weight: 400; font-style: italic; letter-spacing: 1.5px;">
+                      Soluções Sustentáveis em Ação
+                    </p>
                   </td>
                 </tr>
               </table>
