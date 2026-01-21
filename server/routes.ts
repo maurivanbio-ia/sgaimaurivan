@@ -3589,6 +3589,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ONEDRIVE ROUTES ====================
+  
+  // GET /api/onedrive/test - Test OneDrive connection
+  app.get('/api/onedrive/test', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const { checkOneDriveConnection } = await import('./services/onedriveService');
+      const result = await checkOneDriveConnection();
+      res.json({
+        success: result.connected,
+        accountName: result.user,
+        email: result.email,
+        error: result.error
+      });
+    } catch (error: any) {
+      console.error('Error testing OneDrive:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // GET /api/onedrive/backups - List OneDrive backups (placeholder for future use)
+  app.get('/api/onedrive/backups', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      res.json({ success: true, files: [] });
+    } catch (error: any) {
+      console.error('Error listing OneDrive backups:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // POST /api/onedrive/backup - Upload backup to OneDrive
+  app.post('/api/onedrive/backup', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const backupResult = await performBackup();
+      if (!backupResult.success) {
+        return res.status(500).json({ success: false, error: 'Falha ao criar backup local' });
+      }
+      
+      const backups = await listBackups();
+      if (backups.length === 0) {
+        return res.status(500).json({ success: false, error: 'Nenhum backup encontrado' });
+      }
+      
+      const latestBackup = backups[0];
+      const content = await downloadBackup(latestBackup.fileName);
+      
+      if (!content) {
+        return res.status(500).json({ success: false, error: 'Falha ao ler backup' });
+      }
+      
+      const { uploadFileToOneDrive } = await import('./services/onedriveService');
+      const uploadResult = await uploadFileToOneDrive(
+        'ECOBRASIL_CONSULTORIA_AMBIENTAL/06_SISTEMAS_E_AUTOMACOES/Backups_Sistemas',
+        Buffer.from(content),
+        latestBackup.fileName
+      );
+      
+      res.json({
+        success: uploadResult.success,
+        localBackup: latestBackup.fileName,
+        onedrivePath: uploadResult.webUrl,
+        error: uploadResult.error
+      });
+    } catch (error: any) {
+      console.error('Error uploading to OneDrive:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // DELETE /api/onedrive/cleanup - Clean old OneDrive backups (placeholder)
+  app.delete('/api/onedrive/cleanup', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      res.json({ success: true, deleted: 0 });
+    } catch (error: any) {
+      console.error('Error cleaning OneDrive backups:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/onedrive/folders/init - Initialize institutional folder structure in OneDrive
+  app.post('/api/onedrive/folders/init', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const { createInstitutionalStructure } = await import('./services/onedriveService');
+      const result = await createInstitutionalStructure();
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error initializing OneDrive folders:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/onedrive/folders/empreendimento - Create folder structure for empreendimento
+  app.post('/api/onedrive/folders/empreendimento', requireAuth, async (req: any, res) => {
+    try {
+      const { empreendimentoId } = req.body;
+      
+      if (!empreendimentoId) {
+        return res.status(400).json({ error: 'empreendimentoId é obrigatório' });
+      }
+      
+      const emp = await db.select().from(empreendimentos).where(eq(empreendimentos.id, empreendimentoId)).limit(1);
+      if (emp.length === 0) {
+        return res.status(404).json({ error: 'Empreendimento não encontrado' });
+      }
+      
+      const empreendimento = emp[0];
+      const { createEmpreendimentoFolderStructure } = await import('./services/onedriveService');
+      const result = await createEmpreendimentoFolderStructure(
+        empreendimento.cliente || empreendimento.nome,
+        empreendimento.uf || 'BR',
+        empreendimento.codigo || '',
+        empreendimento.nome
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error creating empreendimento folders:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /api/onedrive/folders - List folder contents
+  app.get('/api/onedrive/folders', requireAuth, async (req: any, res) => {
+    try {
+      const path = (req.query.path as string) || '';
+      const fullPath = path ? `ECOBRASIL_CONSULTORIA_AMBIENTAL${path}` : 'ECOBRASIL_CONSULTORIA_AMBIENTAL';
+      const { listOneDriveFolders } = await import('./services/onedriveService');
+      const result = await listOneDriveFolders(fullPath);
+      
+      const entries = result.folders.map((f: any) => ({
+        name: f.name,
+        path: `${path}/${f.name}`,
+        type: 'folder',
+        modified: f.lastModifiedDateTime
+      }));
+      
+      res.json({ success: result.success, entries, error: result.error });
+    } catch (error: any) {
+      console.error('Error listing OneDrive folders:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/onedrive/folders/sync-all - Sync all empreendimentos to OneDrive
+  app.post('/api/onedrive/folders/sync-all', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const { syncAllEmpreendimentosToOneDrive } = await import('./services/onedriveService');
+      
+      const emps = await db.select().from(empreendimentos);
+      const result = await syncAllEmpreendimentosToOneDrive(emps.map(e => ({
+        id: e.id,
+        cliente: e.cliente,
+        uf: e.uf,
+        codigo: e.codigo,
+        nome: e.nome
+      })));
+      
+      res.json({ success: true, synced: result.synced, errors: result.errors, total: emps.length });
+    } catch (error: any) {
+      console.error('Error syncing all to OneDrive:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Função auxiliar para criar pasta se não existir
   async function criarPastaSeNaoExistir(nome: string, caminho: string, pai: string | null, tipo: string, projetoId: number | null) {
     const existente = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, caminho));

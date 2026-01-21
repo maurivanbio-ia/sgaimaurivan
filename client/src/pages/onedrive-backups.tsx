@@ -30,14 +30,14 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 
-interface DropboxFile {
+interface OneDriveFile {
   name: string;
   path: string;
   size: number;
   modified: string;
 }
 
-interface DropboxEntry {
+interface OneDriveEntry {
   name: string;
   path: string;
   type: 'folder' | 'file';
@@ -54,35 +54,35 @@ interface ConnectionStatus {
 
 interface BackupListResult {
   success: boolean;
-  files?: DropboxFile[];
+  files?: OneDriveFile[];
   error?: string;
 }
 
 interface FolderListResult {
   success: boolean;
-  entries?: DropboxEntry[];
+  entries?: OneDriveEntry[];
   error?: string;
 }
 
-export default function DropboxBackupsPage() {
+export default function OneDriveBackupsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
   const [currentPath, setCurrentPath] = useState('');
 
   const { data: connectionStatus, isLoading: isTestingConnection, refetch: retestConnection } = useQuery<ConnectionStatus>({
-    queryKey: ["/api/dropbox/test"],
+    queryKey: ["/api/onedrive/test"],
     retry: false,
   });
 
   const { data: backupsList, isLoading: isLoadingBackups, refetch: refetchBackups } = useQuery<BackupListResult>({
-    queryKey: ["/api/dropbox/backups"],
+    queryKey: ["/api/onedrive/backups"],
     enabled: connectionStatus?.success === true,
     retry: false,
   });
 
   const { data: folderContents, isLoading: isLoadingFolders, refetch: refetchFolders } = useQuery<FolderListResult>({
-    queryKey: ["/api/dropbox/folders", currentPath],
+    queryKey: ["/api/onedrive/folders", currentPath],
     enabled: connectionStatus?.success === true,
     retry: false,
   });
@@ -90,7 +90,7 @@ export default function DropboxBackupsPage() {
   const uploadBackupMutation = useMutation({
     mutationFn: async () => {
       setIsUploading(true);
-      const response = await apiRequest("POST", "/api/dropbox/backup");
+      const response = await apiRequest("POST", "/api/onedrive/backup");
       return response.json();
     },
     onSuccess: (data) => {
@@ -98,9 +98,9 @@ export default function DropboxBackupsPage() {
       if (data.success) {
         toast({
           title: "Backup enviado!",
-          description: `Arquivo salvo em: ${data.dropboxPath}`,
+          description: `Arquivo salvo em: ${data.onedrivePath}`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/dropbox/backups"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/backups"] });
       } else {
         toast({
           title: "Erro ao enviar backup",
@@ -121,7 +121,7 @@ export default function DropboxBackupsPage() {
 
   const cleanupMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("DELETE", "/api/dropbox/cleanup?days=30");
+      const response = await apiRequest("DELETE", "/api/onedrive/cleanup?days=30");
       return response.json();
     },
     onSuccess: (data) => {
@@ -130,7 +130,7 @@ export default function DropboxBackupsPage() {
           title: "Limpeza concluída",
           description: `${data.deleted} arquivo(s) removido(s)`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/dropbox/backups"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/backups"] });
       }
     },
     onError: (error: any) => {
@@ -144,16 +144,16 @@ export default function DropboxBackupsPage() {
 
   const initFoldersMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/dropbox/folders/init");
+      const response = await apiRequest("POST", "/api/onedrive/folders/init");
       return response.json();
     },
     onSuccess: (data) => {
       if (data.success) {
         toast({
           title: "Estrutura criada!",
-          description: `${data.foldersCreated} pastas criadas no Dropbox`,
+          description: `${data.foldersCreated} pastas criadas no OneDrive`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/dropbox/folders"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/folders"] });
       } else {
         toast({
           title: "Erro",
@@ -173,7 +173,7 @@ export default function DropboxBackupsPage() {
 
   const syncAllMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/dropbox/folders/sync-all");
+      const response = await apiRequest("POST", "/api/onedrive/folders/sync-all");
       return response.json();
     },
     onSuccess: (data) => {
@@ -182,7 +182,8 @@ export default function DropboxBackupsPage() {
           title: "Sincronização concluída!",
           description: `${data.synced} empreendimentos sincronizados, ${data.errors} erros`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/dropbox/folders"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/folders"] });
+        refetchFolders();
       } else {
         toast({
           title: "Erro",
@@ -219,7 +220,7 @@ export default function DropboxBackupsPage() {
 
   const navigateToFolder = (path: string) => {
     setCurrentPath(path);
-    queryClient.invalidateQueries({ queryKey: ["/api/dropbox/folders", path] });
+    queryClient.invalidateQueries({ queryKey: ["/api/onedrive/folders", path] });
   };
 
   const navigateUp = () => {
@@ -247,10 +248,10 @@ export default function DropboxBackupsPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Cloud className="h-6 w-6 text-blue-500" />
-            Dropbox - Gestão de Arquivos
+            OneDrive - Gestão de Arquivos
           </h1>
           <p className="text-muted-foreground text-sm">
-            Backups e estrutura de pastas sincronizada com o Dropbox
+            Backups e estrutura de pastas sincronizada com o OneDrive
           </p>
         </div>
       </div>
@@ -297,10 +298,10 @@ export default function DropboxBackupsPage() {
                 <p className="font-medium text-sm truncate">
                   {connectionStatus?.email || 'Não conectado'}
                 </p>
-                {connectionStatus?.email !== 'maurivan.bio@gmail.com' && connectionStatus?.success && (
+                {connectionStatus?.email !== 'ecobrasilbm@gmail.com' && connectionStatus?.success && (
                   <p className="text-xs text-amber-600 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    Reconectar para maurivan.bio
+                    Reconectar para ecobrasilbm
                   </p>
                 )}
               </div>
@@ -351,7 +352,7 @@ export default function DropboxBackupsPage() {
             <CardHeader>
               <CardTitle>Ações de Sincronização</CardTitle>
               <CardDescription>
-                Sincronize a estrutura de pastas da plataforma com o Dropbox
+                Sincronize a estrutura de pastas da plataforma com o OneDrive
               </CardDescription>
             </CardHeader>
             <CardContent>
