@@ -8,6 +8,8 @@ async function getAccessToken(): Promise<string> {
   }
   
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  console.log('[OneDrive] Connector hostname:', hostname);
+  
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
     : process.env.WEB_REPL_RENEWAL 
@@ -15,10 +17,16 @@ async function getAccessToken(): Promise<string> {
     : null;
 
   if (!xReplitToken) {
+    console.log('[OneDrive] Token type - REPL_IDENTITY:', !!process.env.REPL_IDENTITY, 'WEB_REPL_RENEWAL:', !!process.env.WEB_REPL_RENEWAL);
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  connectionSettings = await fetch(
+  if (!hostname) {
+    throw new Error('REPLIT_CONNECTORS_HOSTNAME not configured');
+  }
+
+  console.log('[OneDrive] Fetching connection settings...');
+  const response = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=onedrive',
     {
       headers: {
@@ -26,13 +34,22 @@ async function getAccessToken(): Promise<string> {
         'X_REPLIT_TOKEN': xReplitToken
       }
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  );
+  
+  const data = await response.json();
+  console.log('[OneDrive] Connection response status:', response.status);
+  console.log('[OneDrive] Found connections:', data.items?.length || 0);
+  
+  connectionSettings = data.items?.[0];
 
   const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
 
   if (!connectionSettings || !accessToken) {
-    throw new Error('OneDrive not connected');
+    console.log('[OneDrive] No connection or access token found');
+    throw new Error('OneDrive not connected - please configure OneDrive in Replit integrations');
   }
+  
+  console.log('[OneDrive] Successfully retrieved access token');
   return accessToken;
 }
 
@@ -81,14 +98,18 @@ const ESTRUTURA_PROJETO = [
 
 export async function checkOneDriveConnection(): Promise<{ connected: boolean; user?: string; email?: string; error?: string }> {
   try {
+    console.log('[OneDrive] Checking connection...');
     const client = await getOneDriveClient();
+    console.log('[OneDrive] Client created, fetching user info...');
     const user = await client.api('/me').get();
+    console.log('[OneDrive] User info retrieved:', user.displayName, user.mail || user.userPrincipalName);
     return {
       connected: true,
       user: user.displayName,
       email: user.mail || user.userPrincipalName
     };
   } catch (error: any) {
+    console.error('[OneDrive] Connection check failed:', error.message);
     return {
       connected: false,
       error: error.message
