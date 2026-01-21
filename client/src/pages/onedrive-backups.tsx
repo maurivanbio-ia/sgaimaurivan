@@ -626,9 +626,6 @@ export default function OneDriveBackupsPage() {
         <p>
           Cada empreendimento tem sua própria pasta em <strong>/03_PROJETOS/</strong> com subpastas padronizadas (Gestão, Relatórios, Mapas, etc.).
         </p>
-        <p className="text-amber-600 dark:text-amber-400">
-          Para trocar a conta do Dropbox para maurivan.bio@gmail.com, clique em "Dropbox" nas integrações do Replit e reconecte com a conta desejada.
-        </p>
       </div>
     </div>
   );
