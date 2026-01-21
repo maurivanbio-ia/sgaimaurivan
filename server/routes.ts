@@ -98,6 +98,7 @@ import {
   triggerRelatorioAnualNow
 } from "./services/scheduledReportSender";
 import { initBackupService, performBackup, listBackups, downloadBackup } from "./services/backupService";
+import { testDropboxConnection, uploadToDropbox, listDropboxBackups, deleteOldDropboxBackups } from "./services/dropboxService";
 import { seiaService } from "./services/seiaService";
 import { newsletterService } from "./services/newsletterService";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
@@ -3389,6 +3390,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error downloading backup:', error);
       res.status(500).json({ error: 'Falha ao baixar backup' });
+    }
+  });
+
+  // ==================== DROPBOX BACKUP ROUTES ====================
+  
+  // GET /api/dropbox/test - Test Dropbox connection
+  app.get('/api/dropbox/test', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const result = await testDropboxConnection();
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error testing Dropbox:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // GET /api/dropbox/backups - List Dropbox backups
+  app.get('/api/dropbox/backups', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const result = await listDropboxBackups();
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error listing Dropbox backups:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // POST /api/dropbox/backup - Upload backup to Dropbox
+  app.post('/api/dropbox/backup', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      // Perform backup first
+      const backupResult = await performBackup();
+      if (!backupResult.success) {
+        return res.status(500).json({ success: false, error: 'Falha ao criar backup local' });
+      }
+      
+      // Get latest backup content
+      const backups = await listBackups();
+      if (backups.length === 0) {
+        return res.status(500).json({ success: false, error: 'Nenhum backup encontrado' });
+      }
+      
+      const latestBackup = backups[0];
+      const content = await downloadBackup(latestBackup.fileName);
+      
+      if (!content) {
+        return res.status(500).json({ success: false, error: 'Falha ao ler backup' });
+      }
+      
+      // Upload to Dropbox
+      const uploadResult = await uploadToDropbox(latestBackup.fileName, content);
+      
+      if (uploadResult.success) {
+        // Clean old backups (keep 30 days)
+        await deleteOldDropboxBackups(30);
+      }
+      
+      res.json({
+        success: uploadResult.success,
+        localBackup: latestBackup.fileName,
+        dropboxPath: uploadResult.path,
+        error: uploadResult.error
+      });
+    } catch (error: any) {
+      console.error('Error uploading to Dropbox:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  // DELETE /api/dropbox/cleanup - Clean old Dropbox backups
+  app.delete('/api/dropbox/cleanup', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      const result = await deleteOldDropboxBackups(days);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('Error cleaning Dropbox backups:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 
