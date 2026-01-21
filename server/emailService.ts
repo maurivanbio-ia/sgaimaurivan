@@ -88,7 +88,28 @@ export async function sendEmail(emailData: EmailData): Promise<void> {
   
   console.log(`[Email] Tentando enviar email para ${emailData.to}...`);
   
-  // Tenta Resend primeiro
+  // Tenta Gmail primeiro (mais confiável)
+  const gmailTransporter = createGmailTransporter();
+  if (gmailTransporter) {
+    try {
+      const mailOptions = {
+        from: `"EcoGestor" <${defaultFromEmail}>`,
+        to: emailData.to,
+        subject: emailData.subject,
+        text: emailData.text,
+        html: emailData.html || emailData.text.replace(/\n/g, '<br>'),
+      };
+
+      console.log(`[Email] Usando Gmail com from: ${defaultFromEmail}`);
+      const info = await gmailTransporter.sendMail(mailOptions);
+      console.log(`[Email] Enviado via Gmail para ${emailData.to}. ID: ${info.messageId}`);
+      return;
+    } catch (error: any) {
+      console.error('[Email] Erro no Gmail:', error.message);
+    }
+  }
+  
+  // Fallback para Resend
   const resendClient = await getResendClient();
   if (resendClient) {
     try {
@@ -106,27 +127,6 @@ export async function sendEmail(emailData: EmailData): Promise<void> {
       return;
     } catch (error: any) {
       console.error('[Email] Erro no Resend:', error.message);
-    }
-  }
-  
-  // Fallback para Gmail
-  const gmailTransporter = createGmailTransporter();
-  if (gmailTransporter) {
-    try {
-      const mailOptions = {
-        from: defaultFromEmail,
-        to: emailData.to,
-        subject: emailData.subject,
-        text: emailData.text,
-        html: emailData.html || emailData.text.replace(/\n/g, '<br>'),
-      };
-
-      console.log(`[Email] Usando Gmail com from: ${defaultFromEmail}`);
-      const info = await gmailTransporter.sendMail(mailOptions);
-      console.log(`[Email] Enviado via Gmail para ${emailData.to}. ID: ${info.messageId}`);
-      return;
-    } catch (error: any) {
-      console.error('[Email] Erro no Gmail:', error.message);
       throw new Error(`Erro ao enviar email: ${error.message}`);
     }
   }
