@@ -46,7 +46,8 @@ import {
   Link2,
   Shield,
   FileSearch,
-  Newspaper
+  Newspaper,
+  Cloud
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -195,6 +196,7 @@ export default function Sidebar() {
         { href: "/processos-monitorados", label: "Processos SEIA", icon: FileSearch, testid: "nav-processos-monitorados" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
+        { href: "/dropbox-backups", label: "Backups Dropbox", icon: Cloud, testid: "nav-dropbox-backups" },
       ]
     },
   ];
