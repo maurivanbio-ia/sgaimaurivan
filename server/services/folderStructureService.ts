@@ -240,14 +240,31 @@ export async function criarPastasParaEmpreendimento(
   cliente: string,
   uf: string,
   nome: string,
-  codigo?: string | null
-): Promise<{ success: boolean; path: string }> {
+  codigo?: string | null,
+  syncDropbox: boolean = true
+): Promise<{ success: boolean; path: string; dropboxSync?: boolean }> {
   // Usar código do projeto se disponível, senão usar nome normalizado
   const codigoProjeto = codigo || nome;
   const result = await criarEstruturaProjeto(cliente, uf, codigoProjeto, empreendimentoId);
+  
+  let dropboxSyncResult = false;
+  if (syncDropbox && result.success) {
+    try {
+      const { createEmpreendimentoFolderStructure } = await import('./dropboxService');
+      const dropboxResult = await createEmpreendimentoFolderStructure(cliente, uf, codigo || '', nome);
+      dropboxSyncResult = dropboxResult.success;
+      if (dropboxResult.success) {
+        console.log(`[Folder Structure] Pastas sincronizadas com Dropbox para ${codigo || nome}`);
+      }
+    } catch (err) {
+      console.log(`[Folder Structure] Dropbox não configurado ou erro na sincronização: ${err}`);
+    }
+  }
+  
   return {
     success: result.success,
-    path: result.path
+    path: result.path,
+    dropboxSync: dropboxSyncResult
   };
 }
 

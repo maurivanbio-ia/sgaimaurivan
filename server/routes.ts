@@ -3491,6 +3491,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/dropbox/folders/init - Initialize institutional folder structure in Dropbox
+  app.post('/api/dropbox/folders/init', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const { createInstitutionalFolderStructure } = await import('./services/dropboxService');
+      const result = await createInstitutionalFolderStructure();
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error initializing Dropbox folders:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/dropbox/folders/empreendimento - Create folder structure for empreendimento
+  app.post('/api/dropbox/folders/empreendimento', requireAuth, async (req: any, res) => {
+    try {
+      const { empreendimentoId } = req.body;
+      
+      if (!empreendimentoId) {
+        return res.status(400).json({ error: 'empreendimentoId é obrigatório' });
+      }
+      
+      const emp = await db.select().from(empreendimentos).where(eq(empreendimentos.id, empreendimentoId)).limit(1);
+      if (emp.length === 0) {
+        return res.status(404).json({ error: 'Empreendimento não encontrado' });
+      }
+      
+      const empreendimento = emp[0];
+      const { createEmpreendimentoFolderStructure } = await import('./services/dropboxService');
+      const result = await createEmpreendimentoFolderStructure(
+        empreendimento.cliente || empreendimento.nome,
+        empreendimento.uf || 'BR',
+        empreendimento.codigo || '',
+        empreendimento.nome
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error creating empreendimento folders:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /api/dropbox/folders - List folder contents
+  app.get('/api/dropbox/folders', requireAuth, async (req: any, res) => {
+    try {
+      const path = (req.query.path as string) || '';
+      const { listDropboxFolderContents } = await import('./services/dropboxService');
+      const result = await listDropboxFolderContents(path);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error listing Dropbox folders:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/dropbox/folders/sync-all - Sync all empreendimentos to Dropbox
+  app.post('/api/dropbox/folders/sync-all', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      
+      const { createInstitutionalFolderStructure, createEmpreendimentoFolderStructure } = await import('./services/dropboxService');
+      
+      await createInstitutionalFolderStructure();
+      
+      const emps = await db.select().from(empreendimentos);
+      let synced = 0;
+      let errors = 0;
+      
+      for (const emp of emps) {
+        try {
+          await createEmpreendimentoFolderStructure(
+            emp.cliente || emp.nome,
+            emp.uf || 'BR',
+            emp.codigo || '',
+            emp.nome
+          );
+          synced++;
+        } catch (err) {
+          console.error(`[Dropbox Sync] Error for ${emp.codigo}:`, err);
+          errors++;
+        }
+      }
+      
+      res.json({ success: true, synced, errors, total: emps.length });
+    } catch (error: any) {
+      console.error('Error syncing all to Dropbox:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Função auxiliar para criar pasta se não existir
   async function criarPastaSeNaoExistir(nome: string, caminho: string, pai: string | null, tipo: string, projetoId: number | null) {
     const existente = await db.select().from(datasetPastas).where(eq(datasetPastas.caminho, caminho));
