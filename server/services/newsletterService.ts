@@ -384,22 +384,26 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       <td align="center">
         <table width="680" cellpadding="0" cellspacing="0" style="max-width: 680px; margin: 0 auto;">
           
-          <!-- Hero Header com Imagem de Fundo -->
+          <!-- Hero Header Vibrante e Ilustrado -->
           <tr>
             <td style="background-image: url('${HIDROELETRICA_BG_BASE64}'); background-size: cover; background-position: center; border-radius: 0; position: relative;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(180deg, rgba(30,64,54,0.92) 0%, rgba(45,139,110,0.88) 100%);">
-                <!-- Top Bar -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, rgba(16,52,42,0.95) 0%, rgba(34,120,90,0.9) 35%, rgba(45,160,120,0.85) 65%, rgba(26,82,65,0.92) 100%);">
+                <!-- Barra Decorativa Superior -->
                 <tr>
-                  <td style="padding: 28px 32px 20px 32px;">
+                  <td style="height: 6px; background: linear-gradient(90deg, #f5c842 0%, #4ade80 25%, #22d3ee 50%, #4ade80 75%, #f5c842 100%);"></td>
+                </tr>
+                <!-- Top Bar com Badges Coloridos -->
+                <tr>
+                  <td style="padding: 24px 32px 16px 32px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <span style="display: inline-block; background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); color: #fff; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; letter-spacing: 1px; border: 1px solid rgba(255,255,255,0.1);">
+                          <span style="display: inline-block; background: linear-gradient(135deg, #f5c842 0%, #fbbf24 100%); color: #1a3d32; padding: 12px 24px; border-radius: 30px; font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; box-shadow: 0 4px 15px rgba(245,200,66,0.4);">
                             EDIÇÃO ${String(edicao.numero).padStart(3, '0')}
                           </span>
                         </td>
                         <td align="right">
-                          <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 400; letter-spacing: 0.5px;">
+                          <span style="display: inline-block; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.25);">
                             ${mesCapitalizado}
                           </span>
                         </td>
@@ -407,34 +411,87 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     </table>
                   </td>
                 </tr>
-                <!-- Logo Central -->
+                <!-- Decoração de Folhas Ilustradas -->
                 <tr>
-                  <td align="center" style="padding: 50px 30px 20px 30px;">
-                    <h1 style="margin: 0; font-size: 52px; font-weight: 300; font-style: italic; color: #f5c842; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 6px; text-transform: uppercase;">
-                      Notícias
-                    </h1>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding: 0 30px 15px 30px;">
+                  <td align="center" style="padding: 10px 0;">
                     <table cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="vertical-align: middle;">
-                          <span style="font-size: 58px; font-weight: 700; color: #f5c842; font-family: 'Arial Black', Arial, sans-serif; letter-spacing: 2px;">EC</span>
-                        </td>
-                        <td style="vertical-align: middle; padding-left: 5px;">
-                          <img src="${BRASILEIRINHO_BASE64}" alt="O" style="width: 70px; height: auto;" />
+                        <td style="font-size: 28px; color: #4ade80; opacity: 0.7;">&#127807;</td>
+                        <td style="font-size: 22px; color: #22d3ee; opacity: 0.6; padding: 0 10px;">&#127795;</td>
+                        <td style="font-size: 30px; color: #86efac; opacity: 0.8;">&#127811;</td>
+                        <td style="font-size: 22px; color: #22d3ee; opacity: 0.6; padding: 0 10px;">&#127795;</td>
+                        <td style="font-size: 28px; color: #4ade80; opacity: 0.7;">&#127807;</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Título Principal Vibrante -->
+                <tr>
+                  <td align="center" style="padding: 15px 30px 10px 30px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center">
+                          <span style="display: inline-block; background: linear-gradient(180deg, #fef3c7 0%, #f5c842 50%, #d97706 100%); -webkit-background-clip: text; background-clip: text; font-size: 16px; font-weight: 600; color: #fef3c7; letter-spacing: 8px; text-transform: uppercase;">NEWSLETTER</span>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding: 10px 30px 55px 30px;">
-                    <p style="margin: 0; color: rgba(255,255,255,0.85); font-size: 15px; font-weight: 300; font-style: italic; letter-spacing: 2px;">
+                  <td align="center" style="padding: 5px 30px 20px 30px;">
+                    <h1 style="margin: 0; font-size: 56px; font-weight: 300; font-style: italic; color: #f5c842; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 4px 20px rgba(245,200,66,0.4);">
+                      Notícias
+                    </h1>
+                    <div style="width: 120px; height: 3px; background: linear-gradient(90deg, transparent, #4ade80, #f5c842, #4ade80, transparent); margin: 15px auto 0;"></div>
+                  </td>
+                </tr>
+                <!-- Logo ECO com Brasileirinho -->
+                <tr>
+                  <td align="center" style="padding: 10px 30px 15px 30px;">
+                    <table cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.08); border-radius: 20px; padding: 15px 30px; border: 1px solid rgba(255,255,255,0.15);">
+                      <tr>
+                        <td style="vertical-align: middle;">
+                          <span style="font-size: 64px; font-weight: 900; background: linear-gradient(180deg, #fef3c7 0%, #f5c842 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-family: 'Arial Black', Arial, sans-serif; letter-spacing: 4px; text-shadow: none;">EC</span>
+                        </td>
+                        <td style="vertical-align: middle; padding-left: 8px;">
+                          <img src="${BRASILEIRINHO_BASE64}" alt="O" style="width: 80px; height: auto; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));" />
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Slogan -->
+                <tr>
+                  <td align="center" style="padding: 8px 30px 20px 30px;">
+                    <p style="margin: 0; color: #86efac; font-size: 16px; font-weight: 400; font-style: italic; letter-spacing: 3px;">
                       Soluções Sustentáveis em Ação
                     </p>
                   </td>
+                </tr>
+                <!-- Ícones Decorativos Inferiores -->
+                <tr>
+                  <td align="center" style="padding: 5px 30px 25px 30px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 0 8px;">
+                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(74,222,128,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#127793;</span>
+                        </td>
+                        <td style="padding: 0 8px;">
+                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(34,211,238,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#128167;</span>
+                        </td>
+                        <td style="padding: 0 8px;">
+                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(245,200,66,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#9728;</span>
+                        </td>
+                        <td style="padding: 0 8px;">
+                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(74,222,128,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#127758;</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Barra Decorativa Inferior -->
+                <tr>
+                  <td style="height: 4px; background: linear-gradient(90deg, #1a5241 0%, #4ade80 20%, #f5c842 50%, #4ade80 80%, #1a5241 100%);"></td>
                 </tr>
               </table>
             </td>
