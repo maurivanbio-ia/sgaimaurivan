@@ -1842,12 +1842,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/financeiro/lancamentos', requireAuth, requireSensitiveUnlock, async (req, res) => {
     try {
       const userUnidade = req.user?.unidade || '';
-      const userCargo = req.user?.cargo || '';
+      const userCargo = (req.user?.cargo || '').toLowerCase();
       const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
       
-      // Buscar empreendimentos da unidade do usuário (ou todos para admin/diretor)
-      const empreendimentosAcessiveis = await storage.getEmpreendimentos(isAdmin ? undefined : userUnidade);
-      const empreendimentoIds = empreendimentosAcessiveis.map(e => e.id);
+      // Para admin/diretor: não filtra por empreendimento
+      // Para outros cargos: filtra apenas pelos empreendimentos da sua unidade
+      let empreendimentoIds: number[] | undefined = undefined;
+      
+      if (!isAdmin) {
+        const empreendimentosAcessiveis = await storage.getEmpreendimentos(userUnidade);
+        empreendimentoIds = empreendimentosAcessiveis.map(e => e.id);
+      }
       
       const filters = {
         tipo: req.query.tipo as string,
@@ -1856,8 +1861,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categoriaId: req.query.categoriaId ? parseInt(req.query.categoriaId as string) : undefined,
         search: req.query.search as string,
         unidade: req.query.unidade as string,
-        empreendimentoIds: isAdmin ? undefined : empreendimentoIds,
+        empreendimentoIds,
       };
+      
       const lancamentos = await storage.getLancamentos(filters);
       res.json(lancamentos);
     } catch (error) {
