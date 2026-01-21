@@ -46,7 +46,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
   Upload, Download, Trash2, FileText, Database, XCircle, Eye, Edit, X, Loader2,
-  FolderTree, ChevronDown, ChevronRight, BookOpen, Search, Shield, History, FolderOpen,
+  ChevronDown, ChevronRight, BookOpen, Search, Shield, History, FolderOpen,
   FolderPlus, Plus, File
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -467,25 +467,6 @@ export default function GestaoDados() {
     }
   };
 
-  // Inicializar estrutura macro
-  const initMacroMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/datasets/estrutura/macro", { 
-        method: "POST",
-        credentials: "include"
-      });
-      if (!res.ok) throw new Error("Erro ao inicializar estrutura");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/datasets/pastas"] });
-      toast({ title: "Sucesso", description: "Estrutura institucional inicializada!" });
-    },
-    onError: () => {
-      toast({ title: "Erro", description: "Falha ao inicializar estrutura.", variant: "destructive" });
-    },
-  });
-
   // Upload mutations
   const uploadMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -783,10 +764,15 @@ export default function GestaoDados() {
       toast({ title: "Erro", description: "Nome da pasta é obrigatório.", variant: "destructive" });
       return;
     }
+    if (!folderPassword.trim()) {
+      toast({ title: "Erro", description: "Senha de administrador é obrigatória.", variant: "destructive" });
+      return;
+    }
     createFolderMutation.mutate({
       nome: newFolderName.trim(),
       paiId: parentFolderId,
       empreendimentoId: selectedEmpreendimento ? parseInt(selectedEmpreendimento) : undefined,
+      senha: folderPassword,
     });
   };
 
@@ -880,11 +866,6 @@ export default function GestaoDados() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => initMacroMutation.mutate()} disabled={initMacroMutation.isPending}>
-            <FolderTree className="h-4 w-4 mr-2" />
-            {initMacroMutation.isPending ? "Inicializando..." : "Inicializar Estrutura"}
-          </Button>
-          
           <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
             <DialogTrigger asChild>
               <Button>
