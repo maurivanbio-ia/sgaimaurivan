@@ -241,30 +241,30 @@ export async function criarPastasParaEmpreendimento(
   uf: string,
   nome: string,
   codigo?: string | null,
-  syncDropbox: boolean = true
-): Promise<{ success: boolean; path: string; dropboxSync?: boolean }> {
+  syncCloud: boolean = true
+): Promise<{ success: boolean; path: string; cloudSync?: boolean }> {
   // Usar código do projeto se disponível, senão usar nome normalizado
   const codigoProjeto = codigo || nome;
   const result = await criarEstruturaProjeto(cliente, uf, codigoProjeto, empreendimentoId);
   
-  let dropboxSyncResult = false;
-  if (syncDropbox && result.success) {
+  let cloudSyncResult = false;
+  if (syncCloud && result.success) {
     try {
-      const { createEmpreendimentoFolderStructure } = await import('./dropboxService');
-      const dropboxResult = await createEmpreendimentoFolderStructure(cliente, uf, codigo || '', nome);
-      dropboxSyncResult = dropboxResult.success;
-      if (dropboxResult.success) {
-        console.log(`[Folder Structure] Pastas sincronizadas com Dropbox para ${codigo || nome}`);
+      const { createEmpreendimentoFolderStructure } = await import('./onedriveService');
+      const cloudResult = await createEmpreendimentoFolderStructure(cliente, uf, codigo || '', nome);
+      cloudSyncResult = cloudResult.success;
+      if (cloudResult.success) {
+        console.log(`[Folder Structure] Pastas sincronizadas com OneDrive para ${codigo || nome}`);
       }
     } catch (err) {
-      console.log(`[Folder Structure] Dropbox não configurado ou erro na sincronização: ${err}`);
+      console.log(`[Folder Structure] OneDrive não configurado ou erro na sincronização: ${err}`);
     }
   }
   
   return {
     success: result.success,
     path: result.path,
-    dropboxSync: dropboxSyncResult
+    cloudSync: cloudSyncResult
   };
 }
 

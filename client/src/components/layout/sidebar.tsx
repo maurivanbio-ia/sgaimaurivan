@@ -196,7 +196,7 @@ export default function Sidebar() {
         { href: "/processos-monitorados", label: "Processos SEIA", icon: FileSearch, testid: "nav-processos-monitorados" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
-        { href: "/dropbox-backups", label: "Backups Dropbox", icon: Cloud, testid: "nav-dropbox-backups" },
+        { href: "/onedrive-backups", label: "Backups OneDrive", icon: Cloud, testid: "nav-onedrive-backups" },
       ]
     },
   ];

@@ -54,7 +54,7 @@ import RamaisContatos from "./pages/ramais-contatos";
 import LinksUteis from "./pages/links-uteis";
 import ProcessosMonitorados from "./pages/processos-monitorados";
 import Newsletter from "./pages/newsletter";
-import DropboxBackups from "./pages/dropbox-backups";
+import OneDriveBackups from "./pages/onedrive-backups";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -187,7 +187,7 @@ function Router() {
                     <Route path="/conformidade-iso" component={ConformidadeISO} />
                     <Route path="/processos-monitorados" component={ProcessosMonitorados} />
                     <Route path="/newsletter" component={Newsletter} />
-                    <Route path="/dropbox-backups" component={DropboxBackups} />
+                    <Route path="/onedrive-backups" component={OneDriveBackups} />
                     <Route component={NotFound} />
                   </Switch>
                 </PermissionGate>
