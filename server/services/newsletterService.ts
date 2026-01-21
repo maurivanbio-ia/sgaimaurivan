@@ -3,9 +3,13 @@ import { newsletterAssinantes, newsletterEdicoes, newsletterConfig, insertNewsle
 import { eq, and, desc } from "drizzle-orm";
 import { sendEmail } from "../emailService";
 import cron from "node-cron";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Usa Replit AI Integrations se disponível, senão usa OpenAI padrão
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
+});
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 10000): Promise<Response> {
   const controller = new AbortController();
@@ -220,18 +224,12 @@ class NewsletterService {
       };
     };
 
-    // Verificar se Gemini está configurado
-    if (!process.env.GEMINI_API_KEY) {
-      console.log("Gemini não configurado, usando resumo simplificado");
-      return generateSimpleSummary();
-    }
-
     const newsContext = news.map((n, i) => 
       `${i + 1}. ${n.title}\nFonte: ${n.source}\nResumo: ${n.description}\nLink: ${n.url}`
     ).join("\n\n");
 
     try {
-      const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+      console.log("[Newsletter] Gerando resumo com OpenAI...");
       
       const prompt = `Você é um especialista em meio ambiente e legislação ambiental brasileira, responsável por criar resumos executivos para profissionais do setor ambiental.
 
@@ -263,13 +261,20 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
   ]
 }`;
 
-      const result = await model.generateContent(prompt);
-      const content = result.response.text();
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      const content = response.choices[0]?.message?.content;
       
       if (content) {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
+          console.log("[Newsletter] Resumo gerado com sucesso via OpenAI");
           return {
             introducao: parsed.introducao || "",
             resumoGeral: parsed.resumoGeral || "",
@@ -278,7 +283,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
         }
       }
     } catch (error) {
-      console.error("Erro ao gerar resumo com Gemini, usando fallback:", error);
+      console.error("[Newsletter] Erro ao gerar resumo com OpenAI, usando fallback:", error);
     }
 
     // Fallback para resumo simples
