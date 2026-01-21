@@ -35,7 +35,7 @@ interface NewsSearchResult {
 }
 
 class NewsletterService {
-  private cronJob: cron.ScheduledTask | null = null;
+  private cronJob: ReturnType<typeof cron.schedule> | null = null;
 
   async init() {
     await this.ensureDefaultConfig();

@@ -96,7 +96,7 @@ export default function NewsletterPage() {
 
   const updateConfigMutation = useMutation({
     mutationFn: (data: Partial<NewsletterConfig>) => 
-      apiRequest("/api/newsletter/config", { method: "PUT", body: JSON.stringify(data) }),
+      apiRequest("PUT", "/api/newsletter/config", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/config"] });
       toast({ title: "Configurações salvas com sucesso!" });
@@ -108,7 +108,7 @@ export default function NewsletterPage() {
 
   const addAssinanteMutation = useMutation({
     mutationFn: (data: { email: string; nome: string }) => 
-      apiRequest("/api/newsletter/assinantes", { method: "POST", body: JSON.stringify(data) }),
+      apiRequest("POST", "/api/newsletter/assinantes", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/assinantes"] });
       setAddDialogOpen(false);
@@ -122,7 +122,7 @@ export default function NewsletterPage() {
 
   const removeAssinanteMutation = useMutation({
     mutationFn: (id: number) => 
-      apiRequest(`/api/newsletter/assinantes/${id}`, { method: "DELETE" }),
+      apiRequest("DELETE", `/api/newsletter/assinantes/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/assinantes"] });
       toast({ title: "Assinante removido com sucesso!" });
@@ -134,7 +134,7 @@ export default function NewsletterPage() {
 
   const toggleAssinanteMutation = useMutation({
     mutationFn: ({ id, ativo }: { id: number; ativo: boolean }) => 
-      apiRequest(`/api/newsletter/assinantes/${id}/toggle`, { method: "PATCH", body: JSON.stringify({ ativo }) }),
+      apiRequest("PATCH", `/api/newsletter/assinantes/${id}/toggle`, { ativo }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/assinantes"] });
     },
@@ -145,8 +145,9 @@ export default function NewsletterPage() {
 
   const sendNewsletterMutation = useMutation({
     mutationFn: () => 
-      apiRequest("/api/newsletter/send", { method: "POST" }),
-    onSuccess: (data: any) => {
+      apiRequest("POST", "/api/newsletter/send"),
+    onSuccess: async (res: Response) => {
+      const data = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/edicoes"] });
       toast({ title: data.message || "Newsletter enviada com sucesso!" });
     },
@@ -157,8 +158,9 @@ export default function NewsletterPage() {
 
   const sendTestMutation = useMutation({
     mutationFn: (email: string) => 
-      apiRequest("/api/newsletter/test", { method: "POST", body: JSON.stringify({ email }) }),
-    onSuccess: (data: any) => {
+      apiRequest("POST", "/api/newsletter/test", { email }),
+    onSuccess: async (res: Response) => {
+      const data = await res.json();
       toast({ title: data.message || "Email de teste enviado!" });
       setTestEmail("");
     },
