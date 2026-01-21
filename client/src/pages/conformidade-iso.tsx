@@ -28,7 +28,6 @@ import {
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Link } from "wouter";
 
 interface ConformidadeData {
   iso14001: {
@@ -453,16 +452,16 @@ export default function ConformidadeISO() {
                   Cadastre licenças ambientais e acompanhe condicionantes para melhorar este indicador.
                 </p>
                 <div className="flex gap-2">
-                  <Link href="/licencas">
+                  <a href="/licencas">
                     <Button size="sm" variant="outline" className="gap-1">
                       <FileText className="h-3 w-3" /> Licenças
                     </Button>
-                  </Link>
-                  <Link href="/condicionantes">
+                  </a>
+                  <a href="/condicionantes">
                     <Button size="sm" variant="outline" className="gap-1">
                       Condicionantes
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </div>
 
@@ -475,16 +474,16 @@ export default function ConformidadeISO() {
                   Mantenha treinamentos atualizados, fornecedores qualificados e documentos em dia.
                 </p>
                 <div className="flex gap-2">
-                  <Link href="/treinamentos">
+                  <a href="/treinamentos">
                     <Button size="sm" variant="outline" className="gap-1">
                       <GraduationCap className="h-3 w-3" /> Treinamentos
                     </Button>
-                  </Link>
-                  <Link href="/fornecedores">
+                  </a>
+                  <a href="/fornecedores">
                     <Button size="sm" variant="outline" className="gap-1">
                       Fornecedores
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </div>
 
@@ -497,16 +496,16 @@ export default function ConformidadeISO() {
                   Registre colaboradores, CNHs, documentos SST e mantenha a frota regularizada.
                 </p>
                 <div className="flex gap-2">
-                  <Link href="/rh">
+                  <a href="/rh">
                     <Button size="sm" variant="outline" className="gap-1">
                       <Users className="h-3 w-3" /> RH
                     </Button>
-                  </Link>
-                  <Link href="/frota">
+                  </a>
+                  <a href="/frota">
                     <Button size="sm" variant="outline" className="gap-1">
                       <Truck className="h-3 w-3" /> Frota
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </div>
             </div>
@@ -609,7 +608,7 @@ export default function ConformidadeISO() {
               { icon: Wrench, label: "Equipamentos", color: "text-gray-500", href: "/equipamentos" },
               { icon: HardHat, label: "SST", color: "text-yellow-500", href: "/sst" },
             ].map((mod, i) => (
-              <Link key={i} href={mod.href}>
+              <a key={i} href={mod.href} className="no-underline">
                 <div 
                   className="flex flex-col items-center p-4 rounded-lg border bg-card hover:bg-accent hover:border-primary/50 transition-colors cursor-pointer group"
                 >
@@ -617,7 +616,7 @@ export default function ConformidadeISO() {
                   <span className="text-sm font-medium">{mod.label}</span>
                   <ArrowRight className="h-4 w-4 text-muted-foreground mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
         </CardContent>
