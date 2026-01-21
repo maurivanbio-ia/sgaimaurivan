@@ -205,11 +205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Health check endpoint for deployment verification
-  app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
   // Register Object Storage routes
   registerObjectStorageRoutes(app);
 
@@ -622,26 +617,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Delete empreendimento error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Get licenses for a specific empreendimento
-  app.get("/api/empreendimentos/:id/licencas", requireAuth, async (req, res) => {
-    try {
-      const empreendimentoId = parseInt(req.params.id);
-      const userUnidade = req.user?.unidade;
-      
-      // Verify the empreendimento belongs to user's unit
-      const empreendimento = await storage.getEmpreendimento(empreendimentoId, userUnidade);
-      if (!empreendimento) {
-        return res.status(404).json({ message: "Empreendimento not found" });
-      }
-      
-      const licencas = await storage.getLicencasByEmpreendimento(empreendimentoId);
-      res.json(licencas);
-    } catch (error) {
-      console.error("Get licencas by empreendimento error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
