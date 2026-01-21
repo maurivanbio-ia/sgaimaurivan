@@ -1,3 +1,4 @@
+// OneDrive integration using Replit's official connector (connection:conn_onedrive_01KFGT24ZPH1DSCD6K1XVZ2H53)
 import { Client } from '@microsoft/microsoft-graph-client';
 
 let connectionSettings: any;
@@ -27,9 +28,9 @@ async function getAccessToken(): Promise<string> {
 
   console.log('[OneDrive] Fetching connection settings...');
   
-  // Try fetching all connections first to find OneDrive
+  // Use official Replit connector endpoint with connector_names filter
   const response = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true',
+    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=onedrive',
     {
       headers: {
         'Accept': 'application/json',
@@ -40,23 +41,15 @@ async function getAccessToken(): Promise<string> {
   
   const data = await response.json();
   console.log('[OneDrive] Connection response status:', response.status);
-  console.log('[OneDrive] Found total connections:', data.items?.length || 0);
+  console.log('[OneDrive] Found connections:', data.items?.length || 0);
   
-  // Find OneDrive connection by connector name
-  const onedriveConnection = data.items?.find((item: any) => 
-    item.connector_name === 'onedrive' || 
-    item.connector?.name === 'onedrive' ||
-    item.id?.includes('onedrive')
-  );
+  // Get first OneDrive connection
+  connectionSettings = data.items?.[0];
   
-  if (onedriveConnection) {
-    console.log('[OneDrive] Found OneDrive connection:', onedriveConnection.id);
-    connectionSettings = onedriveConnection;
+  if (connectionSettings) {
+    console.log('[OneDrive] Found OneDrive connection:', connectionSettings.id);
   } else {
-    // Log available connectors for debugging
-    const connectorNames = data.items?.map((item: any) => item.connector_name || item.connector?.name || item.id) || [];
-    console.log('[OneDrive] Available connectors:', connectorNames);
-    connectionSettings = null;
+    console.log('[OneDrive] No OneDrive connection found');
   }
 
   const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
