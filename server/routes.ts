@@ -6904,9 +6904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Texto é obrigatório' });
       }
 
-      // Usar OpenAI para melhorar o texto
       const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI();
       
       const prompt = `Você é um redator profissional de comunicação corporativa ambiental. Melhore o seguinte texto sobre um projeto da consultoria ambiental EcoBrasil, tornando-o mais profissional, engajante e adequado para uma newsletter corporativa.
 
@@ -6924,18 +6922,49 @@ Regras:
 - Não use emojis ou símbolos
 - Retorne apenas o texto melhorado, sem explicações`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7,
-      });
+      let response;
+      let providerUsed = "OpenAI";
+      
+      // Try DeepSeek first if available, then fallback to OpenAI
+      if (process.env.DEEPSEEK_API_KEY) {
+        try {
+          const deepseek = new OpenAI({
+            baseURL: "https://api.deepseek.com/v1",
+            apiKey: process.env.DEEPSEEK_API_KEY,
+          });
+          response = await deepseek.chat.completions.create({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 500,
+            temperature: 0.7,
+          });
+          providerUsed = "DeepSeek";
+        } catch (deepseekError: any) {
+          console.error('[Newsletter Destaques] DeepSeek error, trying OpenAI:', deepseekError.message);
+          const openai = new OpenAI();
+          response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 500,
+            temperature: 0.7,
+          });
+        }
+      } else {
+        const openai = new OpenAI();
+        response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 500,
+          temperature: 0.7,
+        });
+      }
 
       const textoMelhorado = response.choices[0]?.message?.content?.trim() || texto;
+      console.log(`[Newsletter Destaques] Text improved using ${providerUsed}`);
       
       res.json({ textoMelhorado });
     } catch (error: any) {
-      console.error('[Newsletter Destaques] Error improving text:', error);
+      console.error('[Newsletter Destaques] Error improving text:', error.message);
       
       // Fallback: retornar o texto original formatado
       const { texto } = req.body;
