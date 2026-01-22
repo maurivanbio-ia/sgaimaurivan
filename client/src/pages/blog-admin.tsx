@@ -157,8 +157,13 @@ export default function BlogAdminPage() {
       setSelectedFile(null);
       setImagePreview(null);
     },
-    onError: () => {
-      toast({ title: "Erro ao criar artigo", variant: "destructive" });
+    onError: (error: any) => {
+      console.error("Erro ao criar artigo:", error);
+      toast({ 
+        title: "Erro ao criar artigo", 
+        description: error?.message || "Verifique os logs para mais detalhes",
+        variant: "destructive" 
+      });
     },
   });
 
