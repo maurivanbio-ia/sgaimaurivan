@@ -47,7 +47,8 @@ import {
   Shield,
   FileSearch,
   Newspaper,
-  Cloud
+  Cloud,
+  Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -196,6 +197,7 @@ export default function Sidebar() {
         { href: "/processos-monitorados", label: "Processos SEIA", icon: FileSearch, testid: "nav-processos-monitorados" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
+        { href: "/blog-admin", label: "Blog Institucional", icon: Globe, testid: "nav-blog-admin" },
         { href: "/onedrive-backups", label: "Backups OneDrive", icon: Cloud, testid: "nav-onedrive-backups" },
       ]
     },
