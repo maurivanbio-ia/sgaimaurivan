@@ -762,10 +762,12 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <a href="https://ecobrasil.bio.br/" target="_blank" style="color: #1a5d47; font-size: 11px; font-weight: 600; text-decoration: none;">
                       ecobrasil.bio.br
                     </a>
-                    <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 10px; line-height: 1.5;">
-                      <a href="${baseUrl}/blog" target="_blank" style="color: #64748b; text-decoration: underline;">Visite nosso blog</a>
-                      &nbsp;&bull;&nbsp;
-                      <a href="${baseUrl}/api/newsletter/public/cancelar/{{EMAIL}}" style="color: #94a3b8; text-decoration: underline;">Cancelar assinatura</a>
+                    <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+                      <a href="https://ecobrasilgestor.bio/blog" target="_blank" style="color: #1a5d47; text-decoration: none; font-weight: 500;">📖 Visite nosso Blog</a>
+                    </p>
+                    <p style="margin: 12px 0 0 0; color: #cbd5e1; font-size: 10px; line-height: 1.5;">
+                      Não deseja mais receber esta newsletter?
+                      <a href="https://ecobrasilgestor.bio/api/newsletter/public/cancelar/{{EMAIL}}" style="color: #94a3b8; text-decoration: underline;">Cancelar assinatura</a>
                     </p>
                   </td>
                 </tr>
