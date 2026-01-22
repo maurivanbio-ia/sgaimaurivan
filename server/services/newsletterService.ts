@@ -423,26 +423,26 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       <td align="center">
         <table width="680" cellpadding="0" cellspacing="0" style="max-width: 680px; margin: 0 auto;">
           
-          <!-- Hero Header Vibrante e Ilustrado -->
+          <!-- Hero Header Profissional -->
           <tr>
-            <td style="background-image: url('${HIDROELETRICA_BG_BASE64}'); background-size: cover; background-position: center; border-radius: 0; position: relative;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, rgba(16,52,42,0.95) 0%, rgba(34,120,90,0.9) 35%, rgba(45,160,120,0.85) 65%, rgba(26,82,65,0.92) 100%);">
-                <!-- Barra Decorativa Superior -->
+            <td style="background-image: url('${HIDROELETRICA_BG_BASE64}'); background-size: cover; background-position: center;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(160deg, rgba(12,40,32,0.97) 0%, rgba(26,93,71,0.94) 40%, rgba(34,120,90,0.9) 100%);">
+                <!-- Barra Superior Elegante -->
                 <tr>
-                  <td style="height: 6px; background: linear-gradient(90deg, #f5c842 0%, #4ade80 25%, #22d3ee 50%, #4ade80 75%, #f5c842 100%);"></td>
+                  <td style="height: 5px; background: linear-gradient(90deg, #1a5d47 0%, #2d8b6e 30%, #f5c842 50%, #2d8b6e 70%, #1a5d47 100%);"></td>
                 </tr>
-                <!-- Top Bar com Badges Coloridos -->
+                <!-- Top Bar -->
                 <tr>
-                  <td style="padding: 24px 32px 16px 32px;">
+                  <td style="padding: 28px 40px 20px 40px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <span style="display: inline-block; background: linear-gradient(135deg, #f5c842 0%, #fbbf24 100%); color: #1a3d32; padding: 12px 24px; border-radius: 30px; font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; box-shadow: 0 4px 15px rgba(245,200,66,0.4);">
+                          <span style="display: inline-block; background: linear-gradient(135deg, #f5c842 0%, #fbbf24 100%); color: #1a3d32; padding: 12px 28px; border-radius: 6px; font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
                             EDIÇÃO ${String(edicao.numero).padStart(3, '0')}
                           </span>
                         </td>
                         <td align="right">
-                          <span style="display: inline-block; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.25);">
+                          <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500; letter-spacing: 1px;">
                             ${mesCapitalizado}
                           </span>
                         </td>
@@ -450,116 +450,67 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     </table>
                   </td>
                 </tr>
-                <!-- Decoração de Folhas Ilustradas -->
+                <!-- Título Principal -->
                 <tr>
-                  <td align="center" style="padding: 10px 0;">
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="font-size: 28px; color: #4ade80; opacity: 0.7;">&#127807;</td>
-                        <td style="font-size: 22px; color: #22d3ee; opacity: 0.6; padding: 0 10px;">&#127795;</td>
-                        <td style="font-size: 30px; color: #86efac; opacity: 0.8;">&#127811;</td>
-                        <td style="font-size: 22px; color: #22d3ee; opacity: 0.6; padding: 0 10px;">&#127795;</td>
-                        <td style="font-size: 28px; color: #4ade80; opacity: 0.7;">&#127807;</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Título Principal Vibrante -->
-                <tr>
-                  <td align="center" style="padding: 15px 30px 10px 30px;">
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td align="center">
-                          <span style="display: inline-block; background: linear-gradient(180deg, #fef3c7 0%, #f5c842 50%, #d97706 100%); -webkit-background-clip: text; background-clip: text; font-size: 16px; font-weight: 600; color: #fef3c7; letter-spacing: 8px; text-transform: uppercase;">NEWSLETTER</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding: 5px 30px 20px 30px;">
-                    <h1 style="margin: 0; font-size: 56px; font-weight: 300; font-style: italic; color: #f5c842; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 4px 20px rgba(245,200,66,0.4);">
-                      Notícias
+                  <td align="center" style="padding: 40px 40px 15px 40px;">
+                    <p style="margin: 0 0 8px 0; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 600; letter-spacing: 6px; text-transform: uppercase;">NEWSLETTER AMBIENTAL</p>
+                    <h1 style="margin: 0; font-size: 52px; font-weight: 300; font-style: italic; color: #f5c842; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 3px;">
+                      Notícias ECO
                     </h1>
-                    <div style="width: 120px; height: 3px; background: linear-gradient(90deg, transparent, #4ade80, #f5c842, #4ade80, transparent); margin: 15px auto 0;"></div>
                   </td>
                 </tr>
-                <!-- Logo ECO com Brasileirinho -->
+                <!-- Linha Decorativa -->
                 <tr>
-                  <td align="center" style="padding: 10px 30px 15px 30px;">
-                    <table cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.08); border-radius: 20px; padding: 15px 30px; border: 1px solid rgba(255,255,255,0.15);">
+                  <td align="center" style="padding: 20px 40px;">
+                    <table cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="vertical-align: middle;">
-                          <span style="font-size: 64px; font-weight: 900; background: linear-gradient(180deg, #fef3c7 0%, #f5c842 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-family: 'Arial Black', Arial, sans-serif; letter-spacing: 4px; text-shadow: none;">EC</span>
+                        <td style="width: 60px; height: 2px; background: rgba(255,255,255,0.3);"></td>
+                        <td style="padding: 0 15px;">
+                          <img src="${BRASILEIRINHO_BASE64}" alt="ECO" style="width: 60px; height: auto;" />
                         </td>
-                        <td style="vertical-align: middle; padding-left: 8px;">
-                          <img src="${BRASILEIRINHO_BASE64}" alt="O" style="width: 80px; height: auto; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));" />
-                        </td>
+                        <td style="width: 60px; height: 2px; background: rgba(255,255,255,0.3);"></td>
                       </tr>
                     </table>
                   </td>
                 </tr>
                 <!-- Slogan -->
                 <tr>
-                  <td align="center" style="padding: 8px 30px 20px 30px;">
-                    <p style="margin: 0; color: #86efac; font-size: 16px; font-weight: 400; font-style: italic; letter-spacing: 3px;">
+                  <td align="center" style="padding: 5px 40px 35px 40px;">
+                    <p style="margin: 0; color: rgba(255,255,255,0.75); font-size: 15px; font-weight: 400; font-style: italic; letter-spacing: 2px;">
                       Soluções Sustentáveis em Ação
                     </p>
                   </td>
                 </tr>
-                <!-- Ícones Decorativos Inferiores -->
+                <!-- Barra Inferior -->
                 <tr>
-                  <td align="center" style="padding: 5px 30px 25px 30px;">
-                    <table cellpadding="0" cellspacing="0">
+                  <td style="height: 4px; background: linear-gradient(90deg, #1a5d47 0%, #2d8b6e 50%, #1a5d47 100%);"></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Introdução com Fundo Decorativo -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #ffffff 0%, #f8fafb 100%); padding: 48px 48px 40px 48px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <!-- Box com Borda Verde -->
+                    <table cellpadding="0" cellspacing="0" style="max-width: 580px; border-left: 4px solid #2d8b6e; background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border-radius: 0 12px 12px 0;">
                       <tr>
-                        <td style="padding: 0 8px;">
-                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(74,222,128,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#127793;</span>
-                        </td>
-                        <td style="padding: 0 8px;">
-                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(34,211,238,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#128167;</span>
-                        </td>
-                        <td style="padding: 0 8px;">
-                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(245,200,66,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#9728;</span>
-                        </td>
-                        <td style="padding: 0 8px;">
-                          <span style="display: inline-block; width: 36px; height: 36px; background: rgba(74,222,128,0.2); border-radius: 50%; text-align: center; line-height: 36px; font-size: 18px;">&#127758;</span>
+                        <td style="padding: 28px 32px;">
+                          <p style="margin: 0 0 16px 0; color: #2d8b6e; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
+                            Editorial da Semana
+                          </p>
+                          <p style="margin: 0; color: #1e293b; font-size: 16px; line-height: 1.85; font-weight: 400;">
+                            ${edicao.introducao}
+                          </p>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
-                <!-- Barra Decorativa Inferior -->
-                <tr>
-                  <td style="height: 4px; background: linear-gradient(90deg, #1a5241 0%, #4ade80 20%, #f5c842 50%, #4ade80 80%, #1a5241 100%);"></td>
-                </tr>
               </table>
-            </td>
-          </tr>
-          
-          <!-- Introdução Elegante -->
-          <tr>
-            <td style="background: #ffffff; padding: 40px 40px 32px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center" style="padding-bottom: 24px;">
-                    <img src="${BRASILEIRINHO_BASE64}" alt="EcoBrasil" style="width: 50px; height: auto;" />
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center">
-                    <p style="margin: 0; color: #334155; font-size: 16px; line-height: 1.85; font-weight: 400; max-width: 560px; font-style: italic;">
-                      "${edicao.introducao}"
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          
-          <!-- Barra Decorativa -->
-          <tr>
-            <td style="background: #ffffff; padding: 0 40px;">
-              <div style="height: 1px; background: linear-gradient(90deg, transparent, #d1d5db, transparent);"></div>
             </td>
           </tr>
           
@@ -641,26 +592,24 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
             </td>
           </tr>
           
-          <!-- CTA Premium -->
+          <!-- CTA Elegante -->
           <tr>
-            <td style="background: #ffffff; padding: 20px 40px 40px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(15,23,42,0.3);">
+            <td style="background: #f8fafb; padding: 32px 40px 48px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #1a5d47 0%, #2d8b6e 50%, #1a5d47 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(26,93,71,0.25);">
                 <tr>
-                  <td style="padding: 40px 40px;">
+                  <td style="padding: 44px 48px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center">
-                          <!-- Ícone Decorativo -->
-                          <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #2d8b6e 0%, #0d9488 100%); border-radius: 16px; margin: 0 auto 20px; text-align: center; line-height: 56px; box-shadow: 0 8px 24px rgba(45,139,110,0.4);">
-                            <span style="font-size: 28px;">&#127807;</span>
-                          </div>
-                          <h3 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 700; font-family: 'Georgia', serif;">
+                          <!-- Logo Brasileirinho -->
+                          <img src="${BRASILEIRINHO_BASE64}" alt="EcoBrasil" style="width: 70px; height: auto; margin-bottom: 20px;" />
+                          <h3 style="margin: 0 0 10px 0; color: #ffffff; font-size: 26px; font-weight: 700; font-family: 'Georgia', serif;">
                             EcoGestor
                           </h3>
-                          <p style="margin: 0 0 24px 0; color: #94a3b8; font-size: 14px; font-weight: 400; line-height: 1.6;">
-                            Sua plataforma completa de gestão ambiental.<br/>Licenças, demandas e projetos em um só lugar.
+                          <p style="margin: 0 0 28px 0; color: rgba(255,255,255,0.8); font-size: 15px; font-weight: 400; line-height: 1.7;">
+                            Plataforma completa de gestão ambiental.<br/>Licenças, demandas e projetos em um só lugar.
                           </p>
-                          <a href="https://ecogestor.ecobrasil.bio.br" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f5c842 0%, #fbbf24 100%); color: #0f172a; padding: 16px 40px; border-radius: 30px; font-size: 13px; font-weight: 800; text-decoration: none; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 6px 20px rgba(245,200,66,0.4);">
+                          <a href="https://ecogestor.ecobrasil.bio.br" target="_blank" style="display: inline-block; background: #f5c842; color: #1a3d32; padding: 16px 44px; border-radius: 8px; font-size: 13px; font-weight: 800; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
                             Acessar Plataforma
                           </a>
                         </td>
