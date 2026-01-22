@@ -648,7 +648,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                       Soluções Sustentáveis em Ação
                     </p>
                     <p style="margin: 0 0 6px 0; color: #94a3b8; font-size: 11px;">
-                      contato@ecobrasil.bio.br
+                      ecobrasil@ecobrasil.bio.br
                     </p>
                     <a href="https://ecobrasil.bio.br/" target="_blank" style="color: #1a5d47; font-size: 11px; font-weight: 600; text-decoration: none;">
                       ecobrasil.bio.br
