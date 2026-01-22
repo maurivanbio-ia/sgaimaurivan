@@ -237,6 +237,58 @@ export class ObjectStorageService {
       requestedPermission: requestedPermission ?? ObjectPermission.READ,
     });
   }
+
+  // Gets the upload URL for newsletter destaque image
+  async getNewsletterDestaqueImageUploadURL(extension: string): Promise<{ uploadUrl: string; filePath: string }> {
+    const publicPaths = this.getPublicObjectSearchPaths();
+    if (publicPaths.length === 0) {
+      throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not set");
+    }
+
+    const objectId = randomUUID();
+    const fileName = `newsletter-destaque-${objectId}.${extension}`;
+    const fullPath = `${publicPaths[0]}/newsletter/${fileName}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const uploadUrl = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+
+    return {
+      uploadUrl,
+      filePath: `https://storage.googleapis.com/${bucketName}/${objectName}`,
+    };
+  }
+
+  // Gets the upload URL for blog article image
+  async getBlogImageUploadURL(extension: string): Promise<{ uploadURL: string; publicUrl: string }> {
+    const publicPaths = this.getPublicObjectSearchPaths();
+    if (publicPaths.length === 0) {
+      throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not set");
+    }
+
+    const objectId = randomUUID();
+    const fileName = `blog-artigo-${objectId}.${extension}`;
+    const fullPath = `${publicPaths[0]}/blog/${fileName}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const uploadURL = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+
+    return {
+      uploadURL,
+      publicUrl: `https://storage.googleapis.com/${bucketName}/${objectName}`,
+    };
+  }
 }
 
 function parseObjectPath(path: string): {
