@@ -609,7 +609,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                           <p style="margin: 0 0 28px 0; color: rgba(255,255,255,0.8); font-size: 15px; font-weight: 400; line-height: 1.7;">
                             Plataforma completa de gestão ambiental.<br/>Licenças, demandas e projetos em um só lugar.
                           </p>
-                          <a href="https://ecogestor.ecobrasil.bio.br" target="_blank" style="display: inline-block; background: #f5c842; color: #1a3d32; padding: 16px 44px; border-radius: 8px; font-size: 13px; font-weight: 800; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
+                          <a href="https://ecobrasilgestor.bio/" target="_blank" style="display: inline-block; background: #f5c842; color: #1a3d32; padding: 16px 44px; border-radius: 8px; font-size: 13px; font-weight: 800; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
                             Acessar Plataforma
                           </a>
                         </td>
