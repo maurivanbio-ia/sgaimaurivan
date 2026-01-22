@@ -6772,6 +6772,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/newsletter/preview', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      console.log('[Newsletter] Gerando preview da newsletter...');
+      const result = await newsletterService.generatePreview();
+      
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || 'Erro ao gerar preview' });
+      }
+      
+      res.json({ html: result.html });
+    } catch (error: any) {
+      console.error('[Newsletter] Error generating preview:', error);
+      res.status(500).json({ 
+        error: `Erro ao gerar preview: ${error?.message || 'Erro desconhecido'}` 
+      });
+    }
+  });
+
   // ======== NEWSLETTER DESTAQUES ROUTES ========
 
   // Listar destaques

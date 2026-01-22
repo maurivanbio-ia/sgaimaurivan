@@ -1003,6 +1003,47 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       return { success: false, message: `Erro: ${error}` };
     }
   }
+
+  async generatePreview(): Promise<{ success: boolean; html?: string; error?: string }> {
+    try {
+      const [config] = await db.select().from(newsletterConfig).limit(1);
+      const termos = config?.termosChave || "meio ambiente, IBAMA, licenciamento ambiental";
+      
+      console.log(`[Newsletter Preview] Buscando notícias com termos: ${termos}`);
+      let news = await this.searchEnvironmentalNews(termos);
+      console.log(`[Newsletter Preview] Notícias encontradas: ${news.length}`);
+      
+      if (news.length < 3) {
+        console.log("[Newsletter Preview] Usando notícias simuladas");
+        news = this.getSimulatedNews();
+      }
+      
+      const destaquesAtivos = await db.select().from(newsletterDestaques)
+        .where(eq(newsletterDestaques.ativo, true))
+        .orderBy(newsletterDestaques.ordem);
+      console.log(`[Newsletter Preview] ${destaquesAtivos.length} destaque(s) ativos`);
+      
+      const projetosParaIA = destaquesAtivos.map(d => ({ titulo: d.titulo, descricao: d.descricao }));
+      const aiSummary = await this.generateAISummary(news.slice(0, config?.maxNoticias || 12), projetosParaIA);
+      
+      const weekNumber = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const titulo = (config?.assuntoTemplate || "Newsletter Ambiental EcoBrasil - Semana {{semana}}")
+        .replace("{{semana}}", weekNumber.toString());
+      
+      const htmlContent = this.generateNewsletterHtml({
+        numero: 0,
+        titulo: `${titulo} (PREVIEW)`,
+        introducao: aiSummary.introducao,
+        resumoGeral: aiSummary.resumoGeral,
+        noticias: aiSummary.noticias,
+      }, destaquesAtivos);
+
+      return { success: true, html: htmlContent };
+    } catch (error: any) {
+      console.error("Erro ao gerar preview:", error);
+      return { success: false, error: error?.message || "Erro ao gerar preview" };
+    }
+  }
 }
 
 export const newsletterService = new NewsletterService();
