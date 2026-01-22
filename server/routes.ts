@@ -241,6 +241,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Blog admin authorization middleware (admin, diretor, coordenador only)
+  const requireBlogAdmin = async (req: any, res: any, next: any) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = await storage.getUser(req.session.userId);
+    const allowedRoles = ['admin', 'diretor', 'coordenador'];
+    if (!user || !allowedRoles.includes(user.role)) {
+      return res.status(403).json({ message: "Acesso negado. Apenas administradores, diretores ou coordenadores podem gerenciar o blog." });
+    }
+    
+    next();
+  };
+
   // Sensitive areas access middleware
   const requireSensitiveUnlock = async (req: any, res: any, next: any) => {
     if (!req.session.userId) {
@@ -6944,6 +6959,100 @@ Regras:
     }
   });
 
+  // ======== NEWSLETTER PÚBLICA (ASSINATURA/CANCELAMENTO) ========
+
+  // Assinar newsletter (público)
+  app.post('/api/newsletter/public/assinar', async (req, res) => {
+    try {
+      const { email, nome } = req.body;
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return res.status(400).json({ error: 'Email inválido' });
+      }
+
+      const existing = await db.select().from(newsletterAssinantes)
+        .where(eq(newsletterAssinantes.email, email.toLowerCase().trim()))
+        .limit(1);
+
+      if (existing.length > 0) {
+        if (existing[0].ativo) {
+          return res.json({ message: 'Você já está inscrito na nossa newsletter!' });
+        } else {
+          await db.update(newsletterAssinantes)
+            .set({ ativo: true, atualizadoEm: new Date() })
+            .where(eq(newsletterAssinantes.id, existing[0].id));
+          return res.json({ message: 'Assinatura reativada com sucesso!' });
+        }
+      }
+
+      await db.insert(newsletterAssinantes).values({
+        email: email.toLowerCase().trim(),
+        nome: nome || null,
+        ativo: true,
+        unidade: 'salvador',
+      });
+
+      res.status(201).json({ message: 'Assinatura realizada com sucesso! Você receberá nossa newsletter semanal.' });
+    } catch (error) {
+      console.error('[Newsletter] Error subscribing:', error);
+      res.status(500).json({ error: 'Erro ao processar assinatura' });
+    }
+  });
+
+  // Cancelar assinatura (público) - via token no email
+  app.get('/api/newsletter/public/cancelar/:email', async (req, res) => {
+    try {
+      const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+      
+      const [assinante] = await db.select().from(newsletterAssinantes)
+        .where(eq(newsletterAssinantes.email, email))
+        .limit(1);
+
+      if (!assinante) {
+        return res.status(404).send(`
+          <html>
+            <head><title>Email não encontrado</title></head>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1>Email não encontrado</h1>
+              <p>Este email não está cadastrado em nossa newsletter.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      await db.update(newsletterAssinantes)
+        .set({ ativo: false, atualizadoEm: new Date() })
+        .where(eq(newsletterAssinantes.id, assinante.id));
+
+      res.send(`
+        <html>
+          <head>
+            <title>Assinatura Cancelada</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%); }
+              .container { background: white; max-width: 500px; margin: 0 auto; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+              h1 { color: #16a34a; }
+              p { color: #666; }
+              .logo { font-size: 24px; font-weight: bold; color: #16a34a; margin-bottom: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo">EcoBrasil</div>
+              <h1>Assinatura Cancelada</h1>
+              <p>Você não receberá mais nossa newsletter.</p>
+              <p style="margin-top: 20px; font-size: 14px; color: #999;">
+                Se mudar de ideia, você pode se inscrever novamente em nosso blog.
+              </p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('[Newsletter] Error unsubscribing:', error);
+      res.status(500).send('<html><body><h1>Erro ao processar cancelamento</h1></body></html>');
+    }
+  });
+
   // ======== BLOG INSTITUCIONAL ROUTES ========
 
   // ROTAS PÚBLICAS (sem autenticação)
@@ -7060,7 +7169,7 @@ Regras:
   });
 
   // Criar artigo com IA
-  app.post('/api/blog', requireAuth, async (req, res) => {
+  app.post('/api/blog', requireBlogAdmin, async (req, res) => {
     try {
       const { titulo, descricao, tipo, empreendimentoId, newsletterDestaqueId, imagemCapaUrl } = req.body;
       
@@ -7091,7 +7200,7 @@ Regras:
   });
 
   // Criar e publicar artigo automaticamente
-  app.post('/api/blog/criar-e-publicar', requireAuth, async (req, res) => {
+  app.post('/api/blog/criar-e-publicar', requireBlogAdmin, async (req, res) => {
     try {
       const { titulo, descricao, tipo, empreendimentoId, newsletterDestaqueId, imagemCapaUrl } = req.body;
       
@@ -7126,7 +7235,7 @@ Regras:
   });
 
   // Atualizar artigo
-  app.put('/api/blog/:id', requireAuth, async (req, res) => {
+  app.put('/api/blog/:id', requireBlogAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updated = await blogService.updateArticle(id, req.body);
@@ -7141,7 +7250,7 @@ Regras:
   });
 
   // Publicar artigo
-  app.post('/api/blog/:id/publicar', requireAuth, async (req, res) => {
+  app.post('/api/blog/:id/publicar', requireBlogAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const result = await blogService.publishArticle(id);
@@ -7156,7 +7265,7 @@ Regras:
   });
 
   // Excluir artigo
-  app.delete('/api/blog/:id', requireAuth, async (req, res) => {
+  app.delete('/api/blog/:id', requireBlogAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await blogService.deleteArticle(id);
@@ -7179,8 +7288,19 @@ Regras:
     }
   });
 
+  // Listar todos os comentários pendentes de aprovação
+  app.get('/api/blog/comentarios-pendentes', requireBlogAdmin, async (req, res) => {
+    try {
+      const pendentes = await blogService.getAllPendingComments();
+      res.json(pendentes);
+    } catch (error) {
+      console.error('[Blog] Error fetching pending comments:', error);
+      res.status(500).json({ error: 'Erro ao buscar comentários pendentes' });
+    }
+  });
+
   // Aprovar comentário
-  app.post('/api/blog/comentarios/:id/aprovar', requireAuth, async (req, res) => {
+  app.post('/api/blog/comentarios/:id/aprovar', requireBlogAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updated = await blogService.approveComment(id);
@@ -7192,7 +7312,7 @@ Regras:
   });
 
   // Excluir comentário
-  app.delete('/api/blog/comentarios/:id', requireAuth, async (req, res) => {
+  app.delete('/api/blog/comentarios/:id', requireBlogAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await blogService.deleteComment(id);

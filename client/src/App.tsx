@@ -55,6 +55,9 @@ import LinksUteis from "./pages/links-uteis";
 import ProcessosMonitorados from "./pages/processos-monitorados";
 import Newsletter from "./pages/newsletter";
 import OneDriveBackups from "./pages/onedrive-backups";
+import BlogPublic from "./pages/blog-public";
+import BlogArtigo from "./pages/blog-artigo";
+import BlogAdmin from "./pages/blog-admin";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -95,6 +98,16 @@ function Router() {
           </Switch>
         </main>
       </div>
+    );
+  }
+
+  // Páginas públicas do blog (acessíveis sem autenticação)
+  if (location === "/blog" || location.startsWith("/blog/")) {
+    return (
+      <Switch>
+        <Route path="/blog" component={BlogPublic} />
+        <Route path="/blog/:slug" component={BlogArtigo} />
+      </Switch>
     );
   }
 
@@ -187,6 +200,7 @@ function Router() {
                     <Route path="/conformidade-iso" component={ConformidadeISO} />
                     <Route path="/processos-monitorados" component={ProcessosMonitorados} />
                     <Route path="/newsletter" component={Newsletter} />
+                    <Route path="/blog-admin" component={BlogAdmin} />
                     <Route path="/onedrive-backups" component={OneDriveBackups} />
                     <Route component={NotFound} />
                   </Switch>

@@ -285,6 +285,23 @@ Responda APENAS no formato JSON válido:
       .orderBy(desc(blogComentarios.criadoEm));
   }
 
+  async getAllPendingComments() {
+    return db.select({
+      id: blogComentarios.id,
+      artigoId: blogComentarios.artigoId,
+      autorNome: blogComentarios.autorNome,
+      autorEmail: blogComentarios.autorEmail,
+      conteudo: blogComentarios.conteudo,
+      aprovado: blogComentarios.aprovado,
+      criadoEm: blogComentarios.criadoEm,
+      artigoTitulo: blogArtigos.titulo,
+    })
+      .from(blogComentarios)
+      .innerJoin(blogArtigos, eq(blogComentarios.artigoId, blogArtigos.id))
+      .where(eq(blogComentarios.aprovado, false))
+      .orderBy(desc(blogComentarios.criadoEm));
+  }
+
   async approveComment(id: number) {
     const [updated] = await db.update(blogComentarios)
       .set({ aprovado: true })

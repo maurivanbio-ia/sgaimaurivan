@@ -760,6 +760,11 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <a href="https://ecobrasil.bio.br/" target="_blank" style="color: #1a5d47; font-size: 11px; font-weight: 600; text-decoration: none;">
                       ecobrasil.bio.br
                     </a>
+                    <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 10px; line-height: 1.5;">
+                      <a href="${baseUrl}/blog" target="_blank" style="color: #64748b; text-decoration: underline;">Visite nosso blog</a>
+                      &nbsp;&bull;&nbsp;
+                      <a href="${baseUrl}/api/newsletter/public/cancelar/{{EMAIL}}" style="color: #94a3b8; text-decoration: underline;">Cancelar assinatura</a>
+                    </p>
                   </td>
                 </tr>
               </table>
@@ -869,11 +874,15 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       let enviados = 0;
       for (const assinante of assinantes) {
         try {
+          const personalizedHtml = htmlContent.replace(
+            /\{\{EMAIL\}\}/g, 
+            encodeURIComponent(assinante.email)
+          );
           await sendEmail({
             to: assinante.email,
             subject: titulo,
             text: `${aiSummary.introducao}\n\n${aiSummary.resumoGeral}`,
-            html: htmlContent,
+            html: personalizedHtml,
           });
           enviados++;
         } catch (error) {
