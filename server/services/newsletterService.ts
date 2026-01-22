@@ -409,43 +409,45 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           </tr>
           ${processedDestaques.map((projeto, i) => `
           <tr>
-            <td style="background: #ffffff; padding: 0 40px ${i === processedDestaques.length - 1 ? '32px' : '16px'} 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; overflow: hidden; border: 1px solid #bbf7d0;">
+            <td style="background: #ffffff; padding: 0 40px ${i === processedDestaques.length - 1 ? '32px' : '20px'} 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #f8fffe 0%, #f0fdf4 50%, #ecfdf5 100%); border-radius: 16px; overflow: hidden; border: 1px solid #d1fae5; box-shadow: 0 4px 20px rgba(22, 101, 52, 0.06);">
+                ${projeto.imagemUrl ? `
                 <tr>
-                  ${projeto.imagemUrl ? `
-                  <td width="180" valign="top" style="background: #dcfce7;">
-                    <img src="${projeto.imagemUrl}" alt="${projeto.titulo}" style="width: 180px; height: 140px; object-fit: cover; display: block;" />
+                  <td style="padding: 0;">
+                    <img src="${projeto.imagemUrl}" alt="${projeto.titulo}" style="width: 100%; height: 200px; object-fit: cover; display: block;" />
                     ${projeto.imagemLegenda ? `
-                    <div style="padding: 6px 8px; background: rgba(22, 101, 52, 0.1); border-top: 1px solid #bbf7d0;">
-                      <span style="color: #166534; font-size: 10px; font-style: italic; line-height: 1.3; display: block;">${projeto.imagemLegenda}</span>
+                    <div style="padding: 10px 24px; background: linear-gradient(180deg, rgba(22, 101, 52, 0.03) 0%, rgba(22, 101, 52, 0.08) 100%); border-top: 1px solid #d1fae5;">
+                      <span style="color: #166534; font-size: 11px; font-style: italic; line-height: 1.4; display: block;">📍 ${projeto.imagemLegenda}</span>
                     </div>
                     ` : ''}
                   </td>
-                  ` : ''}
-                  <td valign="top" style="padding: 24px;">
-                    <h4 style="margin: 0 0 12px 0; color: #166534; font-size: 17px; font-weight: 700; line-height: 1.3;">
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: ${projeto.imagemUrl ? '24px 28px 20px 28px' : '28px'};">
+                    <h4 style="margin: 0 0 16px 0; color: #0f766e; font-size: 20px; font-weight: 700; line-height: 1.35; letter-spacing: -0.3px;">
                       ${projeto.titulo}
                     </h4>
-                    <p style="margin: 0 0 16px 0; color: #334155; font-size: 14px; line-height: 1.65;">
+                    <p style="margin: 0 0 20px 0; color: #475569; font-size: 14px; line-height: 1.75; text-align: justify; hyphens: auto;">
                       ${projeto.descricaoMelhorada || projeto.descricao}
                     </p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #d1fae5; padding-top: 16px;">
                       <tr>
-                        <td valign="middle">
+                        <td style="padding-top: 16px;" valign="middle">
                           ${projeto.link ? `
-                          <a href="${projeto.link}" target="_blank" style="display: inline-block; background: #166534; color: #ffffff; padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
-                            Saiba mais
+                          <a href="${projeto.link}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #0f766e 0%, #166534 100%); color: #ffffff; padding: 12px 24px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);">
+                            Saiba mais →
                           </a>
                           ` : ''}
                         </td>
                         ${projeto.logoClienteUrl || projeto.nomeCliente ? `
-                        <td align="right" valign="middle">
-                          <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,0.7); border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <td style="padding-top: 16px;" align="right" valign="middle">
+                          <div style="display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; background: rgba(255,255,255,0.85); border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
                             ${projeto.logoClienteUrl ? `
-                            <img src="${projeto.logoClienteUrl}" alt="${projeto.nomeCliente || 'Cliente'}" style="height: 24px; width: auto; max-width: 60px; object-fit: contain; opacity: 0.85;" />
+                            <img src="${projeto.logoClienteUrl}" alt="${projeto.nomeCliente || 'Cliente'}" style="height: 28px; width: auto; max-width: 80px; object-fit: contain;" />
                             ` : ''}
                             ${projeto.nomeCliente && !projeto.logoClienteUrl ? `
-                            <span style="color: #64748b; font-size: 10px; font-weight: 500;">${projeto.nomeCliente}</span>
+                            <span style="color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${projeto.nomeCliente}</span>
                             ` : ''}
                           </div>
                         </td>
