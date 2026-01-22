@@ -451,7 +451,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                           <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 140px; height: auto;" />
                         </td>
                         <td align="right" valign="middle">
-                          <span style="display: inline-block; background: #f0fdf4; color: #1a5d47; padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px;">
+                          <span style="display: inline-block; background: linear-gradient(135deg, #1a5d47 0%, #2d8b6e 100%); color: #ffffff; padding: 10px 20px; border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; box-shadow: 0 2px 8px rgba(26,93,71,0.25);">
                             EDIÇÃO ${String(edicao.numero).padStart(3, '0')}
                           </span>
                         </td>
@@ -656,17 +656,17 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           
           <!-- ASSINATURA BRASILEIRINHO -->
           <tr>
-            <td style="padding: 24px 40px;" align="center">
+            <td style="padding: 28px 40px; background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);" align="center">
               <table cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="width: 40px; height: 1px; background: #cbd5e1;"></td>
-                  <td style="padding: 0 16px;">
-                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 32px; height: auto; opacity: 0.6;" />
+                  <td style="width: 50px; height: 2px; background: linear-gradient(90deg, transparent, #2d8b6e);"></td>
+                  <td style="padding: 0 20px;">
+                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 40px; height: auto;" />
                   </td>
-                  <td style="width: 40px; height: 1px; background: #cbd5e1;"></td>
+                  <td style="width: 50px; height: 2px; background: linear-gradient(90deg, #2d8b6e, transparent);"></td>
                 </tr>
               </table>
-              <p style="margin: 12px 0 0 0; color: #94a3b8; font-size: 10px; letter-spacing: 1px;">
+              <p style="margin: 14px 0 0 0; color: #1a5d47; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;">
                 Uma publicação EcoBrasil
               </p>
             </td>
