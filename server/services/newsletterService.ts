@@ -94,14 +94,42 @@ class NewsletterService {
     console.log(`Newsletter agendada: ${cronExpression} (Brasília)`);
   }
 
+  private readonly ENVIRONMENTAL_KEYWORDS = [
+    'meio ambiente', 'ambiental', 'sustentabilidade', 'sustentável', 'ecologia', 'ecológico',
+    'ibama', 'inema', 'icmbio', 'mma', 'ministério do meio ambiente',
+    'licenciamento', 'licença ambiental', 'eia', 'rima', 'estudo de impacto',
+    'desmatamento', 'floresta', 'amazônia', 'cerrado', 'mata atlântica', 'pantanal', 'caatinga',
+    'biodiversidade', 'fauna', 'flora', 'espécie', 'extinção', 'conservação',
+    'poluição', 'emissões', 'carbono', 'gases de efeito estufa', 'aquecimento global', 'clima',
+    'mudanças climáticas', 'aquecimento', 'efeito estufa', 'cop',
+    'recursos hídricos', 'água', 'rios', 'bacia hidrográfica', 'saneamento',
+    'resíduos', 'reciclagem', 'lixo', 'aterro', 'coleta seletiva',
+    'energia renovável', 'energia solar', 'energia eólica', 'biomassa', 'hidrelétrica',
+    'área de preservação', 'reserva legal', 'unidade de conservação', 'parque nacional',
+    'código florestal', 'lei ambiental', 'crime ambiental', 'multa ambiental',
+    'recuperação', 'reflorestamento', 'restauração ecológica',
+    'impacto ambiental', 'degradação', 'contaminação', 'remediação',
+  ];
+
+  private isEnvironmentalNews(title: string, description: string): boolean {
+    const text = `${title} ${description}`.toLowerCase();
+    return this.ENVIRONMENTAL_KEYWORDS.some(keyword => text.includes(keyword.toLowerCase()));
+  }
+
   async searchEnvironmentalNews(terms: string): Promise<NewsSearchResult[]> {
-    const searchTerms = terms.split(",").map(t => t.trim()).slice(0, 3);
+    const searchTerms = [
+      'licenciamento ambiental Brasil',
+      'IBAMA fiscalização',
+      'meio ambiente legislação Brasil',
+      'sustentabilidade ambiental Brasil',
+      'desmatamento Amazônia',
+    ];
     const allNews: NewsSearchResult[] = [];
 
     for (const term of searchTerms) {
       try {
         const response = await fetchWithTimeout(
-          `https://newsapi.org/v2/everything?q=${encodeURIComponent(term + " Brasil")}&language=pt&sortBy=publishedAt&pageSize=5&apiKey=${process.env.NEWS_API_KEY || ""}`,
+          `https://newsapi.org/v2/everything?q=${encodeURIComponent(term)}&language=pt&sortBy=publishedAt&pageSize=10&apiKey=${process.env.NEWS_API_KEY || ""}`,
           { headers: { "Accept": "application/json" } },
           15000
         );
@@ -126,10 +154,15 @@ class NewsletterService {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    return allNews
+    const filteredNews = allNews
+      .filter(n => n.title && n.description)
+      .filter(n => this.isEnvironmentalNews(n.title, n.description))
       .filter(n => new Date(n.publishedAt) >= oneWeekAgo)
-      .filter((n, i, arr) => arr.findIndex(x => x.url === n.url) === i)
-      .slice(0, 15);
+      .filter((n, i, arr) => arr.findIndex(x => x.url === n.url) === i);
+
+    console.log(`[Newsletter] Notícias totais: ${allNews.length}, Após filtro ambiental: ${filteredNews.length}`);
+    
+    return filteredNews.slice(0, 15);
   }
 
   async searchWithGoogleCSE(terms: string): Promise<NewsSearchResult[]> {
