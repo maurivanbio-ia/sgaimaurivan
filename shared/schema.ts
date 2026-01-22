@@ -2971,6 +2971,8 @@ export const newsletterDestaques = pgTable("newsletter_destaques", {
   descricaoMelhorada: text("descricao_melhorada"), // Versão melhorada pela IA
   imagemUrl: text("imagem_url"), // URL da imagem do projeto (via upload ou URL externa)
   imagemLegenda: text("imagem_legenda"), // Legenda da imagem
+  logoClienteUrl: text("logo_cliente_url"), // Logo da empresa cliente (discreta)
+  nomeCliente: text("nome_cliente"), // Nome da empresa cliente
   link: text("link"), // Link opcional para mais informações
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   ativo: boolean("ativo").notNull().default(true),

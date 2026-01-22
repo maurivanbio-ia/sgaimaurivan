@@ -357,7 +357,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     return generateSimpleSummary();
   }
 
-  generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }, destaquesProj: { titulo: string; descricao: string; descricaoMelhorada: string | null; imagemUrl: string | null; imagemLegenda: string | null; link: string | null }[] = []): string {
+  generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }, destaquesProj: { titulo: string; descricao: string; descricaoMelhorada: string | null; imagemUrl: string | null; imagemLegenda: string | null; logoClienteUrl: string | null; nomeCliente: string | null; link: string | null }[] = []): string {
     const mesAtual = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     const dataAtual = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
@@ -371,7 +371,10 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       ...projeto,
       imagemUrl: projeto.imagemUrl?.startsWith('/files/newsletter-destaques/')
         ? `${baseUrl}/newsletter-images/${projeto.imagemUrl.replace('/files/newsletter-destaques/', '')}`
-        : projeto.imagemUrl
+        : projeto.imagemUrl,
+      logoClienteUrl: projeto.logoClienteUrl?.startsWith('/files/newsletter-destaques/')
+        ? `${baseUrl}/newsletter-images/${projeto.logoClienteUrl.replace('/files/newsletter-destaques/', '')}`
+        : projeto.logoClienteUrl
     }));
     
     // Gerar HTML dos destaques de projetos EcoBrasil
@@ -418,11 +421,29 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <p style="margin: 0 0 16px 0; color: #334155; font-size: 14px; line-height: 1.65;">
                       ${projeto.descricaoMelhorada || projeto.descricao}
                     </p>
-                    ${projeto.link ? `
-                    <a href="${projeto.link}" target="_blank" style="display: inline-block; background: #166534; color: #ffffff; padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
-                      Saiba mais
-                    </a>
-                    ` : ''}
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td valign="middle">
+                          ${projeto.link ? `
+                          <a href="${projeto.link}" target="_blank" style="display: inline-block; background: #166534; color: #ffffff; padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
+                            Saiba mais
+                          </a>
+                          ` : ''}
+                        </td>
+                        ${projeto.logoClienteUrl || projeto.nomeCliente ? `
+                        <td align="right" valign="middle">
+                          <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,0.7); border-radius: 6px; border: 1px solid #e2e8f0;">
+                            ${projeto.logoClienteUrl ? `
+                            <img src="${projeto.logoClienteUrl}" alt="${projeto.nomeCliente || 'Cliente'}" style="height: 24px; width: auto; max-width: 60px; object-fit: contain; opacity: 0.85;" />
+                            ` : ''}
+                            ${projeto.nomeCliente && !projeto.logoClienteUrl ? `
+                            <span style="color: #64748b; font-size: 10px; font-weight: 500;">${projeto.nomeCliente}</span>
+                            ` : ''}
+                          </div>
+                        </td>
+                        ` : ''}
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>

@@ -77,6 +77,8 @@ interface Destaque {
   descricaoMelhorada: string | null;
   imagemUrl: string | null;
   imagemLegenda: string | null;
+  logoClienteUrl: string | null;
+  nomeCliente: string | null;
   link: string | null;
   empreendimentoId: number | null;
   ativo: boolean;
@@ -111,10 +113,13 @@ export default function NewsletterPage() {
     descricaoMelhorada: "",
     imagemUrl: "",
     imagemLegenda: "",
+    logoClienteUrl: "",
+    nomeCliente: "",
     link: "",
   });
   const [melhorandoTexto, setMelhorandoTexto] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const { data: config, isLoading: configLoading } = useQuery<NewsletterConfig>({
     queryKey: ["/api/newsletter/config"],
@@ -226,7 +231,7 @@ export default function NewsletterPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
       setDestaqueDialogOpen(false);
-      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", link: "" });
+      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", logoClienteUrl: "", nomeCliente: "", link: "" });
       toast({ title: "Destaque adicionado com sucesso!" });
     },
     onError: () => {
@@ -241,7 +246,7 @@ export default function NewsletterPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
       setDestaqueDialogOpen(false);
       setEditingDestaque(null);
-      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", link: "" });
+      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", logoClienteUrl: "", nomeCliente: "", link: "" });
       toast({ title: "Destaque atualizado com sucesso!" });
     },
     onError: () => {
@@ -509,7 +514,7 @@ export default function NewsletterPage() {
                 setDestaqueDialogOpen(open);
                 if (!open) {
                   setEditingDestaque(null);
-                  setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", link: "" });
+                  setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", logoClienteUrl: "", nomeCliente: "", link: "" });
                 }
               }}>
                 <DialogTrigger asChild>
@@ -644,6 +649,76 @@ export default function NewsletterPage() {
                       <p className="text-xs text-gray-500">Descreva brevemente a imagem para os leitores</p>
                     </div>
 
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 space-y-4">
+                      <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                        <Image className="h-4 w-4" />
+                        <span className="font-medium">Logo do Cliente (opcional)</span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Nome da Empresa Cliente</Label>
+                        <Input
+                          placeholder="Ex: Norte Energia S.A."
+                          value={newDestaque.nomeCliente}
+                          onChange={(e) => setNewDestaque(prev => ({ ...prev, nomeCliente: e.target.value }))}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Logo do Cliente</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            disabled={uploadingLogo}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              setUploadingLogo(true);
+                              try {
+                                const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+                                
+                                const urlRes = await apiRequest("POST", "/api/newsletter/destaques/imagem/upload-url", { extension });
+                                const { uploadUrl, filePath } = await urlRes.json();
+                                
+                                await fetch(uploadUrl, {
+                                  method: 'PUT',
+                                  body: file,
+                                  headers: { 'Content-Type': file.type }
+                                });
+                                
+                                setNewDestaque(prev => ({ ...prev, logoClienteUrl: filePath }));
+                                toast({ title: "Logo enviado com sucesso!" });
+                              } catch (error) {
+                                toast({ title: "Erro ao enviar logo", variant: "destructive" });
+                              } finally {
+                                setUploadingLogo(false);
+                                e.target.value = '';
+                              }
+                            }}
+                            className="flex-1"
+                          />
+                          {uploadingLogo && <Loader2 className="h-5 w-5 animate-spin text-slate-600" />}
+                        </div>
+                        {newDestaque.logoClienteUrl && (
+                          <div className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-700 rounded border border-slate-200">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{newDestaque.logoClienteUrl}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setNewDestaque(prev => ({ ...prev, logoClienteUrl: "" }))}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500">A logo aparecerá de forma discreta no canto do card</p>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <LinkIcon className="h-4 w-4" />
@@ -662,7 +737,7 @@ export default function NewsletterPage() {
                     </Button>
                     <Button
                       className="bg-green-600 hover:bg-green-700"
-                      disabled={!newDestaque.titulo.trim() || !newDestaque.descricao.trim() || uploadingImage || addDestaqueMutation.isPending || updateDestaqueMutation.isPending}
+                      disabled={!newDestaque.titulo.trim() || !newDestaque.descricao.trim() || uploadingImage || uploadingLogo || addDestaqueMutation.isPending || updateDestaqueMutation.isPending}
                       onClick={() => {
                         if (editingDestaque) {
                           updateDestaqueMutation.mutate({
@@ -672,6 +747,8 @@ export default function NewsletterPage() {
                             descricaoMelhorada: newDestaque.descricaoMelhorada || null,
                             imagemUrl: newDestaque.imagemUrl || null,
                             imagemLegenda: newDestaque.imagemLegenda || null,
+                            logoClienteUrl: newDestaque.logoClienteUrl || null,
+                            nomeCliente: newDestaque.nomeCliente || null,
                             link: newDestaque.link || null,
                           });
                         } else {
@@ -742,6 +819,8 @@ export default function NewsletterPage() {
                                 descricaoMelhorada: destaque.descricaoMelhorada || "",
                                 imagemUrl: destaque.imagemUrl || "",
                                 imagemLegenda: destaque.imagemLegenda || "",
+                                logoClienteUrl: destaque.logoClienteUrl || "",
+                                nomeCliente: destaque.nomeCliente || "",
                                 link: destaque.link || "",
                               });
                               setDestaqueDialogOpen(true);
