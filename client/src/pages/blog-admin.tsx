@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,9 @@ import {
   Send,
   Upload,
   Image,
-  Link2
+  Link2,
+  Lock,
+  Unlock
 } from "lucide-react";
 
 interface BlogArtigo {
@@ -82,13 +84,56 @@ export default function BlogAdminPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Access control states
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [isUnlocking, setIsUnlocking] = useState(false);
+
+  // Check access status on mount
+  const { data: unlockStatus, isLoading: checkingAccess } = useQuery<{ unlocked: boolean; hasRole: boolean }>({
+    queryKey: ["/api/blog/unlock-status"],
+  });
+
+  useEffect(() => {
+    if (unlockStatus) {
+      setIsUnlocked(unlockStatus.unlocked);
+      if (!unlockStatus.unlocked) {
+        setUnlockDialogOpen(true);
+      }
+    }
+  }, [unlockStatus]);
+
+  const handleUnlock = async () => {
+    setIsUnlocking(true);
+    try {
+      const res = await apiRequest("POST", "/api/blog/unlock", { senha: unlockPassword });
+      const data = await res.json();
+      if (data.success) {
+        setIsUnlocked(true);
+        setUnlockDialogOpen(false);
+        setUnlockPassword("");
+        toast({ title: "Acesso liberado!" });
+        queryClient.invalidateQueries({ queryKey: ["/api/blog/unlock-status"] });
+      } else {
+        toast({ title: data.message || "Senha incorreta", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Erro ao desbloquear", variant: "destructive" });
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
 
   const { data: artigos = [], isLoading } = useQuery<BlogArtigo[]>({
     queryKey: ["/api/blog"],
+    enabled: isUnlocked,
   });
 
   const { data: comentariosPendentes = [] } = useQuery<(Comentario & { artigoTitulo: string })[]>({
     queryKey: ["/api/blog/comentarios-pendentes"],
+    enabled: isUnlocked,
   });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,6 +260,85 @@ export default function BlogAdminPage() {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("pt-BR");
   };
+
+  // Show loading state while checking access
+  if (checkingAccess) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          <span className="ml-2 text-gray-600">Verificando acesso...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show unlock dialog when not unlocked
+  if (!isUnlocked) {
+    return (
+      <div className="container mx-auto p-6">
+        <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-amber-500" />
+                Acesso Restrito
+              </DialogTitle>
+              <DialogDescription>
+                Para gerenciar o Blog Institucional, digite a senha de administrador.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Senha de Administrador</Label>
+                <Input
+                  type="password"
+                  value={unlockPassword}
+                  onChange={(e) => setUnlockPassword(e.target.value)}
+                  placeholder="Digite a senha..."
+                  onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => window.history.back()}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleUnlock} 
+                disabled={isUnlocking || !unlockPassword}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isUnlocking ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="h-4 w-4 mr-2" />
+                    Desbloquear
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <div className="flex flex-col items-center justify-center h-64">
+          <Lock className="h-12 w-12 text-amber-500 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-700">Blog Institucional</h2>
+          <p className="text-gray-500 mt-2">Acesso restrito. Por favor, digite a senha de administrador.</p>
+          <Button 
+            className="mt-4 bg-green-600 hover:bg-green-700" 
+            onClick={() => setUnlockDialogOpen(true)}
+          >
+            <Unlock className="h-4 w-4 mr-2" />
+            Desbloquear Acesso
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">

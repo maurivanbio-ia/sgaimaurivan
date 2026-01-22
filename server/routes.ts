@@ -241,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Blog admin authorization middleware (admin, diretor, coordenador only)
+  // Blog admin authorization middleware (admin, diretor, coordenador only OR unlocked with password)
   const requireBlogAdmin = async (req: any, res: any, next: any) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -249,11 +249,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const user = await storage.getUser(req.session.userId);
     const allowedRoles = ['admin', 'diretor', 'coordenador'];
-    if (!user || !allowedRoles.includes(user.role)) {
-      return res.status(403).json({ message: "Acesso negado. Apenas administradores, diretores ou coordenadores podem gerenciar o blog." });
+    
+    // Allow if user has correct role OR if blog is unlocked with password
+    if (user && (allowedRoles.includes(user.role) || req.session.blogUnlocked)) {
+      return next();
     }
     
-    next();
+    return res.status(403).json({ 
+      message: "Acesso negado. Apenas administradores, diretores ou coordenadores podem gerenciar o blog.",
+      requiresUnlock: true,
+      unlockType: "blog"
+    });
   };
 
   // Sensitive areas access middleware
@@ -7196,6 +7202,60 @@ Regras:
     } catch (error) {
       console.error('[Blog] Error fetching article:', error);
       res.status(500).json({ error: 'Erro ao buscar artigo' });
+    }
+  });
+
+  // Verificar status de desbloqueio do blog
+  app.get('/api/blog/unlock-status', async (req: any, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: 'Não autenticado' });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      const allowedRoles = ['admin', 'diretor', 'coordenador'];
+      const hasRole = user && allowedRoles.includes(user.role);
+      const isUnlocked = hasRole || req.session.blogUnlocked;
+      
+      res.json({ 
+        unlocked: isUnlocked,
+        hasRole,
+        sessionUnlocked: !!req.session.blogUnlocked
+      });
+    } catch (error) {
+      console.error('[Blog] Error checking unlock status:', error);
+      res.status(500).json({ error: 'Erro ao verificar status' });
+    }
+  });
+
+  // Desbloquear blog com senha de administrador
+  app.post('/api/blog/unlock', async (req: any, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+      
+      const { senha } = req.body;
+      
+      if (!senha) {
+        return res.status(400).json({ success: false, message: 'Senha é obrigatória' });
+      }
+      
+      if (!ADMIN_UNLOCK_PASSWORD) {
+        return res.status(500).json({ success: false, message: 'Configuração de desbloqueio não disponível' });
+      }
+      
+      if (senha === ADMIN_UNLOCK_PASSWORD) {
+        req.session.blogUnlocked = true;
+        console.log(`[Blog] Acesso desbloqueado por usuário ${req.session.userId}`);
+        return res.json({ success: true, message: 'Blog desbloqueado com sucesso' });
+      } else {
+        console.log(`[Blog] Tentativa de desbloqueio falhou para usuário ${req.session.userId}`);
+        return res.json({ success: false, message: 'Senha incorreta' });
+      }
+    } catch (error) {
+      console.error('[Blog] Error unlocking:', error);
+      res.status(500).json({ success: false, message: 'Erro ao desbloquear' });
     }
   });
 
