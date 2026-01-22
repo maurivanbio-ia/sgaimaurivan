@@ -7169,15 +7169,19 @@ Regras:
   // Adicionar comentário (público, mas aguarda aprovação)
   app.post('/api/blog/public/:slug/comentarios', async (req, res) => {
     try {
+      console.log('[Blog] Recebendo comentário para slug:', req.params.slug);
       const artigo = await blogService.getArticleBySlug(req.params.slug);
       if (!artigo) {
+        console.log('[Blog] Artigo não encontrado:', req.params.slug);
         return res.status(404).json({ error: 'Artigo não encontrado' });
       }
       const { autorNome, conteudo, autorEmail } = req.body;
+      console.log('[Blog] Dados do comentário:', { autorNome, conteudo: conteudo?.substring(0, 50), autorEmail, artigoId: artigo.id });
       if (!autorNome || !conteudo) {
         return res.status(400).json({ error: 'Nome e conteúdo são obrigatórios' });
       }
       const comentario = await blogService.addComment(artigo.id, autorNome, conteudo, autorEmail);
+      console.log('[Blog] Comentário salvo com sucesso:', comentario.id);
       res.status(201).json({ 
         ...comentario, 
         message: 'Comentário enviado! Aguardando aprovação.' 
@@ -7386,11 +7390,13 @@ Regras:
   app.delete('/api/blog/:id', requireBlogAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      console.log('[Blog] Excluindo artigo ID:', id);
       await blogService.deleteArticle(id);
+      console.log('[Blog] Artigo excluído com sucesso:', id);
       res.json({ message: 'Artigo excluído com sucesso' });
-    } catch (error) {
-      console.error('[Blog] Error deleting article:', error);
-      res.status(500).json({ error: 'Erro ao excluir artigo' });
+    } catch (error: any) {
+      console.error('[Blog] Error deleting article:', error?.message || error);
+      res.status(500).json({ error: 'Erro ao excluir artigo: ' + (error?.message || 'erro desconhecido') });
     }
   });
 
