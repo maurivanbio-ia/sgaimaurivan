@@ -10,13 +10,8 @@ const deepseek = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || "",
 });
 
-const manus = new OpenAI({
-  baseURL: "https://api.manus.im",
-  apiKey: "placeholder",
-  defaultHeaders: {
-    "API_KEY": process.env.MANUS_API_KEY || "",
-  },
-});
+// Note: Manus API is task-based (async) and not compatible with OpenAI chat.completions format
+// Using DeepSeek as primary and OpenAI as fallback
 
 interface ArtigoInput {
   titulo: string;

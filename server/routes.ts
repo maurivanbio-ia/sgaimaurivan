@@ -6925,27 +6925,9 @@ Regras:
       let response;
       let providerUsed = "OpenAI";
       
-      // Try Manus first, then DeepSeek, then OpenAI
-      if (process.env.MANUS_API_KEY) {
-        try {
-          const manus = new OpenAI({
-            baseURL: "https://api.manus.im",
-            apiKey: "placeholder",
-            defaultHeaders: { "API_KEY": process.env.MANUS_API_KEY },
-          });
-          response = await manus.chat.completions.create({
-            model: 'manus-1.6',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 500,
-            temperature: 0.7,
-          });
-          providerUsed = "Manus";
-        } catch (manusError: any) {
-          console.error('[Newsletter Destaques] Manus error:', manusError.message);
-        }
-      }
-
-      if (!response && process.env.DEEPSEEK_API_KEY) {
+      // Try DeepSeek first, then OpenAI
+      // Note: Manus API is task-based (async) and not compatible with OpenAI chat.completions format
+      if (process.env.DEEPSEEK_API_KEY) {
         try {
           const deepseek = new OpenAI({
             baseURL: "https://api.deepseek.com/v1",
