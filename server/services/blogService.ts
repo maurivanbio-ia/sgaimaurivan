@@ -55,7 +55,7 @@ class BlogService {
       noticia: "notícia ambiental",
     };
 
-    const prompt = `Você é um redator especializado em comunicação institucional para empresas de consultoria ambiental. Gere um artigo profissional para o blog da EcoBrasil Consultoria Ambiental.
+    const prompt = `Você é um redator técnico-científico especializado em meio ambiente para a EcoBrasil Consultoria Ambiental. Gere um artigo acadêmico-profissional seguindo o modelo de publicações científicas de alta qualidade.
 
 TIPO DE CONTEÚDO: ${tipoTexto[input.tipo]}
 
@@ -63,22 +63,54 @@ INFORMAÇÕES DO PROJETO/TEMA:
 Título: ${input.titulo}
 Descrição: ${input.descricao}
 
-INSTRUÇÕES:
-1. Crie um artigo completo, profissional e envolvente
-2. Use linguagem técnica mas acessível
-3. Destaque a importância do trabalho para o meio ambiente e a comunidade
-4. Inclua dados e contexto relevante quando possível
-5. O conteúdo deve ser informativo e demonstrar expertise da EcoBrasil
+ESTRUTURA OBRIGATÓRIA DO ARTIGO:
+
+1. **INTRODUÇÃO**
+   - Contextualização do tema
+   - Relevância para a gestão ambiental
+   - Objetivo do artigo
+
+2. **DESENVOLVIMENTO** (dividido em 3-5 tópicos temáticos com subtítulos <h2>)
+   - Cada tópico deve ter:
+     - Título descritivo e específico
+     - Conteúdo técnico aprofundado (mínimo 2 parágrafos por tópico)
+     - Citações de fontes reais (ex: "Segundo a Resolução CONAMA 237/97...", "De acordo com o IBAMA...", "Conforme estabelece a Política Nacional de Meio Ambiente...")
+     - Dados estatísticos quando relevantes (ex: dados do IBGE, MMA, INPE)
+
+3. **CONSIDERAÇÕES FINAIS**
+   - Síntese dos pontos principais
+   - Importância prática para empresas e comunidade
+   - Perspectivas futuras
+
+4. **REFERÊNCIAS BIBLIOGRÁFICAS** (mínimo 5 referências reais)
+   - Leis e resoluções ambientais brasileiras (CONAMA, IBAMA, etc.)
+   - Políticas públicas (PNMA, PNRS, etc.)
+   - Órgãos oficiais (MMA, INPE, IBGE, ICMBio)
+   - Normas técnicas (ABNT quando aplicável)
+
+CITAÇÕES E FONTES REAIS OBRIGATÓRIAS:
+- Use citações de legislação ambiental brasileira real (Lei 6.938/81, Lei 9.605/98, Lei 12.651/12, etc.)
+- Cite resoluções CONAMA reais relacionadas ao tema
+- Mencione dados de órgãos oficiais como IBAMA, MMA, INPE, IBGE
+- Inclua referências a normas ISO (14001, 45001, etc.) quando pertinente
+
+FORMATO DO CONTEÚDO HTML:
+- Use <h2> para títulos de seção principais
+- Use <h3> para subtítulos dentro das seções
+- Use <p> para parágrafos
+- Use <ul> e <li> para listas
+- Use <blockquote> para citações destacadas
+- Para referências, use <div class="referencias"><h3>Referências Bibliográficas</h3><ul><li>...</li></ul></div>
 
 Responda APENAS no formato JSON válido:
 {
   "titulo": "título otimizado para SEO (máx 70 caracteres)",
-  "subtitulo": "subtítulo complementar (máx 120 caracteres)",
-  "resumo": "resumo de 2-3 frases para preview",
-  "conteudo": "artigo completo em HTML com <h2>, <h3>, <p>, <ul>, <li> - mínimo 4 parágrafos bem desenvolvidos",
-  "palavrasChave": ["array", "de", "5-8", "palavras-chave"],
+  "subtitulo": "subtítulo complementar técnico (máx 120 caracteres)",
+  "resumo": "resumo técnico de 2-3 frases para preview",
+  "conteudo": "artigo completo em HTML seguindo a estrutura acima - mínimo 1500 palavras com citações e referências reais",
+  "palavrasChave": ["array", "de", "5-8", "palavras-chave", "técnicas"],
   "metaTitulo": "título SEO para meta tag (máx 60 caracteres)",
-  "metaDescricao": "descrição SEO para meta tag (máx 155 caracteres)"
+  "metaDescricao": "descrição SEO técnica para meta tag (máx 155 caracteres)"
 }`;
 
     try {

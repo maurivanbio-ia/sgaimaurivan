@@ -294,6 +294,49 @@ export default function BlogArtigoPage() {
           </div>
         </div>
 
+        <style dangerouslySetInnerHTML={{ __html: `
+          .referencias {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 2px solid #0099A8;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 2rem;
+            border-radius: 1rem;
+          }
+          .referencias h3 {
+            color: #0F4098;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+          .referencias h3::before {
+            content: "📚";
+          }
+          .referencias ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+          }
+          .referencias li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.6;
+          }
+          .referencias li:last-child {
+            border-bottom: none;
+          }
+          .referencias li::before {
+            content: "•";
+            color: #0099A8;
+            font-weight: bold;
+            margin-right: 0.5rem;
+          }
+        `}} />
         <div 
           className="prose prose-lg max-w-none 
             prose-headings:text-gray-900 prose-headings:font-bold
@@ -303,9 +346,10 @@ export default function BlogArtigoPage() {
             prose-a:text-[#0099A8] prose-a:no-underline hover:prose-a:underline
             prose-strong:text-gray-900
             prose-ul:my-4 prose-li:text-gray-700
-            prose-blockquote:border-l-[#0099A8] prose-blockquote:bg-[#0099A8]/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg
+            prose-blockquote:border-l-[#0099A8] prose-blockquote:bg-[#0099A8]/5 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:italic prose-blockquote:text-gray-600
             prose-img:rounded-xl prose-img:shadow-lg
-            mb-10"
+            mb-10
+            [&_.referencias]:mt-12 [&_.referencias]:pt-8 [&_.referencias]:border-t-2 [&_.referencias]:border-[#0099A8]"
           dangerouslySetInnerHTML={{ __html: artigo.conteudo }}
         />
 
