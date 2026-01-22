@@ -6983,7 +6983,8 @@ Regras:
         return res.status(400).json({ error: 'Extensão de arquivo inválida' });
       }
       
-      const { uploadUrl, filePath } = await objectStorageService.getNewsletterDestaqueImageUploadURL(extension.toLowerCase());
+      const objectStorage = new ObjectStorageService();
+      const { uploadUrl, filePath } = await objectStorage.getNewsletterDestaqueImageUploadURL(extension.toLowerCase());
       res.json({ uploadUrl, filePath });
     } catch (error) {
       console.error('[Newsletter Destaques] Error getting upload URL:', error);
