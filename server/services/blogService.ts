@@ -171,7 +171,7 @@ Responda APENAS no formato JSON válido:
     }
   }
 
-  async publishArticle(id: number): Promise<{ success: boolean; slug?: string; error?: string }> {
+  async publishArticle(id: number, createNewsletterDestaque: boolean = true): Promise<{ success: boolean; slug?: string; destaqueId?: number; error?: string }> {
     try {
       const [artigo] = await db.update(blogArtigos)
         .set({
@@ -186,15 +186,36 @@ Responda APENAS no formato JSON válido:
         return { success: false, error: "Artigo não encontrado" };
       }
 
+      let destaqueId = artigo.newsletterDestaqueId;
+
       if (artigo.newsletterDestaqueId) {
         await db.update(newsletterDestaques)
           .set({ blogArtigoSlug: artigo.slug })
           .where(eq(newsletterDestaques.id, artigo.newsletterDestaqueId));
         console.log(`[Blog] Link do artigo atualizado no destaque #${artigo.newsletterDestaqueId}`);
+      } else if (createNewsletterDestaque) {
+        const [novoDestaque] = await db.insert(newsletterDestaques).values({
+          titulo: artigo.titulo,
+          descricao: artigo.resumo || artigo.subtitulo || "",
+          descricaoMelhorada: artigo.resumo || artigo.subtitulo || "",
+          imagemUrl: artigo.imagemCapaUrl,
+          blogArtigoSlug: artigo.slug,
+          empreendimentoId: artigo.empreendimentoId,
+          ativo: true,
+          ordem: 0,
+        }).returning();
+
+        if (novoDestaque) {
+          destaqueId = novoDestaque.id;
+          await db.update(blogArtigos)
+            .set({ newsletterDestaqueId: novoDestaque.id })
+            .where(eq(blogArtigos.id, id));
+          console.log(`[Blog] Destaque de newsletter criado automaticamente: #${novoDestaque.id}`);
+        }
       }
 
       console.log(`[Blog] Artigo publicado: ${artigo.slug}`);
-      return { success: true, slug: artigo.slug };
+      return { success: true, slug: artigo.slug, destaqueId: destaqueId ?? undefined };
     } catch (error: any) {
       console.error("[Blog] Erro ao publicar artigo:", error);
       return { success: false, error: error.message };
