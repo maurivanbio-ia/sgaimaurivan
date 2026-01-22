@@ -25,8 +25,14 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  Newspaper
+  Newspaper,
+  Star,
+  Sparkles,
+  Image,
+  Link as LinkIcon,
+  Edit
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface NewsletterConfig {
   id: number;
@@ -64,6 +70,21 @@ interface Edicao {
   criadoEm: string;
 }
 
+interface Destaque {
+  id: number;
+  titulo: string;
+  descricao: string;
+  descricaoMelhorada: string | null;
+  imagemUrl: string | null;
+  link: string | null;
+  empreendimentoId: number | null;
+  ativo: boolean;
+  ordem: number;
+  unidade: string;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
 const diasSemana = [
   { value: "0", label: "Domingo" },
   { value: "1", label: "Segunda-feira" },
@@ -81,6 +102,16 @@ export default function NewsletterPage() {
   const [selectedEdicao, setSelectedEdicao] = useState<Edicao | null>(null);
   const [testEmail, setTestEmail] = useState("");
   const [newAssinante, setNewAssinante] = useState({ email: "", nome: "" });
+  const [destaqueDialogOpen, setDestaqueDialogOpen] = useState(false);
+  const [editingDestaque, setEditingDestaque] = useState<Destaque | null>(null);
+  const [newDestaque, setNewDestaque] = useState({
+    titulo: "",
+    descricao: "",
+    descricaoMelhorada: "",
+    imagemUrl: "",
+    link: "",
+  });
+  const [melhorandoTexto, setMelhorandoTexto] = useState(false);
 
   const { data: config, isLoading: configLoading } = useQuery<NewsletterConfig>({
     queryKey: ["/api/newsletter/config"],
@@ -92,6 +123,10 @@ export default function NewsletterPage() {
 
   const { data: edicoes = [], isLoading: edicoesLoading } = useQuery<Edicao[]>({
     queryKey: ["/api/newsletter/edicoes"],
+  });
+
+  const { data: destaques = [], isLoading: destaquesLoading } = useQuery<Destaque[]>({
+    queryKey: ["/api/newsletter/destaques"],
   });
 
   const updateConfigMutation = useMutation({
@@ -181,7 +216,83 @@ export default function NewsletterPage() {
     },
   });
 
+  // Mutations para destaques
+  const addDestaqueMutation = useMutation({
+    mutationFn: (data: typeof newDestaque) => 
+      apiRequest("POST", "/api/newsletter/destaques", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
+      setDestaqueDialogOpen(false);
+      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", link: "" });
+      toast({ title: "Destaque adicionado com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao adicionar destaque", variant: "destructive" });
+    },
+  });
+
+  const updateDestaqueMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: number } & Partial<Destaque>) => 
+      apiRequest("PUT", `/api/newsletter/destaques/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
+      setDestaqueDialogOpen(false);
+      setEditingDestaque(null);
+      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", link: "" });
+      toast({ title: "Destaque atualizado com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar destaque", variant: "destructive" });
+    },
+  });
+
+  const deleteDestaqueMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest("DELETE", `/api/newsletter/destaques/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
+      toast({ title: "Destaque excluído com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao excluir destaque", variant: "destructive" });
+    },
+  });
+
+  const toggleDestaqueMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest("PATCH", `/api/newsletter/destaques/${id}/toggle`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
+    },
+    onError: () => {
+      toast({ title: "Erro ao alternar destaque", variant: "destructive" });
+    },
+  });
+
+  const melhorarTexto = async () => {
+    if (!newDestaque.descricao.trim()) {
+      toast({ title: "Digite uma descrição primeiro", variant: "destructive" });
+      return;
+    }
+    
+    setMelhorandoTexto(true);
+    try {
+      const res = await apiRequest("POST", "/api/newsletter/destaques/melhorar-texto", {
+        texto: newDestaque.descricao,
+        titulo: newDestaque.titulo,
+      });
+      const data = await res.json();
+      setNewDestaque(prev => ({ ...prev, descricaoMelhorada: data.textoMelhorado }));
+      toast({ title: data.fallback ? "Texto mantido (IA indisponível)" : "Texto melhorado com IA!" });
+    } catch (error) {
+      toast({ title: "Erro ao melhorar texto", variant: "destructive" });
+    } finally {
+      setMelhorandoTexto(false);
+    }
+  };
+
   const assinantesAtivos = assinantes.filter(a => a.ativo).length;
+  const destaquesAtivos = destaques.filter(d => d.ativo).length;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -282,6 +393,10 @@ export default function NewsletterPage() {
             <Settings className="h-4 w-4 mr-2" />
             Configurações
           </TabsTrigger>
+          <TabsTrigger value="destaques">
+            <Star className="h-4 w-4 mr-2" />
+            Destaques ({destaquesAtivos})
+          </TabsTrigger>
           <TabsTrigger value="assinantes">
             <Users className="h-4 w-4 mr-2" />
             Assinantes ({assinantes.length})
@@ -375,6 +490,220 @@ export default function NewsletterPage() {
                     />
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="destaques">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Destaques de Projetos</CardTitle>
+                <CardDescription>Adicione projetos da EcoBrasil para aparecer na newsletter</CardDescription>
+              </div>
+              <Dialog open={destaqueDialogOpen} onOpenChange={(open) => {
+                setDestaqueDialogOpen(open);
+                if (!open) {
+                  setEditingDestaque(null);
+                  setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", link: "" });
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button className="bg-green-600 hover:bg-green-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Destaque
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{editingDestaque ? "Editar Destaque" : "Novo Destaque de Projeto"}</DialogTitle>
+                    <DialogDescription>Adicione informações sobre o projeto. A IA pode melhorar o texto para você.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                    <div className="space-y-2">
+                      <Label>Título do Projeto *</Label>
+                      <Input
+                        placeholder="Ex: Monitoramento Ambiental na Fazenda XYZ"
+                        value={newDestaque.titulo}
+                        onChange={(e) => setNewDestaque(prev => ({ ...prev, titulo: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Descrição Original *</Label>
+                      <Textarea
+                        placeholder="Descreva o projeto com suas palavras. Pode ser um resumo simples que a IA vai melhorar."
+                        value={newDestaque.descricao}
+                        onChange={(e) => setNewDestaque(prev => ({ ...prev, descricao: e.target.value }))}
+                        rows={4}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={melhorarTexto}
+                        disabled={melhorandoTexto || !newDestaque.descricao.trim()}
+                        className="mt-2"
+                      >
+                        {melhorandoTexto ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-2" />
+                        )}
+                        Melhorar com IA
+                      </Button>
+                    </div>
+
+                    {newDestaque.descricaoMelhorada && (
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-green-600" />
+                          Texto Melhorado pela IA
+                        </Label>
+                        <Textarea
+                          value={newDestaque.descricaoMelhorada}
+                          onChange={(e) => setNewDestaque(prev => ({ ...prev, descricaoMelhorada: e.target.value }))}
+                          rows={4}
+                          className="bg-green-50 dark:bg-green-900/20 border-green-200"
+                        />
+                        <p className="text-xs text-gray-500">Você pode editar o texto melhorado antes de salvar</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Image className="h-4 w-4" />
+                        URL da Imagem (opcional)
+                      </Label>
+                      <Input
+                        placeholder="https://exemplo.com/imagem-projeto.jpg"
+                        value={newDestaque.imagemUrl}
+                        onChange={(e) => setNewDestaque(prev => ({ ...prev, imagemUrl: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500">Cole a URL de uma imagem do projeto</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <LinkIcon className="h-4 w-4" />
+                        Link para mais informações (opcional)
+                      </Label>
+                      <Input
+                        placeholder="https://ecobrasil.bio.br/projetos/xyz"
+                        value={newDestaque.link}
+                        onChange={(e) => setNewDestaque(prev => ({ ...prev, link: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDestaqueDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={!newDestaque.titulo.trim() || !newDestaque.descricao.trim() || addDestaqueMutation.isPending || updateDestaqueMutation.isPending}
+                      onClick={() => {
+                        if (editingDestaque) {
+                          updateDestaqueMutation.mutate({
+                            id: editingDestaque.id,
+                            titulo: newDestaque.titulo,
+                            descricao: newDestaque.descricao,
+                            descricaoMelhorada: newDestaque.descricaoMelhorada || null,
+                            imagemUrl: newDestaque.imagemUrl || null,
+                            link: newDestaque.link || null,
+                          });
+                        } else {
+                          addDestaqueMutation.mutate(newDestaque);
+                        }
+                      }}
+                    >
+                      {(addDestaqueMutation.isPending || updateDestaqueMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {editingDestaque ? "Atualizar" : "Adicionar"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {destaquesLoading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : destaques.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Star className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                  <p>Nenhum destaque cadastrado</p>
+                  <p className="text-sm">Adicione projetos para destacar na próxima newsletter</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {destaques.map((destaque) => (
+                    <div
+                      key={destaque.id}
+                      className={`p-4 rounded-lg border ${destaque.ativo ? 'bg-green-50 dark:bg-green-900/20 border-green-200' : 'bg-gray-50 dark:bg-gray-800 border-gray-200'}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-lg">{destaque.titulo}</h4>
+                            <Badge variant={destaque.ativo ? "default" : "secondary"} className={destaque.ativo ? "bg-green-600" : ""}>
+                              {destaque.ativo ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            {destaque.descricaoMelhorada || destaque.descricao}
+                          </p>
+                          {destaque.imagemUrl && (
+                            <p className="text-xs text-blue-600 flex items-center gap-1">
+                              <Image className="h-3 w-3" /> Imagem anexada
+                            </p>
+                          )}
+                          {destaque.link && (
+                            <a href={destaque.link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 flex items-center gap-1 hover:underline">
+                              <LinkIcon className="h-3 w-3" /> {destaque.link}
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={destaque.ativo}
+                            onCheckedChange={() => toggleDestaqueMutation.mutate(destaque.id)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingDestaque(destaque);
+                              setNewDestaque({
+                                titulo: destaque.titulo,
+                                descricao: destaque.descricao,
+                                descricaoMelhorada: destaque.descricaoMelhorada || "",
+                                imagemUrl: destaque.imagemUrl || "",
+                                link: destaque.link || "",
+                              });
+                              setDestaqueDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-100"
+                            onClick={() => {
+                              if (confirm(`Deseja excluir o destaque "${destaque.titulo}"?`)) {
+                                deleteDestaqueMutation.mutate(destaque.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
