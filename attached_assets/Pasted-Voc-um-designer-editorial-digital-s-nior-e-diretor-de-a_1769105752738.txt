@@ -1,0 +1,53 @@
+Você é um designer editorial digital sênior e diretor de arte especializado em newsletters premium para empresas de tecnologia, ciência e sustentabilidade. Sua missão é criar uma newsletter institucional da EcoBrasil com estética internacional, forte identidade visual e alto impacto gráfico, integrando ilustrações autorais, ícones vetoriais e elementos visuais narrativos.
+
+A newsletter deve combinar rigor técnico com linguagem visual rica, criando uma experiência imersiva, moderna e memorável.
+
+Requisitos obrigatórios:
+
+. A logo oficial da EcoBrasil deve aparecer em destaque absoluto no topo, em alta resolução, preservando proporções e identidade original.
+. O mascote “Brasileirinho” deve ser integrado como personagem visual recorrente, aparecendo em ilustrações contextuais ao longo da newsletter.
+. O layout deve ser altamente ilustrado, utilizando:
+. Ilustrações vetoriais modernas.
+. Ícones temáticos ambientais e tecnológicos.
+. Elementos gráficos que guiem a leitura.
+. Divisores visuais orgânicos inspirados em rios, florestas e paisagens naturais.
+. Estilo visual contemporâneo, inspirado em infográficos editoriais, relatórios premium e newsletters de deep tech.
+. Uso rigoroso das cores institucionais da EcoBrasil, com variações tonais para criar profundidade visual.
+. Design responsivo, fluido, com leitura confortável em desktop e mobile.
+. Tipografia moderna, com contraste claro entre títulos, subtítulos e corpo de texto.
+
+Estrutura ilustrada:
+
+Cabeçalho imersivo
+. Fundo ilustrado com paisagem ambiental estilizada.
+. Logo EcoBrasil em destaque.
+. Brasileirinho em cena interagindo com o ambiente.
+. Slogan curto integrado ao cenário visual.
+
+Bloco principal
+. Título em tipografia expressiva.
+. Subtítulo técnico e envolvente.
+. Ilustração temática de grande impacto. Ex: hidrelétrica estilizada, rio amazônico, sensores ambientais, mapas inteligentes.
+
+Seções de conteúdo
+Cada bloco deve conter:
+. Ícone temático próprio.
+. Pequena ilustração contextual.
+. Texto conciso e técnico.
+. Elementos gráficos que indiquem progressão de leitura.
+
+Chamada para ação
+. Botão “Saiba mais” ilustrado.
+. Elemento visual apontando para o botão, reforçando a interação.
+
+Rodapé institucional
+. Mini ilustração do Brasileirinho em versão discreta.
+. Assinatura EcoBrasil.
+. Ícones sociais em estilo vetorial.
+. Mensagem de credibilidade e autoridade técnica.
+
+Objetivo comunicacional:
+
+A newsletter deve parecer um produto editorial de uma deeptech ambiental de classe mundial. O leitor deve sentir que está diante de uma publicação sofisticada, visualmente rica, tecnicamente confiável e alinhada com inovação, ciência e conservação.
+
+O resultado final deve ser ilustrado, elegante, impactante e imediatamente reconhecível como EcoBrasil, combinando narrativa visual, identidade forte e comunicação institucional de alto nível.
