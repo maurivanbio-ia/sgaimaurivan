@@ -315,11 +315,24 @@ Responda APENAS no formato JSON válido:
   }
 
   async deleteArticle(id: number) {
+    console.log('[Blog] Iniciando exclusão do artigo ID:', id);
+    
     // Excluir comentários e reações primeiro (foreign key constraints)
-    await db.delete(blogComentarios).where(eq(blogComentarios.artigoId, id));
-    await db.delete(blogReacoes).where(eq(blogReacoes.artigoId, id));
+    const deletedComments = await db.delete(blogComentarios).where(eq(blogComentarios.artigoId, id)).returning();
+    console.log('[Blog] Comentários excluídos:', deletedComments.length);
+    
+    const deletedReactions = await db.delete(blogReacoes).where(eq(blogReacoes.artigoId, id)).returning();
+    console.log('[Blog] Reações excluídas:', deletedReactions.length);
+    
     // Agora excluir o artigo
-    await db.delete(blogArtigos).where(eq(blogArtigos.id, id));
+    const deletedArticle = await db.delete(blogArtigos).where(eq(blogArtigos.id, id)).returning();
+    console.log('[Blog] Artigo excluído:', deletedArticle.length > 0 ? 'sim' : 'não encontrado');
+    
+    if (deletedArticle.length === 0) {
+      throw new Error('Artigo não encontrado');
+    }
+    
+    return deletedArticle[0];
   }
 
   async addComment(artigoId: number, autorNome: string, conteudo: string, autorEmail?: string) {
