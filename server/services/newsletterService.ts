@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { newsletterAssinantes, newsletterEdicoes, newsletterConfig, insertNewsletterAssinanteSchema } from "@shared/schema";
+import { newsletterAssinantes, newsletterEdicoes, newsletterConfig, newsletterDestaques, insertNewsletterAssinanteSchema } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { sendEmail } from "../emailService";
 import cron from "node-cron";
@@ -357,10 +357,69 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     return generateSimpleSummary();
   }
 
-  generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }): string {
+  generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }, destaquesProj: { titulo: string; descricao: string; descricaoMelhorada: string | null; imagemUrl: string | null; link: string | null }[] = []): string {
     const mesAtual = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     const dataAtual = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+    
+    // Gerar HTML dos destaques de projetos EcoBrasil
+    const destaquesProjetosHtml = destaquesProj.length > 0 ? `
+          <!-- DESTAQUES DE PROJETOS ECOBRASIL -->
+          <tr>
+            <td style="background: #ffffff; padding: 32px 40px 24px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="display: inline-block; background: linear-gradient(135deg, #f5c842 0%, #d4a82a 100%); color: #1a1a1a; padding: 6px 14px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px;">
+                      Projetos em Destaque
+                    </span>
+                    <h3 style="margin: 16px 0 8px 0; color: #0f172a; font-size: 20px; font-weight: 700;">
+                      O que estamos fazendo
+                    </h3>
+                    <p style="margin: 0 0 24px 0; color: #64748b; font-size: 13px;">
+                      Conheça alguns dos projetos da EcoBrasil em execução
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ${destaquesProj.map((projeto, i) => `
+          <tr>
+            <td style="background: #ffffff; padding: 0 40px ${i === destaquesProj.length - 1 ? '32px' : '16px'} 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; overflow: hidden; border: 1px solid #bbf7d0;">
+                <tr>
+                  ${projeto.imagemUrl ? `
+                  <td width="180" valign="top" style="background: #dcfce7;">
+                    <img src="${projeto.imagemUrl}" alt="${projeto.titulo}" style="width: 180px; height: 140px; object-fit: cover; display: block;" />
+                  </td>
+                  ` : ''}
+                  <td valign="top" style="padding: 24px;">
+                    <h4 style="margin: 0 0 12px 0; color: #166534; font-size: 17px; font-weight: 700; line-height: 1.3;">
+                      ${projeto.titulo}
+                    </h4>
+                    <p style="margin: 0 0 16px 0; color: #334155; font-size: 14px; line-height: 1.65;">
+                      ${projeto.descricaoMelhorada || projeto.descricao}
+                    </p>
+                    ${projeto.link ? `
+                    <a href="${projeto.link}" target="_blank" style="display: inline-block; background: #166534; color: #ffffff; padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
+                      Saiba mais
+                    </a>
+                    ` : ''}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          `).join('')}
+          
+          <!-- DIVISOR SUTIL -->
+          <tr>
+            <td style="background: #ffffff; padding: 0 40px;">
+              <div style="height: 1px; background: linear-gradient(90deg, transparent, #e2e8f0, transparent);"></div>
+            </td>
+          </tr>
+    ` : '';
     
     // Notícia principal (destaque)
     const noticiaDestaque = edicao.noticias[0];
@@ -504,6 +563,8 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               <div style="height: 1px; background: linear-gradient(90deg, transparent, #e2e8f0, transparent);"></div>
             </td>
           </tr>
+          
+          ${destaquesProjetosHtml}
           
           <!-- NOTÍCIA DESTAQUE - Card Principal -->
           ${noticiaDestaque ? `
@@ -725,6 +786,12 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       console.log(`${news.length} notícias encontradas, gerando resumo com IA...`);
       const aiSummary = await this.generateAISummary(news.slice(0, config.maxNoticias || 10));
 
+      // Buscar destaques de projetos ativos
+      const destaquesAtivos = await db.select().from(newsletterDestaques)
+        .where(eq(newsletterDestaques.ativo, true))
+        .orderBy(newsletterDestaques.ordem);
+      console.log(`${destaquesAtivos.length} destaque(s) de projetos ativos`);
+
       const weekNumber = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
       const titulo = (config.assuntoTemplate || "Newsletter Ambiental EcoBrasil - Semana {{semana}}")
         .replace("{{semana}}", weekNumber.toString());
@@ -735,7 +802,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
         introducao: aiSummary.introducao,
         resumoGeral: aiSummary.resumoGeral,
         noticias: aiSummary.noticias,
-      });
+      }, destaquesAtivos);
 
       const [edicao] = await db.insert(newsletterEdicoes).values({
         numero: nextNumber,
@@ -859,13 +926,19 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       
       const aiSummary = await this.generateAISummary(news.slice(0, 5));
       
+      // Buscar destaques de projetos ativos
+      const destaquesAtivos = await db.select().from(newsletterDestaques)
+        .where(eq(newsletterDestaques.ativo, true))
+        .orderBy(newsletterDestaques.ordem);
+      console.log(`[Newsletter] ${destaquesAtivos.length} destaque(s) de projetos ativos`);
+      
       const htmlContent = this.generateNewsletterHtml({
         numero: 0,
         titulo: "Newsletter Ambiental EcoBrasil - TESTE",
         introducao: aiSummary.introducao,
         resumoGeral: aiSummary.resumoGeral,
         noticias: aiSummary.noticias,
-      });
+      }, destaquesAtivos);
 
       await sendEmail({
         to: email,
