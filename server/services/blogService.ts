@@ -1,0 +1,336 @@
+import OpenAI from "openai";
+import { db } from "../db";
+import { blogArtigos, blogComentarios, blogReacoes, newsletterDestaques, empreendimentos } from "@shared/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const deepseek = new OpenAI({
+  baseURL: "https://api.deepseek.com/v1",
+  apiKey: process.env.DEEPSEEK_API_KEY || "",
+});
+
+interface ArtigoInput {
+  titulo: string;
+  descricao: string;
+  tipo: "projeto" | "tecnico" | "comunicado" | "noticia";
+  empreendimentoId?: number;
+  newsletterDestaqueId?: number;
+  imagemCapaUrl?: string;
+  autorNome?: string;
+  autorId?: number;
+}
+
+interface ArtigoGerado {
+  titulo: string;
+  subtitulo: string;
+  resumo: string;
+  conteudo: string;
+  palavrasChave: string[];
+  metaTitulo: string;
+  metaDescricao: string;
+}
+
+class BlogService {
+  private generateSlug(titulo: string): string {
+    return titulo
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .substring(0, 80)
+      .replace(/^-+|-+$/g, "");
+  }
+
+  async generateArticleContent(input: ArtigoInput): Promise<ArtigoGerado> {
+    const tipoTexto = {
+      projeto: "projeto ambiental",
+      tecnico: "artigo técnico sobre meio ambiente",
+      comunicado: "comunicado institucional",
+      noticia: "notícia ambiental",
+    };
+
+    const prompt = `Você é um redator especializado em comunicação institucional para empresas de consultoria ambiental. Gere um artigo profissional para o blog da EcoBrasil Consultoria Ambiental.
+
+TIPO DE CONTEÚDO: ${tipoTexto[input.tipo]}
+
+INFORMAÇÕES DO PROJETO/TEMA:
+Título: ${input.titulo}
+Descrição: ${input.descricao}
+
+INSTRUÇÕES:
+1. Crie um artigo completo, profissional e envolvente
+2. Use linguagem técnica mas acessível
+3. Destaque a importância do trabalho para o meio ambiente e a comunidade
+4. Inclua dados e contexto relevante quando possível
+5. O conteúdo deve ser informativo e demonstrar expertise da EcoBrasil
+
+Responda APENAS no formato JSON válido:
+{
+  "titulo": "título otimizado para SEO (máx 70 caracteres)",
+  "subtitulo": "subtítulo complementar (máx 120 caracteres)",
+  "resumo": "resumo de 2-3 frases para preview",
+  "conteudo": "artigo completo em HTML com <h2>, <h3>, <p>, <ul>, <li> - mínimo 4 parágrafos bem desenvolvidos",
+  "palavrasChave": ["array", "de", "5-8", "palavras-chave"],
+  "metaTitulo": "título SEO para meta tag (máx 60 caracteres)",
+  "metaDescricao": "descrição SEO para meta tag (máx 155 caracteres)"
+}`;
+
+    try {
+      let response;
+      let providerUsed = "OpenAI";
+
+      if (process.env.DEEPSEEK_API_KEY) {
+        try {
+          response = await deepseek.chat.completions.create({
+            model: "deepseek-chat",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 3000,
+          });
+          providerUsed = "DeepSeek";
+        } catch (deepseekError: any) {
+          console.error("[Blog] DeepSeek error, falling back to OpenAI:", deepseekError.message);
+          response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 3000,
+          });
+        }
+      } else {
+        response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 3000,
+        });
+      }
+
+      console.log(`[Blog] Artigo gerado com ${providerUsed}`);
+
+      const content = response.choices[0]?.message?.content || "";
+      const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
+      const parsed = JSON.parse(cleanContent) as ArtigoGerado;
+
+      return parsed;
+    } catch (error: any) {
+      console.error("[Blog] Erro ao gerar artigo:", error);
+      return {
+        titulo: input.titulo,
+        subtitulo: `Saiba mais sobre ${input.titulo}`,
+        resumo: input.descricao,
+        conteudo: `<p>${input.descricao}</p><p>Acompanhe mais informações sobre este projeto em nosso blog.</p>`,
+        palavrasChave: ["meio ambiente", "consultoria ambiental", "ecobrasil"],
+        metaTitulo: input.titulo.substring(0, 60),
+        metaDescricao: input.descricao.substring(0, 155),
+      };
+    }
+  }
+
+  async createArticle(input: ArtigoInput): Promise<{ success: boolean; slug?: string; error?: string }> {
+    try {
+      const generated = await this.generateArticleContent(input);
+      
+      let baseSlug = this.generateSlug(generated.titulo);
+      let slug = baseSlug;
+      let counter = 1;
+
+      while (true) {
+        const existing = await db.select().from(blogArtigos).where(eq(blogArtigos.slug, slug)).limit(1);
+        if (existing.length === 0) break;
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+
+      const [artigo] = await db.insert(blogArtigos).values({
+        slug,
+        titulo: generated.titulo,
+        subtitulo: generated.subtitulo,
+        resumo: generated.resumo,
+        conteudo: generated.conteudo,
+        palavrasChave: generated.palavrasChave,
+        imagemCapaUrl: input.imagemCapaUrl,
+        tipo: input.tipo,
+        status: "rascunho",
+        autorId: input.autorId,
+        autorNome: input.autorNome,
+        empreendimentoId: input.empreendimentoId,
+        newsletterDestaqueId: input.newsletterDestaqueId,
+        metaTitulo: generated.metaTitulo,
+        metaDescricao: generated.metaDescricao,
+      }).returning();
+
+      console.log(`[Blog] Artigo criado: ${slug}`);
+      return { success: true, slug: artigo.slug };
+    } catch (error: any) {
+      console.error("[Blog] Erro ao criar artigo:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async publishArticle(id: number): Promise<{ success: boolean; slug?: string; error?: string }> {
+    try {
+      const [artigo] = await db.update(blogArtigos)
+        .set({
+          status: "publicado",
+          publicadoEm: new Date(),
+          atualizadoEm: new Date(),
+        })
+        .where(eq(blogArtigos.id, id))
+        .returning();
+
+      if (!artigo) {
+        return { success: false, error: "Artigo não encontrado" };
+      }
+
+      if (artigo.newsletterDestaqueId) {
+        await db.update(newsletterDestaques)
+          .set({ blogArtigoSlug: artigo.slug })
+          .where(eq(newsletterDestaques.id, artigo.newsletterDestaqueId));
+        console.log(`[Blog] Link do artigo atualizado no destaque #${artigo.newsletterDestaqueId}`);
+      }
+
+      console.log(`[Blog] Artigo publicado: ${artigo.slug}`);
+      return { success: true, slug: artigo.slug };
+    } catch (error: any) {
+      console.error("[Blog] Erro ao publicar artigo:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createAndPublish(input: ArtigoInput): Promise<{ success: boolean; slug?: string; url?: string; error?: string }> {
+    const createResult = await this.createArticle(input);
+    if (!createResult.success || !createResult.slug) {
+      return createResult;
+    }
+
+    const [artigo] = await db.select().from(blogArtigos).where(eq(blogArtigos.slug, createResult.slug)).limit(1);
+    if (!artigo) {
+      return { success: false, error: "Artigo não encontrado após criação" };
+    }
+
+    const publishResult = await this.publishArticle(artigo.id);
+    if (!publishResult.success) {
+      return publishResult;
+    }
+
+    const url = `/blog/${artigo.slug}`;
+    return { success: true, slug: artigo.slug, url };
+  }
+
+  async getPublishedArticles(limit = 20, offset = 0) {
+    return db.select()
+      .from(blogArtigos)
+      .where(eq(blogArtigos.status, "publicado"))
+      .orderBy(desc(blogArtigos.publicadoEm))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getArticleBySlug(slug: string) {
+    const [artigo] = await db.select()
+      .from(blogArtigos)
+      .where(eq(blogArtigos.slug, slug))
+      .limit(1);
+    
+    if (artigo) {
+      await db.update(blogArtigos)
+        .set({ visualizacoes: (artigo.visualizacoes || 0) + 1 })
+        .where(eq(blogArtigos.id, artigo.id));
+    }
+    
+    return artigo;
+  }
+
+  async getAllArticles() {
+    return db.select()
+      .from(blogArtigos)
+      .orderBy(desc(blogArtigos.criadoEm));
+  }
+
+  async updateArticle(id: number, data: Partial<typeof blogArtigos.$inferInsert>) {
+    const [updated] = await db.update(blogArtigos)
+      .set({ ...data, atualizadoEm: new Date() })
+      .where(eq(blogArtigos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteArticle(id: number) {
+    await db.delete(blogArtigos).where(eq(blogArtigos.id, id));
+  }
+
+  async addComment(artigoId: number, autorNome: string, conteudo: string, autorEmail?: string) {
+    const [comment] = await db.insert(blogComentarios).values({
+      artigoId,
+      autorNome,
+      autorEmail,
+      conteudo,
+      aprovado: false,
+    }).returning();
+    return comment;
+  }
+
+  async getComments(artigoId: number, onlyApproved = true) {
+    const condition = onlyApproved 
+      ? and(eq(blogComentarios.artigoId, artigoId), eq(blogComentarios.aprovado, true))
+      : eq(blogComentarios.artigoId, artigoId);
+    
+    return db.select()
+      .from(blogComentarios)
+      .where(condition)
+      .orderBy(desc(blogComentarios.criadoEm));
+  }
+
+  async approveComment(id: number) {
+    const [updated] = await db.update(blogComentarios)
+      .set({ aprovado: true })
+      .where(eq(blogComentarios.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteComment(id: number) {
+    await db.delete(blogComentarios).where(eq(blogComentarios.id, id));
+  }
+
+  async addReaction(artigoId: number, tipo: string, sessionId?: string) {
+    if (sessionId) {
+      const existing = await db.select()
+        .from(blogReacoes)
+        .where(and(
+          eq(blogReacoes.artigoId, artigoId),
+          eq(blogReacoes.sessionId, sessionId)
+        ))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return { alreadyReacted: true };
+      }
+    }
+
+    const [reaction] = await db.insert(blogReacoes).values({
+      artigoId,
+      tipo,
+      sessionId,
+    }).returning();
+
+    await db.update(blogArtigos)
+      .set({ curtidas: sql`${blogArtigos.curtidas} + 1` })
+      .where(eq(blogArtigos.id, artigoId));
+
+    return { reaction, alreadyReacted: false };
+  }
+
+  async getReactionCount(artigoId: number) {
+    const [result] = await db.select({ count: sql<number>`count(*)` })
+      .from(blogReacoes)
+      .where(eq(blogReacoes.artigoId, artigoId));
+    return result?.count || 0;
+  }
+}
+
+export const blogService = new BlogService();

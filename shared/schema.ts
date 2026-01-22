@@ -2974,6 +2974,7 @@ export const newsletterDestaques = pgTable("newsletter_destaques", {
   logoClienteUrl: text("logo_cliente_url"), // Logo da empresa cliente (discreta)
   nomeCliente: text("nome_cliente"), // Nome da empresa cliente
   link: text("link"), // Link opcional para mais informações
+  blogArtigoSlug: text("blog_artigo_slug"), // Slug do artigo do blog para link "Saiba mais"
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
   ativo: boolean("ativo").notNull().default(true),
   ordem: integer("ordem").notNull().default(0),
@@ -2990,4 +2991,81 @@ export const insertNewsletterDestaqueSchema = createInsertSchema(newsletterDesta
 
 export type InsertNewsletterDestaque = z.infer<typeof insertNewsletterDestaqueSchema>;
 export type NewsletterDestaque = typeof newsletterDestaques.$inferSelect;
+
+// ========== BLOG INSTITUCIONAL ==========
+
+export const blogArtigos = pgTable("blog_artigos", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  titulo: text("titulo").notNull(),
+  subtitulo: text("subtitulo"),
+  resumo: text("resumo"),
+  conteudo: text("conteudo").notNull(),
+  palavrasChave: text("palavras_chave").array(),
+  imagemCapaUrl: text("imagem_capa_url"),
+  imagemCapaAlt: text("imagem_capa_alt"),
+  tipo: text("tipo").notNull().default("projeto"),
+  status: text("status").notNull().default("rascunho"),
+  autorId: integer("autor_id").references(() => users.id),
+  autorNome: text("autor_nome"),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  newsletterDestaqueId: integer("newsletter_destaque_id"),
+  metaTitulo: text("meta_titulo"),
+  metaDescricao: text("meta_descricao"),
+  ogImage: text("og_image"),
+  visualizacoes: integer("visualizacoes").default(0),
+  curtidas: integer("curtidas").default(0),
+  publicadoEm: timestamp("publicado_em"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertBlogArtigoSchema = createInsertSchema(blogArtigos).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+  visualizacoes: true,
+  curtidas: true,
+});
+
+export type InsertBlogArtigo = z.infer<typeof insertBlogArtigoSchema>;
+export type BlogArtigo = typeof blogArtigos.$inferSelect;
+
+export const blogComentarios = pgTable("blog_comentarios", {
+  id: serial("id").primaryKey(),
+  artigoId: integer("artigo_id").references(() => blogArtigos.id).notNull(),
+  autorNome: text("autor_nome").notNull(),
+  autorEmail: text("autor_email"),
+  conteudo: text("conteudo").notNull(),
+  aprovado: boolean("aprovado").default(false),
+  curtidas: integer("curtidas").default(0),
+  respostaAId: integer("resposta_a_id"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertBlogComentarioSchema = createInsertSchema(blogComentarios).omit({
+  id: true,
+  criadoEm: true,
+  aprovado: true,
+  curtidas: true,
+});
+
+export type InsertBlogComentario = z.infer<typeof insertBlogComentarioSchema>;
+export type BlogComentario = typeof blogComentarios.$inferSelect;
+
+export const blogReacoes = pgTable("blog_reacoes", {
+  id: serial("id").primaryKey(),
+  artigoId: integer("artigo_id").references(() => blogArtigos.id).notNull(),
+  tipo: text("tipo").notNull().default("like"),
+  sessionId: text("session_id"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertBlogReacaoSchema = createInsertSchema(blogReacoes).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertBlogReacao = z.infer<typeof insertBlogReacaoSchema>;
+export type BlogReacao = typeof blogReacoes.$inferSelect;
 
