@@ -102,6 +102,8 @@ export default function NewsletterPage() {
   const { toast } = useToast();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState("");
   const [selectedEdicao, setSelectedEdicao] = useState<Edicao | null>(null);
   const [testEmail, setTestEmail] = useState("");
   const [newAssinante, setNewAssinante] = useState({ email: "", nome: "" });
@@ -224,6 +226,20 @@ export default function NewsletterPage() {
     },
   });
 
+  const generatePreviewMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("GET", "/api/newsletter/preview");
+      return res.json();
+    },
+    onSuccess: (data: { html: string }) => {
+      setPreviewHtml(data.html);
+      setFullPreviewOpen(true);
+    },
+    onError: () => {
+      toast({ title: "Erro ao gerar preview", variant: "destructive" });
+    },
+  });
+
   // Mutations para destaques
   const addDestaqueMutation = useMutation({
     mutationFn: (data: typeof newDestaque) => 
@@ -315,6 +331,14 @@ export default function NewsletterPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => generatePreviewMutation.mutate()}
+            disabled={generatePreviewMutation.isPending}
+          >
+            {generatePreviewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            Visualizar
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
@@ -1052,6 +1076,49 @@ export default function NewsletterPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Preview Completo */}
+      <Dialog open={fullPreviewOpen} onOpenChange={setFullPreviewOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Preview da Newsletter
+            </DialogTitle>
+            <DialogDescription>
+              Visualize como a newsletter será exibida antes de enviar
+            </DialogDescription>
+          </DialogHeader>
+          {previewHtml ? (
+            <div 
+              className="border rounded-lg overflow-hidden bg-white"
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          )}
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setFullPreviewOpen(false)}>
+              Fechar
+            </Button>
+            <Button 
+              onClick={() => {
+                const email = prompt("Digite o email para enviar teste:");
+                if (email) {
+                  sendTestMutation.mutate(email);
+                  setFullPreviewOpen(false);
+                }
+              }}
+              disabled={sendTestMutation.isPending}
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Enviar Teste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
