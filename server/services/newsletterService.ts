@@ -784,7 +784,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
       }
 
       console.log(`${news.length} notícias encontradas, gerando resumo com IA...`);
-      const aiSummary = await this.generateAISummary(news.slice(0, config.maxNoticias || 10));
+      const aiSummary = await this.generateAISummary(news.slice(0, config.maxNoticias || 12));
 
       // Buscar destaques de projetos ativos
       const destaquesAtivos = await db.select().from(newsletterDestaques)
@@ -924,7 +924,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
         console.log("[Newsletter] Usando notícias REAIS da NewsAPI");
       }
       
-      const aiSummary = await this.generateAISummary(news.slice(0, 5));
+      const aiSummary = await this.generateAISummary(news.slice(0, 12));
       
       // Buscar destaques de projetos ativos
       const destaquesAtivos = await db.select().from(newsletterDestaques)
