@@ -76,6 +76,7 @@ interface Destaque {
   descricao: string;
   descricaoMelhorada: string | null;
   imagemUrl: string | null;
+  imagemLegenda: string | null;
   link: string | null;
   empreendimentoId: number | null;
   ativo: boolean;
@@ -109,9 +110,11 @@ export default function NewsletterPage() {
     descricao: "",
     descricaoMelhorada: "",
     imagemUrl: "",
+    imagemLegenda: "",
     link: "",
   });
   const [melhorandoTexto, setMelhorandoTexto] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const { data: config, isLoading: configLoading } = useQuery<NewsletterConfig>({
     queryKey: ["/api/newsletter/config"],
@@ -223,7 +226,7 @@ export default function NewsletterPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
       setDestaqueDialogOpen(false);
-      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", link: "" });
+      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", link: "" });
       toast({ title: "Destaque adicionado com sucesso!" });
     },
     onError: () => {
@@ -238,7 +241,7 @@ export default function NewsletterPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter/destaques"] });
       setDestaqueDialogOpen(false);
       setEditingDestaque(null);
-      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", link: "" });
+      setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", link: "" });
       toast({ title: "Destaque atualizado com sucesso!" });
     },
     onError: () => {
@@ -506,7 +509,7 @@ export default function NewsletterPage() {
                 setDestaqueDialogOpen(open);
                 if (!open) {
                   setEditingDestaque(null);
-                  setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", link: "" });
+                  setNewDestaque({ titulo: "", descricao: "", descricaoMelhorada: "", imagemUrl: "", imagemLegenda: "", link: "" });
                 }
               }}>
                 <DialogTrigger asChild>
@@ -574,14 +577,71 @@ export default function NewsletterPage() {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <Image className="h-4 w-4" />
-                        URL da Imagem (opcional)
+                        Imagem do Projeto (opcional)
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingImage}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            setUploadingImage(true);
+                            try {
+                              const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+                              
+                              const urlRes = await apiRequest("POST", "/api/newsletter/destaques/imagem/upload-url", { extension });
+                              const { uploadUrl, filePath } = await urlRes.json();
+                              
+                              await fetch(uploadUrl, {
+                                method: 'PUT',
+                                body: file,
+                                headers: { 'Content-Type': file.type }
+                              });
+                              
+                              setNewDestaque(prev => ({ ...prev, imagemUrl: filePath }));
+                              toast({ title: "Imagem enviada com sucesso!" });
+                            } catch (error) {
+                              toast({ title: "Erro ao enviar imagem", variant: "destructive" });
+                            } finally {
+                              setUploadingImage(false);
+                              e.target.value = '';
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        {uploadingImage && <Loader2 className="h-5 w-5 animate-spin text-green-600" />}
+                      </div>
+                      {newDestaque.imagemUrl && (
+                        <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm text-green-700 dark:text-green-400 flex-1 truncate">{newDestaque.imagemUrl}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setNewDestaque(prev => ({ ...prev, imagemUrl: "" }))}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500">Faça upload de uma imagem ou deixe em branco</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Legenda da Imagem (opcional)
                       </Label>
                       <Input
-                        placeholder="https://exemplo.com/imagem-projeto.jpg"
-                        value={newDestaque.imagemUrl}
-                        onChange={(e) => setNewDestaque(prev => ({ ...prev, imagemUrl: e.target.value }))}
+                        placeholder="Ex: Equipe da EcoBrasil em visita técnica ao empreendimento"
+                        value={newDestaque.imagemLegenda}
+                        onChange={(e) => setNewDestaque(prev => ({ ...prev, imagemLegenda: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500">Cole a URL de uma imagem do projeto</p>
+                      <p className="text-xs text-gray-500">Descreva brevemente a imagem para os leitores</p>
                     </div>
 
                     <div className="space-y-2">
@@ -602,7 +662,7 @@ export default function NewsletterPage() {
                     </Button>
                     <Button
                       className="bg-green-600 hover:bg-green-700"
-                      disabled={!newDestaque.titulo.trim() || !newDestaque.descricao.trim() || addDestaqueMutation.isPending || updateDestaqueMutation.isPending}
+                      disabled={!newDestaque.titulo.trim() || !newDestaque.descricao.trim() || uploadingImage || addDestaqueMutation.isPending || updateDestaqueMutation.isPending}
                       onClick={() => {
                         if (editingDestaque) {
                           updateDestaqueMutation.mutate({
@@ -611,6 +671,7 @@ export default function NewsletterPage() {
                             descricao: newDestaque.descricao,
                             descricaoMelhorada: newDestaque.descricaoMelhorada || null,
                             imagemUrl: newDestaque.imagemUrl || null,
+                            imagemLegenda: newDestaque.imagemLegenda || null,
                             link: newDestaque.link || null,
                           });
                         } else {
@@ -680,6 +741,7 @@ export default function NewsletterPage() {
                                 descricao: destaque.descricao,
                                 descricaoMelhorada: destaque.descricaoMelhorada || "",
                                 imagemUrl: destaque.imagemUrl || "",
+                                imagemLegenda: destaque.imagemLegenda || "",
                                 link: destaque.link || "",
                               });
                               setDestaqueDialogOpen(true);

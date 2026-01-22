@@ -108,6 +108,35 @@ export class ObjectStorageService {
     };
   }
 
+  // Gets the upload URL for newsletter destaque images
+  async getNewsletterDestaqueImageUploadURL(extension: string = 'jpg'): Promise<{ uploadUrl: string; filePath: string }> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    if (!privateObjectDir) {
+      throw new Error(
+        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
+          "tool and set PRIVATE_OBJECT_DIR env var."
+      );
+    }
+
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/newsletter-destaques/${objectId}.${extension}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    // Sign URL for PUT method with TTL
+    const uploadUrl = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+
+    return {
+      uploadUrl,
+      filePath: `/files/newsletter-destaques/${objectId}.${extension}`
+    };
+  }
+
   // Gets signed URL to view an image
   async getSignedViewURL(filePath: string): Promise<string> {
     const fullObjectPath = this.getFullObjectPath(filePath);
