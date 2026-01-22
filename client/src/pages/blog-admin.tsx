@@ -24,7 +24,10 @@ import {
   MessageSquare,
   Edit,
   ExternalLink,
-  Send
+  Send,
+  Upload,
+  Image,
+  Link2
 } from "lucide-react";
 
 interface BlogArtigo {
@@ -75,6 +78,10 @@ export default function BlogAdminPage() {
     tipo: "projeto",
     imagemCapaUrl: "",
   });
+  const [imageMode, setImageMode] = useState<"upload" | "url">("upload");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { data: artigos = [], isLoading } = useQuery<BlogArtigo[]>({
     queryKey: ["/api/blog"],
@@ -84,10 +91,62 @@ export default function BlogAdminPage() {
     queryKey: ["/api/blog/comentarios-pendentes"],
   });
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!selectedFile) return newArticle.imagemCapaUrl || null;
+    
+    setIsUploading(true);
+    try {
+      // Get presigned URL
+      const urlResponse = await apiRequest("POST", "/api/blog/upload-imagem", {
+        name: selectedFile.name,
+        contentType: selectedFile.type,
+      });
+      const { uploadURL, publicUrl } = await urlResponse.json();
+      
+      // Upload file directly to Object Storage
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: selectedFile,
+        headers: {
+          "Content-Type": selectedFile.type,
+        },
+      });
+      
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({ title: "Erro ao fazer upload da imagem", variant: "destructive" });
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: async (publishImmediately: boolean) => {
+      // Upload image first if selected
+      let imagemCapaUrl = newArticle.imagemCapaUrl;
+      if (imageMode === "upload" && selectedFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          imagemCapaUrl = uploadedUrl;
+        }
+      }
+      
       const endpoint = publishImmediately ? "/api/blog/criar-e-publicar" : "/api/blog";
-      const res = await apiRequest("POST", endpoint, newArticle);
+      const res = await apiRequest("POST", endpoint, { ...newArticle, imagemCapaUrl });
       return res.json();
     },
     onSuccess: (data) => {
@@ -95,6 +154,8 @@ export default function BlogAdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/blog"] });
       setCreateDialogOpen(false);
       setNewArticle({ titulo: "", descricao: "", tipo: "projeto", imagemCapaUrl: "" });
+      setSelectedFile(null);
+      setImagePreview(null);
     },
     onError: () => {
       toast({ title: "Erro ao criar artigo", variant: "destructive" });
@@ -221,30 +282,90 @@ export default function BlogAdminPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>URL da Imagem de Capa (opcional)</Label>
-                  <Input
-                    value={newArticle.imagemCapaUrl}
-                    onChange={(e) => setNewArticle({ ...newArticle, imagemCapaUrl: e.target.value })}
-                    placeholder="https://..."
-                  />
+                  <Label className="mb-2 block">Imagem de Capa (opcional)</Label>
+                  <div className="flex gap-2 mb-3">
+                    <Button
+                      type="button"
+                      variant={imageMode === "upload" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setImageMode("upload")}
+                      className={imageMode === "upload" ? "bg-[#0099A8] hover:bg-[#038EA1]" : ""}
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      Upload
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={imageMode === "url" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setImageMode("url")}
+                      className={imageMode === "url" ? "bg-[#0099A8] hover:bg-[#038EA1]" : ""}
+                    >
+                      <Link2 className="h-4 w-4 mr-1" />
+                      URL
+                    </Button>
+                  </div>
+                  
+                  {imageMode === "upload" ? (
+                    <div className="space-y-3">
+                      <div 
+                        className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-[#0099A8] transition-colors"
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                      >
+                        {imagePreview ? (
+                          <div className="relative">
+                            <img 
+                              src={imagePreview} 
+                              alt="Preview" 
+                              className="max-h-40 mx-auto rounded-lg object-cover"
+                            />
+                            <p className="text-sm text-gray-500 mt-2">{selectedFile?.name}</p>
+                          </div>
+                        ) : (
+                          <div className="py-4">
+                            <Image className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-500">
+                              Clique para selecionar uma imagem
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              JPG, PNG ou WebP
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        id="image-upload"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                      />
+                    </div>
+                  ) : (
+                    <Input
+                      value={newArticle.imagemCapaUrl}
+                      onChange={(e) => setNewArticle({ ...newArticle, imagemCapaUrl: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  )}
                 </div>
               </div>
               <DialogFooter className="flex gap-2">
                 <Button
                   variant="outline"
                   onClick={() => createMutation.mutate(false)}
-                  disabled={!newArticle.titulo || !newArticle.descricao || createMutation.isPending}
+                  disabled={!newArticle.titulo || !newArticle.descricao || createMutation.isPending || isUploading}
                 >
-                  {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Salvar Rascunho
+                  {(createMutation.isPending || isUploading) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isUploading ? "Enviando imagem..." : "Salvar Rascunho"}
                 </Button>
                 <Button
                   onClick={() => createMutation.mutate(true)}
-                  disabled={!newArticle.titulo || !newArticle.descricao || createMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700"
+                  disabled={!newArticle.titulo || !newArticle.descricao || createMutation.isPending || isUploading}
+                  className="bg-[#0099A8] hover:bg-[#038EA1]"
                 >
-                  {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                  Criar e Publicar
+                  {(createMutation.isPending || isUploading) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                  {isUploading ? "Enviando..." : "Criar e Publicar"}
                 </Button>
               </DialogFooter>
             </DialogContent>

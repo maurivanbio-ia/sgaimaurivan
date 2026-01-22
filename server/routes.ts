@@ -7055,6 +7055,37 @@ Regras:
 
   // ======== BLOG INSTITUCIONAL ROUTES ========
 
+  // Upload de imagem para artigos do blog
+  app.post('/api/blog/upload-imagem', requireBlogAdmin, async (req, res) => {
+    try {
+      const { ObjectStorageService } = await import('./replit_integrations/object_storage/objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      
+      const { name, contentType } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: 'Nome do arquivo é obrigatório' });
+      }
+      
+      // Generate presigned URL for upload
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      
+      // Generate public URL for accessing the image after upload
+      const publicUrl = `/objects${objectPath}`;
+      
+      res.json({
+        uploadURL,
+        objectPath,
+        publicUrl,
+        metadata: { name, contentType }
+      });
+    } catch (error) {
+      console.error('[Blog] Error generating upload URL:', error);
+      res.status(500).json({ error: 'Erro ao gerar URL de upload' });
+    }
+  });
+
   // ROTAS PÚBLICAS (sem autenticação)
   
   // Listar artigos publicados (público)
