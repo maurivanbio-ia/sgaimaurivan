@@ -74,6 +74,8 @@ import {
   pontuacoesGamificacao,
   historicosPontuacao,
   historicoDemandasMovimentacoes,
+  newsletterDestaques,
+  insertNewsletterDestaqueSchema,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL } from "drizzle-orm";
@@ -6749,6 +6751,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[Newsletter] Error sending test newsletter:', error);
       res.status(500).json({ 
         error: `Erro ao enviar email de teste: ${error?.message || 'Erro desconhecido'}` 
+      });
+    }
+  });
+
+  // ======== NEWSLETTER DESTAQUES ROUTES ========
+
+  // Listar destaques
+  app.get('/api/newsletter/destaques', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const destaques = await db.select().from(newsletterDestaques).orderBy(newsletterDestaques.ordem);
+      res.json(destaques);
+    } catch (error) {
+      console.error('[Newsletter Destaques] Error listing:', error);
+      res.status(500).json({ error: 'Erro ao listar destaques' });
+    }
+  });
+
+  // Criar destaque
+  app.post('/api/newsletter/destaques', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const parsed = insertNewsletterDestaqueSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.errors });
+      }
+      
+      const [destaque] = await db.insert(newsletterDestaques).values(parsed.data).returning();
+      res.json(destaque);
+    } catch (error) {
+      console.error('[Newsletter Destaques] Error creating:', error);
+      res.status(500).json({ error: 'Erro ao criar destaque' });
+    }
+  });
+
+  // Atualizar destaque
+  app.put('/api/newsletter/destaques/:id', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [destaque] = await db.update(newsletterDestaques)
+        .set({ ...req.body, atualizadoEm: new Date() })
+        .where(eq(newsletterDestaques.id, id))
+        .returning();
+      
+      if (!destaque) {
+        return res.status(404).json({ error: 'Destaque não encontrado' });
+      }
+      res.json(destaque);
+    } catch (error) {
+      console.error('[Newsletter Destaques] Error updating:', error);
+      res.status(500).json({ error: 'Erro ao atualizar destaque' });
+    }
+  });
+
+  // Excluir destaque
+  app.delete('/api/newsletter/destaques/:id', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(newsletterDestaques).where(eq(newsletterDestaques.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[Newsletter Destaques] Error deleting:', error);
+      res.status(500).json({ error: 'Erro ao excluir destaque' });
+    }
+  });
+
+  // Toggle ativo/inativo
+  app.patch('/api/newsletter/destaques/:id/toggle', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [current] = await db.select().from(newsletterDestaques).where(eq(newsletterDestaques.id, id));
+      
+      if (!current) {
+        return res.status(404).json({ error: 'Destaque não encontrado' });
+      }
+      
+      const [updated] = await db.update(newsletterDestaques)
+        .set({ ativo: !current.ativo, atualizadoEm: new Date() })
+        .where(eq(newsletterDestaques.id, id))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('[Newsletter Destaques] Error toggling:', error);
+      res.status(500).json({ error: 'Erro ao alternar destaque' });
+    }
+  });
+
+  // Melhorar texto com IA
+  app.post('/api/newsletter/destaques/melhorar-texto', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const { texto, titulo } = req.body;
+      
+      if (!texto || typeof texto !== 'string') {
+        return res.status(400).json({ error: 'Texto é obrigatório' });
+      }
+
+      // Usar OpenAI para melhorar o texto
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI();
+      
+      const prompt = `Você é um redator profissional de comunicação corporativa ambiental. Melhore o seguinte texto sobre um projeto da consultoria ambiental EcoBrasil, tornando-o mais profissional, engajante e adequado para uma newsletter corporativa.
+
+${titulo ? `Título do projeto: ${titulo}` : ''}
+
+Texto original:
+${texto}
+
+Regras:
+- Mantenha o tom institucional mas acessível
+- Use linguagem clara e objetiva
+- Destaque resultados e impactos positivos
+- Não invente informações, apenas melhore a redação
+- Máximo 3 parágrafos curtos
+- Não use emojis ou símbolos
+- Retorne apenas o texto melhorado, sem explicações`;
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const textoMelhorado = response.choices[0]?.message?.content?.trim() || texto;
+      
+      res.json({ textoMelhorado });
+    } catch (error: any) {
+      console.error('[Newsletter Destaques] Error improving text:', error);
+      
+      // Fallback: retornar o texto original formatado
+      const { texto } = req.body;
+      res.json({ 
+        textoMelhorado: texto,
+        fallback: true,
+        message: 'IA indisponível, texto mantido original'
       });
     }
   });

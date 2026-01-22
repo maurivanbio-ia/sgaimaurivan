@@ -2963,3 +2963,28 @@ export const insertNewsletterConfigSchema = createInsertSchema(newsletterConfig)
 export type InsertNewsletterConfig = z.infer<typeof insertNewsletterConfigSchema>;
 export type NewsletterConfig = typeof newsletterConfig.$inferSelect;
 
+// Newsletter Destaques - Projetos em destaque para incluir na newsletter
+export const newsletterDestaques = pgTable("newsletter_destaques", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao").notNull(),
+  descricaoMelhorada: text("descricao_melhorada"), // Versão melhorada pela IA
+  imagemUrl: text("imagem_url"), // URL da imagem do projeto
+  link: text("link"), // Link opcional para mais informações
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  ativo: boolean("ativo").notNull().default(true),
+  ordem: integer("ordem").notNull().default(0),
+  unidade: text("unidade").notNull().default("salvador"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertNewsletterDestaqueSchema = createInsertSchema(newsletterDestaques).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertNewsletterDestaque = z.infer<typeof insertNewsletterDestaqueSchema>;
+export type NewsletterDestaque = typeof newsletterDestaques.$inferSelect;
+
