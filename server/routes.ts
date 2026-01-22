@@ -1383,6 +1383,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve newsletter images publicly (for email clients)
+  app.get("/newsletter-images/:filePath(*)", async (req, res) => {
+    try {
+      const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      const fullObjectPath = objectStorageService.getFullObjectPath(`/files/newsletter-destaques/${req.params.filePath}`);
+      await objectStorageService.downloadFile(fullObjectPath, res);
+    } catch (error: any) {
+      console.error("Newsletter image download error:", error);
+      const { ObjectNotFoundError } = await import("./objectStorage");
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ message: "Imagem não encontrada" });
+      }
+      return res.status(500).json({ message: "Erro ao carregar imagem" });
+    }
+  });
+
 
 
 
@@ -6886,6 +6903,24 @@ Regras:
         fallback: true,
         message: 'IA indisponível, texto mantido original'
       });
+    }
+  });
+
+  // Obter URL de upload para imagem de destaque
+  app.post('/api/newsletter/destaques/imagem/upload-url', requireAuth, requireNewsletterAdmin, async (req, res) => {
+    try {
+      const { extension = 'jpg' } = req.body;
+      const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      
+      if (!validExtensions.includes(extension.toLowerCase())) {
+        return res.status(400).json({ error: 'Extensão de arquivo inválida' });
+      }
+      
+      const { uploadUrl, filePath } = await objectStorageService.getNewsletterDestaqueImageUploadURL(extension.toLowerCase());
+      res.json({ uploadUrl, filePath });
+    } catch (error) {
+      console.error('[Newsletter Destaques] Error getting upload URL:', error);
+      res.status(500).json({ error: 'Erro ao obter URL de upload' });
     }
   });
 

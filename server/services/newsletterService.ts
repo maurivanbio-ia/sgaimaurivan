@@ -357,13 +357,25 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     return generateSimpleSummary();
   }
 
-  generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }, destaquesProj: { titulo: string; descricao: string; descricaoMelhorada: string | null; imagemUrl: string | null; link: string | null }[] = []): string {
+  generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }, destaquesProj: { titulo: string; descricao: string; descricaoMelhorada: string | null; imagemUrl: string | null; imagemLegenda: string | null; link: string | null }[] = []): string {
     const mesAtual = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     const dataAtual = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
     
+    // Converter URLs de imagem para URLs públicas
+    const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEPLOYMENT_URL || process.env.REPLIT_DEV_DOMAIN}`
+      : 'https://ecobrasilgestor.bio';
+    
+    const processedDestaques = destaquesProj.map(projeto => ({
+      ...projeto,
+      imagemUrl: projeto.imagemUrl?.startsWith('/files/newsletter-destaques/')
+        ? `${baseUrl}/newsletter-images/${projeto.imagemUrl.replace('/files/newsletter-destaques/', '')}`
+        : projeto.imagemUrl
+    }));
+    
     // Gerar HTML dos destaques de projetos EcoBrasil
-    const destaquesProjetosHtml = destaquesProj.length > 0 ? `
+    const destaquesProjetosHtml = processedDestaques.length > 0 ? `
           <!-- DESTAQUES DE PROJETOS ECOBRASIL -->
           <tr>
             <td style="background: #ffffff; padding: 32px 40px 24px 40px;">
@@ -384,14 +396,19 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               </table>
             </td>
           </tr>
-          ${destaquesProj.map((projeto, i) => `
+          ${processedDestaques.map((projeto, i) => `
           <tr>
-            <td style="background: #ffffff; padding: 0 40px ${i === destaquesProj.length - 1 ? '32px' : '16px'} 40px;">
+            <td style="background: #ffffff; padding: 0 40px ${i === processedDestaques.length - 1 ? '32px' : '16px'} 40px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; overflow: hidden; border: 1px solid #bbf7d0;">
                 <tr>
                   ${projeto.imagemUrl ? `
                   <td width="180" valign="top" style="background: #dcfce7;">
                     <img src="${projeto.imagemUrl}" alt="${projeto.titulo}" style="width: 180px; height: 140px; object-fit: cover; display: block;" />
+                    ${projeto.imagemLegenda ? `
+                    <div style="padding: 6px 8px; background: rgba(22, 101, 52, 0.1); border-top: 1px solid #bbf7d0;">
+                      <span style="color: #166534; font-size: 10px; font-style: italic; line-height: 1.3; display: block;">${projeto.imagemLegenda}</span>
+                    </div>
+                    ` : ''}
                   </td>
                   ` : ''}
                   <td valign="top" style="padding: 24px;">
