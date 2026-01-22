@@ -239,7 +239,7 @@ class NewsletterService {
     });
   }
 
-  async generateAISummary(news: NewsSearchResult[]): Promise<{ introducao: string; resumoGeral: string; noticias: Noticia[] }> {
+  async generateAISummary(news: NewsSearchResult[], projetos: { titulo: string; descricao: string }[] = []): Promise<{ introducao: string; resumoGeral: string; noticias: Noticia[] }> {
     if (news.length === 0) {
       return {
         introducao: "Esta semana, acompanhamos os principais destaques do cenário ambiental brasileiro.",
@@ -248,12 +248,20 @@ class NewsletterService {
       };
     }
 
+    // Contexto dos projetos da EcoBrasil
+    const projetosContext = projetos.length > 0 
+      ? `\n\nProjetos EcoBrasil em destaque:\n${projetos.map((p, i) => `- ${p.titulo}: ${p.descricao}`).join('\n')}`
+      : '';
+
     // Gerar resumo simples quando OpenAI não está disponível
     const generateSimpleSummary = () => {
       const temas = news.map(n => n.title.split(':')[0].split('-')[0].trim()).slice(0, 3);
+      const projetosMencao = projetos.length > 0 
+        ? ` A EcoBrasil também apresenta projetos em andamento como ${projetos.map(p => p.titulo).slice(0, 2).join(' e ')}.`
+        : '';
       return {
-        introducao: `Esta semana trouxe importantes atualizações no cenário ambiental brasileiro, com destaques para temas como ${temas.join(', ')}.`,
-        resumoGeral: `Acompanhe as ${news.length} notícias selecionadas que impactam diretamente o setor de consultoria ambiental, licenciamento e gestão de recursos naturais.`,
+        introducao: `Esta semana trouxe importantes atualizações no cenário ambiental brasileiro, com destaques para temas como ${temas.join(', ')}.${projetosMencao}`,
+        resumoGeral: `Acompanhe as ${news.length} notícias selecionadas que impactam diretamente o setor de consultoria ambiental, licenciamento e gestão de recursos naturais.${projetos.length > 0 ? ` Confira também os ${projetos.length} projeto(s) em destaque da EcoBrasil.` : ''}`,
         noticias: news.map(n => ({
           titulo: n.title,
           resumo: n.description || `Confira os detalhes desta importante notícia sobre ${n.title.toLowerCase()}.`,
@@ -283,14 +291,14 @@ Ao resumir notícias:
 - Mencione órgãos relevantes (IBAMA, INEMA, ICMBio, CONAMA)
 - Aponte impactos em licenciamento e conformidade ambiental
 
-Com base nas seguintes notícias ambientais da última semana, crie:
+Com base nas seguintes notícias ambientais da última semana${projetos.length > 0 ? ' e projetos da EcoBrasil' : ''}, crie:
 
-1. Uma INTRODUÇÃO (2-3 frases) apresentando os destaques da semana de forma envolvente
-2. Um RESUMO GERAL (1 parágrafo) com os principais pontos e tendências
+1. Uma INTRODUÇÃO (2-3 frases) apresentando os destaques da semana de forma envolvente${projetos.length > 0 ? ', mencionando brevemente os projetos da EcoBrasil em andamento' : ''}
+2. Um RESUMO GERAL (1 parágrafo) com os principais pontos e tendências${projetos.length > 0 ? ', incluindo referência aos projetos em destaque' : ''}
 3. Para CADA notícia, um resumo de 2-3 frases destacando o que é relevante para profissionais ambientais
 
 Notícias:
-${newsContext}
+${newsContext}${projetosContext}
 
 Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
 {
@@ -821,14 +829,16 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
         news = this.getSimulatedNews();
       }
 
-      console.log(`${news.length} notícias encontradas, gerando resumo com IA...`);
-      const aiSummary = await this.generateAISummary(news.slice(0, config.maxNoticias || 12));
-
-      // Buscar destaques de projetos ativos
+      // Buscar destaques de projetos ativos ANTES de gerar o resumo
       const destaquesAtivos = await db.select().from(newsletterDestaques)
         .where(eq(newsletterDestaques.ativo, true))
         .orderBy(newsletterDestaques.ordem);
       console.log(`${destaquesAtivos.length} destaque(s) de projetos ativos`);
+
+      console.log(`${news.length} notícias encontradas, gerando resumo com IA...`);
+      // Passar projetos para a IA incluir menção na introdução/resumo
+      const projetosParaIA = destaquesAtivos.map(d => ({ titulo: d.titulo, descricao: d.descricao }));
+      const aiSummary = await this.generateAISummary(news.slice(0, config.maxNoticias || 12), projetosParaIA);
 
       const weekNumber = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
       const titulo = (config.assuntoTemplate || "Newsletter Ambiental EcoBrasil - Semana {{semana}}")
@@ -962,13 +972,15 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
         console.log("[Newsletter] Usando notícias REAIS da NewsAPI");
       }
       
-      const aiSummary = await this.generateAISummary(news.slice(0, 12));
-      
-      // Buscar destaques de projetos ativos
+      // Buscar destaques de projetos ativos ANTES de gerar o resumo
       const destaquesAtivos = await db.select().from(newsletterDestaques)
         .where(eq(newsletterDestaques.ativo, true))
         .orderBy(newsletterDestaques.ordem);
       console.log(`[Newsletter] ${destaquesAtivos.length} destaque(s) de projetos ativos`);
+      
+      // Passar projetos para a IA incluir menção na introdução/resumo
+      const projetosParaIA = destaquesAtivos.map(d => ({ titulo: d.titulo, descricao: d.descricao }));
+      const aiSummary = await this.generateAISummary(news.slice(0, 12), projetosParaIA);
       
       const htmlContent = this.generateNewsletterHtml({
         numero: 0,
