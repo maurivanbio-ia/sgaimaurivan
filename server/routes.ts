@@ -103,6 +103,8 @@ import { initBackupService, performBackup, listBackups, downloadBackup } from ".
 import { testDropboxConnection, uploadToDropbox, listDropboxBackups, deleteOldDropboxBackups } from "./services/dropboxService";
 import { seiaService } from "./services/seiaService";
 import { newsletterService } from "./services/newsletterService";
+import { blogService } from "./services/blogService";
+import { blogArtigos, blogComentarios, blogReacoes, insertBlogArtigoSchema, insertBlogComentarioSchema } from "@shared/schema";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
@@ -6939,6 +6941,265 @@ Regras:
     } catch (error) {
       console.error('[Newsletter Destaques] Error getting upload URL:', error);
       res.status(500).json({ error: 'Erro ao obter URL de upload' });
+    }
+  });
+
+  // ======== BLOG INSTITUCIONAL ROUTES ========
+
+  // ROTAS PÚBLICAS (sem autenticação)
+  
+  // Listar artigos publicados (público)
+  app.get('/api/blog/public', async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const artigos = await blogService.getPublishedArticles(limit, offset);
+      res.json(artigos);
+    } catch (error) {
+      console.error('[Blog] Error fetching public articles:', error);
+      res.status(500).json({ error: 'Erro ao buscar artigos' });
+    }
+  });
+
+  // Buscar artigo por slug (público)
+  app.get('/api/blog/public/:slug', async (req, res) => {
+    try {
+      const artigo = await blogService.getArticleBySlug(req.params.slug);
+      if (!artigo) {
+        return res.status(404).json({ error: 'Artigo não encontrado' });
+      }
+      if (artigo.status !== 'publicado') {
+        return res.status(404).json({ error: 'Artigo não publicado' });
+      }
+      res.json(artigo);
+    } catch (error) {
+      console.error('[Blog] Error fetching article:', error);
+      res.status(500).json({ error: 'Erro ao buscar artigo' });
+    }
+  });
+
+  // Buscar comentários de um artigo (público - apenas aprovados)
+  app.get('/api/blog/public/:slug/comentarios', async (req, res) => {
+    try {
+      const artigo = await blogService.getArticleBySlug(req.params.slug);
+      if (!artigo) {
+        return res.status(404).json({ error: 'Artigo não encontrado' });
+      }
+      const comentarios = await blogService.getComments(artigo.id, true);
+      res.json(comentarios);
+    } catch (error) {
+      console.error('[Blog] Error fetching comments:', error);
+      res.status(500).json({ error: 'Erro ao buscar comentários' });
+    }
+  });
+
+  // Adicionar comentário (público, mas aguarda aprovação)
+  app.post('/api/blog/public/:slug/comentarios', async (req, res) => {
+    try {
+      const artigo = await blogService.getArticleBySlug(req.params.slug);
+      if (!artigo) {
+        return res.status(404).json({ error: 'Artigo não encontrado' });
+      }
+      const { autorNome, conteudo, autorEmail } = req.body;
+      if (!autorNome || !conteudo) {
+        return res.status(400).json({ error: 'Nome e conteúdo são obrigatórios' });
+      }
+      const comentario = await blogService.addComment(artigo.id, autorNome, conteudo, autorEmail);
+      res.status(201).json({ 
+        ...comentario, 
+        message: 'Comentário enviado! Aguardando aprovação.' 
+      });
+    } catch (error) {
+      console.error('[Blog] Error adding comment:', error);
+      res.status(500).json({ error: 'Erro ao adicionar comentário' });
+    }
+  });
+
+  // Adicionar reação/curtida (público)
+  app.post('/api/blog/public/:slug/reacoes', async (req, res) => {
+    try {
+      const artigo = await blogService.getArticleBySlug(req.params.slug);
+      if (!artigo) {
+        return res.status(404).json({ error: 'Artigo não encontrado' });
+      }
+      const { tipo = 'like', sessionId } = req.body;
+      const result = await blogService.addReaction(artigo.id, tipo, sessionId);
+      res.json(result);
+    } catch (error) {
+      console.error('[Blog] Error adding reaction:', error);
+      res.status(500).json({ error: 'Erro ao adicionar reação' });
+    }
+  });
+
+  // ROTAS ADMINISTRATIVAS (com autenticação)
+  
+  // Listar todos os artigos (admin)
+  app.get('/api/blog', requireAuth, async (req, res) => {
+    try {
+      const artigos = await blogService.getAllArticles();
+      res.json(artigos);
+    } catch (error) {
+      console.error('[Blog] Error fetching articles:', error);
+      res.status(500).json({ error: 'Erro ao buscar artigos' });
+    }
+  });
+
+  // Buscar artigo por ID (admin)
+  app.get('/api/blog/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [artigo] = await db.select().from(blogArtigos).where(eq(blogArtigos.id, id));
+      if (!artigo) {
+        return res.status(404).json({ error: 'Artigo não encontrado' });
+      }
+      res.json(artigo);
+    } catch (error) {
+      console.error('[Blog] Error fetching article:', error);
+      res.status(500).json({ error: 'Erro ao buscar artigo' });
+    }
+  });
+
+  // Criar artigo com IA
+  app.post('/api/blog', requireAuth, async (req, res) => {
+    try {
+      const { titulo, descricao, tipo, empreendimentoId, newsletterDestaqueId, imagemCapaUrl } = req.body;
+      
+      if (!titulo || !descricao) {
+        return res.status(400).json({ error: 'Título e descrição são obrigatórios' });
+      }
+
+      const result = await blogService.createArticle({
+        titulo,
+        descricao,
+        tipo: tipo || 'projeto',
+        empreendimentoId,
+        newsletterDestaqueId,
+        imagemCapaUrl,
+        autorId: req.user?.id,
+        autorNome: req.user?.email?.split('@')[0],
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.status(201).json({ slug: result.slug, message: 'Artigo criado com sucesso!' });
+    } catch (error) {
+      console.error('[Blog] Error creating article:', error);
+      res.status(500).json({ error: 'Erro ao criar artigo' });
+    }
+  });
+
+  // Criar e publicar artigo automaticamente
+  app.post('/api/blog/criar-e-publicar', requireAuth, async (req, res) => {
+    try {
+      const { titulo, descricao, tipo, empreendimentoId, newsletterDestaqueId, imagemCapaUrl } = req.body;
+      
+      if (!titulo || !descricao) {
+        return res.status(400).json({ error: 'Título e descrição são obrigatórios' });
+      }
+
+      const result = await blogService.createAndPublish({
+        titulo,
+        descricao,
+        tipo: tipo || 'projeto',
+        empreendimentoId,
+        newsletterDestaqueId,
+        imagemCapaUrl,
+        autorId: req.user?.id,
+        autorNome: req.user?.email?.split('@')[0],
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.status(201).json({ 
+        slug: result.slug, 
+        url: result.url,
+        message: 'Artigo criado e publicado com sucesso!' 
+      });
+    } catch (error) {
+      console.error('[Blog] Error creating and publishing article:', error);
+      res.status(500).json({ error: 'Erro ao criar e publicar artigo' });
+    }
+  });
+
+  // Atualizar artigo
+  app.put('/api/blog/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await blogService.updateArticle(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Artigo não encontrado' });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error('[Blog] Error updating article:', error);
+      res.status(500).json({ error: 'Erro ao atualizar artigo' });
+    }
+  });
+
+  // Publicar artigo
+  app.post('/api/blog/:id/publicar', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = await blogService.publishArticle(id);
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+      res.json({ slug: result.slug, message: 'Artigo publicado com sucesso!' });
+    } catch (error) {
+      console.error('[Blog] Error publishing article:', error);
+      res.status(500).json({ error: 'Erro ao publicar artigo' });
+    }
+  });
+
+  // Excluir artigo
+  app.delete('/api/blog/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await blogService.deleteArticle(id);
+      res.json({ message: 'Artigo excluído com sucesso' });
+    } catch (error) {
+      console.error('[Blog] Error deleting article:', error);
+      res.status(500).json({ error: 'Erro ao excluir artigo' });
+    }
+  });
+
+  // Listar comentários para moderação (admin)
+  app.get('/api/blog/:id/comentarios', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const comentarios = await blogService.getComments(id, false);
+      res.json(comentarios);
+    } catch (error) {
+      console.error('[Blog] Error fetching comments:', error);
+      res.status(500).json({ error: 'Erro ao buscar comentários' });
+    }
+  });
+
+  // Aprovar comentário
+  app.post('/api/blog/comentarios/:id/aprovar', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await blogService.approveComment(id);
+      res.json(updated);
+    } catch (error) {
+      console.error('[Blog] Error approving comment:', error);
+      res.status(500).json({ error: 'Erro ao aprovar comentário' });
+    }
+  });
+
+  // Excluir comentário
+  app.delete('/api/blog/comentarios/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await blogService.deleteComment(id);
+      res.json({ message: 'Comentário excluído' });
+    } catch (error) {
+      console.error('[Blog] Error deleting comment:', error);
+      res.status(500).json({ error: 'Erro ao excluir comentário' });
     }
   });
 
