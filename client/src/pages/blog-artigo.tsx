@@ -427,37 +427,70 @@ export default function BlogArtigoPage() {
         </section>
       </article>
 
-      <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-12 mt-12">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <img 
-            src={logoEcoBrasil} 
-            alt="EcoBrasil" 
-            className="h-14 w-auto mx-auto mb-4 brightness-0 invert opacity-90"
-          />
-          <p className="text-gray-400 text-sm mb-4 max-w-md mx-auto">
-            Consultoria ambiental com excelência e compromisso com a sustentabilidade
-          </p>
-          <div className="flex items-center justify-center gap-6 text-sm">
-            <a 
-              href="https://ecobrasil.bio.br" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[#0099A8] hover:text-[#038EA1] inline-flex items-center gap-1 transition-colors"
-            >
-              ecobrasil.bio.br
-              <ExternalLink className="h-3 w-3" />
-            </a>
-            <span className="text-gray-600">|</span>
-            <a 
-              href="/blog"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              Voltar ao Blog
-            </a>
+      <footer className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0F4098] via-[#038EA1] to-[#0099A8]" />
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+        </div>
+        
+        <div className="relative py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-4">
+            <div className="grid md:grid-cols-3 gap-10 mb-12">
+              <div className="text-center md:text-left">
+                <img 
+                  src={logoEcoBrasil} 
+                  alt="EcoBrasil" 
+                  className="h-14 w-auto mx-auto md:mx-0 mb-4 brightness-0 invert"
+                />
+                <p className="text-white/80 text-sm leading-relaxed">
+                  Consultoria ambiental com excelência, inovação e compromisso com a sustentabilidade.
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <h4 className="text-white font-semibold mb-4">Navegação</h4>
+                <div className="flex flex-col gap-2">
+                  <a href="/blog" className="text-white/70 hover:text-white transition-colors text-sm">
+                    Blog
+                  </a>
+                  <a href="https://ecobrasil.bio.br" target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-white transition-colors text-sm">
+                    Site Institucional
+                  </a>
+                  <a href="https://ecobrasil.bio.br/#contato" target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-white transition-colors text-sm">
+                    Contato
+                  </a>
+                </div>
+              </div>
+              
+              <div className="text-center md:text-right">
+                <h4 className="text-white font-semibold mb-4">Conecte-se</h4>
+                <a 
+                  href="https://ecobrasil.bio.br" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white text-sm font-medium transition-all backdrop-blur-sm border border-white/20"
+                >
+                  Visite nosso site
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+                <p className="text-white/60 text-xs mt-4">
+                  contato@ecobrasil.bio.br
+                </p>
+              </div>
+            </div>
+            
+            <div className="border-t border-white/20 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+              <p className="text-white/60 text-xs text-center md:text-left">
+                © {new Date().getFullYear()} EcoBrasil Consultoria Ambiental. Todos os direitos reservados.
+              </p>
+              <div className="flex items-center gap-4">
+                <span className="text-white/40 text-xs">Feito com</span>
+                <span className="text-red-400">❤️</span>
+                <span className="text-white/40 text-xs">para o meio ambiente</span>
+              </div>
+            </div>
           </div>
-          <p className="text-gray-600 text-xs mt-6">
-            © {new Date().getFullYear()} EcoBrasil. Todos os direitos reservados.
-          </p>
         </div>
       </footer>
     </div>
