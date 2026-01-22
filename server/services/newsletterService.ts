@@ -640,14 +640,19 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 100px; height: auto; margin-bottom: 16px; opacity: 0.8;" />
+                    <a href="https://ecobrasil.bio.br/" target="_blank" style="text-decoration: none;">
+                      <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 100px; height: auto; margin-bottom: 16px; opacity: 0.8;" />
+                    </a>
                     <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; line-height: 1.6;">
                       EcoBrasil Meio Ambiente<br/>
                       Soluções Sustentáveis em Ação
                     </p>
-                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                    <p style="margin: 0 0 6px 0; color: #94a3b8; font-size: 11px;">
                       contato@ecobrasil.bio.br
                     </p>
+                    <a href="https://ecobrasil.bio.br/" target="_blank" style="color: #1a5d47; font-size: 11px; font-weight: 600; text-decoration: none;">
+                      ecobrasil.bio.br
+                    </a>
                   </td>
                 </tr>
               </table>
