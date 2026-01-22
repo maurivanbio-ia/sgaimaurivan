@@ -95,16 +95,20 @@ export default function BlogArtigoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ autorNome: nome, conteudo: comentario }),
       });
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao enviar comentário");
+      }
+      return data;
     },
     onSuccess: (data) => {
-      toast({ title: data.message || "Comentário enviado!" });
+      toast({ title: data.message || "Comentário enviado! Aguardando aprovação." });
       setNome("");
       setComentario("");
       queryClient.invalidateQueries({ queryKey: ["/api/blog/public", params.slug, "comentarios"] });
     },
-    onError: () => {
-      toast({ title: "Erro ao enviar comentário", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: error.message || "Erro ao enviar comentário", variant: "destructive" });
     },
   });
 
