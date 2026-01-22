@@ -6925,8 +6925,27 @@ Regras:
       let response;
       let providerUsed = "OpenAI";
       
-      // Try DeepSeek first if available, then fallback to OpenAI
-      if (process.env.DEEPSEEK_API_KEY) {
+      // Try Manus first, then DeepSeek, then OpenAI
+      if (process.env.MANUS_API_KEY) {
+        try {
+          const manus = new OpenAI({
+            baseURL: "https://api.manus.im",
+            apiKey: "placeholder",
+            defaultHeaders: { "API_KEY": process.env.MANUS_API_KEY },
+          });
+          response = await manus.chat.completions.create({
+            model: 'manus-1.6',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 500,
+            temperature: 0.7,
+          });
+          providerUsed = "Manus";
+        } catch (manusError: any) {
+          console.error('[Newsletter Destaques] Manus error:', manusError.message);
+        }
+      }
+
+      if (!response && process.env.DEEPSEEK_API_KEY) {
         try {
           const deepseek = new OpenAI({
             baseURL: "https://api.deepseek.com/v1",
@@ -6940,16 +6959,11 @@ Regras:
           });
           providerUsed = "DeepSeek";
         } catch (deepseekError: any) {
-          console.error('[Newsletter Destaques] DeepSeek error, trying OpenAI:', deepseekError.message);
-          const openai = new OpenAI();
-          response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 500,
-            temperature: 0.7,
-          });
+          console.error('[Newsletter Destaques] DeepSeek error:', deepseekError.message);
         }
-      } else {
+      }
+
+      if (!response) {
         const openai = new OpenAI();
         response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -6957,6 +6971,7 @@ Regras:
           max_tokens: 500,
           temperature: 0.7,
         });
+        providerUsed = "OpenAI";
       }
 
       const textoMelhorado = response.choices[0]?.message?.content?.trim() || texto;

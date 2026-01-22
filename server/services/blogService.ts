@@ -10,6 +10,14 @@ const deepseek = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || "",
 });
 
+const manus = new OpenAI({
+  baseURL: "https://api.manus.im",
+  apiKey: "placeholder",
+  defaultHeaders: {
+    "API_KEY": process.env.MANUS_API_KEY || "",
+  },
+});
+
 interface ArtigoInput {
   titulo: string;
   descricao: string;
@@ -82,7 +90,23 @@ Responda APENAS no formato JSON válido:
       let response;
       let providerUsed = "OpenAI";
 
-      if (process.env.DEEPSEEK_API_KEY) {
+      // Try Manus first, then DeepSeek, then OpenAI
+      if (process.env.MANUS_API_KEY) {
+        try {
+          response = await manus.chat.completions.create({
+            model: "manus-1.6",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 3000,
+          });
+          providerUsed = "Manus";
+        } catch (manusError: any) {
+          console.error("[Blog] Manus error:", manusError.message);
+          // Fall through to DeepSeek
+        }
+      }
+
+      if (!response && process.env.DEEPSEEK_API_KEY) {
         try {
           response = await deepseek.chat.completions.create({
             model: "deepseek-chat",
@@ -92,21 +116,19 @@ Responda APENAS no formato JSON válido:
           });
           providerUsed = "DeepSeek";
         } catch (deepseekError: any) {
-          console.error("[Blog] DeepSeek error, falling back to OpenAI:", deepseekError.message);
-          response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-            max_tokens: 3000,
-          });
+          console.error("[Blog] DeepSeek error:", deepseekError.message);
+          // Fall through to OpenAI
         }
-      } else {
+      }
+
+      if (!response) {
         response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.7,
           max_tokens: 3000,
         });
+        providerUsed = "OpenAI";
       }
 
       console.log(`[Blog] Artigo gerado com ${providerUsed}`);
