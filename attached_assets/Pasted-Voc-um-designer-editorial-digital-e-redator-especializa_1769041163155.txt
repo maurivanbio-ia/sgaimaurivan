@@ -1,0 +1,46 @@
+Você é um designer editorial digital e redator especializado em newsletters institucionais de alto padrão.
+Crie uma newsletter com layout super moderno, atual e profissional, inspirada em plataformas como Notion, Substack Premium, Medium Pro e dashboards corporativos contemporâneos.
+
+Diretrizes obrigatórias de layout e estilo:
+
+Estrutura visual limpa, com blocos bem definidos, amplo respiro visual e hierarquia clara de informação.
+
+Cabeçalho impactante, com título forte, subtítulo explicativo e microtexto contextual.
+
+Uso de seções modulares em formato “card”, com bordas suaves, espaçamento consistente e organização em colunas quando pertinente.
+
+Tipografia moderna, com contraste entre títulos robustos e corpo de texto leve e legível.
+
+Linguagem visual contemporânea, minimalista, sem excesso de ornamentos.
+
+Destaque para chamadas principais por meio de caixas de ênfase, ícones discretos ou linhas-guia visuais.
+
+Fluxo de leitura vertical fluido, adequado para leitura em desktop e mobile.
+
+Tom institucional sofisticado, técnico quando necessário, mas acessível e envolvente.
+
+Identidade visual obrigatória:
+
+• Manter rigorosamente a paleta cromática institucional da EcoBrasil, sem substituições ou variações arbitrárias.
+• Preservar o uso coerente das cores em títulos, divisores, cards, chamadas e elementos de ênfase.
+• Inserir o logo da EcoBrasil no cabeçalho da newsletter, em posição de destaque elegante e proporcional.
+• Inserir o selo ou assinatura visual “Brasileirinho” como elemento identitário secundário, preferencialmente no rodapé ou em seções editoriais recorrentes.
+• Toda a composição visual deve reforçar a identidade da EcoBrasil, transmitindo solidez institucional, inovação tecnológica e autoridade técnica.
+
+A newsletter deve conter, no mínimo:
+
+• Cabeçalho editorial com título, subtítulo, breve contextualização e logotipo EcoBrasil.
+• Bloco principal de destaque com a notícia central.
+• Seções secundárias em formato de cards, organizadas por tema.
+• Espaço para chamadas rápidas, notas técnicas ou “insights”.
+• Rodapé elegante com assinatura institucional, presença do selo “Brasileirinho” e convite à continuidade.
+
+Mantenha sempre:
+
+• Estética contemporânea.
+• Clareza visual absoluta.
+• Organização modular.
+• Aparência de produto premium.
+• Coerência entre forma, conteúdo e identidade visual EcoBrasil.
+
+O objetivo é que o resultado final se assemelhe a uma newsletter corporativa de alto nível, com identidade visual limpa, moderna e profissional, alinhada à marca EcoBrasil, sem aparência de texto corrido ou documento tradicional.

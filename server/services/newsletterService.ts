@@ -360,54 +360,62 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
   generateNewsletterHtml(edicao: { numero: number; titulo: string; introducao: string; resumoGeral: string; noticias: Noticia[] }): string {
     const mesAtual = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
+    const dataAtual = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
     
-    const cores = ['#1a5d47', '#2d8b6e', '#0d9488', '#0891b2', '#1a5d47'];
-    const noticiasHtml = edicao.noticias.map((n, i) => {
-      const numero = String(i + 1).padStart(2, '0');
-      const corDestaque = cores[i % cores.length];
-      const isFirst = i === 0;
-      return `
+    // Notícia principal (destaque)
+    const noticiaDestaque = edicao.noticias[0];
+    const noticiasSecundarias = edicao.noticias.slice(1, 4);
+    const noticiasRapidas = edicao.noticias.slice(4);
+    
+    // Cards de notícias secundárias (3 colunas quando possível)
+    const cardsSecundariosHtml = noticiasSecundarias.map((n, i) => `
+      <td width="33%" valign="top" style="padding: ${i > 0 ? '0 0 0 16px' : '0'};">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #1a5d47 0%, #2d8b6e 100%);"></td>
+          </tr>
+          <tr>
+            <td style="padding: 20px;">
+              <span style="display: inline-block; color: #1a5d47; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;">
+                ${n.fonte}
+              </span>
+              <h4 style="margin: 0 0 12px 0; color: #0f172a; font-size: 15px; font-weight: 600; line-height: 1.4;">
+                ${n.titulo.length > 80 ? n.titulo.substring(0, 80) + '...' : n.titulo}
+              </h4>
+              <p style="margin: 0 0 16px 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+                ${n.resumo.length > 100 ? n.resumo.substring(0, 100) + '...' : n.resumo}
+              </p>
+              <a href="${n.link}" target="_blank" style="color: #1a5d47; font-size: 12px; font-weight: 600; text-decoration: none;">
+                Ler mais
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    `).join("");
+
+    // Notas rápidas/insights
+    const notasRapidasHtml = noticiasRapidas.map((n, i) => `
       <tr>
-        <td style="padding: ${isFirst ? '0' : '24px'} 0 0 0;">
-          ${isFirst ? '' : '<div style="height: 1px; background: linear-gradient(90deg, transparent, #e5e7eb, transparent); margin-bottom: 24px;"></div>'}
+        <td style="padding: 16px 0; ${i < noticiasRapidas.length - 1 ? 'border-bottom: 1px solid #e2e8f0;' : ''}">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <!-- Número Grande à Esquerda -->
-              <td width="70" valign="top" style="padding-right: 20px;">
-                <div style="width: 56px; height: 56px; background: linear-gradient(135deg, ${corDestaque} 0%, ${corDestaque}dd 100%); border-radius: 16px; text-align: center; line-height: 56px; box-shadow: 0 4px 12px ${corDestaque}40;">
-                  <span style="color: #fff; font-size: 22px; font-weight: 800; font-family: 'Georgia', serif;">${numero}</span>
+              <td width="32" valign="top" style="padding-right: 12px;">
+                <div style="width: 28px; height: 28px; background: #f0fdf4; border-radius: 6px; text-align: center; line-height: 28px;">
+                  <span style="color: #1a5d47; font-size: 13px; font-weight: 700;">${i + 1}</span>
                 </div>
               </td>
-              <!-- Conteúdo da Notícia -->
               <td valign="top">
-                <!-- Fonte/Tag -->
-                <table cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
-                  <tr>
-                    <td>
-                      <span style="display: inline-block; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); color: #0369a1; padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #bae6fd;">
-                        ${n.fonte}
-                      </span>
-                    </td>
-                  </tr>
-                </table>
-                <!-- Título -->
-                <h3 style="margin: 0 0 12px 0; color: #0f172a; font-size: 18px; font-weight: 700; line-height: 1.4; font-family: 'Georgia', serif;">
+                <a href="${n.link}" target="_blank" style="color: #0f172a; font-size: 14px; font-weight: 500; text-decoration: none; line-height: 1.5;">
                   ${n.titulo}
-                </h3>
-                <!-- Resumo -->
-                <p style="margin: 0 0 16px 0; color: #475569; font-size: 14px; line-height: 1.75; font-weight: 400;">
-                  ${n.resumo}
-                </p>
-                <!-- Botão Leia Mais -->
-                <a href="${n.link}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, ${corDestaque} 0%, ${corDestaque}ee 100%); color: #ffffff; padding: 10px 22px; border-radius: 25px; font-size: 12px; font-weight: 700; text-decoration: none; letter-spacing: 0.5px; text-transform: uppercase; box-shadow: 0 3px 10px ${corDestaque}30;">
-                  Ler Matéria Completa →
                 </a>
+                <span style="display: block; color: #94a3b8; font-size: 11px; margin-top: 4px;">${n.fonte}</span>
               </td>
             </tr>
           </table>
         </td>
-      </tr>`;
-    }).join("");
+      </tr>
+    `).join("");
 
     return `
 <!DOCTYPE html>
@@ -417,94 +425,115 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${edicao.titulo}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background: #f8fafc; padding: 0;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f1f5f9; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background: #f1f5f9; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <table width="680" cellpadding="0" cellspacing="0" style="max-width: 680px; margin: 0 auto;">
+        <table width="640" cellpadding="0" cellspacing="0" style="max-width: 640px; margin: 0 auto;">
           
-          <!-- Hero Header Profissional -->
+          <!-- CABEÇALHO MODERNO - Estilo Notion/Substack -->
           <tr>
-            <td style="background-image: url('${HIDROELETRICA_BG_BASE64}'); background-size: cover; background-position: center;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(160deg, rgba(12,40,32,0.97) 0%, rgba(26,93,71,0.94) 40%, rgba(34,120,90,0.9) 100%);">
-                <!-- Barra Superior Elegante -->
+            <td style="background: #ffffff; border-radius: 16px 16px 0 0; overflow: hidden;">
+              <!-- Barra de Cor Institucional -->
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="height: 5px; background: linear-gradient(90deg, #1a5d47 0%, #2d8b6e 30%, #f5c842 50%, #2d8b6e 70%, #1a5d47 100%);"></td>
+                  <td style="height: 4px; background: linear-gradient(90deg, #1a5d47 0%, #2d8b6e 50%, #f5c842 100%);"></td>
                 </tr>
-                <!-- Top Bar -->
+              </table>
+              
+              <!-- Header Principal -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="padding: 32px 40px 24px 40px;">
                 <tr>
-                  <td style="padding: 28px 40px 20px 40px;">
+                  <td>
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td>
-                          <span style="display: inline-block; background: linear-gradient(135deg, #f5c842 0%, #fbbf24 100%); color: #1a3d32; padding: 12px 28px; border-radius: 6px; font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                        <td valign="middle">
+                          <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 140px; height: auto;" />
+                        </td>
+                        <td align="right" valign="middle">
+                          <span style="display: inline-block; background: #f0fdf4; color: #1a5d47; padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px;">
                             EDIÇÃO ${String(edicao.numero).padStart(3, '0')}
                           </span>
                         </td>
-                        <td align="right">
-                          <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500; letter-spacing: 1px;">
-                            ${mesCapitalizado}
-                          </span>
-                        </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
-                <!-- Título Principal -->
+              </table>
+              
+              <!-- Título e Subtítulo -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="padding: 0 40px 32px 40px;">
                 <tr>
-                  <td align="center" style="padding: 40px 40px 15px 40px;">
-                    <p style="margin: 0 0 8px 0; color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 600; letter-spacing: 6px; text-transform: uppercase;">NEWSLETTER AMBIENTAL</p>
-                    <h1 style="margin: 0; font-size: 52px; font-weight: 300; font-style: italic; color: #f5c842; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 3px;">
-                      Notícias ECO
+                  <td>
+                    <h1 style="margin: 0 0 8px 0; color: #0f172a; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">
+                      Newsletter Ambiental
                     </h1>
-                  </td>
-                </tr>
-                <!-- Linha Decorativa -->
-                <tr>
-                  <td align="center" style="padding: 20px 40px;">
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="width: 60px; height: 2px; background: rgba(255,255,255,0.3);"></td>
-                        <td style="padding: 0 15px;">
-                          <img src="${BRASILEIRINHO_BASE64}" alt="ECO" style="width: 60px; height: auto;" />
-                        </td>
-                        <td style="width: 60px; height: 2px; background: rgba(255,255,255,0.3);"></td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Slogan -->
-                <tr>
-                  <td align="center" style="padding: 5px 40px 35px 40px;">
-                    <p style="margin: 0; color: rgba(255,255,255,0.75); font-size: 15px; font-weight: 400; font-style: italic; letter-spacing: 2px;">
-                      Soluções Sustentáveis em Ação
+                    <p style="margin: 0 0 4px 0; color: #64748b; font-size: 14px; font-weight: 400;">
+                      Curadoria semanal de notícias e tendências do setor ambiental brasileiro
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 12px; font-weight: 500;">
+                      ${dataAtual}
                     </p>
                   </td>
                 </tr>
-                <!-- Barra Inferior -->
+              </table>
+            </td>
+          </tr>
+          
+          <!-- BLOCO EDITORIAL - Estilo Premium -->
+          <tr>
+            <td style="background: #ffffff; padding: 0 40px 32px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-left: 3px solid #1a5d47; padding-left: 20px;">
                 <tr>
-                  <td style="height: 4px; background: linear-gradient(90deg, #1a5d47 0%, #2d8b6e 50%, #1a5d47 100%);"></td>
+                  <td>
+                    <span style="display: inline-block; color: #1a5d47; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">
+                      Editorial da Semana
+                    </span>
+                    <p style="margin: 0; color: #334155; font-size: 15px; line-height: 1.75; font-weight: 400;">
+                      ${edicao.introducao}
+                    </p>
+                  </td>
                 </tr>
               </table>
             </td>
           </tr>
           
-          <!-- Introdução com Fundo Decorativo -->
+          <!-- DIVISOR SUTIL -->
           <tr>
-            <td style="background: linear-gradient(180deg, #ffffff 0%, #f8fafb 100%); padding: 48px 48px 40px 48px;">
+            <td style="background: #ffffff; padding: 0 40px;">
+              <div style="height: 1px; background: linear-gradient(90deg, transparent, #e2e8f0, transparent);"></div>
+            </td>
+          </tr>
+          
+          <!-- NOTÍCIA DESTAQUE - Card Principal -->
+          ${noticiaDestaque ? `
+          <tr>
+            <td style="background: #ffffff; padding: 32px 40px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center">
-                    <!-- Box com Borda Verde -->
-                    <table cellpadding="0" cellspacing="0" style="max-width: 580px; border-left: 4px solid #2d8b6e; background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border-radius: 0 12px 12px 0;">
+                  <td>
+                    <span style="display: inline-block; background: linear-gradient(135deg, #1a5d47 0%, #2d8b6e 100%); color: #ffffff; padding: 6px 14px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px;">
+                      Destaque
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top: 12px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding: 28px 32px;">
-                          <p style="margin: 0 0 16px 0; color: #2d8b6e; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
-                            Editorial da Semana
+                        <td style="padding: 28px;">
+                          <span style="display: inline-block; color: #0d9488; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">
+                            ${noticiaDestaque.fonte}
+                          </span>
+                          <h2 style="margin: 0 0 16px 0; color: #0f172a; font-size: 22px; font-weight: 700; line-height: 1.35;">
+                            ${noticiaDestaque.titulo}
+                          </h2>
+                          <p style="margin: 0 0 20px 0; color: #475569; font-size: 15px; line-height: 1.7;">
+                            ${noticiaDestaque.resumo}
                           </p>
-                          <p style="margin: 0; color: #1e293b; font-size: 16px; line-height: 1.85; font-weight: 400;">
-                            ${edicao.introducao}
-                          </p>
+                          <a href="${noticiaDestaque.link}" target="_blank" style="display: inline-block; background: #1a5d47; color: #ffffff; padding: 12px 28px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none;">
+                            Ler matéria completa
+                          </a>
                         </td>
                       </tr>
                     </table>
@@ -513,36 +542,41 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               </table>
             </td>
           </tr>
+          ` : ''}
           
-          <!-- Resumo da Semana - Design Premium -->
+          <!-- CARDS SECUNDÁRIOS - Grid Modular -->
+          ${noticiasSecundarias.length > 0 ? `
           <tr>
-            <td style="background: #ffffff; padding: 32px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #d1fae5 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(45,139,110,0.08);">
+            <td style="background: #ffffff; padding: 0 40px 32px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="padding: 28px 32px;">
+                  <td style="padding-bottom: 20px;">
+                    <span style="color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
+                      Mais Notícias
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  ${cardsSecundariosHtml}
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ''}
+          
+          <!-- RESUMO PANORÂMICO - Box Premium -->
+          <tr>
+            <td style="background: #ffffff; padding: 0 40px 32px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; overflow: hidden;">
+                <tr>
+                  <td style="padding: 24px 28px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <table cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td style="padding-right: 12px;">
-                                <div style="width: 4px; height: 40px; background: linear-gradient(180deg, #2d8b6e 0%, #0d9488 100%); border-radius: 2px;"></div>
-                              </td>
-                              <td>
-                                <p style="margin: 0 0 4px 0; color: #0d9488; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">
-                                  Panorama Semanal
-                                </p>
-                                <p style="margin: 0; color: #134e4a; font-size: 20px; font-weight: 700; font-family: 'Georgia', serif;">
-                                  Resumo da Semana
-                                </p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding-top: 20px;">
-                          <p style="margin: 0; color: #1e293b; font-size: 15px; line-height: 1.8; font-weight: 400;">
+                          <span style="display: inline-block; color: #0d9488; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px;">
+                            Panorama da Semana
+                          </span>
+                          <p style="margin: 0; color: #134e4a; font-size: 15px; line-height: 1.75; font-weight: 400;">
                             ${edicao.resumoGeral}
                           </p>
                         </td>
@@ -554,118 +588,65 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
             </td>
           </tr>
           
-          <!-- Seção Destaques - Título Elegante -->
-          <tr>
-            <td style="background: #ffffff; padding: 20px 40px 32px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <p style="margin: 0 0 8px 0; color: #2d8b6e; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 3px;">
-                      Curadoria Ambiental
-                    </p>
-                    <h2 style="margin: 0 0 12px 0; color: #0f172a; font-size: 28px; font-weight: 700; font-family: 'Georgia', serif; letter-spacing: -0.5px;">
-                      Destaques da Semana
-                    </h2>
-                    <div style="display: inline-block;">
-                      <table cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="width: 40px; height: 3px; background: #2d8b6e; border-radius: 2px;"></td>
-                          <td style="width: 10px;"></td>
-                          <td style="width: 8px; height: 3px; background: #f5c842; border-radius: 2px;"></td>
-                          <td style="width: 10px;"></td>
-                          <td style="width: 40px; height: 3px; background: #2d8b6e; border-radius: 2px;"></td>
-                        </tr>
-                      </table>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          
-          <!-- Lista de Notícias -->
+          <!-- NOTAS RÁPIDAS - Insights -->
+          ${noticiasRapidas.length > 0 ? `
           <tr>
             <td style="background: #ffffff; padding: 0 40px 32px 40px;">
               <table width="100%" cellpadding="0" cellspacing="0">
-                ${noticiasHtml}
-              </table>
-            </td>
-          </tr>
-          
-          <!-- CTA Elegante -->
-          <tr>
-            <td style="background: #f8fafb; padding: 32px 40px 48px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #1a5d47 0%, #2d8b6e 50%, #1a5d47 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(26,93,71,0.25);">
                 <tr>
-                  <td style="padding: 44px 48px;">
+                  <td style="padding-bottom: 16px;">
+                    <span style="color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
+                      Leitura Rápida
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; border-radius: 12px; padding: 8px 20px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td align="center">
-                          <!-- Logo Brasileirinho -->
-                          <img src="${BRASILEIRINHO_BASE64}" alt="EcoBrasil" style="width: 70px; height: auto; margin-bottom: 20px;" />
-                          <h3 style="margin: 0 0 10px 0; color: #ffffff; font-size: 26px; font-weight: 700; font-family: 'Georgia', serif;">
-                            EcoGestor
-                          </h3>
-                          <p style="margin: 0 0 28px 0; color: rgba(255,255,255,0.8); font-size: 15px; font-weight: 400; line-height: 1.7;">
-                            Plataforma completa de gestão ambiental.<br/>Licenças, demandas e projetos em um só lugar.
-                          </p>
-                          <a href="https://ecobrasilgestor.bio/" target="_blank" style="display: inline-block; background: #f5c842; color: #1a3d32; padding: 16px 44px; border-radius: 8px; font-size: 13px; font-weight: 800; text-decoration: none; letter-spacing: 1px; text-transform: uppercase;">
-                            Acessar Plataforma
-                          </a>
-                        </td>
-                      </tr>
+                      ${notasRapidasHtml}
                     </table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
+          ` : ''}
           
-          <!-- Footer Premium -->
+          <!-- CTA - ACESSO À PLATAFORMA -->
           <tr>
-            <td style="background: linear-gradient(180deg, #0f172a 0%, #020617 100%); padding: 40px 40px 32px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <!-- Logo e Slogan -->
+            <td style="background: #ffffff; padding: 0 40px 40px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 12px; overflow: hidden;">
                 <tr>
-                  <td align="center" style="padding-bottom: 24px;">
-                    <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="height: 36px; width: auto; opacity: 0.9;" />
-                    <p style="margin: 12px 0 0 0; color: #64748b; font-size: 12px; font-style: italic; letter-spacing: 1px;">
-                      Soluções Sustentáveis em Ação
+                  <td style="padding: 32px;" align="center">
+                    <img src="${BRASILEIRINHO_BASE64}" alt="EcoBrasil" style="width: 56px; height: auto; margin-bottom: 16px;" />
+                    <h3 style="margin: 0 0 8px 0; color: #ffffff; font-size: 20px; font-weight: 600;">
+                      EcoGestor
+                    </h3>
+                    <p style="margin: 0 0 20px 0; color: #94a3b8; font-size: 14px; line-height: 1.6;">
+                      Plataforma completa de gestão ambiental
                     </p>
+                    <a href="https://ecobrasilgestor.bio/" target="_blank" style="display: inline-block; background: #f5c842; color: #0f172a; padding: 14px 36px; border-radius: 6px; font-size: 13px; font-weight: 700; text-decoration: none; letter-spacing: 0.5px;">
+                      ACESSAR PLATAFORMA
+                    </a>
                   </td>
                 </tr>
-                <!-- Separador -->
-                <tr>
-                  <td style="padding: 0 60px 20px;">
-                    <div style="height: 1px; background: linear-gradient(90deg, transparent, #334155, transparent);"></div>
-                  </td>
-                </tr>
-                <!-- Unidades -->
-                <tr>
-                  <td align="center" style="padding-bottom: 20px;">
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding: 0 16px;">
-                          <span style="color: #2d8b6e; font-size: 14px;">&#9679;</span>
-                          <span style="color: #94a3b8; font-size: 12px; font-weight: 500; padding-left: 6px;">Salvador</span>
-                        </td>
-                        <td style="padding: 0 16px;">
-                          <span style="color: #f5c842; font-size: 14px;">&#9679;</span>
-                          <span style="color: #94a3b8; font-size: 12px; font-weight: 500; padding-left: 6px;">Goiânia</span>
-                        </td>
-                        <td style="padding: 0 16px;">
-                          <span style="color: #0d9488; font-size: 14px;">&#9679;</span>
-                          <span style="color: #94a3b8; font-size: 12px; font-weight: 500; padding-left: 6px;">Luís Eduardo Magalhães</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Copyright -->
+              </table>
+            </td>
+          </tr>
+          
+          <!-- RODAPÉ INSTITUCIONAL -->
+          <tr>
+            <td style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 24px 40px 32px 40px; border-top: 1px solid #e2e8f0;">
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <p style="margin: 0; color: #475569; font-size: 11px; letter-spacing: 0.5px;">
-                      © ${new Date().getFullYear()} EcoBrasil Consultoria Ambiental Ltda. Todos os direitos reservados.
+                    <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 100px; height: auto; margin-bottom: 16px; opacity: 0.8;" />
+                    <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; line-height: 1.6;">
+                      EcoBrasil Meio Ambiente<br/>
+                      Soluções Sustentáveis em Ação
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                      contato@ecobrasil.bio.br
                     </p>
                   </td>
                 </tr>
@@ -673,9 +654,22 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
             </td>
           </tr>
           
-          <!-- Barra Final Colorida -->
+          <!-- ASSINATURA BRASILEIRINHO -->
           <tr>
-            <td style="height: 6px; background: linear-gradient(90deg, #2d8b6e 0%, #0d9488 25%, #f5c842 50%, #0d9488 75%, #2d8b6e 100%);"></td>
+            <td style="padding: 24px 40px;" align="center">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="width: 40px; height: 1px; background: #cbd5e1;"></td>
+                  <td style="padding: 0 16px;">
+                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 32px; height: auto; opacity: 0.6;" />
+                  </td>
+                  <td style="width: 40px; height: 1px; background: #cbd5e1;"></td>
+                </tr>
+              </table>
+              <p style="margin: 12px 0 0 0; color: #94a3b8; font-size: 10px; letter-spacing: 1px;">
+                Uma publicação EcoBrasil
+              </p>
+            </td>
           </tr>
           
         </table>
