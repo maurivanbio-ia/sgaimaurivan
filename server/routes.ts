@@ -6977,18 +6977,22 @@ Regras:
   app.post('/api/newsletter/destaques/imagem/upload-url', requireAuth, requireNewsletterAdmin, async (req, res) => {
     try {
       const { extension = 'jpg' } = req.body;
+      console.log('[Newsletter Destaques] Requesting upload URL for extension:', extension);
+      
       const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
       
       if (!validExtensions.includes(extension.toLowerCase())) {
+        console.log('[Newsletter Destaques] Invalid extension:', extension);
         return res.status(400).json({ error: 'Extensão de arquivo inválida' });
       }
       
       const objectStorage = new ObjectStorageService();
       const { uploadUrl, filePath } = await objectStorage.getNewsletterDestaqueImageUploadURL(extension.toLowerCase());
+      console.log('[Newsletter Destaques] Upload URL generated successfully for:', filePath);
       res.json({ uploadUrl, filePath });
     } catch (error) {
       console.error('[Newsletter Destaques] Error getting upload URL:', error);
-      res.status(500).json({ error: 'Erro ao obter URL de upload' });
+      res.status(500).json({ error: 'Erro ao obter URL de upload', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
