@@ -104,7 +104,7 @@ import { testDropboxConnection, uploadToDropbox, listDropboxBackups, deleteOldDr
 import { seiaService } from "./services/seiaService";
 import { newsletterService } from "./services/newsletterService";
 import { blogService } from "./services/blogService";
-import { blogArtigos, blogComentarios, blogReacoes, insertBlogArtigoSchema, insertBlogComentarioSchema } from "@shared/schema";
+import { blogArtigos, blogComentarios, blogReacoes, insertBlogArtigoSchema, insertBlogComentarioSchema, newsletterAssinantes } from "@shared/schema";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
