@@ -581,75 +581,60 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     <tr>
       <td align="center" style="padding: 0;">
         
-        <!-- CABEÇALHO PREMIUM ECOBRASIL - Compatível com Email -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 680px; margin: 0 auto;">
+        <!-- CABEÇALHO ECOBRASIL -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 640px; margin: 0 auto;">
+          <!-- Barra Superior Azul Profundo -->
           <tr>
-            <td style="background-color: #0099A8; border-radius: 0 0 24px 24px;">
-              
-              <!-- Barra Decorativa Superior -->
+            <td style="height: 8px; background-color: #0F4098;"></td>
+          </tr>
+          <!-- Cabeçalho Principal Azul Petróleo -->
+          <tr>
+            <td style="background-color: #0099A8; padding: 28px 36px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="height: 6px; background-color: #0F4098;"></td>
-                </tr>
-              </table>
-              
-              <!-- Logo e Número da Edição -->
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding: 32px 40px 20px 40px;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
+                  <!-- Logo EcoBrasil -->
+                  <td valign="middle">
+                    <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil Consultoria Ambiental" style="width: 160px; height: auto;" />
+                  </td>
+                  <!-- Número da Edição -->
+                  <td align="right" valign="middle">
+                    <table cellpadding="0" cellspacing="0" style="background-color: #0F4098; border-radius: 10px;">
                       <tr>
-                        <td valign="middle">
-                          <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 180px; height: auto; filter: brightness(0) invert(1);" />
-                        </td>
-                        <td align="right" valign="middle">
-                          <table cellpadding="0" cellspacing="0" style="background-color: #0F4098; border-radius: 12px;">
-                            <tr>
-                              <td style="padding: 10px 20px; text-align: center;">
-                                <span style="color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; display: block;">EDIÇÃO</span>
-                                <span style="color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; display: block;">${String(edicao.numero).padStart(3, '0')}</span>
-                              </td>
-                            </tr>
-                          </table>
+                        <td style="padding: 8px 18px; text-align: center;">
+                          <span style="color: #ffffff; font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; display: block;">EDIÇÃO</span>
+                          <span style="color: #ffffff; font-size: 26px; font-weight: 800; line-height: 1; display: block;">${String(edicao.numero).padStart(3, '0')}</span>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
               </table>
-              
-              <!-- Título Principal -->
+            </td>
+          </tr>
+          <!-- Título e Subtítulo -->
+          <tr>
+            <td style="background-color: #038EA1; padding: 24px 36px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="padding: 0 40px 16px 40px;">
-                    <h1 style="margin: 0 0 10px 0; color: #ffffff; font-size: 36px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15;">
-                      Newsletter Ambiental
+                  <td>
+                    <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 28px; font-weight: 800; line-height: 1.2;">
+                      🌿 Newsletter Ambiental
                     </h1>
-                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
+                    <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 400;">
                       Curadoria semanal de notícias e tendências do setor ambiental brasileiro
                     </p>
                   </td>
-                </tr>
-              </table>
-              
-              <!-- Data e Brasileirinho -->
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding: 0 40px 28px 40px;">
-                    <table cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="background-color: #038EA1; padding: 10px 20px; border-radius: 20px;">
-                          <span style="color: #ffffff; font-size: 12px; font-weight: 600;">${dataAtual}</span>
-                        </td>
-                        <td style="padding-left: 16px;" valign="middle">
-                          <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho - Mascote EcoBrasil" style="width: 44px; height: auto; filter: brightness(0) invert(1);" />
-                        </td>
-                      </tr>
-                    </table>
+                  <td align="right" valign="middle">
+                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 50px; height: auto;" />
                   </td>
                 </tr>
               </table>
-              
+            </td>
+          </tr>
+          <!-- Data -->
+          <tr>
+            <td style="background-color: #ADADAD; padding: 12px 36px;">
+              <span style="color: #ffffff; font-size: 12px; font-weight: 600;">📅 ${dataAtual}</span>
             </td>
           </tr>
         </table>
@@ -858,20 +843,20 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                   <td style="padding: 36px 32px;" align="center">
                     
                     <!-- Brasileirinho -->
-                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho - Mascote EcoBrasil" style="width: 64px; height: auto; filter: brightness(0) invert(1); margin-bottom: 16px;" />
+                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 60px; height: auto; margin-bottom: 14px;" />
                     
-                    <h3 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 800;">
+                    <h3 style="margin: 0 0 6px 0; color: #ffffff; font-size: 22px; font-weight: 800;">
                       EcoGestor
                     </h3>
-                    <p style="margin: 0 0 20px 0; color: #ffffff; font-size: 13px; line-height: 1.5;">
-                      Plataforma completa de gestão ambiental para empresas que transformam o futuro
+                    <p style="margin: 0 0 18px 0; color: #ffffff; font-size: 12px; line-height: 1.5;">
+                      Plataforma completa de gestão ambiental
                     </p>
                     
                     <!-- Botão CTA -->
-                    <table cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 14px;">
+                    <table cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px;">
                       <tr>
-                        <td style="padding: 14px 28px;">
-                          <a href="https://ecobrasilgestor.bio/" target="_blank" style="color: #0F4098; font-size: 13px; font-weight: 700; text-decoration: none;">
+                        <td style="padding: 12px 24px;">
+                          <a href="https://ecobrasilgestor.bio/" target="_blank" style="color: #0F4098; font-size: 12px; font-weight: 700; text-decoration: none;">
                             🚀 ACESSAR PLATAFORMA →
                           </a>
                         </td>
