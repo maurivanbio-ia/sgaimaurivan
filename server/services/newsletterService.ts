@@ -581,28 +581,31 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     <tr>
       <td align="center" style="padding: 0;">
         
-        <!-- CABEÇALHO ECOBRASIL -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 640px; margin: 0 auto;">
-          <!-- Barra Superior Azul Profundo -->
+        <!-- CABEÇALHO ECOBRASIL - Design Premium -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 640px; margin: 0 auto; border-radius: 16px 16px 0 0; overflow: hidden;">
+          
+          <!-- Faixa Superior Verde/Amarelo (cores da bandeira) -->
           <tr>
-            <td style="height: 8px; background-color: #0F4098;"></td>
+            <td style="height: 6px; background-color: #2E7D32;"></td>
           </tr>
-          <!-- Cabeçalho Principal Azul Petróleo -->
           <tr>
-            <td style="background-color: #0099A8; padding: 28px 36px;">
+            <td style="height: 4px; background-color: #FDD835;"></td>
+          </tr>
+          
+          <!-- Área do Logo - Fundo Branco -->
+          <tr>
+            <td style="background-color: #ffffff; padding: 24px 32px; border-bottom: 3px solid #2E7D32;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <!-- Logo EcoBrasil -->
                   <td valign="middle">
-                    <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil Consultoria Ambiental" style="width: 160px; height: auto;" />
+                    <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil Consultoria Ambiental" style="width: 180px; height: auto;" />
                   </td>
-                  <!-- Número da Edição -->
                   <td align="right" valign="middle">
-                    <table cellpadding="0" cellspacing="0" style="background-color: #0F4098; border-radius: 10px;">
+                    <table cellpadding="0" cellspacing="0" style="background-color: #1565C0; border-radius: 12px;">
                       <tr>
-                        <td style="padding: 8px 18px; text-align: center;">
-                          <span style="color: #ffffff; font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; display: block;">EDIÇÃO</span>
-                          <span style="color: #ffffff; font-size: 26px; font-weight: 800; line-height: 1; display: block;">${String(edicao.numero).padStart(3, '0')}</span>
+                        <td style="padding: 10px 20px; text-align: center;">
+                          <span style="color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; display: block;">EDIÇÃO</span>
+                          <span style="color: #FDD835; font-size: 32px; font-weight: 800; line-height: 1.1; display: block;">${String(edicao.numero).padStart(3, '0')}</span>
                         </td>
                       </tr>
                     </table>
@@ -611,30 +614,41 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               </table>
             </td>
           </tr>
-          <!-- Título e Subtítulo -->
+          
+          <!-- Título Principal - Fundo Verde Escuro -->
           <tr>
-            <td style="background-color: #038EA1; padding: 24px 36px;">
+            <td style="background-color: #1B5E20; padding: 28px 32px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 28px; font-weight: 800; line-height: 1.2;">
+                    <h1 style="margin: 0 0 10px 0; color: #ffffff; font-size: 32px; font-weight: 800; line-height: 1.2;">
                       🌿 Newsletter Ambiental
                     </h1>
-                    <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 400;">
+                    <p style="margin: 0; color: #A5D6A7; font-size: 14px; font-weight: 500;">
                       Curadoria semanal de notícias e tendências do setor ambiental brasileiro
                     </p>
                   </td>
-                  <td align="right" valign="middle">
-                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 50px; height: auto;" />
+                  <td align="right" valign="middle" width="70">
+                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 60px; height: auto;" />
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          <!-- Data -->
+          
+          <!-- Barra de Data - Azul Vibrante -->
           <tr>
-            <td style="background-color: #ADADAD; padding: 12px 36px;">
-              <span style="color: #ffffff; font-size: 12px; font-weight: 600;">📅 ${dataAtual}</span>
+            <td style="background-color: #1565C0; padding: 14px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="color: #ffffff; font-size: 13px; font-weight: 600;">📅 ${dataAtual}</span>
+                  </td>
+                  <td align="right">
+                    <span style="color: #BBDEFB; font-size: 11px; font-weight: 500;">EcoBrasil Meio Ambiente</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
@@ -838,25 +852,25 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           <!-- CTA - ACESSO À PLATAFORMA -->
           <tr>
             <td style="background-color: #ffffff; padding: 0 40px 36px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0F4098; border-radius: 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1B5E20; border-radius: 20px;">
                 <tr>
                   <td style="padding: 36px 32px;" align="center">
                     
                     <!-- Brasileirinho -->
-                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 60px; height: auto; margin-bottom: 14px;" />
+                    <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 65px; height: auto; margin-bottom: 14px;" />
                     
-                    <h3 style="margin: 0 0 6px 0; color: #ffffff; font-size: 22px; font-weight: 800;">
+                    <h3 style="margin: 0 0 6px 0; color: #ffffff; font-size: 24px; font-weight: 800;">
                       EcoGestor
                     </h3>
-                    <p style="margin: 0 0 18px 0; color: #ffffff; font-size: 12px; line-height: 1.5;">
+                    <p style="margin: 0 0 18px 0; color: #A5D6A7; font-size: 13px; line-height: 1.5;">
                       Plataforma completa de gestão ambiental
                     </p>
                     
                     <!-- Botão CTA -->
-                    <table cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px;">
+                    <table cellpadding="0" cellspacing="0" style="background-color: #FDD835; border-radius: 12px;">
                       <tr>
-                        <td style="padding: 12px 24px;">
-                          <a href="https://ecobrasilgestor.bio/" target="_blank" style="color: #0F4098; font-size: 12px; font-weight: 700; text-decoration: none;">
+                        <td style="padding: 14px 28px;">
+                          <a href="https://ecobrasilgestor.bio/" target="_blank" style="color: #1B5E20; font-size: 13px; font-weight: 800; text-decoration: none;">
                             🚀 ACESSAR PLATAFORMA →
                           </a>
                         </td>
@@ -871,20 +885,20 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           
           <!-- RODAPÉ INSTITUCIONAL -->
           <tr>
-            <td style="background-color: #f0f9ff; border-radius: 0 0 20px 20px; padding: 32px 40px; border-top: 3px solid #0099A8;">
+            <td style="background-color: #E8F5E9; border-radius: 0 0 20px 20px; padding: 32px 40px; border-top: 4px solid #2E7D32;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
                     
                     <!-- Logo -->
                     <a href="https://ecobrasil.bio.br/" target="_blank" style="text-decoration: none; display: block; margin-bottom: 20px;">
-                      <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 130px; height: auto;" />
+                      <img src="${ECOBRASIL_LOGO_BASE64}" alt="EcoBrasil" style="width: 140px; height: auto;" />
                     </a>
                     
-                    <p style="margin: 0 0 6px 0; color: #0F4098; font-size: 15px; line-height: 1.5; font-weight: 700;">
+                    <p style="margin: 0 0 6px 0; color: #1B5E20; font-size: 16px; line-height: 1.5; font-weight: 700;">
                       EcoBrasil Meio Ambiente
                     </p>
-                    <p style="margin: 0 0 20px 0; color: #64748b; font-size: 12px; font-weight: 500; font-style: italic;">
+                    <p style="margin: 0 0 20px 0; color: #388E3C; font-size: 12px; font-weight: 500; font-style: italic;">
                       Soluções Sustentáveis em Ação
                     </p>
                     
@@ -892,12 +906,12 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <table cellpadding="0" cellspacing="0" style="margin: 0 auto 20px auto;">
                       <tr>
                         <td style="padding: 0 16px;">
-                          <a href="mailto:ecobrasil@ecobrasil.bio.br" style="text-decoration: none; color: #0099A8; font-size: 12px; font-weight: 600;">
+                          <a href="mailto:ecobrasil@ecobrasil.bio.br" style="text-decoration: none; color: #1565C0; font-size: 12px; font-weight: 600;">
                             📧 ecobrasil@ecobrasil.bio.br
                           </a>
                         </td>
-                        <td style="padding: 0 16px; border-left: 1px solid #e2e8f0;">
-                          <a href="https://ecobrasil.bio.br/" target="_blank" style="text-decoration: none; color: #0F4098; font-size: 12px; font-weight: 600;">
+                        <td style="padding: 0 16px; border-left: 2px solid #2E7D32;">
+                          <a href="https://ecobrasil.bio.br/" target="_blank" style="text-decoration: none; color: #1B5E20; font-size: 12px; font-weight: 600;">
                             🌐 ecobrasil.bio.br
                           </a>
                         </td>
@@ -905,9 +919,9 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     </table>
                     
                     <!-- Botão Blog -->
-                    <table cellpadding="0" cellspacing="0" style="background-color: #0099A8; border-radius: 12px; margin-bottom: 20px;">
+                    <table cellpadding="0" cellspacing="0" style="background-color: #2E7D32; border-radius: 12px; margin-bottom: 20px;">
                       <tr>
-                        <td style="padding: 10px 20px;">
+                        <td style="padding: 12px 24px;">
                           <a href="https://ecobrasilgestor.bio/blog" target="_blank" style="color: #ffffff; font-size: 12px; font-weight: 600; text-decoration: none;">
                             📖 Visite nosso Blog
                           </a>
@@ -918,15 +932,15 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <!-- Divisor Decorativo -->
                     <table cellpadding="0" cellspacing="0" style="margin: 0 auto 16px auto;">
                       <tr>
-                        <td style="width: 40px; height: 2px; background-color: #0099A8;"></td>
+                        <td style="width: 50px; height: 3px; background-color: #2E7D32;"></td>
                         <td style="padding: 0 14px;">
-                          <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 30px; height: auto;" />
+                          <img src="${BRASILEIRINHO_BASE64}" alt="Brasileirinho" style="width: 35px; height: auto;" />
                         </td>
-                        <td style="width: 40px; height: 2px; background-color: #0099A8;"></td>
+                        <td style="width: 50px; height: 3px; background-color: #2E7D32;"></td>
                       </tr>
                     </table>
                     
-                    <p style="margin: 0 0 16px 0; color: #0F4098; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
+                    <p style="margin: 0 0 16px 0; color: #1B5E20; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
                       Uma publicação EcoBrasil
                     </p>
                     
