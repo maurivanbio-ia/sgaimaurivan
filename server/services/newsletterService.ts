@@ -497,40 +497,45 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     const noticiasRapidas = edicao.noticias.slice(4);
     
     // Cards de notícias secundárias - Layout compatível com email
-    const cardsSecundariosHtml = noticiasSecundarias.map((n, i) => `
+    const cardColors = ['#2E7D32', '#1565C0', '#FDD835']; // Verde, Azul, Amarelo
+    const cardsSecundariosHtml = noticiasSecundarias.map((n, i) => {
+      const color = cardColors[i % 3];
+      const textColor = color === '#FDD835' ? '#1B5E20' : '#ffffff';
+      const titleColor = color === '#FDD835' ? '#1B5E20' : '#1B5E20';
+      return `
       <td width="33%" valign="top" style="padding: ${i > 0 ? '0 0 0 14px' : '0'};">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 2px solid #0099A8;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 2px solid ${color};">
           <tr>
-            <td style="height: 4px; background-color: #0099A8;"></td>
+            <td style="height: 4px; background-color: ${color};"></td>
           </tr>
           <tr>
             <td style="padding: 18px;">
-              <span style="display: inline-block; color: #0099A8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
+              <span style="display: inline-block; color: ${color}; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
                 ${n.fonte}
               </span>
-              <h4 style="margin: 0 0 12px 0; color: #0F4098; font-size: 14px; font-weight: 700; line-height: 1.4;">
+              <h4 style="margin: 0 0 12px 0; color: ${titleColor}; font-size: 14px; font-weight: 700; line-height: 1.4;">
                 ${n.titulo.length > 80 ? n.titulo.substring(0, 80) + '...' : n.titulo}
               </h4>
               <p style="margin: 0 0 14px 0; color: #64748b; font-size: 12px; line-height: 1.6;">
                 ${n.resumo.length > 100 ? n.resumo.substring(0, 100) + '...' : n.resumo}
               </p>
-              <a href="${n.link}" target="_blank" style="color: #0099A8; font-size: 11px; font-weight: 700; text-decoration: underline;">
+              <a href="${n.link}" target="_blank" style="color: ${color}; font-size: 11px; font-weight: 700; text-decoration: underline;">
                 Ler mais →
               </a>
             </td>
           </tr>
         </table>
       </td>
-    `).join("");
+    `}).join("");
 
     // Notas rápidas/insights - Layout compatível com email
     const notasRapidasHtml = noticiasRapidas.map((n, i) => `
       <tr>
-        <td style="padding: 14px 0; ${i < noticiasRapidas.length - 1 ? 'border-bottom: 1px solid #e0f7fa;' : ''}">
+        <td style="padding: 14px 0; ${i < noticiasRapidas.length - 1 ? 'border-bottom: 1px solid #FDD835;' : ''}">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td width="34" valign="top" style="padding-right: 12px;">
-                <table cellpadding="0" cellspacing="0" style="width: 28px; height: 28px; background-color: #0099A8; border-radius: 6px;">
+                <table cellpadding="0" cellspacing="0" style="width: 28px; height: 28px; background-color: #2E7D32; border-radius: 6px;">
                   <tr>
                     <td align="center" valign="middle">
                       <span style="color: #ffffff; font-size: 12px; font-weight: 700;">${i + 1}</span>
@@ -539,10 +544,10 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                 </table>
               </td>
               <td valign="top">
-                <a href="${n.link}" target="_blank" style="color: #0F4098; font-size: 13px; font-weight: 600; text-decoration: none; line-height: 1.5;">
+                <a href="${n.link}" target="_blank" style="color: #1B5E20; font-size: 13px; font-weight: 600; text-decoration: none; line-height: 1.5;">
                   ${n.titulo}
                 </a>
-                <span style="display: block; color: #0099A8; font-size: 10px; margin-top: 5px; font-weight: 500;">${n.fonte}</span>
+                <span style="display: block; color: #2E7D32; font-size: 10px; margin-top: 5px; font-weight: 500;">${n.fonte}</span>
               </td>
             </tr>
           </table>
@@ -662,14 +667,14 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td width="56" valign="top" style="padding-right: 16px;">
-                    <table cellpadding="0" cellspacing="0" style="width: 48px; height: 48px; background-color: #e0f7fa; border-radius: 12px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 48px; height: 48px; background-color: #E8F5E9; border-radius: 12px;">
                       <tr>
                         <td align="center" valign="middle" style="font-size: 22px;">📝</td>
                       </tr>
                     </table>
                   </td>
                   <td valign="top">
-                    <table cellpadding="0" cellspacing="0" style="background-color: #0099A8; border-radius: 16px;">
+                    <table cellpadding="0" cellspacing="0" style="background-color: #2E7D32; border-radius: 16px;">
                       <tr>
                         <td style="padding: 6px 16px;">
                           <span style="color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Editorial da Semana</span>
@@ -690,7 +695,11 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
             <td style="background-color: #ffffff; padding: 16px 40px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="height: 3px; background-color: #0099A8;"></td>
+                  <td style="height: 2px; background-color: #2E7D32;"></td>
+                  <td style="width: 8px;"></td>
+                  <td style="height: 2px; background-color: #FDD835; width: 60px;"></td>
+                  <td style="width: 8px;"></td>
+                  <td style="height: 2px; background-color: #1565C0;"></td>
                 </tr>
               </table>
             </td>
@@ -708,12 +717,12 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <table cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="padding-right: 12px; vertical-align: middle;">
-                          <table cellpadding="0" cellspacing="0" style="width: 32px; height: 32px; background-color: #0F4098; border-radius: 8px;">
-                            <tr><td align="center" valign="middle" style="color: #ffffff; font-size: 16px;">⭐</td></tr>
+                          <table cellpadding="0" cellspacing="0" style="width: 32px; height: 32px; background-color: #FDD835; border-radius: 8px;">
+                            <tr><td align="center" valign="middle" style="color: #1B5E20; font-size: 16px;">⭐</td></tr>
                           </table>
                         </td>
                         <td style="vertical-align: middle;">
-                          <table cellpadding="0" cellspacing="0" style="background-color: #0F4098; border-radius: 16px;">
+                          <table cellpadding="0" cellspacing="0" style="background-color: #1565C0; border-radius: 16px;">
                             <tr>
                               <td style="padding: 6px 16px;">
                                 <span style="color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Destaque da Semana</span>
@@ -727,24 +736,24 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                 </tr>
                 <tr>
                   <td style="padding-top: 16px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0f9ff; border-radius: 16px; border: 2px solid #0099A8;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #E8F5E9; border-radius: 16px; border: 2px solid #2E7D32;">
                       <tr>
-                        <td style="height: 4px; background-color: #0099A8;"></td>
+                        <td style="height: 4px; background-color: #2E7D32;"></td>
                       </tr>
                       <tr>
                         <td style="padding: 28px;">
                           <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td width="48" valign="top" style="padding-right: 14px;">
-                                <table cellpadding="0" cellspacing="0" style="width: 40px; height: 40px; background-color: #e0f7fa; border-radius: 10px;">
+                                <table cellpadding="0" cellspacing="0" style="width: 40px; height: 40px; background-color: #ffffff; border-radius: 10px;">
                                   <tr><td align="center" valign="middle" style="font-size: 20px;">📰</td></tr>
                                 </table>
                               </td>
                               <td valign="top">
-                                <span style="display: block; color: #0099A8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
+                                <span style="display: block; color: #2E7D32; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
                                   ${noticiaDestaque.fonte}
                                 </span>
-                                <h2 style="margin: 0; color: #0F4098; font-size: 20px; font-weight: 800; line-height: 1.35;">
+                                <h2 style="margin: 0; color: #1B5E20; font-size: 20px; font-weight: 800; line-height: 1.35;">
                                   ${noticiaDestaque.titulo}
                                 </h2>
                               </td>
@@ -753,7 +762,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                           <p style="margin: 16px 0 20px 0; color: #475569; font-size: 14px; line-height: 1.75;">
                             ${noticiaDestaque.resumo}
                           </p>
-                          <table cellpadding="0" cellspacing="0" style="background-color: #0099A8; border-radius: 12px;">
+                          <table cellpadding="0" cellspacing="0" style="background-color: #2E7D32; border-radius: 12px;">
                             <tr>
                               <td style="padding: 12px 24px;">
                                 <a href="${noticiaDestaque.link}" target="_blank" style="color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none;">
@@ -779,9 +788,15 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-bottom: 16px;">
-                    <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
-                      Mais Notícias
-                    </span>
+                    <table cellpadding="0" cellspacing="0" style="background-color: #2E7D32; border-radius: 12px;">
+                      <tr>
+                        <td style="padding: 5px 14px;">
+                          <span style="color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
+                            📰 Mais Notícias
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
                 <tr>
@@ -795,7 +810,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
           <!-- RESUMO PANORÂMICO -->
           <tr>
             <td style="background-color: #ffffff; padding: 0 40px 28px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e0f7fa; border-radius: 16px; border: 2px solid #0099A8;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #E3F2FD; border-radius: 16px; border: 2px solid #1565C0;">
                 <tr>
                   <td style="padding: 24px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
@@ -806,14 +821,14 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                           </table>
                         </td>
                         <td valign="top">
-                          <table cellpadding="0" cellspacing="0" style="background-color: #0099A8; border-radius: 16px; margin-bottom: 10px;">
+                          <table cellpadding="0" cellspacing="0" style="background-color: #1565C0; border-radius: 16px; margin-bottom: 10px;">
                             <tr>
                               <td style="padding: 5px 14px;">
                                 <span style="color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Panorama da Semana</span>
                               </td>
                             </tr>
                           </table>
-                          <p style="margin: 0; color: #0F4098; font-size: 14px; line-height: 1.8; font-weight: 400;">
+                          <p style="margin: 0; color: #1565C0; font-size: 14px; line-height: 1.8; font-weight: 400;">
                             ${edicao.resumoGeral}
                           </p>
                         </td>
@@ -832,13 +847,19 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-bottom: 14px;">
-                    <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
-                      Leitura Rápida
-                    </span>
+                    <table cellpadding="0" cellspacing="0" style="background-color: #FDD835; border-radius: 12px;">
+                      <tr>
+                        <td style="padding: 5px 14px;">
+                          <span style="color: #1B5E20; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">
+                            ⚡ Leitura Rápida
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
                 <tr>
-                  <td style="background-color: #f8fafc; border-radius: 10px; padding: 8px 18px;">
+                  <td style="background-color: #FFFDE7; border-radius: 10px; padding: 8px 18px; border: 1px solid #FDD835;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       ${notasRapidasHtml}
                     </table>
