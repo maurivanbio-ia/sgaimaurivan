@@ -650,7 +650,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     <span style="color: #ffffff; font-size: 13px; font-weight: 600;">📅 ${dataAtual}</span>
                   </td>
                   <td align="right">
-                    <span style="color: #BBDEFB; font-size: 11px; font-weight: 500;">EcoBrasil Meio Ambiente</span>
+                    <span style="color: #BBDEFB; font-size: 11px; font-weight: 500;">EcoBrasil Consultoria Ambiental LTDA.</span>
                   </td>
                 </tr>
               </table>
@@ -917,7 +917,7 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
                     </a>
                     
                     <p style="margin: 0 0 6px 0; color: #1B5E20; font-size: 16px; line-height: 1.5; font-weight: 700;">
-                      EcoBrasil Meio Ambiente
+                      EcoBrasil Consultoria Ambiental LTDA.
                     </p>
                     <p style="margin: 0 0 20px 0; color: #388E3C; font-size: 12px; font-weight: 500; font-style: italic;">
                       Soluções Sustentáveis em Ação
