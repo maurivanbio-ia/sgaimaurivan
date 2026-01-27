@@ -274,8 +274,15 @@ export default function SegurancaTrabalho() {
 
   const deleteDocumentoMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/seg-documentos/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro ao excluir documento");
+      const numericId = typeof id === 'number' ? id : parseInt(String(id));
+      if (isNaN(numericId)) throw new Error("ID inválido");
+      console.log('[SST] Chamando DELETE para documento ID:', numericId);
+      const res = await fetch(`/api/seg-documentos/${numericId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[SST] Erro ao excluir:', res.status, errorText);
+        throw new Error("Erro ao excluir documento");
+      }
       return res.json();
     },
     onSuccess: () => {
