@@ -29,6 +29,17 @@ export class AlertService {
     { tipo: 'entrega', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: false },
     { tipo: 'entrega', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: false },
     { tipo: 'entrega', diasAviso: 1, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    
+    // Programas SST (PPRA, PCMSO, PGR, LTCAT)
+    { tipo: 'programa_sst', diasAviso: 60, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'programa_sst', diasAviso: 30, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'programa_sst', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'programa_sst', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    
+    // ASOs Ocupacionais
+    { tipo: 'aso', diasAviso: 30, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'aso', diasAviso: 15, ativo: true, enviarEmail: true, enviarWhatsapp: false },
+    { tipo: 'aso', diasAviso: 7, ativo: true, enviarEmail: true, enviarWhatsapp: false },
   ];
 
   // Contatos para alertas
@@ -88,6 +99,14 @@ export class AlertService {
         case 'entrega':
           items = await storage.getEntregas();
           getDateField = (item) => item.prazo;
+          break;
+        case 'programa_sst':
+          items = await storage.getProgramasSst();
+          getDateField = (item) => item.dataValidade;
+          break;
+        case 'aso':
+          items = await storage.getAsosOcupacionais();
+          getDateField = (item) => item.dataValidade;
           break;
         default:
           return;
