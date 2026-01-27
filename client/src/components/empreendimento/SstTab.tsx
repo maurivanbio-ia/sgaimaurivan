@@ -293,6 +293,8 @@ function ResumoSST({
 function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId: number; programas: ProgramaSst[] }) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [documentoTexto, setDocumentoTexto] = useState('');
   const [formData, setFormData] = useState({
     tipo: '',
     nome: '',
@@ -303,6 +305,37 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
     dataValidade: '',
     observacoes: '',
   });
+
+  const analisarDocumentoComIA = async () => {
+    if (!documentoTexto.trim()) {
+      toast({ title: 'Cole o conteúdo do documento para análise', variant: 'destructive' });
+      return;
+    }
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch('/api/sst/analisar-documento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tipo: formData.tipo,
+          nome: formData.nome,
+          conteudo: documentoTexto,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setFormData({ ...formData, descricao: data.descricao });
+        toast({ title: 'Descrição gerada com sucesso!' });
+      } else {
+        toast({ title: data.error || 'Erro ao analisar documento', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Erro ao conectar com a IA', variant: 'destructive' });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -371,9 +404,37 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
                   <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Conteúdo do Documento (cole o texto para análise com IA)</Label>
+                <Textarea 
+                  placeholder="Cole aqui o texto do documento (PPRA, PCMSO, PGR, LTCAT) para gerar descrição automática com IA..."
+                  value={documentoTexto} 
+                  onChange={(e) => setDocumentoTexto(e.target.value)}
+                  className="min-h-[100px]"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={analisarDocumentoComIA}
+                  disabled={isAnalyzing || !documentoTexto.trim()}
+                  className="w-full bg-purple-50 hover:bg-purple-100 border-purple-200"
+                >
+                  {isAnalyzing ? (
+                    <>⏳ Analisando com IA...</>
+                  ) : (
+                    <>🤖 Gerar Descrição com IA</>
+                  )}
+                </Button>
+              </div>
               <div>
-                <Label>Descrição</Label>
-                <Textarea value={formData.descricao} onChange={(e) => setFormData({ ...formData, descricao: e.target.value })} />
+                <Label>Descrição Gerada</Label>
+                <Textarea 
+                  value={formData.descricao} 
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                  placeholder="A descrição será preenchida automaticamente pela IA ou você pode escrever manualmente..."
+                  className="min-h-[120px]"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

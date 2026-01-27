@@ -4595,6 +4595,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== SST - AGENTE IA PARA ANÁLISE DE DOCUMENTOS ==========
+  app.post('/api/sst/analisar-documento', requireAuth, async (req, res) => {
+    try {
+      const { tipo, nome, conteudo } = req.body;
+      
+      if (!conteudo) {
+        return res.status(400).json({ error: 'Conteúdo do documento é obrigatório' });
+      }
+      
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      
+      const tipoLabels: Record<string, string> = {
+        ppra: 'Programa de Prevenção de Riscos Ambientais (PPRA)',
+        pcmso: 'Programa de Controle Médico de Saúde Ocupacional (PCMSO)',
+        pgr: 'Programa de Gerenciamento de Riscos (PGR)',
+        ltcat: 'Laudo Técnico das Condições Ambientais de Trabalho (LTCAT)',
+        outro: 'Documento de Segurança do Trabalho',
+      };
+      
+      const tipoLabel = tipoLabels[tipo] || tipoLabels.outro;
+      
+      const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST). 
+Analise o seguinte documento "${nome || 'Sem título'}" do tipo ${tipoLabel} e forneça:
+
+1. **Descrição resumida** (2-3 parágrafos): O que o documento aborda, seus principais pontos e objetivos.
+2. **Riscos identificados**: Lista dos principais riscos ocupacionais mencionados.
+3. **Medidas de controle**: Principais ações preventivas ou corretivas recomendadas.
+4. **Pontos de atenção**: Aspectos críticos que requerem acompanhamento.
+
+DOCUMENTO:
+${conteudo.substring(0, 8000)}
+
+Responda de forma profissional e técnica, adequada para registro em sistema de gestão SST.`;
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'Você é um especialista técnico em Segurança e Saúde do Trabalho.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 1500,
+        temperature: 0.3,
+      });
+      
+      const descricao = completion.choices[0]?.message?.content || 'Não foi possível gerar a descrição.';
+      
+      res.json({ 
+        success: true, 
+        descricao,
+        tokens: completion.usage?.total_tokens || 0
+      });
+    } catch (error) {
+      console.error('Erro ao analisar documento SST:', error);
+      res.status(500).json({ error: 'Falha ao analisar documento com IA' });
+    }
+  });
+
   // ========== SST AVANÇADO - ASO Ocupacionais ==========
   app.get('/api/asos-ocupacionais', requireAuth, async (req, res) => {
     try {
