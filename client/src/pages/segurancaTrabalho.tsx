@@ -528,6 +528,7 @@ export default function SegurancaTrabalho() {
       colaboradorId: documento.colaboradorId ? documento.colaboradorId.toString() : (documento.colaboradorNome === "Escritório" ? "escritorio" : ""),
       empreendimentoId: documento.empreendimentoId?.toString() || "",
       tipoDocumento: documento.tipoDocumento,
+      nomeDocumento: (documento as any).nomeDocumento || "",
       descricao: documento.descricao || "",
       arquivoUrl: documento.arquivoUrl || "",
       dataEmissao: documento.dataEmissao || "",
