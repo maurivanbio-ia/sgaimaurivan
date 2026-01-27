@@ -4473,7 +4473,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create documento de segurança
   app.post('/api/seg-documentos', requireAuth, async (req, res) => {
     try {
-      const documento = await storage.createSegDocumento(req.body);
+      const data = req.body;
+      
+      // Valida campos obrigatórios
+      if (!data.tipoDocumento) {
+        return res.status(400).json({ error: 'Tipo de documento é obrigatório' });
+      }
+      if (!data.arquivoUrl) {
+        return res.status(400).json({ error: 'Arquivo é obrigatório' });
+      }
+      if (!data.dataEmissao) {
+        return res.status(400).json({ error: 'Data de emissão é obrigatória' });
+      }
+      
+      // Se não houver empreendimento selecionado, usa o primeiro disponível da unidade do usuário
+      let empreendimentoId = data.empreendimentoId;
+      if (!empreendimentoId) {
+        const user = req.user as any;
+        const unidade = user?.unidade || 'goiania';
+        const empreendimentos = await storage.getEmpreendimentos(unidade);
+        if (empreendimentos.length > 0) {
+          empreendimentoId = empreendimentos[0].id;
+        } else {
+          return res.status(400).json({ error: 'Empreendimento é obrigatório' });
+        }
+      }
+      
+      // Trata colaboradorId null para documentos de escritório
+      const colaboradorId = data.colaboradorId === null || data.colaboradorId === undefined ? null : data.colaboradorId;
+      const colaboradorNome = colaboradorId === null ? (data.colaboradorNome || 'Escritório') : null;
+      
+      const documentoData = {
+        ...data,
+        empreendimentoId,
+        colaboradorId,
+        colaboradorNome,
+      };
+      
+      console.log('[SST] Criando documento:', JSON.stringify(documentoData));
+      const documento = await storage.createSegDocumento(documentoData);
       res.status(201).json(documento);
     } catch (error) {
       console.error('Error creating documento:', error);
