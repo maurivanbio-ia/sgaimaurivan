@@ -45,6 +45,13 @@ export class AlertService {
   // Contatos para alertas
   private readonly EMAIL_CONTATO = 'ecobrasiloficial@gmail.com';
   private readonly WHATSAPP_CONTATO = '+5571987802223';
+  
+  // Emails específicos para alertas SST
+  private readonly EMAILS_SST = [
+    'ecobrasil@ecobrasil.bio.br',
+    'leandra@ecobrasil.bio.br',
+    'amanda@ecobrasil.bio.br'
+  ];
 
   // Inicializa configurações padrão de alertas
   async initializeDefaultConfigs(): Promise<void> {
@@ -165,15 +172,23 @@ export class AlertService {
       // Envia email se configurado
       if (config.enviarEmail) {
         try {
-          await sendEmail({
-            to: this.EMAIL_CONTATO,
-            subject: alertData.emailSubject,
-            text: alertData.emailBody,
-            html: alertData.emailHtml,
-          });
+          // Para alertas SST (programa_sst e aso), envia para lista específica
+          const emailDestinos = (config.tipo === 'programa_sst' || config.tipo === 'aso')
+            ? this.EMAILS_SST
+            : [this.EMAIL_CONTATO];
+          
+          // Envia para cada destinatário
+          for (const destinatario of emailDestinos) {
+            await sendEmail({
+              to: destinatario,
+              subject: alertData.emailSubject,
+              text: alertData.emailBody,
+              html: alertData.emailHtml,
+            });
+          }
           
           await this.saveAlertHistory(item.id, config, 'email', 'enviado');
-          console.log(`Email de alerta enviado para ${config.tipo} ID ${item.id}`);
+          console.log(`Email de alerta SST enviado para ${emailDestinos.length} destinatários - ${config.tipo} ID ${item.id}`);
         } catch (error) {
           await this.saveAlertHistory(item.id, config, 'email', 'erro', (error as Error).message || String(error));
           console.error(`Erro ao enviar email para ${config.tipo} ID ${item.id}:`, (error as Error).message || error);
