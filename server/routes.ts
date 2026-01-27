@@ -4621,6 +4621,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== SST - UPLOAD DE DOCUMENTOS ==========
+  const multerSst = (await import('multer')).default;
+  const sstUpload = multerSst({ storage: multerSst.memoryStorage() });
+  
+  app.post('/api/sst/upload-documento', requireAuth, sstUpload.single('arquivo'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo é obrigatório' });
+      }
+      
+      const { Client } = await import("@replit/object-storage");
+      const client = new Client();
+      
+      const timestamp = Date.now();
+      const originalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName = `sst_documentos/${timestamp}_${originalName}`;
+      
+      await client.uploadFromBytes(fileName, req.file.buffer);
+      
+      // Get public URL
+      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+      const fileUrl = `https://object.cloud.replit.com/v1/${bucketId}/${fileName}`;
+      
+      // Extract text content for AI analysis (if PDF or text file)
+      let textContent = '';
+      const mimeType = req.file.mimetype;
+      
+      if (mimeType === 'text/plain') {
+        textContent = req.file.buffer.toString('utf-8');
+      } else if (mimeType === 'application/pdf') {
+        // For PDF, we'll extract basic text (simplified - real implementation would use pdf-parse)
+        try {
+          const pdfParse = await import('pdf-parse');
+          const pdfData = await pdfParse.default(req.file.buffer);
+          textContent = pdfData.text;
+        } catch (e) {
+          console.log('PDF parsing not available, using filename only');
+          textContent = `Documento PDF: ${originalName}`;
+        }
+      } else {
+        textContent = `Documento: ${originalName} (tipo: ${mimeType})`;
+      }
+      
+      res.json({ 
+        success: true, 
+        url: fileUrl,
+        fileName: originalName,
+        textContent: textContent.substring(0, 10000) // Limit for AI analysis
+      });
+    } catch (error) {
+      console.error('Erro ao fazer upload de documento SST:', error);
+      res.status(500).json({ error: 'Falha ao fazer upload do documento' });
+    }
+  });
+
   // ========== SST - AGENTE IA PARA ANÁLISE DE DOCUMENTOS ==========
   app.post('/api/sst/analisar-documento', requireAuth, async (req, res) => {
     try {

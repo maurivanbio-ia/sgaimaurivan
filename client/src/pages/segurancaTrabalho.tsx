@@ -53,7 +53,9 @@ import {
   Edit,
   Download,
   Brain,
-  Loader2
+  Loader2,
+  Upload,
+  File
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Colaborador, SegDocumentoColaborador, Empreendimento } from "@shared/schema";
@@ -71,6 +73,9 @@ export default function SegurancaTrabalho() {
   const [editingDocumento, setEditingDocumento] = useState<SegDocumentoColaborador | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [documentContent, setDocumentContent] = useState<string>("");
 
   // Formulário Colaborador
   const [colaboradorForm, setColaboradorForm] = useState({
@@ -304,6 +309,8 @@ export default function SegurancaTrabalho() {
       status: "valido",
     });
     setAiAnalysis(null);
+    setSelectedFile(null);
+    setDocumentContent("");
   };
 
   const handleSaveColaborador = () => {
@@ -362,10 +369,44 @@ export default function SegurancaTrabalho() {
     }
   };
 
+  // Função para fazer upload do arquivo
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    setSelectedFile(file);
+    
+    try {
+      const formData = new FormData();
+      formData.append('arquivo', file);
+      
+      const response = await fetch("/api/sst/upload-documento", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error("Falha no upload");
+      
+      const result = await response.json();
+      setDocumentoForm(prev => ({ ...prev, arquivoUrl: result.url }));
+      setDocumentContent(result.textContent || "");
+      
+      toast({ title: "Upload concluído", description: `Arquivo "${result.fileName}" enviado com sucesso.` });
+    } catch (error) {
+      toast({ title: "Erro", description: "Falha ao fazer upload do arquivo.", variant: "destructive" });
+      setSelectedFile(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   // Função para analisar documento com IA
   const handleAnalyzeDocument = async () => {
     if (!documentoForm.tipoDocumento) {
       toast({ title: "Aviso", description: "Selecione o tipo de documento primeiro.", variant: "destructive" });
+      return;
+    }
+    
+    if (!documentContent && !selectedFile) {
+      toast({ title: "Aviso", description: "Faça o upload de um documento primeiro.", variant: "destructive" });
       return;
     }
 
@@ -377,21 +418,21 @@ export default function SegurancaTrabalho() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tipoDocumento: documentoForm.tipoDocumento,
-          descricao: documentoForm.descricao,
-          colaboradorNome: documentoForm.colaboradorId === "escritorio" ? "Escritório" : 
-            colaboradores.find(c => c.id.toString() === documentoForm.colaboradorId)?.nome || "",
+          tipo: documentoForm.tipoDocumento,
+          nome: selectedFile?.name || "documento",
+          conteudo: documentContent || `Documento: ${selectedFile?.name || "sem nome"}`,
         }),
       });
 
       if (!response.ok) throw new Error("Falha na análise");
 
       const result = await response.json();
-      setAiAnalysis(result.analise);
+      setAiAnalysis(result.descricao);
       
-      // Se a IA retornou uma descrição sugerida, preenche o campo
-      if (result.descricaoSugerida && !documentoForm.descricao) {
-        setDocumentoForm(prev => ({ ...prev, descricao: result.descricaoSugerida }));
+      // Se não há descrição, sugere a da IA
+      if (!documentoForm.descricao && result.descricao) {
+        const primeiraLinha = result.descricao.split('\n')[0].substring(0, 200);
+        setDocumentoForm(prev => ({ ...prev, descricao: primeiraLinha }));
       }
 
       toast({ title: "Análise concluída", description: "A IA analisou o documento." });
@@ -824,14 +865,47 @@ export default function SegurancaTrabalho() {
                   )}
                   
                   <div className="space-y-2">
-                    <Label htmlFor="arquivoUrl">URL do Arquivo</Label>
-                    <Input
-                      id="arquivoUrl"
-                      value={documentoForm.arquivoUrl}
-                      onChange={(e) => setDocumentoForm({ ...documentoForm, arquivoUrl: e.target.value })}
-                      placeholder="https://..."
-                      data-testid="input-documento-arquivo-url"
-                    />
+                    <Label htmlFor="arquivo">Arquivo do Documento</Label>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <label 
+                          htmlFor="arquivo-upload"
+                          className="flex items-center gap-2 px-4 py-2 border border-input rounded-md cursor-pointer hover:bg-accent transition-colors"
+                        >
+                          {isUploading ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+                          ) : (
+                            <><Upload className="h-4 w-4" /> Selecionar Arquivo</>
+                          )}
+                        </label>
+                        <input
+                          id="arquivo-upload"
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file);
+                          }}
+                          disabled={isUploading}
+                          data-testid="input-documento-arquivo"
+                        />
+                        {selectedFile && (
+                          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <File className="h-4 w-4" />
+                            <span>{selectedFile.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      {documentoForm.arquivoUrl && !selectedFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <File className="h-4 w-4" />
+                          <a href={documentoForm.arquivoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Ver arquivo atual
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
