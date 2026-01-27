@@ -180,46 +180,71 @@ async function agenteDatas(conteudo: string): Promise<{dataEmissao?: string; dat
   console.log('========================================');
   console.log('[AGENTE DATAS] INICIANDO VARREDURA COMPLETA...');
   
-  const prompt = `VOCÊ É UM EXTRATOR DE DATAS. SUA MISSÃO É ENCONTRAR TODAS AS DATAS NO DOCUMENTO.
+  const prompt = `VOCÊ É UM EXTRATOR ESPECIALISTA DE DATAS. SUA MISSÃO CRÍTICA É ENCONTRAR TODAS AS DATAS NO DOCUMENTO.
 
-INSTRUÇÕES CRÍTICAS:
-- Leia CADA LINHA procurando datas
-- Datas brasileiras: DD/MM/YYYY, DD-MM-YYYY, DD de MÊS de YYYY
-- NUNCA retorne null se houver QUALQUER data no documento
-- Converta TODAS as datas para formato DD/MM/YYYY
+⚠️ INSTRUÇÕES OBRIGATÓRIAS - LEIA COM ATENÇÃO MÁXIMA:
+- Examine CADA CARACTERE do documento procurando números que formem datas
+- Datas aparecem em MUITOS formatos: 15/01/2024, 15-01-2024, 15.01.2024, 15 de janeiro de 2024, janeiro/2024, jan/24, 2024
+- QUALQUER sequência de números com barras, pontos ou hífens pode ser data
+- Procure anos: 2023, 2024, 2025, 2026 - se encontrar um ano, PROCURE a data completa perto dele
+- NUNCA retorne null se houver QUALQUER data, número de ano, ou mês no documento
+- Converta TODAS as datas encontradas para formato DD/MM/YYYY
 
-DATAS A PROCURAR:
+🔍 ONDE PROCURAR DATAS (VERIFIQUE TODOS):
+1. CABEÇALHO - primeira linha, segunda linha, canto superior
+2. RODAPÉ - última linha, penúltima linha, canto inferior
+3. ASSINATURA - perto de nomes, carimbos, CRM
+4. CORPO DO TEXTO - em qualquer parágrafo
+5. TABELAS - células com datas de exames, validades
+6. LEGENDAS - data de elaboração, revisão
 
-1. **dataEmissao** - Quando o documento foi CRIADO:
-   - "Data:", "Emitido em:", "Data de Emissão:", "Em:"
-   - Data próxima a assinaturas
-   - Data no cabeçalho ou rodapé
+📅 PADRÕES DE DATA A RECONHECER:
+- 15/01/2024, 15-01-2024, 15.01.2024
+- 01/2024, jan/2024, janeiro/2024, 01-2024
+- 15 de janeiro de 2024, 15 de jan de 2024
+- Janeiro de 2024, Jan 2024, 01/24
+- "Ano: 2024", "Exercício 2024", "2024"
+- "Aracaju, 15 de janeiro de 2024"
 
-2. **dataValidade** - Quando o documento EXPIRA:
-   - "Válido até:", "Validade:", "Vencimento:", "Expira em:"
-   - Para ASO: geralmente 1-2 anos após emissão
-   - Para PCMSO/PGR: geralmente 1 ano
+📋 CAMPOS A EXTRAIR:
+
+1. **dataEmissao** - Data de CRIAÇÃO/ELABORAÇÃO do documento:
+   - Procure: "Data:", "Data de Emissão:", "Emitido em:", "Elaborado em:", "Em:", "Aracaju,", cidade seguida de data
+   - Data próxima a assinaturas, no final do documento
+   - Se só encontrar ANO (ex: "PCMSO 2024"), use "01/01/2024"
+   - Se só encontrar MÊS/ANO (ex: "janeiro/2024"), use "01/01/2024"
+
+2. **dataValidade** - Data de EXPIRAÇÃO/VENCIMENTO:
+   - Procure: "Válido até:", "Validade:", "Vencimento:", "Expira em:", "Prazo:", "Válido por"
+   - Se documento diz "válido por 1 ano" e tem dataEmissao, calcule dataValidade como dataEmissao + 1 ano
+   - Se não encontrar explícito mas encontrar vigenciaFim, use vigenciaFim
 
 3. **vigenciaInicio** - Data de INÍCIO da vigência:
-   - "Vigência:", "Período:", "De:", "Início:", "A partir de:"
-   - Pode ser igual à data de emissão
+   - Procure: "Vigência:", "Período:", "De:", "Início:", "A partir de:", "Base:"
+   - Pode ser igual à dataEmissao
+   - Se documento é "PCMSO 2024", vigenciaInicio é "01/01/2024"
 
 4. **vigenciaFim** - Data de FIM da vigência:
-   - "Vigência:", "Período:", "Até:", "Término:", "Final:"
-   - "Válido até:", "Vencimento:"
+   - Procure: "Vigência:", "Período:", "Até:", "Término:", "Final:", "a 31/12/2024"
+   - Procure: "Válido até:", "Vencimento:"
+   - Se documento é "PCMSO 2024", vigenciaFim é "31/12/2024"
 
-EXEMPLOS:
+💡 EXEMPLOS DE EXTRAÇÃO:
 - "Emitido em 15/01/2024" → dataEmissao: "15/01/2024"
 - "Válido até 15 de janeiro de 2025" → dataValidade: "15/01/2025"
 - "Vigência: 01/01/2024 a 31/12/2024" → vigenciaInicio: "01/01/2024", vigenciaFim: "31/12/2024"
+- "PCMSO 2024" ou "PCMSO - 2024" → vigenciaInicio: "01/01/2024", vigenciaFim: "31/12/2024"
+- "Janeiro de 2024" → dataEmissao: "01/01/2024"
+- "Aracaju, 20 de março de 2024" → dataEmissao: "20/03/2024"
+- "Data: 10/02/24" → dataEmissao: "10/02/2024"
 
-DOCUMENTO PARA ANÁLISE (LEIA TUDO COM ATENÇÃO):
+DOCUMENTO PARA ANÁLISE (LEIA CADA LINHA E CADA NÚMERO):
 ===INÍCIO DO DOCUMENTO===
 ${conteudo}
 ===FIM DO DOCUMENTO===
 
 RESPONDA EM JSON EXATAMENTE ASSIM:
-{"dataEmissao": "DD/MM/YYYY OU null", "dataValidade": "DD/MM/YYYY OU null", "vigenciaInicio": "DD/MM/YYYY OU null", "vigenciaFim": "DD/MM/YYYY OU null"}`;
+{"dataEmissao": "DD/MM/YYYY OU null SE ABSOLUTAMENTE NENHUMA DATA", "dataValidade": "DD/MM/YYYY OU null", "vigenciaInicio": "DD/MM/YYYY OU null", "vigenciaFim": "DD/MM/YYYY OU null"}`;
 
   try {
     const completion = await openai.chat.completions.create({
