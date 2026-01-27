@@ -1207,6 +1207,33 @@ export default function SegurancaTrabalho() {
                     </div>
                   </div>
 
+                  {/* Datas do Documento */}
+                  <div className="grid grid-cols-2 gap-4 p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-900/20">
+                    <div className="col-span-2">
+                      <Label className="text-sm font-semibold text-amber-700 dark:text-amber-400">Datas do Documento</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dataEmissao">Data de Emissão</Label>
+                      <Input
+                        id="dataEmissao"
+                        type="date"
+                        value={documentoForm.dataEmissao}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, dataEmissao: e.target.value })}
+                        data-testid="input-documento-data-emissao"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dataValidade">Data de Validade</Label>
+                      <Input
+                        id="dataValidade"
+                        type="date"
+                        value={documentoForm.dataValidade}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, dataValidade: e.target.value })}
+                        data-testid="input-documento-data-validade"
+                      />
+                    </div>
+                  </div>
+
                   {/* Vigência */}
                   <div className="grid grid-cols-2 gap-4 p-3 border rounded-lg bg-green-50/50 dark:bg-green-900/20">
                     <div className="col-span-2">

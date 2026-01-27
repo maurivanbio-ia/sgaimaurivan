@@ -4482,8 +4482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!data.arquivoUrl) {
         return res.status(400).json({ error: 'Arquivo é obrigatório' });
       }
+      // dataEmissao não é mais obrigatória - usa data atual como fallback
       if (!data.dataEmissao) {
-        return res.status(400).json({ error: 'Data de emissão é obrigatória' });
+        data.dataEmissao = new Date().toISOString().split('T')[0];
       }
       
       // Se não houver empreendimento selecionado, usa o primeiro disponível da unidade do usuário
