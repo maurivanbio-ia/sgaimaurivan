@@ -97,6 +97,7 @@ export default function SegurancaTrabalho() {
     colaboradorId: "",
     empreendimentoId: "",
     tipoDocumento: "",
+    nomeDocumento: "",
     descricao: "",
     arquivoUrl: "",
     dataEmissao: "",
@@ -303,6 +304,7 @@ export default function SegurancaTrabalho() {
       colaboradorId: "",
       empreendimentoId: "",
       tipoDocumento: "",
+      nomeDocumento: "",
       descricao: "",
       arquivoUrl: "",
       dataEmissao: "",
@@ -481,9 +483,10 @@ export default function SegurancaTrabalho() {
         updates.tipoDocumento = result.tipoDocumento;
       }
       
-      // Nomenclatura sugerida
+      // Nomenclatura sugerida - preenche o campo Nome do Documento automaticamente
       if (result.nomenclatura && result.nomenclatura !== 'null') {
         setSuggestedNomenclatura(result.nomenclatura);
+        updates.nomeDocumento = result.nomenclatura;
       }
       
       // Aplica todas as atualizações de uma vez
@@ -849,6 +852,105 @@ export default function SegurancaTrabalho() {
                   <DialogDescription>Preencha as informações do documento de segurança</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
+                  {/* PASSO 1: Upload do arquivo */}
+                  <div className="space-y-2 p-4 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5">
+                    <Label htmlFor="arquivo" className="text-base font-semibold flex items-center gap-2">
+                      <Upload className="h-5 w-5" />
+                      1. Faça o Upload do Documento
+                    </Label>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-3">
+                        <label 
+                          htmlFor="arquivo-upload"
+                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 transition-colors"
+                        >
+                          {isUploading ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+                          ) : (
+                            <><Upload className="h-4 w-4" /> Selecionar Arquivo</>
+                          )}
+                        </label>
+                        <input
+                          id="arquivo-upload"
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file);
+                          }}
+                          disabled={isUploading}
+                          data-testid="input-documento-arquivo"
+                        />
+                        {selectedFile && (
+                          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                            <File className="h-4 w-4" />
+                            <span>{selectedFile.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      {documentoForm.arquivoUrl && !selectedFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <File className="h-4 w-4" />
+                          <a href={documentoForm.arquivoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Ver arquivo atual
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* PASSO 2: Análise por IA */}
+                  <div className="space-y-3 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <Brain className="h-5 w-5 text-blue-600" />
+                        2. Análise Automática por IA
+                      </Label>
+                      <Button
+                        type="button"
+                        onClick={handleAnalyzeDocument}
+                        disabled={isAnalyzing || (!documentContent && !selectedFile)}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      >
+                        {isAnalyzing ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analisando...</>
+                        ) : (
+                          <><Brain className="h-4 w-4 mr-2" /> Analisar e Preencher Automaticamente</>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      A IA irá identificar o tipo de documento, datas, responsável e preencher todos os campos automaticamente.
+                    </p>
+                    
+                    {aiAnalysis && (
+                      <div className="bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Brain className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium text-blue-800 dark:text-blue-300">Resultado da Análise</span>
+                        </div>
+                        <p className="text-sm text-blue-700 dark:text-blue-400 whitespace-pre-wrap">{aiAnalysis}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Campo Nome do Documento (preenchido automaticamente) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="nomeDocumento" className="font-semibold">Nome do Documento (Nomenclatura Padronizada)</Label>
+                    <Input
+                      id="nomeDocumento"
+                      value={documentoForm.nomeDocumento}
+                      onChange={(e) => setDocumentoForm({ ...documentoForm, nomeDocumento: e.target.value })}
+                      placeholder="Será preenchido automaticamente pela IA (ex: SST-ASO-2025-JOAO_SILVA-ECOBR)"
+                      data-testid="input-documento-nome"
+                      className={suggestedNomenclatura ? "border-green-500 bg-green-50 dark:bg-green-950" : ""}
+                    />
+                    {suggestedNomenclatura && (
+                      <p className="text-xs text-green-600 dark:text-green-400">✓ Nomenclatura gerada automaticamente pela IA</p>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="colaboradorId">Colaborador *</Label>
@@ -940,91 +1042,16 @@ export default function SegurancaTrabalho() {
                       </div>
                     )}
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="descricao">Descrição</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="descricao"
-                        value={documentoForm.descricao}
-                        onChange={(e) => setDocumentoForm({ ...documentoForm, descricao: e.target.value })}
-                        placeholder="Descrição do documento"
-                        data-testid="input-documento-descricao"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleAnalyzeDocument}
-                        disabled={isAnalyzing || (!documentContent && !selectedFile)}
-                        className="whitespace-nowrap"
-                      >
-                        {isAnalyzing ? (
-                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analisando...</>
-                        ) : (
-                          <><Brain className="h-4 w-4 mr-2" /> Analisar com IA</>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {aiAnalysis && (
-                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Brain className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium text-blue-800 dark:text-blue-300">Análise da IA</span>
-                      </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-400 whitespace-pre-wrap">{aiAnalysis}</p>
-                      {suggestedNomenclatura && (
-                        <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
-                          <span className="text-xs text-blue-600 dark:text-blue-400">Nomenclatura sugerida:</span>
-                          <span className="ml-2 font-mono text-sm font-semibold text-blue-800 dark:text-blue-200">{suggestedNomenclatura}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="arquivo">Arquivo do Documento</Label>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <label 
-                          htmlFor="arquivo-upload"
-                          className="flex items-center gap-2 px-4 py-2 border border-input rounded-md cursor-pointer hover:bg-accent transition-colors"
-                        >
-                          {isUploading ? (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
-                          ) : (
-                            <><Upload className="h-4 w-4" /> Selecionar Arquivo</>
-                          )}
-                        </label>
-                        <input
-                          id="arquivo-upload"
-                          type="file"
-                          accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload(file);
-                          }}
-                          disabled={isUploading}
-                          data-testid="input-documento-arquivo"
-                        />
-                        {selectedFile && (
-                          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                            <File className="h-4 w-4" />
-                            <span>{selectedFile.name}</span>
-                          </div>
-                        )}
-                      </div>
-                      {documentoForm.arquivoUrl && !selectedFile && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <File className="h-4 w-4" />
-                          <a href={documentoForm.arquivoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            Ver arquivo atual
-                          </a>
-                        </div>
-                      )}
-                    </div>
+                    <Input
+                      id="descricao"
+                      value={documentoForm.descricao}
+                      onChange={(e) => setDocumentoForm({ ...documentoForm, descricao: e.target.value })}
+                      placeholder="Descrição do documento"
+                      data-testid="input-documento-descricao"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
