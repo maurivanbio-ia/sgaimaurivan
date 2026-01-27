@@ -400,6 +400,16 @@ export default function SegurancaTrabalho() {
     }
   };
 
+  // Função para converter data DD/MM/YYYY para YYYY-MM-DD (formato do input date)
+  const parseDataBR = (dataBR: string | null): string => {
+    if (!dataBR || dataBR === 'null') return '';
+    const match = dataBR.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (match) {
+      return `${match[3]}-${match[2]}-${match[1]}`;
+    }
+    return '';
+  };
+
   // Função para analisar documento com IA
   const handleAnalyzeDocument = async () => {
     if (!documentoForm.tipoDocumento) {
@@ -429,15 +439,60 @@ export default function SegurancaTrabalho() {
       if (!response.ok) throw new Error("Falha na análise");
 
       const result = await response.json();
-      setAiAnalysis(result.descricao);
       
-      // Se não há descrição, sugere a da IA
-      if (!documentoForm.descricao && result.descricao) {
-        const primeiraLinha = result.descricao.split('\n')[0].substring(0, 200);
-        setDocumentoForm(prev => ({ ...prev, descricao: primeiraLinha }));
+      // Atualiza o formulário com TODAS as informações extraídas pela IA
+      const updates: Partial<typeof documentoForm> = {};
+      
+      // Descrição curta
+      if (result.descricao) {
+        updates.descricao = result.descricao;
+        setAiAnalysis(result.descricao);
+      }
+      
+      // Data de emissão
+      if (result.dataEmissao && result.dataEmissao !== 'null') {
+        const dataFormatada = parseDataBR(result.dataEmissao);
+        if (dataFormatada) updates.dataEmissao = dataFormatada;
+      }
+      
+      // Data de validade
+      if (result.dataValidade && result.dataValidade !== 'null') {
+        const dataFormatada = parseDataBR(result.dataValidade);
+        if (dataFormatada) updates.dataValidade = dataFormatada;
+      }
+      
+      // Responsável pela assinatura
+      if (result.responsavel && result.responsavel !== 'null') {
+        updates.assinaturaResponsavel = result.responsavel;
+      }
+      
+      // Status do documento
+      if (result.status && result.status !== 'null') {
+        const statusMap: Record<string, string> = {
+          'valido': 'valido',
+          'vencido': 'vencido',
+          'proximo_vencimento': 'proximo_vencimento'
+        };
+        if (statusMap[result.status]) {
+          updates.status = statusMap[result.status];
+        }
+      }
+      
+      // Tipo de documento (se detectado diferente)
+      if (result.tipoDocumento && result.tipoDocumento !== 'null' && result.tipoDocumento !== 'outro') {
+        updates.tipoDocumento = result.tipoDocumento;
+      }
+      
+      // Aplica todas as atualizações de uma vez
+      if (Object.keys(updates).length > 0) {
+        setDocumentoForm(prev => ({ ...prev, ...updates }));
       }
 
-      toast({ title: "Análise concluída", description: "A IA analisou o documento." });
+      const camposPreenchidos = Object.keys(updates).length;
+      toast({ 
+        title: "Análise concluída", 
+        description: `A IA extraiu ${camposPreenchidos} informações do documento.` 
+      });
     } catch (error) {
       toast({ title: "Erro", description: "Não foi possível analisar o documento.", variant: "destructive" });
     } finally {
