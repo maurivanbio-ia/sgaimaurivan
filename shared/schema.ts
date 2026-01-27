@@ -1271,6 +1271,7 @@ export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores"
   colaboradorNome: text("colaborador_nome"), // Nome alternativo quando colaboradorId for null (ex: "Escritório")
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   tipoDocumento: text("tipo_documento").notNull(), // ASO, Treinamento NR, EPI, LTCAT, PCMSO, etc
+  nomeDocumento: text("nome_documento"), // Nomenclatura padronizada do arquivo (SST-ASO-2025-JOAO_SILVA-ECOBR)
   descricao: text("descricao"),
   arquivoUrl: text("arquivo_url").notNull(),
   dataEmissao: date("data_emissao").notNull(),
