@@ -1832,44 +1832,6 @@ export class DatabaseStorage implements IStorage {
     return historico;
   }
 
-  async getDemandasStats(): Promise<{
-    total: number;
-    concluidas: number;
-    emAndamento: number;
-    atrasadas: number;
-    porSetor: Array<{ setor: string; count: number }>;
-  }> {
-    const today = new Date();
-    
-    // Get all demandas for processing
-    const allDemandas = await db.select().from(demandas);
-    
-    const total = allDemandas.length;
-    const concluidas = allDemandas.filter(d => d.status === "concluido").length;
-    const emAndamento = allDemandas.filter(d => d.status === "em_andamento").length;
-    const atrasadas = allDemandas.filter(d => 
-      d.status !== "concluido" && 
-      d.status !== "cancelado" && 
-      new Date(d.dataEntrega) < today
-    ).length;
-    
-    // Count by setor
-    const setorMap = new Map<string, number>();
-    allDemandas.forEach(d => {
-      setorMap.set(d.setor, (setorMap.get(d.setor) || 0) + 1);
-    });
-    
-    const porSetor = Array.from(setorMap.entries()).map(([setor, count]) => ({ setor, count }));
-    
-    return {
-      total,
-      concluidas,
-      emAndamento,
-      atrasadas,
-      porSetor,
-    };
-  }
-
   async getDemandasChartData(): Promise<{
     statusChart: Array<{ status: string; count: number }>;
     prioridadeChart: Array<{ prioridade: string; count: number }>;
