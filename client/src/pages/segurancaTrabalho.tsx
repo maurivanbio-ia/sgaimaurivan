@@ -558,10 +558,17 @@ export default function SegurancaTrabalho() {
       if (result.vigenciaInicio && result.vigenciaInicio !== 'null') {
         const dataFormatada = parseDataBR(result.vigenciaInicio);
         if (dataFormatada) updates.vigenciaInicio = dataFormatada;
+      } else if (updates.dataEmissao) {
+        // Fallback: usa data de emissão como início de vigência
+        updates.vigenciaInicio = updates.dataEmissao;
       }
+      
       if (result.vigenciaFim && result.vigenciaFim !== 'null') {
         const dataFormatada = parseDataBR(result.vigenciaFim);
         if (dataFormatada) updates.vigenciaFim = dataFormatada;
+      } else if (updates.dataValidade) {
+        // Fallback: usa data de validade como fim de vigência
+        updates.vigenciaFim = updates.dataValidade;
       }
       
       // Aplica todas as atualizações de uma vez
