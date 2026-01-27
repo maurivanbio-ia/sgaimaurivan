@@ -24,242 +24,341 @@ export interface SSTDocumentAnalysis {
 
 async function agenteMedico(conteudo: string): Promise<{medicoResponsavel?: string; registroCrm?: string}> {
   console.log('========================================');
-  console.log('[Multi-Agent] Agente MÉDICO iniciando varredura...');
-  console.log('[Multi-Agent] Buscando padrões: Dr., Dra., CRM, Médico Responsável...');
-  console.log('[Multi-Agent] Conteúdo recebido (primeiros 500 chars):', conteudo.substring(0, 500));
+  console.log('[AGENTE MÉDICO] INICIANDO VARREDURA COMPLETA...');
+  console.log('[AGENTE MÉDICO] Tamanho do documento:', conteudo.length, 'caracteres');
   
-  const prompt = `Você é um agente especializado em EXTRAIR INFORMAÇÕES MÉDICAS de documentos de SST.
+  const prompt = `VOCÊ É UM EXTRATOR DE DADOS MÉDICOS. SUA MISSÃO É ENCONTRAR O NOME DO MÉDICO E O CRM NO DOCUMENTO.
 
-TAREFA: Faça uma VARREDURA COMPLETA do documento abaixo e extraia:
+INSTRUÇÕES CRÍTICAS:
+- Leia CADA LINHA do documento com atenção máxima
+- O médico pode estar em QUALQUER parte: cabeçalho, corpo, rodapé, assinatura
+- O CRM pode estar separado do nome do médico
+- NUNCA retorne null se houver QUALQUER indício de médico ou CRM
 
-1. **medicoResponsavel**: Nome COMPLETO do médico responsável pelo documento.
-   PADRÕES DE BUSCA:
-   - "Dr." ou "Dra." seguido de nome
-   - "Médico Responsável:", "Médico Coordenador:", "Médico do Trabalho:"
-   - "Médico Examinador:", "Responsável Técnico:"
-   - Nome próximo a "CRM" ou assinatura médica
-   - Busque em TODO o documento, especialmente no final/rodapé
+ONDE PROCURAR O MÉDICO:
+1. Procure "Dr.", "Dra.", "DR.", "DRA." seguido de nome
+2. Procure "Médico", "Médica", "MÉDICO", "MÉDICA" 
+3. Procure "Responsável Técnico", "Coordenador PCMSO"
+4. Procure perto de assinaturas e carimbos
+5. Procure no FINAL do documento
+6. Procure perto de números CRM
 
-2. **registroCrm**: Número do CRM do médico.
-   PADRÕES DE BUSCA:
-   - "CRM", "CRM:", "CRM/", "CRM-"
-   - Números seguidos de UF (SE, BA, SP, etc.)
-   - Próximo ao nome do médico
-   - No rodapé ou área de assinatura
+ONDE PROCURAR O CRM:
+1. Procure "CRM", "crm", "C.R.M."
+2. Procure números de 4-6 dígitos seguidos de "/" ou "-" e sigla de estado (BA, SE, SP, RJ, etc.)
+3. Procure "Registro:", "Reg.", "Nº"
+4. Formato típico: CRM 12345/BA, CRM-BA 12345, CRM/SE 4567
 
-DOCUMENTO COMPLETO PARA ANÁLISE:
----
+EXEMPLOS DE EXTRAÇÃO:
+- "Dr. João Carlos Silva" → medicoResponsavel: "Dr. João Carlos Silva"
+- "CRM 2369/SE" → registroCrm: "2369/SE" ou "CRM 2369/SE"
+- "Dra. Maria Santos - CRM BA 5678" → medicoResponsavel: "Dra. Maria Santos", registroCrm: "CRM BA 5678"
+
+DOCUMENTO PARA ANÁLISE (LEIA TUDO COM ATENÇÃO):
+===INÍCIO DO DOCUMENTO===
 ${conteudo}
----
+===FIM DO DOCUMENTO===
 
-Responda APENAS em JSON válido:
-{"medicoResponsavel": "Nome Completo do Médico ou null", "registroCrm": "Número CRM ou null"}`;
+RESPONDA EM JSON EXATAMENTE ASSIM:
+{"medicoResponsavel": "NOME ENCONTRADO OU null SE NÃO ENCONTROU", "registroCrm": "CRM ENCONTRADO OU null SE NÃO ENCONTROU"}`;
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Você é um especialista em extrair informações médicas de documentos. Faça varredura COMPLETA. Responda APENAS em JSON.' },
+        { 
+          role: 'system', 
+          content: 'Você é um especialista em extrair informações de documentos médicos brasileiros. Sua única função é encontrar o nome do médico e o número do CRM. Seja meticuloso e leia todo o documento. Responda APENAS em JSON válido.' 
+        },
         { role: 'user', content: prompt }
       ],
       max_tokens: 500,
-      temperature: 0.1,
+      temperature: 0,
     });
     
     const response = completion.choices[0]?.message?.content || '{}';
-    console.log('[Multi-Agent] Resposta Agente MÉDICO:', response);
+    console.log('[AGENTE MÉDICO] RESPOSTA BRUTA:', response);
     
     const cleanJson = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    console.log('[AGENTE MÉDICO] JSON LIMPO:', cleanJson);
+    
     const result = JSON.parse(cleanJson);
     
-    return {
-      medicoResponsavel: result.medicoResponsavel !== 'null' ? result.medicoResponsavel : undefined,
-      registroCrm: result.registroCrm !== 'null' ? result.registroCrm : undefined
+    const finalResult = {
+      medicoResponsavel: (result.medicoResponsavel && result.medicoResponsavel !== 'null' && result.medicoResponsavel !== null) ? result.medicoResponsavel : undefined,
+      registroCrm: (result.registroCrm && result.registroCrm !== 'null' && result.registroCrm !== null) ? result.registroCrm : undefined
     };
+    
+    console.log('[AGENTE MÉDICO] RESULTADO FINAL:', JSON.stringify(finalResult));
+    return finalResult;
   } catch (error) {
-    console.error('[Multi-Agent] Erro Agente MÉDICO:', error);
+    console.error('[AGENTE MÉDICO] ERRO:', error);
     return {};
   }
 }
 
 async function agenteEmpresa(conteudo: string): Promise<{empresaResponsavel?: string; nomeEmpresa?: string; nomeColaborador?: string}> {
-  console.log('[Multi-Agent] Agente EMPRESA iniciando varredura...');
+  console.log('========================================');
+  console.log('[AGENTE EMPRESA] INICIANDO VARREDURA COMPLETA...');
   
-  const prompt = `Você é um agente especializado em EXTRAIR INFORMAÇÕES DE EMPRESA de documentos de SST.
+  const prompt = `VOCÊ É UM EXTRATOR DE DADOS EMPRESARIAIS. SUA MISSÃO É ENCONTRAR NOMES DE EMPRESAS E FUNCIONÁRIOS.
 
-TAREFA: Faça uma VARREDURA COMPLETA do documento abaixo e extraia:
+INSTRUÇÕES CRÍTICAS:
+- Leia CADA LINHA do documento
+- Há duas empresas possíveis: a que EMITIU o documento (clínica/prestadora) e a CONTRATANTE (onde o funcionário trabalha)
+- NUNCA retorne null se houver QUALQUER nome de empresa
 
-1. **empresaResponsavel**: Nome da EMPRESA/CLÍNICA que EMITIU o documento (prestadora de serviço SST).
-   PADRÕES DE BUSCA:
-   - Cabeçalho do documento
-   - "Emitido por:", "Elaborado por:", "Responsável Técnico:"
-   - Logo ou nome da clínica de medicina do trabalho
-   - Nome próximo a CNPJ de prestador de serviço
+EMPRESAS A PROCURAR:
 
-2. **nomeEmpresa**: Nome da EMPRESA CONTRATANTE (onde o funcionário trabalha).
-   PADRÕES DE BUSCA:
-   - "Empresa:", "Razão Social:", "Contratante:"
-   - "Empregador:", "Estabelecimento:"
-   - CNPJ da empresa cliente
+1. **empresaResponsavel** - EMPRESA QUE EMITIU O DOCUMENTO (clínica, prestadora de serviço de SST):
+   - Procure no CABEÇALHO do documento
+   - Procure nome de CLÍNICAS: "Clínica", "Centro Médico", "Medicina do Trabalho", "SESMT", "CEMED", "Saúde Ocupacional"
+   - Procure "Emitido por", "Elaborado por"
+   - Procure CNPJ de prestador de serviços
+   - Esta é a empresa que ASSINA o documento, não a empregadora
 
-3. **nomeColaborador**: Nome do FUNCIONÁRIO/COLABORADOR examinado.
-   PADRÕES DE BUSCA:
-   - "Nome:", "Funcionário:", "Colaborador:", "Trabalhador:"
-   - "Examinado:", "Paciente:"
-   - CPF do trabalhador
+2. **nomeEmpresa** - EMPRESA CONTRATANTE (empregadora do funcionário):
+   - Procure "Empresa:", "Razão Social:", "Empregador:", "Contratante:"
+   - Procure o nome da empresa onde o FUNCIONÁRIO trabalha
+   - Pode estar junto com CNPJ, endereço
 
-DOCUMENTO COMPLETO PARA ANÁLISE:
----
+3. **nomeColaborador** - NOME DO FUNCIONÁRIO/TRABALHADOR:
+   - Procure "Nome:", "Funcionário:", "Colaborador:", "Trabalhador:", "Paciente:", "Examinado:"
+   - Procure CPF, RG, matrícula
+   - Nome próprio de pessoa (não de empresa)
+
+EXEMPLOS:
+- "CEMED MEDICINA OCUPACIONAL" no cabeçalho → empresaResponsavel: "CEMED MEDICINA OCUPACIONAL"
+- "Empresa: ECOBRASIL CONSULTORIA" → nomeEmpresa: "ECOBRASIL CONSULTORIA"
+- "Funcionário: José da Silva" → nomeColaborador: "José da Silva"
+
+DOCUMENTO PARA ANÁLISE (LEIA TUDO COM ATENÇÃO):
+===INÍCIO DO DOCUMENTO===
 ${conteudo}
----
+===FIM DO DOCUMENTO===
 
-Responda APENAS em JSON válido:
-{"empresaResponsavel": "Nome ou null", "nomeEmpresa": "Nome ou null", "nomeColaborador": "Nome ou null"}`;
+RESPONDA EM JSON EXATAMENTE ASSIM:
+{"empresaResponsavel": "NOME DA CLÍNICA/PRESTADORA OU null", "nomeEmpresa": "NOME DA EMPRESA CONTRATANTE OU null", "nomeColaborador": "NOME DO FUNCIONÁRIO OU null"}`;
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Você é um especialista em extrair informações empresariais de documentos. Faça varredura COMPLETA. Responda APENAS em JSON.' },
+        { 
+          role: 'system', 
+          content: 'Você é um especialista em extrair informações empresariais de documentos de segurança do trabalho brasileiros. Diferencie entre a empresa prestadora (que emite o documento) e a empresa contratante (empregadora). Responda APENAS em JSON válido.' 
+        },
         { role: 'user', content: prompt }
       ],
       max_tokens: 500,
-      temperature: 0.1,
+      temperature: 0,
     });
     
     const response = completion.choices[0]?.message?.content || '{}';
-    console.log('[Multi-Agent] Resposta Agente EMPRESA:', response);
+    console.log('[AGENTE EMPRESA] RESPOSTA BRUTA:', response);
     
     const cleanJson = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    console.log('[AGENTE EMPRESA] JSON LIMPO:', cleanJson);
+    
     const result = JSON.parse(cleanJson);
     
-    return {
-      empresaResponsavel: result.empresaResponsavel !== 'null' ? result.empresaResponsavel : undefined,
-      nomeEmpresa: result.nomeEmpresa !== 'null' ? result.nomeEmpresa : undefined,
-      nomeColaborador: result.nomeColaborador !== 'null' ? result.nomeColaborador : undefined
+    const finalResult = {
+      empresaResponsavel: (result.empresaResponsavel && result.empresaResponsavel !== 'null' && result.empresaResponsavel !== null) ? result.empresaResponsavel : undefined,
+      nomeEmpresa: (result.nomeEmpresa && result.nomeEmpresa !== 'null' && result.nomeEmpresa !== null) ? result.nomeEmpresa : undefined,
+      nomeColaborador: (result.nomeColaborador && result.nomeColaborador !== 'null' && result.nomeColaborador !== null) ? result.nomeColaborador : undefined
     };
+    
+    console.log('[AGENTE EMPRESA] RESULTADO FINAL:', JSON.stringify(finalResult));
+    return finalResult;
   } catch (error) {
-    console.error('[Multi-Agent] Erro Agente EMPRESA:', error);
+    console.error('[AGENTE EMPRESA] ERRO:', error);
     return {};
   }
 }
 
 async function agenteDatas(conteudo: string): Promise<{dataEmissao?: string; dataValidade?: string; vigenciaInicio?: string; vigenciaFim?: string}> {
-  console.log('[Multi-Agent] Agente DATAS iniciando varredura...');
+  console.log('========================================');
+  console.log('[AGENTE DATAS] INICIANDO VARREDURA COMPLETA...');
   
-  const prompt = `Você é um agente especializado em EXTRAIR DATAS de documentos de SST.
+  const prompt = `VOCÊ É UM EXTRATOR DE DATAS. SUA MISSÃO É ENCONTRAR TODAS AS DATAS NO DOCUMENTO.
 
-TAREFA: Faça uma VARREDURA COMPLETA do documento abaixo e extraia:
+INSTRUÇÕES CRÍTICAS:
+- Leia CADA LINHA procurando datas
+- Datas brasileiras: DD/MM/YYYY, DD-MM-YYYY, DD de MÊS de YYYY
+- NUNCA retorne null se houver QUALQUER data no documento
+- Converta TODAS as datas para formato DD/MM/YYYY
 
-1. **dataEmissao**: Data de EMISSÃO do documento.
-   PADRÕES: "Data:", "Emitido em:", "Data de Emissão:", dia/mês/ano
+DATAS A PROCURAR:
 
-2. **dataValidade**: Data de VALIDADE do documento.
-   PADRÕES: "Válido até:", "Validade:", "Expira em:", "Vencimento:"
+1. **dataEmissao** - Quando o documento foi CRIADO:
+   - "Data:", "Emitido em:", "Data de Emissão:", "Em:"
+   - Data próxima a assinaturas
+   - Data no cabeçalho ou rodapé
 
-3. **vigenciaInicio**: Data de INÍCIO da vigência.
-   PADRÕES: "Vigência:", "De:", "Início:", "A partir de:"
+2. **dataValidade** - Quando o documento EXPIRA:
+   - "Válido até:", "Validade:", "Vencimento:", "Expira em:"
+   - Para ASO: geralmente 1-2 anos após emissão
+   - Para PCMSO/PGR: geralmente 1 ano
 
-4. **vigenciaFim**: Data de FIM da vigência.
-   PADRÕES: "Vigência:", "Até:", "Término:", "Final:"
+3. **vigenciaInicio** - Data de INÍCIO da vigência:
+   - "Vigência:", "Período:", "De:", "Início:", "A partir de:"
+   - Pode ser igual à data de emissão
 
-FORMATO: Converta todas as datas para DD/MM/YYYY
+4. **vigenciaFim** - Data de FIM da vigência:
+   - "Vigência:", "Período:", "Até:", "Término:", "Final:"
+   - "Válido até:", "Vencimento:"
 
-DOCUMENTO COMPLETO PARA ANÁLISE:
----
+EXEMPLOS:
+- "Emitido em 15/01/2024" → dataEmissao: "15/01/2024"
+- "Válido até 15 de janeiro de 2025" → dataValidade: "15/01/2025"
+- "Vigência: 01/01/2024 a 31/12/2024" → vigenciaInicio: "01/01/2024", vigenciaFim: "31/12/2024"
+
+DOCUMENTO PARA ANÁLISE (LEIA TUDO COM ATENÇÃO):
+===INÍCIO DO DOCUMENTO===
 ${conteudo}
----
+===FIM DO DOCUMENTO===
 
-Responda APENAS em JSON válido:
-{"dataEmissao": "DD/MM/YYYY ou null", "dataValidade": "DD/MM/YYYY ou null", "vigenciaInicio": "DD/MM/YYYY ou null", "vigenciaFim": "DD/MM/YYYY ou null"}`;
+RESPONDA EM JSON EXATAMENTE ASSIM:
+{"dataEmissao": "DD/MM/YYYY OU null", "dataValidade": "DD/MM/YYYY OU null", "vigenciaInicio": "DD/MM/YYYY OU null", "vigenciaFim": "DD/MM/YYYY OU null"}`;
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Você é um especialista em extrair datas de documentos. Faça varredura COMPLETA. Responda APENAS em JSON.' },
+        { 
+          role: 'system', 
+          content: 'Você é um especialista em extrair e formatar datas de documentos brasileiros. Converta todas as datas para o formato DD/MM/YYYY. Responda APENAS em JSON válido.' 
+        },
         { role: 'user', content: prompt }
       ],
       max_tokens: 500,
-      temperature: 0.1,
+      temperature: 0,
     });
     
     const response = completion.choices[0]?.message?.content || '{}';
-    console.log('[Multi-Agent] Resposta Agente DATAS:', response);
+    console.log('[AGENTE DATAS] RESPOSTA BRUTA:', response);
     
     const cleanJson = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    console.log('[AGENTE DATAS] JSON LIMPO:', cleanJson);
+    
     const result = JSON.parse(cleanJson);
     
-    return {
-      dataEmissao: result.dataEmissao !== 'null' ? result.dataEmissao : undefined,
-      dataValidade: result.dataValidade !== 'null' ? result.dataValidade : undefined,
-      vigenciaInicio: result.vigenciaInicio !== 'null' ? result.vigenciaInicio : undefined,
-      vigenciaFim: result.vigenciaFim !== 'null' ? result.vigenciaFim : undefined
+    const finalResult = {
+      dataEmissao: (result.dataEmissao && result.dataEmissao !== 'null' && result.dataEmissao !== null) ? result.dataEmissao : undefined,
+      dataValidade: (result.dataValidade && result.dataValidade !== 'null' && result.dataValidade !== null) ? result.dataValidade : undefined,
+      vigenciaInicio: (result.vigenciaInicio && result.vigenciaInicio !== 'null' && result.vigenciaInicio !== null) ? result.vigenciaInicio : undefined,
+      vigenciaFim: (result.vigenciaFim && result.vigenciaFim !== 'null' && result.vigenciaFim !== null) ? result.vigenciaFim : undefined
     };
+    
+    console.log('[AGENTE DATAS] RESULTADO FINAL:', JSON.stringify(finalResult));
+    return finalResult;
   } catch (error) {
-    console.error('[Multi-Agent] Erro Agente DATAS:', error);
+    console.error('[AGENTE DATAS] ERRO:', error);
     return {};
   }
 }
 
 async function agenteTipoDocumento(conteudo: string, nomeArquivo: string): Promise<{tipoDocumento?: string; tipoDescritivo?: string; subtipoAso?: string; descricao?: string}> {
-  console.log('[Multi-Agent] Agente TIPO iniciando varredura...');
+  console.log('========================================');
+  console.log('[AGENTE TIPO] INICIANDO CLASSIFICAÇÃO...');
   
-  const prompt = `Você é um agente especializado em CLASSIFICAR DOCUMENTOS de SST.
+  const prompt = `VOCÊ É UM CLASSIFICADOR DE DOCUMENTOS DE SST. SUA MISSÃO É IDENTIFICAR O TIPO DO DOCUMENTO.
 
-TAREFA: Analise o documento e classifique:
+INSTRUÇÕES CRÍTICAS:
+- Identifique o TIPO EXATO do documento
+- Se for ASO, identifique o SUBTIPO (admissional, demissional, periódico, etc.)
 
-1. **tipoDocumento**: Categoria do dropdown (use exatamente um destes valores):
-   PCMSO, PGR, LTCAT, ASO, PPRA, APR, NR, EPI, CIPA, CAT, PPP, LAUDOERGO, LAUDOINS, LAUDOPER, TREINAMENTO, outro
+TIPOS DE DOCUMENTOS SST:
 
-2. **tipoDescritivo**: Tipo exato do documento (PCMSO, PGR, ASO, LTCAT, etc.)
+1. **ASO** - Atestado de Saúde Ocupacional
+   - Subtipos: admissional, demissional, periodico, retorno, mudanca_funcao
+   - Contém: "APTO" ou "INAPTO", exame médico, nome do funcionário
+   
+2. **PCMSO** - Programa de Controle Médico de Saúde Ocupacional
+   - Programa anual, cronograma de exames
+   
+3. **PGR** - Programa de Gerenciamento de Riscos
+   - Avaliação de riscos, medidas de controle
+   
+4. **LTCAT** - Laudo Técnico das Condições Ambientais de Trabalho
+   - Avaliação de agentes nocivos
+   
+5. **PPRA** - Programa de Prevenção de Riscos Ambientais (antigo, substituído pelo PGR)
 
-3. **subtipoAso**: Se for ASO, identifique o tipo:
-   - admissional: Exame de admissão
-   - demissional: Exame de demissão
-   - periodico: Exame periódico
-   - retorno: Retorno ao trabalho
-   - mudanca_funcao: Mudança de função
-   Retorne null se não for ASO
+6. **APR** - Análise Preliminar de Riscos
 
-4. **descricao**: Descrição breve do documento (1-2 frases)
+7. **PPP** - Perfil Profissiográfico Previdenciário
+
+8. **CAT** - Comunicação de Acidente de Trabalho
+
+9. **LAUDOERGO** - Laudo Ergonômico
+
+10. **LAUDOINS** - Laudo de Insalubridade
+
+11. **LAUDOPER** - Laudo de Periculosidade
+
+12. **TREINAMENTO** - Certificados de treinamento NR
+
+13. **EPI** - Fichas de EPI
+
+14. **CIPA** - Documentos da CIPA
+
+15. **outro** - Outros documentos
+
+IDENTIFICAÇÃO DE SUBTIPO ASO:
+- "Admissional", "admissão", "contratação" → admissional
+- "Demissional", "demissão", "desligamento" → demissional  
+- "Periódico", "periódica", "anual" → periodico
+- "Retorno", "retorno ao trabalho", "após afastamento" → retorno
+- "Mudança de função", "troca de cargo" → mudanca_funcao
 
 Nome do arquivo: ${nomeArquivo}
 
-DOCUMENTO COMPLETO PARA ANÁLISE:
----
+DOCUMENTO PARA ANÁLISE:
+===INÍCIO DO DOCUMENTO===
 ${conteudo}
----
+===FIM DO DOCUMENTO===
 
-Responda APENAS em JSON válido:
-{"tipoDocumento": "valor", "tipoDescritivo": "valor", "subtipoAso": "valor ou null", "descricao": "texto"}`;
+RESPONDA EM JSON EXATAMENTE ASSIM:
+{"tipoDocumento": "CÓDIGO DO TIPO", "tipoDescritivo": "NOME COMPLETO DO TIPO", "subtipoAso": "SUBTIPO SE FOR ASO OU null", "descricao": "DESCRIÇÃO BREVE DO DOCUMENTO"}`;
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Você é um especialista em classificar documentos de SST. Responda APENAS em JSON.' },
+        { 
+          role: 'system', 
+          content: 'Você é um especialista em classificar documentos de Segurança e Saúde do Trabalho (SST) brasileiros. Identifique com precisão o tipo e subtipo do documento. Responda APENAS em JSON válido.' 
+        },
         { role: 'user', content: prompt }
       ],
       max_tokens: 500,
-      temperature: 0.1,
+      temperature: 0,
     });
     
     const response = completion.choices[0]?.message?.content || '{}';
-    console.log('[Multi-Agent] Resposta Agente TIPO:', response);
+    console.log('[AGENTE TIPO] RESPOSTA BRUTA:', response);
     
     const cleanJson = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    console.log('[AGENTE TIPO] JSON LIMPO:', cleanJson);
+    
     const result = JSON.parse(cleanJson);
     
-    return {
-      tipoDocumento: result.tipoDocumento,
-      tipoDescritivo: result.tipoDescritivo,
-      subtipoAso: result.subtipoAso !== 'null' ? result.subtipoAso : undefined,
-      descricao: result.descricao
+    const tipoValido = ['PCMSO', 'PGR', 'LTCAT', 'ASO', 'PPRA', 'APR', 'NR', 'EPI', 'CIPA', 'CAT', 'PPP', 'LAUDOERGO', 'LAUDOINS', 'LAUDOPER', 'TREINAMENTO', 'outro'];
+    const subtipoAsoValido = ['admissional', 'demissional', 'periodico', 'retorno', 'mudanca_funcao'];
+    
+    const finalResult = {
+      tipoDocumento: tipoValido.includes(result.tipoDocumento) ? result.tipoDocumento : 'outro',
+      tipoDescritivo: result.tipoDescritivo || result.tipoDocumento,
+      subtipoAso: (result.subtipoAso && result.subtipoAso !== 'null' && result.subtipoAso !== null && subtipoAsoValido.includes(result.subtipoAso)) ? result.subtipoAso : undefined,
+      descricao: result.descricao || 'Documento de SST'
     };
+    
+    console.log('[AGENTE TIPO] RESULTADO FINAL:', JSON.stringify(finalResult));
+    return finalResult;
   } catch (error) {
-    console.error('[Multi-Agent] Erro Agente TIPO:', error);
-    return {};
+    console.error('[AGENTE TIPO] ERRO:', error);
+    return { tipoDocumento: 'outro', descricao: 'Documento de SST' };
   }
 }
 
@@ -288,8 +387,23 @@ function gerarNomenclatura(dados: SSTDocumentAnalysis): string {
 }
 
 export async function analyzeDocumentMultiAgent(conteudo: string, nomeArquivo: string): Promise<SSTDocumentAnalysis> {
-  console.log('[Multi-Agent] Iniciando análise multi-agente para:', nomeArquivo);
-  console.log('[Multi-Agent] Tamanho do conteúdo:', conteudo.length, 'caracteres');
+  console.log('========================================');
+  console.log('========================================');
+  console.log('[MULTI-AGENT] INICIANDO ANÁLISE COMPLETA');
+  console.log('[MULTI-AGENT] Arquivo:', nomeArquivo);
+  console.log('[MULTI-AGENT] Tamanho do conteúdo:', conteudo.length, 'caracteres');
+  console.log('[MULTI-AGENT] Primeiros 1000 caracteres do documento:');
+  console.log(conteudo.substring(0, 1000));
+  console.log('========================================');
+  
+  if (!conteudo || conteudo.length < 50) {
+    console.log('[MULTI-AGENT] ERRO: Conteúdo muito curto ou vazio!');
+    return {
+      descricao: 'Não foi possível extrair texto do documento',
+      tipoDocumento: 'outro',
+      status: 'pendente'
+    };
+  }
   
   const [resultadoMedico, resultadoEmpresa, resultadoDatas, resultadoTipo] = await Promise.all([
     agenteMedico(conteudo),
@@ -298,7 +412,12 @@ export async function analyzeDocumentMultiAgent(conteudo: string, nomeArquivo: s
     agenteTipoDocumento(conteudo, nomeArquivo)
   ]);
   
-  console.log('[Multi-Agent] Consolidando resultados de todos os agentes...');
+  console.log('========================================');
+  console.log('[MULTI-AGENT] CONSOLIDANDO RESULTADOS:');
+  console.log('[MULTI-AGENT] Resultado Médico:', JSON.stringify(resultadoMedico));
+  console.log('[MULTI-AGENT] Resultado Empresa:', JSON.stringify(resultadoEmpresa));
+  console.log('[MULTI-AGENT] Resultado Datas:', JSON.stringify(resultadoDatas));
+  console.log('[MULTI-AGENT] Resultado Tipo:', JSON.stringify(resultadoTipo));
   
   const resultado: SSTDocumentAnalysis = {
     ...resultadoMedico,
@@ -310,7 +429,10 @@ export async function analyzeDocumentMultiAgent(conteudo: string, nomeArquivo: s
   
   resultado.nomenclatura = gerarNomenclatura(resultado);
   
-  console.log('[Multi-Agent] Resultado FINAL consolidado:', JSON.stringify(resultado, null, 2));
+  console.log('========================================');
+  console.log('[MULTI-AGENT] RESULTADO FINAL CONSOLIDADO:');
+  console.log(JSON.stringify(resultado, null, 2));
+  console.log('========================================');
   
   return resultado;
 }
