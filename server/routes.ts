@@ -4723,7 +4723,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ========== SST - AGENTE IA PARA ANÁLISE DE DOCUMENTOS ==========
+  // ========== SST - SISTEMA MULTI-AGENTE PARA ANÁLISE DE DOCUMENTOS ==========
+  // Usa 4 agentes especializados em paralelo para varredura completa do documento
   app.post('/api/sst/analisar-documento', requireAuth, async (req, res) => {
     try {
       const { tipo, nome, conteudo } = req.body;
@@ -4732,164 +4733,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Conteúdo do documento é obrigatório' });
       }
       
-      const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      console.log('[SST Multi-Agent] Iniciando análise multi-agente para:', nome);
+      console.log('[SST Multi-Agent] Tamanho do conteúdo:', conteudo.length, 'caracteres');
       
-      const tipoLabels: Record<string, string> = {
-        ppra: 'Programa de Prevenção de Riscos Ambientais (PPRA)',
-        pcmso: 'Programa de Controle Médico de Saúde Ocupacional (PCMSO)',
-        pgr: 'Programa de Gerenciamento de Riscos (PGR)',
-        ltcat: 'Laudo Técnico das Condições Ambientais de Trabalho (LTCAT)',
-        outro: 'Documento de Segurança do Trabalho',
-      };
+      // Importa o serviço multi-agente
+      const { analyzeDocumentMultiAgent } = await import('./services/multiAgentDocumentAnalysis');
       
-      const tipoLabel = tipoLabels[tipo] || tipoLabels.outro;
+      // Executa análise com múltiplos agentes em paralelo
+      const parsedData = await analyzeDocumentMultiAgent(conteudo, nome || 'documento');
       
-      // Gerar data atual para o prompt
-      const hoje = new Date();
-      const dataHoje = `${hoje.getDate().toString().padStart(2, '0')}/${(hoje.getMonth() + 1).toString().padStart(2, '0')}/${hoje.getFullYear()}`;
-      const anoAtual = hoje.getFullYear();
-      
-      const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST). Analise CUIDADOSAMENTE o documento abaixo e extraia TODAS as informações solicitadas.
-
-NOME DO ARQUIVO ORIGINAL: "${nome || 'Sem título'}"
-
-INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
-
-1. **descricao**: Escreva um resumo CURTO (3-5 linhas) descrevendo o que é o documento.
-
-2. **dataEmissao**: Procure por QUALQUER data que indique quando o documento foi criado/emitido. Busque por:
-   - "Data:", "Data de emissão:", "Emitido em:", "Elaborado em:", "Em:"
-   - Datas no cabeçalho ou rodapé
-   - Formatos: DD/MM/YYYY, DD de Mês de YYYY, YYYY-MM-DD
-   Se encontrar, converta para DD/MM/YYYY. Se não encontrar, use null.
-
-3. **dataValidade**: Procure por QUALQUER data de validade/vencimento. Busque por:
-   - "Validade:", "Válido até:", "Vigência:", "Vencimento:", "Expira em:"
-   - Para PGR/PCMSO geralmente é 1-2 anos após emissão
-   Se encontrar, converta para DD/MM/YYYY. Se não encontrar, use null.
-
-4. **responsavel**: Encontre o nome do profissional responsável. Busque por:
-   - Assinaturas no final do documento
-   - "Responsável Técnico:", "Elaborado por:", "Técnico de Segurança:"
-   - Nomes com títulos: Eng., Dr., Téc., CREA, CRM
-   Retorne APENAS o nome completo ou null.
-
-5. **tipoDocumento**: Identifique o tipo baseado no conteúdo. Use a SIGLA correspondente:
-   - PGR = Programa de Gerenciamento de Riscos
-   - PCMSO = Programa de Controle Médico de Saúde Ocupacional
-   - PPRA = Programa de Prevenção de Riscos Ambientais
-   - LTCAT = Laudo Técnico das Condições Ambientais de Trabalho
-   - ASO = Atestado de Saúde Ocupacional
-   - CIPA = Comissão Interna de Prevenção de Acidentes
-   - BRIGADA = Brigada de Incêndio
-   - TREIN = Certificado/Registro de Treinamento
-   - EPI = Ficha de EPI
-   - CAT = Comunicação de Acidente de Trabalho
-   - LAUDO = Laudo Técnico
-   - CERT = Certificado
-   - DOC = Documento não identificado
-
-6. **subtipoAso**: Se for ASO, identifique o SUBTIPO específico. Busque por:
-   - "ADMISSIONAL" ou "Exame Admissional" → retorne "admissional"
-   - "DEMISSIONAL" ou "Exame Demissional" → retorne "demissional"
-   - "PERIÓDICO" ou "Exame Periódico" → retorne "periodico"
-   - "RETORNO AO TRABALHO" ou "Retorno" → retorne "retorno"
-   - "MUDANÇA DE FUNÇÃO" ou "Mudança de Riscos" → retorne "mudanca_funcao"
-   Retorne null se não for ASO ou não conseguir identificar.
-
-7. **status**: Baseado na data de validade e hoje (${dataHoje}):
-   - "valido" se ainda não venceu
-   - "vencido" se já passou da validade
-   - "proximo_vencimento" se vence em menos de 30 dias
-   - null se não puder determinar
-
-7. **nomeEmpresa**: Nome da empresa/empreendimento CONTRATANTE mencionado no documento. Retorne null se não encontrar.
-
-8. **nomeColaborador**: Se for ASO ou documento individual de um colaborador, extraia o nome completo do colaborador/funcionário. Busque por "Nome:", "Funcionário:", "Colaborador:", "Trabalhador:". Retorne null se não for documento individual.
-
-9. **isDocumentoGeral**: Determine se é um documento GERAL (da empresa/escritório) ou INDIVIDUAL (de um colaborador específico):
-   - true = Documento geral da empresa (PGR, PCMSO, LTCAT, etc.)
-   - false = Documento individual de colaborador (ASO, Ficha de EPI individual, etc.)
-
-10. **empresaResponsavel**: Nome da EMPRESA RESPONSÁVEL pela elaboração do documento (clínica, consultoria de SST). 
-    Busque por seções como "EMPRESA RESPONSÁVEL", "RAZÃO SOCIAL", "PRESTADOR", "CLÍNICA".
-    Exemplo: "CEMED MEDICINA E SEGURANÇA DO TRABALHO"
-    Retorne null se não encontrar.
-
-11. **medicoResponsavel**: Nome COMPLETO do MÉDICO RESPONSÁVEL pelo documento.
-    Busque por seções como "MÉDICO RESPONSÁVEL", "MÉDICO COORDENADOR", "Dr.", "Dra."
-    Exemplo: "Dr. Agnaldo Celestino Feitosa Filho"
-    Retorne null se não encontrar.
-
-12. **registroCrm**: Número do REGISTRO CRM do médico responsável.
-    Busque por "CRM", "Registro:", "CRM/UF"
-    Exemplo: "2369 - CRM/SE" ou "CRM-SE 2369"
-    Retorne null se não encontrar.
-
-13. **vigenciaInicio**: Data de INÍCIO da vigência do documento.
-    Busque por "VIGÊNCIA", "De:", "Válido de:", "Início:", "A partir de:"
-    Converta para DD/MM/YYYY. Retorne null se não encontrar.
-
-14. **vigenciaFim**: Data de FIM da vigência do documento.
-    Busque por "VIGÊNCIA", "Até:", "Válido até:", "Término:", "Validade:"
-    Converta para DD/MM/YYYY. Retorne null se não encontrar.
-
-15. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
-   - Para ASO: SST-ASO-[ANO]-[NOME_COLAB]-[EMPRESA_ABREV]
-     Onde NOME_COLAB = Primeiro e último nome do colaborador (ex: JOAO_SILVA)
-     Exemplo: SST-ASO-2025-JOAO_SILVA-ECOBR
-   - Para outros documentos: SST-[TIPO]-[ANO]-[EMPRESA_ABREV]
-     Exemplo: SST-PGR-2025-VALE, SST-PCMSO-2024-PETRO
-   Onde:
-   - TIPO = Sigla do tipo de documento (PGR, PCMSO, LTCAT, ASO, etc.)
-   - ANO = Ano de emissão do documento (use o ano da dataEmissao, ou ${anoAtual} se não houver)
-   - EMPRESA_ABREV = Abreviação do nome da empresa contratante (primeiras 3-4 letras em maiúsculas, sem espaços)
-
-DOCUMENTO A ANALISAR:
----
-${conteudo.substring(0, 12000)}
----
-
-RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
-{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"ASO","subtipoAso":"admissional","status":"valido","nomeEmpresa":"Empresa Contratante","nomeColaborador":"João da Silva","isDocumentoGeral":false,"empresaResponsavel":"CEMED MEDICINA","medicoResponsavel":"Dr. Fulano de Tal","registroCrm":"1234 - CRM/SE","vigenciaInicio":"01/12/2025","vigenciaFim":"30/11/2026","nomenclatura":"SST-ASO-2025-JOAO_SILVA-EMPR"}`;
-
-      console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
-      
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'Você é um especialista técnico em SST. Extraia TODAS as informações solicitadas do documento. Responda APENAS em JSON válido, sem markdown ou texto adicional.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 1000,
-        temperature: 0.1,
-      });
-      
-      const responseText = completion.choices[0]?.message?.content || '{}';
-      console.log('[SST AI] Resposta da IA:', responseText);
-      
-      // Parse JSON response
-      let parsedData: any = {};
-      try {
-        // Remove possíveis marcadores de código markdown
-        let cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        // Remove qualquer texto antes do primeiro {
-        const jsonStart = cleanJson.indexOf('{');
-        if (jsonStart > 0) {
-          cleanJson = cleanJson.substring(jsonStart);
-        }
-        // Remove qualquer texto depois do último }
-        const jsonEnd = cleanJson.lastIndexOf('}');
-        if (jsonEnd > 0 && jsonEnd < cleanJson.length - 1) {
-          cleanJson = cleanJson.substring(0, jsonEnd + 1);
-        }
-        parsedData = JSON.parse(cleanJson);
-        console.log('[SST AI] JSON parseado:', JSON.stringify(parsedData));
-      } catch (parseError) {
-        console.error('[SST AI] Erro ao parsear JSON:', responseText);
-        parsedData = { descricao: responseText };
-      }
+      console.log('[SST Multi-Agent] Resultado consolidado:', JSON.stringify(parsedData, null, 2));
       
       // Normaliza valores null como string para null real
       const normalizeNull = (val: any) => {
@@ -4898,7 +4751,6 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
       };
       
       // Mapeia o tipo identificado pela IA para o valor do Select do frontend
-      // Agora o frontend tem mais tipos: PCMSO, PGR, LTCAT, ASO, PPRA, APR, NR, EPI, CIPA, CAT, PPP, LAUDOERGO, LAUDOINS, LAUDOPER, TREINAMENTO, outro
       const tipoMap: Record<string, string> = {
         'PCMSO': 'PCMSO', 'PGR': 'PGR', 'PPRA': 'PPRA', 'LTCAT': 'LTCAT',
         'ASO': 'ASO', 'APR': 'APR', 'CIPA': 'CIPA', 'NR': 'NR', 'EPI': 'EPI',
@@ -4906,37 +4758,40 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         'BRIGADA': 'TREINAMENTO', 'LAUDO': 'outro', 'LAUDOERGO': 'LAUDOERGO',
         'LAUDOINS': 'LAUDOINS', 'LAUDOPER': 'LAUDOPER', 'CERT': 'TREINAMENTO', 'DOC': 'outro'
       };
-      const tipoOriginal = parsedData.tipoDocumento?.toUpperCase() || 'DOC';
+      const tipoOriginal = (parsedData.tipoDescritivo || parsedData.tipoDocumento || 'DOC').toUpperCase();
       const tipoNormalizado = tipoMap[tipoOriginal] || 'outro';
+      
+      // Determina se é documento geral baseado no tipo
+      const tiposGerais = ['PGR', 'PCMSO', 'PPRA', 'LTCAT', 'CIPA'];
+      const isDocumentoGeral = tiposGerais.includes(tipoOriginal) || !parsedData.nomeColaborador;
       
       const result = { 
         success: true,
         descricao: parsedData.descricao || '',
         dataEmissao: normalizeNull(parsedData.dataEmissao),
         dataValidade: normalizeNull(parsedData.dataValidade),
-        responsavel: normalizeNull(parsedData.responsavel),
+        responsavel: normalizeNull(parsedData.medicoResponsavel),
         tipoDocumento: tipoNormalizado,
-        tipoDescritivo: tipoOriginal, // Tipo real do documento (PCMSO, PGR, ASO, etc.)
-        subtipoAso: normalizeNull(parsedData.subtipoAso), // Subtipo de ASO: admissional, demissional, periodico, etc.
+        tipoDescritivo: tipoOriginal,
+        subtipoAso: normalizeNull(parsedData.subtipoAso),
         status: normalizeNull(parsedData.status),
         nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
         nomeColaborador: normalizeNull(parsedData.nomeColaborador),
-        isDocumentoGeral: parsedData.isDocumentoGeral === true || parsedData.isDocumentoGeral === 'true',
-        // Novos campos para empresa e médico responsável
+        isDocumentoGeral: isDocumentoGeral,
         empresaResponsavel: normalizeNull(parsedData.empresaResponsavel),
         medicoResponsavel: normalizeNull(parsedData.medicoResponsavel),
         registroCrm: normalizeNull(parsedData.registroCrm),
         vigenciaInicio: normalizeNull(parsedData.vigenciaInicio),
         vigenciaFim: normalizeNull(parsedData.vigenciaFim),
         nomenclatura: normalizeNull(parsedData.nomenclatura),
-        tokens: completion.usage?.total_tokens || 0
+        multiAgent: true // Indica que usou sistema multi-agente
       };
       
-      console.log('[SST AI] Resultado final:', JSON.stringify(result));
+      console.log('[SST Multi-Agent] Resultado final:', JSON.stringify(result));
       res.json(result);
     } catch (error) {
-      console.error('Erro ao analisar documento SST:', error);
-      res.status(500).json({ error: 'Falha ao analisar documento com IA' });
+      console.error('Erro ao analisar documento SST (Multi-Agent):', error);
+      res.status(500).json({ error: 'Falha ao analisar documento com IA multi-agente' });
     }
   });
 
