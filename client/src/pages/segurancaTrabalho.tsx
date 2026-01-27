@@ -76,6 +76,7 @@ export default function SegurancaTrabalho() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [documentContent, setDocumentContent] = useState<string>("");
+  const [isEmpreendimentoEspecifico, setIsEmpreendimentoEspecifico] = useState(false);
 
   // Formulário Colaborador
   const [colaboradorForm, setColaboradorForm] = useState({
@@ -311,6 +312,7 @@ export default function SegurancaTrabalho() {
     setAiAnalysis(null);
     setSelectedFile(null);
     setDocumentContent("");
+    setIsEmpreendimentoEspecifico(false);
   };
 
   const handleSaveColaborador = () => {
@@ -456,6 +458,7 @@ export default function SegurancaTrabalho() {
       assinaturaResponsavel: documento.assinaturaResponsavel || "",
       status: documento.status || "valido",
     });
+    setIsEmpreendimentoEspecifico(!!documento.empreendimentoId);
     setIsDocumentoDialogOpen(true);
   };
 
@@ -826,6 +829,58 @@ export default function SegurancaTrabalho() {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  
+                  <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <Label className="font-medium">Específico para algum empreendimento?</Label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="empreendimentoEspecifico"
+                            checked={!isEmpreendimentoEspecifico}
+                            onChange={() => {
+                              setIsEmpreendimentoEspecifico(false);
+                              setDocumentoForm({ ...documentoForm, empreendimentoId: "" });
+                            }}
+                            className="w-4 h-4"
+                          />
+                          <span>Não (Geral)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="empreendimentoEspecifico"
+                            checked={isEmpreendimentoEspecifico}
+                            onChange={() => setIsEmpreendimentoEspecifico(true)}
+                            className="w-4 h-4"
+                          />
+                          <span>Sim</span>
+                        </label>
+                      </div>
+                    </div>
+                    
+                    {isEmpreendimentoEspecifico && (
+                      <div className="space-y-2">
+                        <Label htmlFor="empreendimentoId">Selecione o Empreendimento *</Label>
+                        <Select
+                          value={documentoForm.empreendimentoId}
+                          onValueChange={(value) => setDocumentoForm({ ...documentoForm, empreendimentoId: value })}
+                        >
+                          <SelectTrigger data-testid="select-documento-empreendimento">
+                            <SelectValue placeholder="Selecione o empreendimento" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {empreendimentos.map((emp) => (
+                              <SelectItem key={emp.id} value={emp.id.toString()}>
+                                {emp.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="descricao">Descrição</Label>
