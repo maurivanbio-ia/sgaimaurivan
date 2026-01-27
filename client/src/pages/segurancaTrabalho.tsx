@@ -689,21 +689,31 @@ export default function SegurancaTrabalho() {
                         <TableCell data-testid={`text-colaborador-cargo-${colaborador.id}`}>{colaborador.cargo || "-"}</TableCell>
                         <TableCell data-testid={`text-colaborador-empreendimento-${colaborador.id}`}>{colaborador.empreendimentoNome}</TableCell>
                         <TableCell>{getStatusBadge(colaborador.status || "ativo")}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right relative z-10">
                           <div className="flex justify-end gap-2">
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              onClick={() => handleEditColaborador(colaborador)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditColaborador(colaborador);
+                              }}
                               data-testid={`button-edit-colaborador-${colaborador.id}`}
+                              className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              onClick={() => deleteColaboradorMutation.mutate(colaborador.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('Tem certeza que deseja excluir este colaborador?')) {
+                                  deleteColaboradorMutation.mutate(colaborador.id);
+                                }
+                              }}
                               data-testid={`button-delete-colaborador-${colaborador.id}`}
+                              className="cursor-pointer hover:bg-red-100 dark:hover:bg-red-900"
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
@@ -916,31 +926,45 @@ export default function SegurancaTrabalho() {
                           {doc.dataValidade ? new Date(doc.dataValidade).toLocaleDateString("pt-BR") : "-"}
                         </TableCell>
                         <TableCell>{getStatusBadge(doc.status || "valido")}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right relative z-10">
                           <div className="flex justify-end gap-2">
                             {doc.arquivoUrl && (
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => window.open(doc.arquivoUrl || "", "_blank")}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(doc.arquivoUrl || "", "_blank");
+                                }}
                                 data-testid={`button-download-documento-${doc.id}`}
+                                className="cursor-pointer hover:bg-green-100 dark:hover:bg-green-900"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
                             )}
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              onClick={() => handleEditDocumento(doc)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditDocumento(doc);
+                              }}
                               data-testid={`button-edit-documento-${doc.id}`}
+                              className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              onClick={() => deleteDocumentoMutation.mutate(doc.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('Tem certeza que deseja excluir este documento?')) {
+                                  deleteDocumentoMutation.mutate(doc.id);
+                                }
+                              }}
                               data-testid={`button-delete-documento-${doc.id}`}
+                              className="cursor-pointer hover:bg-red-100 dark:hover:bg-red-900"
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
