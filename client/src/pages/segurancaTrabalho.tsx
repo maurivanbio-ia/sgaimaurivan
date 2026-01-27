@@ -98,6 +98,7 @@ export default function SegurancaTrabalho() {
     empreendimentoId: "",
     tipoDocumento: "",
     tipoDescritivo: "",
+    subtipoAso: "",
     nomeDocumento: "",
     descricao: "",
     arquivoUrl: "",
@@ -311,6 +312,7 @@ export default function SegurancaTrabalho() {
       empreendimentoId: "",
       tipoDocumento: "",
       tipoDescritivo: "",
+      subtipoAso: "",
       nomeDocumento: "",
       descricao: "",
       arquivoUrl: "",
@@ -500,6 +502,11 @@ export default function SegurancaTrabalho() {
         updates.tipoDescritivo = result.tipoDescritivo;
       }
       
+      // Subtipo de ASO (admissional, demissional, periodico, retorno, mudanca_funcao)
+      if (result.subtipoAso && result.subtipoAso !== 'null') {
+        updates.subtipoAso = result.subtipoAso;
+      }
+      
       // Nomenclatura sugerida - preenche o campo Nome do Documento automaticamente
       if (result.nomenclatura && result.nomenclatura !== 'null') {
         setSuggestedNomenclatura(result.nomenclatura);
@@ -572,6 +579,7 @@ export default function SegurancaTrabalho() {
       empreendimentoId: documento.empreendimentoId?.toString() || "",
       tipoDocumento: documento.tipoDocumento,
       tipoDescritivo: doc.tipoDescritivo || "",
+      subtipoAso: doc.subtipoAso || "",
       nomeDocumento: doc.nomeDocumento || "",
       descricao: documento.descricao || "",
       arquivoUrl: documento.arquivoUrl || "",
@@ -1066,6 +1074,28 @@ export default function SegurancaTrabalho() {
                         </SelectContent>
                       </Select>
                     </div>
+                    
+                    {/* Subtipo de ASO - aparece apenas quando tipo é ASO */}
+                    {documentoForm.tipoDocumento === "ASO" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="subtipoAso">Tipo de ASO</Label>
+                        <Select
+                          value={documentoForm.subtipoAso}
+                          onValueChange={(value) => setDocumentoForm({ ...documentoForm, subtipoAso: value })}
+                        >
+                          <SelectTrigger data-testid="select-subtipo-aso">
+                            <SelectValue placeholder="Selecione o tipo de ASO" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admissional">ASO Admissional</SelectItem>
+                            <SelectItem value="demissional">ASO Demissional</SelectItem>
+                            <SelectItem value="periodico">ASO Periódico</SelectItem>
+                            <SelectItem value="retorno">ASO Retorno ao Trabalho</SelectItem>
+                            <SelectItem value="mudanca_funcao">ASO Mudança de Função</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
