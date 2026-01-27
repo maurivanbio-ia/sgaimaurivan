@@ -454,6 +454,16 @@ export default function SegurancaTrabalho() {
 
       const result = await response.json();
       
+      // DEBUG: Log completo da resposta da IA
+      console.log('========================================');
+      console.log('[SST IA] RESPOSTA COMPLETA DA ANÁLISE:', JSON.stringify(result, null, 2));
+      console.log('[SST IA] Médico Responsável:', result.medicoResponsavel);
+      console.log('[SST IA] Registro CRM:', result.registroCrm);
+      console.log('[SST IA] Empresa Responsável:', result.empresaResponsavel);
+      console.log('[SST IA] Vigência Início:', result.vigenciaInicio);
+      console.log('[SST IA] Vigência Fim:', result.vigenciaFim);
+      console.log('========================================');
+      
       // Atualiza o formulário com TODAS as informações extraídas pela IA
       const updates: Partial<typeof documentoForm> = {};
       
