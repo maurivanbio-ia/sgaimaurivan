@@ -1047,10 +1047,21 @@ export default function SegurancaTrabalho() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="PCMSO">PCMSO - Programa de Controle Médico de Saúde Ocupacional</SelectItem>
+                          <SelectItem value="PGR">PGR - Programa de Gerenciamento de Riscos</SelectItem>
+                          <SelectItem value="LTCAT">LTCAT - Laudo Técnico das Condições Ambientais</SelectItem>
                           <SelectItem value="ASO">ASO - Atestado de Saúde Ocupacional</SelectItem>
+                          <SelectItem value="PPRA">PPRA - Programa de Prevenção de Riscos Ambientais</SelectItem>
+                          <SelectItem value="APR">APR - Análise Preliminar de Riscos</SelectItem>
                           <SelectItem value="NR">Treinamento NR</SelectItem>
                           <SelectItem value="EPI">Registro de EPI</SelectItem>
                           <SelectItem value="CIPA">Certificado CIPA</SelectItem>
+                          <SelectItem value="CAT">CAT - Comunicação de Acidente de Trabalho</SelectItem>
+                          <SelectItem value="PPP">PPP - Perfil Profissiográfico Previdenciário</SelectItem>
+                          <SelectItem value="LAUDOERGO">Laudo Ergonômico</SelectItem>
+                          <SelectItem value="LAUDOINS">Laudo de Insalubridade</SelectItem>
+                          <SelectItem value="LAUDOPER">Laudo de Periculosidade</SelectItem>
+                          <SelectItem value="TREINAMENTO">Certificado de Treinamento</SelectItem>
                           <SelectItem value="outro">Outro</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1118,28 +1129,6 @@ export default function SegurancaTrabalho() {
                       placeholder="Descrição do documento"
                       data-testid="input-documento-descricao"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="dataEmissao">Data de Emissão</Label>
-                      <Input
-                        id="dataEmissao"
-                        type="date"
-                        value={documentoForm.dataEmissao}
-                        onChange={(e) => setDocumentoForm({ ...documentoForm, dataEmissao: e.target.value })}
-                        data-testid="input-documento-data-emissao"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="dataValidade">Data de Validade</Label>
-                      <Input
-                        id="dataValidade"
-                        type="date"
-                        value={documentoForm.dataValidade}
-                        onChange={(e) => setDocumentoForm({ ...documentoForm, dataValidade: e.target.value })}
-                        data-testid="input-documento-data-validade"
-                      />
-                    </div>
                   </div>
                   {/* Empresa e Médico Responsável */}
                   <div className="grid grid-cols-2 gap-4 p-3 border rounded-lg bg-blue-50/50 dark:bg-blue-900/20">
