@@ -23,7 +23,10 @@ export interface SSTDocumentAnalysis {
 }
 
 async function agenteMedico(conteudo: string): Promise<{medicoResponsavel?: string; registroCrm?: string}> {
+  console.log('========================================');
   console.log('[Multi-Agent] Agente MÉDICO iniciando varredura...');
+  console.log('[Multi-Agent] Buscando padrões: Dr., Dra., CRM, Médico Responsável...');
+  console.log('[Multi-Agent] Conteúdo recebido (primeiros 500 chars):', conteudo.substring(0, 500));
   
   const prompt = `Você é um agente especializado em EXTRAIR INFORMAÇÕES MÉDICAS de documentos de SST.
 
