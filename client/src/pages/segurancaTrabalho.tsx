@@ -412,11 +412,6 @@ export default function SegurancaTrabalho() {
 
   // Função para analisar documento com IA
   const handleAnalyzeDocument = async () => {
-    if (!documentoForm.tipoDocumento) {
-      toast({ title: "Aviso", description: "Selecione o tipo de documento primeiro.", variant: "destructive" });
-      return;
-    }
-    
     if (!documentContent && !selectedFile) {
       toast({ title: "Aviso", description: "Faça o upload de um documento primeiro.", variant: "destructive" });
       return;
@@ -430,7 +425,7 @@ export default function SegurancaTrabalho() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tipo: documentoForm.tipoDocumento,
+          tipo: documentoForm.tipoDocumento || "outro",
           nome: selectedFile?.name || "documento",
           conteudo: documentContent || `Documento: ${selectedFile?.name || "sem nome"}`,
         }),
@@ -952,7 +947,7 @@ export default function SegurancaTrabalho() {
                         type="button"
                         variant="outline"
                         onClick={handleAnalyzeDocument}
-                        disabled={isAnalyzing || !documentoForm.tipoDocumento}
+                        disabled={isAnalyzing || (!documentContent && !selectedFile)}
                         className="whitespace-nowrap"
                       >
                         {isAnalyzing ? (
