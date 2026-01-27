@@ -1343,9 +1343,9 @@ export default function SegurancaTrabalho() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  const url = doc.arquivoUrl || "";
-                                  console.log('[SST] Abrindo documento:', url);
-                                  if (url) window.open(url, "_blank");
+                                  const downloadUrl = `/api/seg-documentos/${doc.id}/download`;
+                                  console.log('[SST] Baixando documento:', downloadUrl);
+                                  window.open(downloadUrl, "_blank");
                                 }}
                                 data-testid={`button-download-documento-${doc.id}`}
                                 className="cursor-pointer hover:bg-green-100 dark:hover:bg-green-900 pointer-events-auto"

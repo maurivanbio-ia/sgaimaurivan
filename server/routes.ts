@@ -4556,6 +4556,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download documento SST (proxy para Object Storage)
+  app.get('/api/seg-documentos/:id/download', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid documento ID' });
+      }
+
+      const documento = await storage.getSegDocumentoById(id);
+      if (!documento) {
+        return res.status(404).json({ error: 'Documento not found' });
+      }
+
+      if (!documento.arquivoUrl) {
+        return res.status(404).json({ error: 'Arquivo não encontrado' });
+      }
+
+      // Extrair o caminho do arquivo da URL do Object Storage
+      const url = documento.arquivoUrl;
+      let filePath = '';
+      
+      // URL pode ser: /files/sst_documentos/... ou URL completa do Object Storage
+      if (url.startsWith('/files/')) {
+        filePath = url;
+      } else if (url.includes('sst_documentos/')) {
+        const match = url.match(/sst_documentos\/.+/);
+        filePath = match ? `/files/${match[0]}` : '';
+      } else {
+        // Tentar extrair o caminho após o bucket ID
+        const match = url.match(/\/([^\/]+\/sst_documentos\/.+)$/);
+        filePath = match ? `/files/${match[1]}` : '';
+      }
+
+      if (!filePath) {
+        console.error('[SST Download] Não foi possível extrair caminho do arquivo:', url);
+        return res.status(404).json({ error: 'Caminho do arquivo inválido' });
+      }
+
+      console.log('[SST Download] Baixando arquivo:', filePath);
+      
+      const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      const fullObjectPath = objectStorageService.getFullObjectPath(filePath);
+      
+      // Configurar headers para download
+      const filename = documento.nomenclatura || documento.descricao || `documento-${id}`;
+      const ext = url.split('.').pop() || 'pdf';
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}.${ext}"`);
+      
+      await objectStorageService.downloadFile(fullObjectPath, res);
+    } catch (error: any) {
+      console.error('[SST Download] Erro:', error);
+      const { ObjectNotFoundError } = await import("./objectStorage");
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: 'Arquivo não encontrado no storage' });
+      }
+      return res.status(500).json({ error: 'Erro ao baixar arquivo' });
+    }
+  });
+
   // Get indicadores de segurança
   app.get('/api/seguranca/indicadores', requireAuth, async (req, res) => {
     try {
