@@ -476,7 +476,14 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <Badge className="mb-2">{tipoLabels[p.tipo] || p.tipo}</Badge>
+                    {p.codigoDocumento && (
+                      <p className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded inline-block mb-2 text-blue-700 dark:text-blue-300">
+                        📋 {p.codigoDocumento}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className="mb-0">{tipoLabels[p.tipo] || p.tipo}</Badge>
+                    </div>
                     <h5 className="font-semibold">{p.nome}</h5>
                     {p.responsavelTecnico && <p className="text-sm text-muted-foreground">Resp.: {p.responsavelTecnico}</p>}
                     {p.dataValidade && (

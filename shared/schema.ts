@@ -1323,6 +1323,7 @@ export type SegDocumentoColaborador = typeof segDocumentosColaboradores.$inferSe
 export const programasSst = pgTable("programas_sst", {
   id: serial("id").primaryKey(),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  codigoDocumento: text("codigo_documento"), // Código de nomenclatura automático (ISO 15489)
   tipo: text("tipo").notNull(), // ppra, pcmso, pgr, ltcat, outro
   nome: text("nome").notNull(),
   descricao: text("descricao"),

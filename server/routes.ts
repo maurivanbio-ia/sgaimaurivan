@@ -4563,7 +4563,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/programas-sst', requireAuth, async (req, res) => {
     try {
       const data = insertProgramaSstSchema.parse(req.body);
-      const programa = await storage.createProgramaSst(data);
+      
+      // Gera código de nomenclatura automático baseado nas normas ISO 15489 e NOBRADE
+      // Formato: SST-[TIPO]-[ANO]-[SEQ]-[EMP]
+      const ano = new Date().getFullYear();
+      const tipoUpper = (data.tipo || 'OUT').toUpperCase();
+      
+      // Busca o empreendimento para obter código/sigla
+      const empreendimento = await storage.getEmpreendimento(data.empreendimentoId);
+      const empCodigo = empreendimento?.nome
+        ? empreendimento.nome
+            .replace(/[^A-Za-z0-9\s]/g, '')
+            .split(' ')
+            .slice(0, 2)
+            .map((w: string) => w.substring(0, 3).toUpperCase())
+            .join('')
+        : 'EMP';
+      
+      // Busca quantidade de programas existentes para sequencial
+      const programasExistentes = await storage.getProgramasSst({ 
+        empreendimentoId: data.empreendimentoId 
+      });
+      const sequencial = String(programasExistentes.length + 1).padStart(4, '0');
+      
+      // Monta código: SST-PGR-2026-0001-USISID
+      const codigoDocumento = `SST-${tipoUpper}-${ano}-${sequencial}-${empCodigo}`;
+      
+      const programa = await storage.createProgramaSst({ ...data, codigoDocumento });
       res.status(201).json(programa);
     } catch (error) {
       console.error('Error creating programa SST:', error);
