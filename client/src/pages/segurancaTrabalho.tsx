@@ -51,7 +51,9 @@ import {
   Clock,
   Trash2,
   Edit,
-  Download
+  Download,
+  Brain,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Colaborador, SegDocumentoColaborador, Empreendimento } from "@shared/schema";
@@ -67,6 +69,8 @@ export default function SegurancaTrabalho() {
   const [filterEmpreendimento, setFilterEmpreendimento] = useState("all");
   const [editingColaborador, setEditingColaborador] = useState<Colaborador | null>(null);
   const [editingDocumento, setEditingDocumento] = useState<SegDocumentoColaborador | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
   // Formulário Colaborador
   const [colaboradorForm, setColaboradorForm] = useState({
@@ -299,6 +303,7 @@ export default function SegurancaTrabalho() {
       assinaturaResponsavel: "",
       status: "valido",
     });
+    setAiAnalysis(null);
   };
 
   const handleSaveColaborador = () => {
@@ -354,6 +359,46 @@ export default function SegurancaTrabalho() {
       updateDocumentoMutation.mutate({ id: editingDocumento.id, data });
     } else {
       createDocumentoMutation.mutate(data);
+    }
+  };
+
+  // Função para analisar documento com IA
+  const handleAnalyzeDocument = async () => {
+    if (!documentoForm.tipoDocumento) {
+      toast({ title: "Aviso", description: "Selecione o tipo de documento primeiro.", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAiAnalysis(null);
+
+    try {
+      const response = await fetch("/api/sst/analisar-documento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipoDocumento: documentoForm.tipoDocumento,
+          descricao: documentoForm.descricao,
+          colaboradorNome: documentoForm.colaboradorId === "escritorio" ? "Escritório" : 
+            colaboradores.find(c => c.id.toString() === documentoForm.colaboradorId)?.nome || "",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Falha na análise");
+
+      const result = await response.json();
+      setAiAnalysis(result.analise);
+      
+      // Se a IA retornou uma descrição sugerida, preenche o campo
+      if (result.descricaoSugerida && !documentoForm.descricao) {
+        setDocumentoForm(prev => ({ ...prev, descricao: result.descricaoSugerida }));
+      }
+
+      toast({ title: "Análise concluída", description: "A IA analisou o documento." });
+    } catch (error) {
+      toast({ title: "Erro", description: "Não foi possível analisar o documento.", variant: "destructive" });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -733,14 +778,41 @@ export default function SegurancaTrabalho() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="descricao">Descrição</Label>
-                    <Input
-                      id="descricao"
-                      value={documentoForm.descricao}
-                      onChange={(e) => setDocumentoForm({ ...documentoForm, descricao: e.target.value })}
-                      placeholder="Descrição do documento"
-                      data-testid="input-documento-descricao"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="descricao"
+                        value={documentoForm.descricao}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, descricao: e.target.value })}
+                        placeholder="Descrição do documento"
+                        data-testid="input-documento-descricao"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleAnalyzeDocument}
+                        disabled={isAnalyzing || !documentoForm.tipoDocumento}
+                        className="whitespace-nowrap"
+                      >
+                        {isAnalyzing ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analisando...</>
+                        ) : (
+                          <><Brain className="h-4 w-4 mr-2" /> Analisar com IA</>
+                        )}
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {aiAnalysis && (
+                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Brain className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium text-blue-800 dark:text-blue-300">Análise da IA</span>
+                      </div>
+                      <p className="text-sm text-blue-700 dark:text-blue-400 whitespace-pre-wrap">{aiAnalysis}</p>
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="arquivoUrl">URL do Arquivo</Label>
                     <Input
