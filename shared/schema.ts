@@ -1267,7 +1267,8 @@ export const colaboradores = pgTable("colaboradores", {
 
 export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores", {
   id: serial("id").primaryKey(),
-  colaboradorId: integer("colaborador_id").references(() => colaboradores.id).notNull(),
+  colaboradorId: integer("colaborador_id").references(() => colaboradores.id), // Pode ser null para "Escritório"
+  colaboradorNome: text("colaborador_nome"), // Nome alternativo quando colaboradorId for null (ex: "Escritório")
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   tipoDocumento: text("tipo_documento").notNull(), // ASO, Treinamento NR, EPI, LTCAT, PCMSO, etc
   descricao: text("descricao"),

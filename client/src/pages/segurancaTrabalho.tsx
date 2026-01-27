@@ -341,9 +341,12 @@ export default function SegurancaTrabalho() {
       return;
     }
 
+    // Trata caso especial "escritorio" - envia colaboradorId como null e colaboradorNome como "Escritório"
+    const isEscritorio = documentoForm.colaboradorId === "escritorio";
     const data = {
       ...documentoForm,
-      colaboradorId: parseInt(documentoForm.colaboradorId),
+      colaboradorId: isEscritorio ? null : parseInt(documentoForm.colaboradorId),
+      colaboradorNome: isEscritorio ? "Escritório" : undefined,
       empreendimentoId: documentoForm.empreendimentoId ? parseInt(documentoForm.empreendimentoId) : undefined,
     };
 
@@ -357,7 +360,7 @@ export default function SegurancaTrabalho() {
   const handleEditDocumento = (documento: SegDocumentoColaborador) => {
     setEditingDocumento(documento);
     setDocumentoForm({
-      colaboradorId: documento.colaboradorId.toString(),
+      colaboradorId: documento.colaboradorId ? documento.colaboradorId.toString() : (documento.colaboradorNome === "Escritório" ? "escritorio" : ""),
       empreendimentoId: documento.empreendimentoId?.toString() || "",
       tipoDocumento: documento.tipoDocumento,
       descricao: documento.descricao || "",
@@ -700,6 +703,7 @@ export default function SegurancaTrabalho() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="escritorio">🏢 Escritório</SelectItem>
                           {colaboradores.map((col) => (
                             <SelectItem key={col.id} value={col.id.toString()}>
                               {col.nome}
