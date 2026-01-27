@@ -4759,7 +4759,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'BRIGADA': 'TREINAMENTO', 'LAUDO': 'outro', 'LAUDOERGO': 'LAUDOERGO',
         'LAUDOINS': 'LAUDOINS', 'LAUDOPER': 'LAUDOPER', 'CERT': 'TREINAMENTO', 'DOC': 'outro'
       };
-      const tipoOriginal = (parsedData.tipoDescritivo || parsedData.tipoDocumento || 'DOC').toUpperCase();
+      let tipoOriginal = (parsedData.tipoDescritivo || parsedData.tipoDocumento || 'DOC').toUpperCase();
+      
+      // Detecta tipo pelo texto descritivo quando não está no mapa
+      if (!tipoMap[tipoOriginal]) {
+        if (tipoOriginal.includes('CONTROLE MÉDICO') || tipoOriginal.includes('PCMSO')) {
+          tipoOriginal = 'PCMSO';
+        } else if (tipoOriginal.includes('GERENCIAMENTO DE RISCO') || tipoOriginal.includes('PGR')) {
+          tipoOriginal = 'PGR';
+        } else if (tipoOriginal.includes('ATESTADO DE SAÚDE') || tipoOriginal.includes('ASO')) {
+          tipoOriginal = 'ASO';
+        } else if (tipoOriginal.includes('LAUDO TÉCNICO') || tipoOriginal.includes('LTCAT')) {
+          tipoOriginal = 'LTCAT';
+        } else if (tipoOriginal.includes('PREVENÇÃO DE RISCO') || tipoOriginal.includes('PPRA')) {
+          tipoOriginal = 'PPRA';
+        } else if (tipoOriginal.includes('TREINAMENTO') || tipoOriginal.includes('CAPACITAÇÃO')) {
+          tipoOriginal = 'TREINAMENTO';
+        } else if (tipoOriginal.includes('ERGONÔMICO') || tipoOriginal.includes('ERGONOMICO')) {
+          tipoOriginal = 'LAUDOERGO';
+        } else if (tipoOriginal.includes('INSALUBRIDADE')) {
+          tipoOriginal = 'LAUDOINS';
+        } else if (tipoOriginal.includes('PERICULOSIDADE')) {
+          tipoOriginal = 'LAUDOPER';
+        }
+      }
+      
       const tipoNormalizado = tipoMap[tipoOriginal] || 'outro';
       
       // Determina se é documento geral baseado no tipo
