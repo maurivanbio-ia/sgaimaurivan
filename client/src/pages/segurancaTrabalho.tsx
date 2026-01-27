@@ -1353,18 +1353,22 @@ export default function SegurancaTrabalho() {
                           {doc.dataValidade ? new Date(doc.dataValidade).toLocaleDateString("pt-BR") : "-"}
                         </TableCell>
                         <TableCell>{getStatusBadge(doc.status || "valido")}</TableCell>
-                        <TableCell className="text-right relative z-10">
-                          <div className="flex justify-end gap-2">
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2 relative z-50">
                             {doc.arquivoUrl && (
                               <Button
                                 variant="outline"
                                 size="sm"
+                                type="button"
                                 onClick={(e) => {
+                                  e.preventDefault();
                                   e.stopPropagation();
-                                  window.open(doc.arquivoUrl || "", "_blank");
+                                  const url = doc.arquivoUrl || "";
+                                  console.log('[SST] Abrindo documento:', url);
+                                  if (url) window.open(url, "_blank");
                                 }}
                                 data-testid={`button-download-documento-${doc.id}`}
-                                className="cursor-pointer hover:bg-green-100 dark:hover:bg-green-900"
+                                className="cursor-pointer hover:bg-green-100 dark:hover:bg-green-900 pointer-events-auto"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -1372,26 +1376,31 @@ export default function SegurancaTrabalho() {
                             <Button
                               variant="outline"
                               size="sm"
+                              type="button"
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 handleEditDocumento(doc);
                               }}
                               data-testid={`button-edit-documento-${doc.id}`}
-                              className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
+                              className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 pointer-events-auto"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
+                              type="button"
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 if (confirm('Tem certeza que deseja excluir este documento?')) {
+                                  console.log('[SST] Excluindo documento:', doc.id);
                                   deleteDocumentoMutation.mutate(doc.id);
                                 }
                               }}
                               data-testid={`button-delete-documento-${doc.id}`}
-                              className="cursor-pointer hover:bg-red-100 dark:hover:bg-red-900"
+                              className="cursor-pointer hover:bg-red-100 dark:hover:bg-red-900 pointer-events-auto"
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
