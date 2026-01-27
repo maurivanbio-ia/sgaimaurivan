@@ -4790,7 +4790,15 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
    - CERT = Certificado
    - DOC = Documento não identificado
 
-6. **status**: Baseado na data de validade e hoje (${dataHoje}):
+6. **subtipoAso**: Se for ASO, identifique o SUBTIPO específico. Busque por:
+   - "ADMISSIONAL" ou "Exame Admissional" → retorne "admissional"
+   - "DEMISSIONAL" ou "Exame Demissional" → retorne "demissional"
+   - "PERIÓDICO" ou "Exame Periódico" → retorne "periodico"
+   - "RETORNO AO TRABALHO" ou "Retorno" → retorne "retorno"
+   - "MUDANÇA DE FUNÇÃO" ou "Mudança de Riscos" → retorne "mudanca_funcao"
+   Retorne null se não for ASO ou não conseguir identificar.
+
+7. **status**: Baseado na data de validade e hoje (${dataHoje}):
    - "valido" se ainda não venceu
    - "vencido" se já passou da validade
    - "proximo_vencimento" se vence em menos de 30 dias
@@ -4844,7 +4852,7 @@ ${conteudo.substring(0, 12000)}
 ---
 
 RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
-{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"PCMSO","status":"valido","nomeEmpresa":"Empresa Contratante","nomeColaborador":null,"isDocumentoGeral":true,"empresaResponsavel":"CEMED MEDICINA","medicoResponsavel":"Dr. Fulano de Tal","registroCrm":"1234 - CRM/SE","vigenciaInicio":"01/12/2025","vigenciaFim":"30/11/2026","nomenclatura":"SST-PCMSO-2025-EMPR"}`;
+{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"ASO","subtipoAso":"admissional","status":"valido","nomeEmpresa":"Empresa Contratante","nomeColaborador":"João da Silva","isDocumentoGeral":false,"empresaResponsavel":"CEMED MEDICINA","medicoResponsavel":"Dr. Fulano de Tal","registroCrm":"1234 - CRM/SE","vigenciaInicio":"01/12/2025","vigenciaFim":"30/11/2026","nomenclatura":"SST-ASO-2025-JOAO_SILVA-EMPR"}`;
 
       console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
       
@@ -4909,6 +4917,7 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         responsavel: normalizeNull(parsedData.responsavel),
         tipoDocumento: tipoNormalizado,
         tipoDescritivo: tipoOriginal, // Tipo real do documento (PCMSO, PGR, ASO, etc.)
+        subtipoAso: normalizeNull(parsedData.subtipoAso), // Subtipo de ASO: admissional, demissional, periodico, etc.
         status: normalizeNull(parsedData.status),
         nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
         nomeColaborador: normalizeNull(parsedData.nomeColaborador),
