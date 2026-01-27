@@ -7,7 +7,7 @@ import {
   veiculos, 
   equipamentos,
   segDocumentosColaboradores,
-  segDocumentos,
+  programasSst,
   fornecedores,
   baseConhecimento
 } from '@shared/schema';
@@ -199,7 +199,7 @@ async function verificarSST() {
   const totalColab = totalColabResult?.count || 0;
   
   // Documentos gerais (PCMSO, PGR, etc.)
-  const [totalGeraisResult] = await db.select({ count: count() }).from(segDocumentos);
+  const [totalGeraisResult] = await db.select({ count: count() }).from(programasSst);
   const totalGerais = totalGeraisResult?.count || 0;
   
   const total = totalColab + totalGerais;
@@ -222,10 +222,10 @@ async function verificarSST() {
     ));
   const asoVencido = asoVencidoResult?.count || 0;
   
-  // Documentos gerais vencidos (vigenciaFim < hoje)
+  // Documentos gerais vencidos (dataValidade < hoje)
   const [geraisVencidosResult] = await db.select({ count: count() })
-    .from(segDocumentos)
-    .where(lt(segDocumentos.vigenciaFim, hoje));
+    .from(programasSst)
+    .where(lt(programasSst.dataValidade, hoje));
   const geraisVencidos = geraisVencidosResult?.count || 0;
   
   const totalVencidos = epiVencido + asoVencido + geraisVencidos;
