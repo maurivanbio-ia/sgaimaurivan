@@ -4889,11 +4889,14 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         return val;
       };
       
-      // Mapeia o tipo para categoria do select (ASO, NR, EPI, CIPA, outro)
+      // Mapeia o tipo identificado pela IA para o valor do Select do frontend
+      // Agora o frontend tem mais tipos: PCMSO, PGR, LTCAT, ASO, PPRA, APR, NR, EPI, CIPA, CAT, PPP, LAUDOERGO, LAUDOINS, LAUDOPER, TREINAMENTO, outro
       const tipoMap: Record<string, string> = {
-        'PGR': 'outro', 'PCMSO': 'outro', 'PPRA': 'outro', 'LTCAT': 'outro',
-        'ASO': 'ASO', 'CIPA': 'CIPA', 'BRIGADA': 'outro', 'TREIN': 'NR',
-        'EPI': 'EPI', 'CAT': 'outro', 'LAUDO': 'outro', 'CERT': 'outro', 'DOC': 'outro', 'NR': 'NR'
+        'PCMSO': 'PCMSO', 'PGR': 'PGR', 'PPRA': 'PPRA', 'LTCAT': 'LTCAT',
+        'ASO': 'ASO', 'APR': 'APR', 'CIPA': 'CIPA', 'NR': 'NR', 'EPI': 'EPI',
+        'CAT': 'CAT', 'PPP': 'PPP', 'TREIN': 'TREINAMENTO', 'TREINAMENTO': 'TREINAMENTO',
+        'BRIGADA': 'TREINAMENTO', 'LAUDO': 'outro', 'LAUDOERGO': 'LAUDOERGO',
+        'LAUDOINS': 'LAUDOINS', 'LAUDOPER': 'LAUDOPER', 'CERT': 'TREINAMENTO', 'DOC': 'outro'
       };
       const tipoOriginal = parsedData.tipoDocumento?.toUpperCase() || 'DOC';
       const tipoNormalizado = tipoMap[tipoOriginal] || 'outro';
