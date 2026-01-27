@@ -478,30 +478,31 @@ export default function SegurancaTrabalho() {
         }
       }
       
-      // Tipo de documento (se detectado diferente)
-      if (result.tipoDocumento && result.tipoDocumento !== 'null' && result.tipoDocumento !== 'outro') {
-        // Mapeia para os valores esperados pelo Select (ASO, NR, EPI, CIPA, outro)
-        const tipoMap: Record<string, string> = {
-          'aso': 'ASO',
-          'nr': 'NR',
-          'epi': 'EPI',
-          'cipa': 'CIPA',
-          'pgr': 'outro',
-          'pcmso': 'outro',
-          'ltcat': 'outro',
-          'ppra': 'outro',
-          'cat': 'outro',
-          'brigada': 'outro',
-          'trein': 'NR',
-        };
-        const tipoNormalizado = tipoMap[result.tipoDocumento.toLowerCase()] || result.tipoDocumento.toUpperCase();
-        updates.tipoDocumento = tipoNormalizado;
+      // Tipo de documento - já vem no formato correto do backend (ASO, NR, EPI, CIPA, outro)
+      if (result.tipoDocumento && result.tipoDocumento !== 'null') {
+        updates.tipoDocumento = result.tipoDocumento;
       }
       
       // Nomenclatura sugerida - preenche o campo Nome do Documento automaticamente
       if (result.nomenclatura && result.nomenclatura !== 'null') {
         setSuggestedNomenclatura(result.nomenclatura);
         updates.nomeDocumento = result.nomenclatura;
+      }
+      
+      // Seleção automática de Colaborador
+      if (result.isDocumentoGeral === true) {
+        // Documento geral da empresa - seleciona "Escritório"
+        updates.colaboradorId = "escritorio";
+      } else if (result.nomeColaborador && result.nomeColaborador !== 'null') {
+        // Documento individual - tenta encontrar o colaborador pelo nome
+        const nomeColabLower = result.nomeColaborador.toLowerCase();
+        const colaboradorEncontrado = colaboradores.find(c => 
+          c.nome.toLowerCase().includes(nomeColabLower) || 
+          nomeColabLower.includes(c.nome.toLowerCase().split(' ')[0])
+        );
+        if (colaboradorEncontrado) {
+          updates.colaboradorId = colaboradorEncontrado.id.toString();
+        }
       }
       
       // Aplica todas as atualizações de uma vez

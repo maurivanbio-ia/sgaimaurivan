@@ -4762,7 +4762,11 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
 
 8. **nomeColaborador**: Se for ASO ou documento individual de um colaborador, extraia o nome completo do colaborador/funcionário. Busque por "Nome:", "Funcionário:", "Colaborador:", "Trabalhador:". Retorne null se não for documento individual.
 
-9. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
+9. **isDocumentoGeral**: Determine se é um documento GERAL (da empresa/escritório) ou INDIVIDUAL (de um colaborador específico):
+   - true = Documento geral da empresa (PGR, PCMSO, LTCAT, etc.)
+   - false = Documento individual de colaborador (ASO, Ficha de EPI individual, etc.)
+
+10. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
    - Para ASO: SST-ASO-[ANO]-[NOME_COLAB]-[EMPRESA_ABREV]
      Onde NOME_COLAB = Primeiro e último nome do colaborador (ex: JOAO_SILVA)
      Exemplo: SST-ASO-2025-JOAO_SILVA-ECOBR
@@ -4779,7 +4783,7 @@ ${conteudo.substring(0, 12000)}
 ---
 
 RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
-{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"PGR","status":"valido","nomeEmpresa":"Nome da Empresa","nomeColaborador":"Nome do Colaborador ou null","nomenclatura":"SST-PGR-2025-EMPR"}`;
+{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"ASO","status":"valido","nomeEmpresa":"Nome da Empresa","nomeColaborador":"Nome do Colaborador ou null","isDocumentoGeral":false,"nomenclatura":"SST-ASO-2025-JOAO_SILVA-EMPR"}`;
 
       console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
       
@@ -4824,13 +4828,13 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         return val;
       };
       
-      // Mapeia o tipo para o formato do select (minúsculas)
+      // Mapeia o tipo para o formato do select (MAIÚSCULAS conforme esperado pelo frontend)
       const tipoMap: Record<string, string> = {
-        'PGR': 'pgr', 'PCMSO': 'pcmso', 'PPRA': 'ppra', 'LTCAT': 'ltcat',
-        'ASO': 'aso', 'CIPA': 'cipa', 'BRIGADA': 'brigada', 'TREIN': 'treinamento',
-        'EPI': 'epi', 'CAT': 'cat', 'LAUDO': 'outro', 'CERT': 'outro', 'DOC': 'outro'
+        'PGR': 'outro', 'PCMSO': 'outro', 'PPRA': 'outro', 'LTCAT': 'outro',
+        'ASO': 'ASO', 'CIPA': 'CIPA', 'BRIGADA': 'outro', 'TREIN': 'NR',
+        'EPI': 'EPI', 'CAT': 'outro', 'LAUDO': 'outro', 'CERT': 'outro', 'DOC': 'outro', 'NR': 'NR'
       };
-      const tipoNormalizado = tipoMap[parsedData.tipoDocumento?.toUpperCase()] || parsedData.tipoDocumento?.toLowerCase() || tipo;
+      const tipoNormalizado = tipoMap[parsedData.tipoDocumento?.toUpperCase()] || 'outro';
       
       const result = { 
         success: true,
@@ -4842,6 +4846,7 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         status: normalizeNull(parsedData.status),
         nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
         nomeColaborador: normalizeNull(parsedData.nomeColaborador),
+        isDocumentoGeral: parsedData.isDocumentoGeral === true || parsedData.isDocumentoGeral === 'true',
         nomenclatura: normalizeNull(parsedData.nomenclatura),
         tokens: completion.usage?.total_tokens || 0
       };
