@@ -859,14 +859,14 @@ export default function SegurancaTrabalho() {
                   Adicionar Documento
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle data-testid="text-dialog-title-documento">
                     {editingDocumento ? "Editar Documento" : "Novo Documento"}
                   </DialogTitle>
                   <DialogDescription>Preencha as informações do documento de segurança</DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 overflow-y-auto">
                   {/* PASSO 1: Upload do arquivo */}
                   <div className="space-y-2 p-4 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5">
                     <Label htmlFor="arquivo" className="text-base font-semibold flex items-center gap-2">
