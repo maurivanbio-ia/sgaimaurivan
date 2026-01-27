@@ -4707,69 +4707,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tipoLabel = tipoLabels[tipo] || tipoLabels.outro;
       
-      const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST).
-Analise o documento "${nome || 'Sem título'}" do tipo ${tipoLabel}.
+      const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST). Analise CUIDADOSAMENTE o documento abaixo e extraia TODAS as informações solicitadas.
 
-EXTRAIA AS SEGUINTES INFORMAÇÕES DO DOCUMENTO:
+NOME DO ARQUIVO: "${nome || 'Sem título'}"
 
-1. **descricao**: Resumo CURTO do documento (máximo 5 linhas). Apenas descreva do que se trata o documento de forma objetiva.
+INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
 
-2. **dataEmissao**: Data de emissão/elaboração do documento. Procure por termos como "data de emissão", "elaborado em", "data", ou datas no início/cabeçalho do documento. Formato: DD/MM/YYYY ou null se não encontrar.
+1. **descricao**: Escreva um resumo CURTO (3-5 linhas) descrevendo o que é o documento.
 
-3. **dataValidade**: Data de validade/vencimento do documento. Procure por termos como "válido até", "validade", "vigência até", "vencimento". Formato: DD/MM/YYYY ou null se não encontrar.
+2. **dataEmissao**: Procure por QUALQUER data que indique quando o documento foi criado/emitido. Busque por:
+   - "Data:", "Data de emissão:", "Emitido em:", "Elaborado em:", "Em:"
+   - Datas no cabeçalho ou rodapé
+   - Formatos: DD/MM/YYYY, DD de Mês de YYYY, YYYY-MM-DD
+   Se encontrar, converta para DD/MM/YYYY. Se não encontrar, use null.
 
-4. **responsavel**: Nome do responsável técnico/assinante do documento. Procure por termos como "responsável técnico", "elaborado por", "assinatura", "técnico responsável", nomes com títulos como "Eng.", "Dr.", "Técnico". Retorne apenas o nome ou null se não encontrar.
+3. **dataValidade**: Procure por QUALQUER data de validade/vencimento. Busque por:
+   - "Validade:", "Válido até:", "Vigência:", "Vencimento:", "Expira em:"
+   - Para PGR/PCMSO geralmente é 1-2 anos após emissão
+   Se encontrar, converta para DD/MM/YYYY. Se não encontrar, use null.
 
-5. **tipoDocumento**: Tipo do documento detectado. Valores possíveis: ppra, pcmso, pgr, ltcat, aso, cipa, brigada, treinamento, epi, cat, outro
+4. **responsavel**: Encontre o nome do profissional responsável. Busque por:
+   - Assinaturas no final do documento
+   - "Responsável Técnico:", "Elaborado por:", "Técnico de Segurança:"
+   - Nomes com títulos: Eng., Dr., Téc., CREA, CRM
+   Retorne APENAS o nome completo ou null.
 
-6. **status**: Se o documento está válido ou expirado baseado nas datas encontradas. Valores: valido, vencido, proximo_vencimento (se vence em menos de 30 dias), ou null se não puder determinar.
+5. **tipoDocumento**: Identifique o tipo baseado no conteúdo:
+   - pgr = Programa de Gerenciamento de Riscos
+   - pcmso = Programa de Controle Médico de Saúde Ocupacional
+   - ppra = Programa de Prevenção de Riscos Ambientais
+   - ltcat = Laudo Técnico das Condições Ambientais de Trabalho
+   - aso = Atestado de Saúde Ocupacional
+   - cipa = Comissão Interna de Prevenção de Acidentes
+   - brigada = Brigada de Incêndio
+   - treinamento = Certificado/Registro de Treinamento
+   - epi = Ficha de EPI
+   - cat = Comunicação de Acidente de Trabalho
+   - outro = Não identificado
 
-DOCUMENTO:
-${conteudo.substring(0, 10000)}
+6. **status**: Baseado na data de validade e hoje (27/01/2026):
+   - "valido" se ainda não venceu
+   - "vencido" se já passou da validade
+   - "proximo_vencimento" se vence em menos de 30 dias
+   - null se não puder determinar
 
-RESPONDA APENAS EM JSON VÁLIDO, sem markdown, exatamente neste formato:
-{
-  "descricao": "texto curto aqui",
-  "dataEmissao": "DD/MM/YYYY ou null",
-  "dataValidade": "DD/MM/YYYY ou null",
-  "responsavel": "nome ou null",
-  "tipoDocumento": "tipo",
-  "status": "valido/vencido/proximo_vencimento/null"
-}`;
+DOCUMENTO A ANALISAR:
+---
+${conteudo.substring(0, 12000)}
+---
 
+RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
+{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"pgr","status":"valido"}`;
+
+      console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
+      
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Você é um especialista técnico em SST. Responda APENAS em JSON válido, sem texto adicional.' },
+          { role: 'system', content: 'Você é um especialista técnico em SST. Extraia TODAS as informações solicitadas do documento. Responda APENAS em JSON válido, sem markdown ou texto adicional.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 800,
+        max_tokens: 1000,
         temperature: 0.1,
       });
       
       const responseText = completion.choices[0]?.message?.content || '{}';
+      console.log('[SST AI] Resposta da IA:', responseText);
       
       // Parse JSON response
       let parsedData: any = {};
       try {
         // Remove possíveis marcadores de código markdown
-        const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        let cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        // Remove qualquer texto antes do primeiro {
+        const jsonStart = cleanJson.indexOf('{');
+        if (jsonStart > 0) {
+          cleanJson = cleanJson.substring(jsonStart);
+        }
+        // Remove qualquer texto depois do último }
+        const jsonEnd = cleanJson.lastIndexOf('}');
+        if (jsonEnd > 0 && jsonEnd < cleanJson.length - 1) {
+          cleanJson = cleanJson.substring(0, jsonEnd + 1);
+        }
         parsedData = JSON.parse(cleanJson);
+        console.log('[SST AI] JSON parseado:', JSON.stringify(parsedData));
       } catch (parseError) {
         console.error('[SST AI] Erro ao parsear JSON:', responseText);
         parsedData = { descricao: responseText };
       }
       
-      res.json({ 
+      // Normaliza valores null como string para null real
+      const normalizeNull = (val: any) => {
+        if (val === null || val === 'null' || val === '' || val === undefined) return null;
+        return val;
+      };
+      
+      const result = { 
         success: true,
         descricao: parsedData.descricao || '',
-        dataEmissao: parsedData.dataEmissao || null,
-        dataValidade: parsedData.dataValidade || null,
-        responsavel: parsedData.responsavel || null,
+        dataEmissao: normalizeNull(parsedData.dataEmissao),
+        dataValidade: normalizeNull(parsedData.dataValidade),
+        responsavel: normalizeNull(parsedData.responsavel),
         tipoDocumento: parsedData.tipoDocumento || tipo,
-        status: parsedData.status || null,
+        status: normalizeNull(parsedData.status),
         tokens: completion.usage?.total_tokens || 0
-      });
+      };
+      
+      console.log('[SST AI] Resultado final:', JSON.stringify(result));
+      res.json(result);
     } catch (error) {
       console.error('Erro ao analisar documento SST:', error);
       res.status(500).json({ error: 'Falha ao analisar documento com IA' });
