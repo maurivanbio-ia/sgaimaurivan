@@ -1277,6 +1277,11 @@ export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores"
   arquivoUrl: text("arquivo_url").notNull(),
   dataEmissao: date("data_emissao").notNull(),
   dataValidade: date("data_validade"),
+  vigenciaInicio: date("vigencia_inicio"), // Data de início da vigência
+  vigenciaFim: date("vigencia_fim"), // Data de fim da vigência
+  empresaResponsavel: text("empresa_responsavel"), // Nome da empresa responsável pelo documento (ex: CEMED)
+  medicoResponsavel: text("medico_responsavel"), // Nome do médico responsável
+  registroCrm: text("registro_crm"), // Registro CRM do médico
   assinaturaResponsavel: text("assinatura_responsavel"),
   status: text("status").notNull().default("valido"), // valido, vencido, pendente
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
