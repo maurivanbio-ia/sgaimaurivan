@@ -4707,9 +4707,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tipoLabel = tipoLabels[tipo] || tipoLabels.outro;
       
+      // Gerar data atual para o prompt
+      const hoje = new Date();
+      const dataHoje = `${hoje.getDate().toString().padStart(2, '0')}/${(hoje.getMonth() + 1).toString().padStart(2, '0')}/${hoje.getFullYear()}`;
+      const anoAtual = hoje.getFullYear();
+      
       const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST). Analise CUIDADOSAMENTE o documento abaixo e extraia TODAS as informações solicitadas.
 
-NOME DO ARQUIVO: "${nome || 'Sem título'}"
+NOME DO ARQUIVO ORIGINAL: "${nome || 'Sem título'}"
 
 INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
 
@@ -4732,24 +4737,36 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
    - Nomes com títulos: Eng., Dr., Téc., CREA, CRM
    Retorne APENAS o nome completo ou null.
 
-5. **tipoDocumento**: Identifique o tipo baseado no conteúdo:
-   - pgr = Programa de Gerenciamento de Riscos
-   - pcmso = Programa de Controle Médico de Saúde Ocupacional
-   - ppra = Programa de Prevenção de Riscos Ambientais
-   - ltcat = Laudo Técnico das Condições Ambientais de Trabalho
-   - aso = Atestado de Saúde Ocupacional
-   - cipa = Comissão Interna de Prevenção de Acidentes
-   - brigada = Brigada de Incêndio
-   - treinamento = Certificado/Registro de Treinamento
-   - epi = Ficha de EPI
-   - cat = Comunicação de Acidente de Trabalho
-   - outro = Não identificado
+5. **tipoDocumento**: Identifique o tipo baseado no conteúdo. Use a SIGLA correspondente:
+   - PGR = Programa de Gerenciamento de Riscos
+   - PCMSO = Programa de Controle Médico de Saúde Ocupacional
+   - PPRA = Programa de Prevenção de Riscos Ambientais
+   - LTCAT = Laudo Técnico das Condições Ambientais de Trabalho
+   - ASO = Atestado de Saúde Ocupacional
+   - CIPA = Comissão Interna de Prevenção de Acidentes
+   - BRIGADA = Brigada de Incêndio
+   - TREIN = Certificado/Registro de Treinamento
+   - EPI = Ficha de EPI
+   - CAT = Comunicação de Acidente de Trabalho
+   - LAUDO = Laudo Técnico
+   - CERT = Certificado
+   - DOC = Documento não identificado
 
-6. **status**: Baseado na data de validade e hoje (27/01/2026):
+6. **status**: Baseado na data de validade e hoje (${dataHoje}):
    - "valido" se ainda não venceu
    - "vencido" se já passou da validade
    - "proximo_vencimento" se vence em menos de 30 dias
    - null se não puder determinar
+
+7. **nomeEmpresa**: Nome da empresa/empreendimento mencionado no documento (se houver). Retorne null se não encontrar.
+
+8. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
+   SST-[TIPO]-[ANO]-[EMPRESA_ABREV]
+   Onde:
+   - TIPO = Sigla do tipo de documento (PGR, PCMSO, LTCAT, ASO, etc.)
+   - ANO = Ano de emissão do documento (use o ano da dataEmissao, ou ${anoAtual} se não houver)
+   - EMPRESA_ABREV = Abreviação do nome da empresa (primeiras 3-4 letras em maiúsculas, sem espaços)
+   Exemplo: SST-PGR-2025-VALE, SST-PCMSO-2024-PETRO, SST-ASO-2025-ECOBR
 
 DOCUMENTO A ANALISAR:
 ---
@@ -4757,7 +4774,7 @@ ${conteudo.substring(0, 12000)}
 ---
 
 RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
-{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"pgr","status":"valido"}`;
+{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"PGR","status":"valido","nomeEmpresa":"Nome da Empresa","nomenclatura":"SST-PGR-2025-EMPR"}`;
 
       console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
       
@@ -4802,14 +4819,24 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         return val;
       };
       
+      // Mapeia o tipo para o formato do select (minúsculas)
+      const tipoMap: Record<string, string> = {
+        'PGR': 'pgr', 'PCMSO': 'pcmso', 'PPRA': 'ppra', 'LTCAT': 'ltcat',
+        'ASO': 'aso', 'CIPA': 'cipa', 'BRIGADA': 'brigada', 'TREIN': 'treinamento',
+        'EPI': 'epi', 'CAT': 'cat', 'LAUDO': 'outro', 'CERT': 'outro', 'DOC': 'outro'
+      };
+      const tipoNormalizado = tipoMap[parsedData.tipoDocumento?.toUpperCase()] || parsedData.tipoDocumento?.toLowerCase() || tipo;
+      
       const result = { 
         success: true,
         descricao: parsedData.descricao || '',
         dataEmissao: normalizeNull(parsedData.dataEmissao),
         dataValidade: normalizeNull(parsedData.dataValidade),
         responsavel: normalizeNull(parsedData.responsavel),
-        tipoDocumento: parsedData.tipoDocumento || tipo,
+        tipoDocumento: tipoNormalizado,
         status: normalizeNull(parsedData.status),
+        nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
+        nomenclatura: normalizeNull(parsedData.nomenclatura),
         tokens: completion.usage?.total_tokens || 0
       };
       

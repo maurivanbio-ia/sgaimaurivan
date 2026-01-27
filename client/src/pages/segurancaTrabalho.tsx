@@ -73,6 +73,7 @@ export default function SegurancaTrabalho() {
   const [editingDocumento, setEditingDocumento] = useState<SegDocumentoColaborador | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [suggestedNomenclatura, setSuggestedNomenclatura] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [documentContent, setDocumentContent] = useState<string>("");
@@ -310,6 +311,7 @@ export default function SegurancaTrabalho() {
       status: "valido",
     });
     setAiAnalysis(null);
+    setSuggestedNomenclatura(null);
     setSelectedFile(null);
     setDocumentContent("");
     setIsEmpreendimentoEspecifico(false);
@@ -419,6 +421,7 @@ export default function SegurancaTrabalho() {
 
     setIsAnalyzing(true);
     setAiAnalysis(null);
+    setSuggestedNomenclatura(null);
 
     try {
       const response = await fetch("/api/sst/analisar-documento", {
@@ -478,12 +481,17 @@ export default function SegurancaTrabalho() {
         updates.tipoDocumento = result.tipoDocumento;
       }
       
+      // Nomenclatura sugerida
+      if (result.nomenclatura && result.nomenclatura !== 'null') {
+        setSuggestedNomenclatura(result.nomenclatura);
+      }
+      
       // Aplica todas as atualizações de uma vez
       if (Object.keys(updates).length > 0) {
         setDocumentoForm(prev => ({ ...prev, ...updates }));
       }
 
-      const camposPreenchidos = Object.keys(updates).length;
+      const camposPreenchidos = Object.keys(updates).length + (result.nomenclatura ? 1 : 0);
       toast({ 
         title: "Análise concluída", 
         description: `A IA extraiu ${camposPreenchidos} informações do documento.` 
@@ -966,6 +974,12 @@ export default function SegurancaTrabalho() {
                         <span className="font-medium text-blue-800 dark:text-blue-300">Análise da IA</span>
                       </div>
                       <p className="text-sm text-blue-700 dark:text-blue-400 whitespace-pre-wrap">{aiAnalysis}</p>
+                      {suggestedNomenclatura && (
+                        <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                          <span className="text-xs text-blue-600 dark:text-blue-400">Nomenclatura sugerida:</span>
+                          <span className="ml-2 font-mono text-sm font-semibold text-blue-800 dark:text-blue-200">{suggestedNomenclatura}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   
