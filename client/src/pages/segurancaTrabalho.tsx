@@ -480,7 +480,22 @@ export default function SegurancaTrabalho() {
       
       // Tipo de documento (se detectado diferente)
       if (result.tipoDocumento && result.tipoDocumento !== 'null' && result.tipoDocumento !== 'outro') {
-        updates.tipoDocumento = result.tipoDocumento;
+        // Mapeia para os valores esperados pelo Select (ASO, NR, EPI, CIPA, outro)
+        const tipoMap: Record<string, string> = {
+          'aso': 'ASO',
+          'nr': 'NR',
+          'epi': 'EPI',
+          'cipa': 'CIPA',
+          'pgr': 'outro',
+          'pcmso': 'outro',
+          'ltcat': 'outro',
+          'ppra': 'outro',
+          'cat': 'outro',
+          'brigada': 'outro',
+          'trein': 'NR',
+        };
+        const tipoNormalizado = tipoMap[result.tipoDocumento.toLowerCase()] || result.tipoDocumento.toUpperCase();
+        updates.tipoDocumento = tipoNormalizado;
       }
       
       // Nomenclatura sugerida - preenche o campo Nome do Documento automaticamente
