@@ -4760,13 +4760,18 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
 
 7. **nomeEmpresa**: Nome da empresa/empreendimento mencionado no documento (se houver). Retorne null se não encontrar.
 
-8. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
-   SST-[TIPO]-[ANO]-[EMPRESA_ABREV]
+8. **nomeColaborador**: Se for ASO ou documento individual de um colaborador, extraia o nome completo do colaborador/funcionário. Busque por "Nome:", "Funcionário:", "Colaborador:", "Trabalhador:". Retorne null se não for documento individual.
+
+9. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
+   - Para ASO: SST-ASO-[ANO]-[NOME_COLAB]-[EMPRESA_ABREV]
+     Onde NOME_COLAB = Primeiro e último nome do colaborador (ex: JOAO_SILVA)
+     Exemplo: SST-ASO-2025-JOAO_SILVA-ECOBR
+   - Para outros documentos: SST-[TIPO]-[ANO]-[EMPRESA_ABREV]
+     Exemplo: SST-PGR-2025-VALE, SST-PCMSO-2024-PETRO
    Onde:
    - TIPO = Sigla do tipo de documento (PGR, PCMSO, LTCAT, ASO, etc.)
    - ANO = Ano de emissão do documento (use o ano da dataEmissao, ou ${anoAtual} se não houver)
    - EMPRESA_ABREV = Abreviação do nome da empresa (primeiras 3-4 letras em maiúsculas, sem espaços)
-   Exemplo: SST-PGR-2025-VALE, SST-PCMSO-2024-PETRO, SST-ASO-2025-ECOBR
 
 DOCUMENTO A ANALISAR:
 ---
@@ -4774,7 +4779,7 @@ ${conteudo.substring(0, 12000)}
 ---
 
 RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
-{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"PGR","status":"valido","nomeEmpresa":"Nome da Empresa","nomenclatura":"SST-PGR-2025-EMPR"}`;
+{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"PGR","status":"valido","nomeEmpresa":"Nome da Empresa","nomeColaborador":"Nome do Colaborador ou null","nomenclatura":"SST-PGR-2025-EMPR"}`;
 
       console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
       
@@ -4836,6 +4841,7 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         tipoDocumento: tipoNormalizado,
         status: normalizeNull(parsedData.status),
         nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
+        nomeColaborador: normalizeNull(parsedData.nomeColaborador),
         nomenclatura: normalizeNull(parsedData.nomenclatura),
         tokens: completion.usage?.total_tokens || 0
       };
