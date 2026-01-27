@@ -490,8 +490,22 @@ export default function SegurancaTrabalho() {
         updates.assinaturaResponsavel = result.responsavel;
       }
       
-      // Status do documento
-      if (result.status && result.status !== 'null') {
+      // Status do documento - CALCULAR AUTOMATICAMENTE baseado na data de validade
+      if (updates.dataValidade) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const dataValidade = new Date(updates.dataValidade);
+        const diffDias = Math.ceil((dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDias < 0) {
+          updates.status = 'vencido';
+        } else if (diffDias <= 30) {
+          updates.status = 'proximo_vencimento';
+        } else {
+          updates.status = 'valido';
+        }
+        console.log(`[SST IA] Status calculado: ${updates.status} (${diffDias} dias para vencer)`);
+      } else if (result.status && result.status !== 'null') {
         const statusMap: Record<string, string> = {
           'valido': 'valido',
           'vencido': 'vencido',
