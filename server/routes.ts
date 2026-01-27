@@ -4796,7 +4796,7 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
    - "proximo_vencimento" se vence em menos de 30 dias
    - null se não puder determinar
 
-7. **nomeEmpresa**: Nome da empresa/empreendimento mencionado no documento (se houver). Retorne null se não encontrar.
+7. **nomeEmpresa**: Nome da empresa/empreendimento CONTRATANTE mencionado no documento. Retorne null se não encontrar.
 
 8. **nomeColaborador**: Se for ASO ou documento individual de um colaborador, extraia o nome completo do colaborador/funcionário. Busque por "Nome:", "Funcionário:", "Colaborador:", "Trabalhador:". Retorne null se não for documento individual.
 
@@ -4804,7 +4804,30 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
    - true = Documento geral da empresa (PGR, PCMSO, LTCAT, etc.)
    - false = Documento individual de colaborador (ASO, Ficha de EPI individual, etc.)
 
-10. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
+10. **empresaResponsavel**: Nome da EMPRESA RESPONSÁVEL pela elaboração do documento (clínica, consultoria de SST). 
+    Busque por seções como "EMPRESA RESPONSÁVEL", "RAZÃO SOCIAL", "PRESTADOR", "CLÍNICA".
+    Exemplo: "CEMED MEDICINA E SEGURANÇA DO TRABALHO"
+    Retorne null se não encontrar.
+
+11. **medicoResponsavel**: Nome COMPLETO do MÉDICO RESPONSÁVEL pelo documento.
+    Busque por seções como "MÉDICO RESPONSÁVEL", "MÉDICO COORDENADOR", "Dr.", "Dra."
+    Exemplo: "Dr. Agnaldo Celestino Feitosa Filho"
+    Retorne null se não encontrar.
+
+12. **registroCrm**: Número do REGISTRO CRM do médico responsável.
+    Busque por "CRM", "Registro:", "CRM/UF"
+    Exemplo: "2369 - CRM/SE" ou "CRM-SE 2369"
+    Retorne null se não encontrar.
+
+13. **vigenciaInicio**: Data de INÍCIO da vigência do documento.
+    Busque por "VIGÊNCIA", "De:", "Válido de:", "Início:", "A partir de:"
+    Converta para DD/MM/YYYY. Retorne null se não encontrar.
+
+14. **vigenciaFim**: Data de FIM da vigência do documento.
+    Busque por "VIGÊNCIA", "Até:", "Válido até:", "Término:", "Validade:"
+    Converta para DD/MM/YYYY. Retorne null se não encontrar.
+
+15. **nomenclatura**: Crie a nomenclatura padronizada do arquivo seguindo este formato:
    - Para ASO: SST-ASO-[ANO]-[NOME_COLAB]-[EMPRESA_ABREV]
      Onde NOME_COLAB = Primeiro e último nome do colaborador (ex: JOAO_SILVA)
      Exemplo: SST-ASO-2025-JOAO_SILVA-ECOBR
@@ -4813,7 +4836,7 @@ INSTRUÇÕES DE EXTRAÇÃO (seja RIGOROSO):
    Onde:
    - TIPO = Sigla do tipo de documento (PGR, PCMSO, LTCAT, ASO, etc.)
    - ANO = Ano de emissão do documento (use o ano da dataEmissao, ou ${anoAtual} se não houver)
-   - EMPRESA_ABREV = Abreviação do nome da empresa (primeiras 3-4 letras em maiúsculas, sem espaços)
+   - EMPRESA_ABREV = Abreviação do nome da empresa contratante (primeiras 3-4 letras em maiúsculas, sem espaços)
 
 DOCUMENTO A ANALISAR:
 ---
@@ -4821,7 +4844,7 @@ ${conteudo.substring(0, 12000)}
 ---
 
 RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
-{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"ASO","status":"valido","nomeEmpresa":"Nome da Empresa","nomeColaborador":"Nome do Colaborador ou null","isDocumentoGeral":false,"nomenclatura":"SST-ASO-2025-JOAO_SILVA-EMPR"}`;
+{"descricao":"...","dataEmissao":"DD/MM/YYYY","dataValidade":"DD/MM/YYYY","responsavel":"Nome Completo","tipoDocumento":"PCMSO","status":"valido","nomeEmpresa":"Empresa Contratante","nomeColaborador":null,"isDocumentoGeral":true,"empresaResponsavel":"CEMED MEDICINA","medicoResponsavel":"Dr. Fulano de Tal","registroCrm":"1234 - CRM/SE","vigenciaInicio":"01/12/2025","vigenciaFim":"30/11/2026","nomenclatura":"SST-PCMSO-2025-EMPR"}`;
 
       console.log('[SST AI] Analisando documento:', nome, '- Conteúdo:', conteudo.substring(0, 200));
       
@@ -4887,6 +4910,12 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
         nomeColaborador: normalizeNull(parsedData.nomeColaborador),
         isDocumentoGeral: parsedData.isDocumentoGeral === true || parsedData.isDocumentoGeral === 'true',
+        // Novos campos para empresa e médico responsável
+        empresaResponsavel: normalizeNull(parsedData.empresaResponsavel),
+        medicoResponsavel: normalizeNull(parsedData.medicoResponsavel),
+        registroCrm: normalizeNull(parsedData.registroCrm),
+        vigenciaInicio: normalizeNull(parsedData.vigenciaInicio),
+        vigenciaFim: normalizeNull(parsedData.vigenciaFim),
         nomenclatura: normalizeNull(parsedData.nomenclatura),
         tokens: completion.usage?.total_tokens || 0
       };

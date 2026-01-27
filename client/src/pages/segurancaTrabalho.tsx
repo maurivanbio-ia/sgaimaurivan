@@ -103,6 +103,11 @@ export default function SegurancaTrabalho() {
     arquivoUrl: "",
     dataEmissao: "",
     dataValidade: "",
+    vigenciaInicio: "",
+    vigenciaFim: "",
+    empresaResponsavel: "",
+    medicoResponsavel: "",
+    registroCrm: "",
     assinaturaResponsavel: "",
     status: "valido",
   });
@@ -311,6 +316,11 @@ export default function SegurancaTrabalho() {
       arquivoUrl: "",
       dataEmissao: "",
       dataValidade: "",
+      vigenciaInicio: "",
+      vigenciaFim: "",
+      empresaResponsavel: "",
+      medicoResponsavel: "",
+      registroCrm: "",
       assinaturaResponsavel: "",
       status: "valido",
     });
@@ -512,6 +522,31 @@ export default function SegurancaTrabalho() {
         }
       }
       
+      // Empresa responsável (clínica/consultoria)
+      if (result.empresaResponsavel && result.empresaResponsavel !== 'null') {
+        updates.empresaResponsavel = result.empresaResponsavel;
+      }
+      
+      // Médico responsável
+      if (result.medicoResponsavel && result.medicoResponsavel !== 'null') {
+        updates.medicoResponsavel = result.medicoResponsavel;
+      }
+      
+      // Registro CRM
+      if (result.registroCrm && result.registroCrm !== 'null') {
+        updates.registroCrm = result.registroCrm;
+      }
+      
+      // Vigência (De - Até)
+      if (result.vigenciaInicio && result.vigenciaInicio !== 'null') {
+        const dataFormatada = parseDataBR(result.vigenciaInicio);
+        if (dataFormatada) updates.vigenciaInicio = dataFormatada;
+      }
+      if (result.vigenciaFim && result.vigenciaFim !== 'null') {
+        const dataFormatada = parseDataBR(result.vigenciaFim);
+        if (dataFormatada) updates.vigenciaFim = dataFormatada;
+      }
+      
       // Aplica todas as atualizações de uma vez
       if (Object.keys(updates).length > 0) {
         setDocumentoForm(prev => ({ ...prev, ...updates }));
@@ -531,16 +566,22 @@ export default function SegurancaTrabalho() {
 
   const handleEditDocumento = (documento: SegDocumentoColaborador) => {
     setEditingDocumento(documento);
+    const doc = documento as any;
     setDocumentoForm({
       colaboradorId: documento.colaboradorId ? documento.colaboradorId.toString() : (documento.colaboradorNome === "Escritório" ? "escritorio" : ""),
       empreendimentoId: documento.empreendimentoId?.toString() || "",
       tipoDocumento: documento.tipoDocumento,
-      tipoDescritivo: (documento as any).tipoDescritivo || "",
-      nomeDocumento: (documento as any).nomeDocumento || "",
+      tipoDescritivo: doc.tipoDescritivo || "",
+      nomeDocumento: doc.nomeDocumento || "",
       descricao: documento.descricao || "",
       arquivoUrl: documento.arquivoUrl || "",
       dataEmissao: documento.dataEmissao || "",
       dataValidade: documento.dataValidade || "",
+      vigenciaInicio: doc.vigenciaInicio || "",
+      vigenciaFim: doc.vigenciaFim || "",
+      empresaResponsavel: doc.empresaResponsavel || "",
+      medicoResponsavel: doc.medicoResponsavel || "",
+      registroCrm: doc.registroCrm || "",
       assinaturaResponsavel: documento.assinaturaResponsavel || "",
       status: documento.status || "valido",
     });
@@ -1100,6 +1141,70 @@ export default function SegurancaTrabalho() {
                       />
                     </div>
                   </div>
+                  {/* Empresa e Médico Responsável */}
+                  <div className="grid grid-cols-2 gap-4 p-3 border rounded-lg bg-blue-50/50 dark:bg-blue-900/20">
+                    <div className="col-span-2">
+                      <Label className="text-sm font-semibold text-blue-700 dark:text-blue-400">Empresa e Médico Responsável</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="empresaResponsavel">Empresa Responsável</Label>
+                      <Input
+                        id="empresaResponsavel"
+                        value={documentoForm.empresaResponsavel}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, empresaResponsavel: e.target.value })}
+                        placeholder="Ex: CEMED Medicina e Segurança"
+                        data-testid="input-documento-empresa-responsavel"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="medicoResponsavel">Médico Responsável</Label>
+                      <Input
+                        id="medicoResponsavel"
+                        value={documentoForm.medicoResponsavel}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, medicoResponsavel: e.target.value })}
+                        placeholder="Ex: Dr. Fulano de Tal"
+                        data-testid="input-documento-medico-responsavel"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="registroCrm">Registro CRM</Label>
+                      <Input
+                        id="registroCrm"
+                        value={documentoForm.registroCrm}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, registroCrm: e.target.value })}
+                        placeholder="Ex: 2369 - CRM/SE"
+                        data-testid="input-documento-crm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Vigência */}
+                  <div className="grid grid-cols-2 gap-4 p-3 border rounded-lg bg-green-50/50 dark:bg-green-900/20">
+                    <div className="col-span-2">
+                      <Label className="text-sm font-semibold text-green-700 dark:text-green-400">Vigência do Documento</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="vigenciaInicio">De (Início)</Label>
+                      <Input
+                        id="vigenciaInicio"
+                        type="date"
+                        value={documentoForm.vigenciaInicio}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, vigenciaInicio: e.target.value })}
+                        data-testid="input-documento-vigencia-inicio"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="vigenciaFim">Até (Término)</Label>
+                      <Input
+                        id="vigenciaFim"
+                        type="date"
+                        value={documentoForm.vigenciaFim}
+                        onChange={(e) => setDocumentoForm({ ...documentoForm, vigenciaFim: e.target.value })}
+                        data-testid="input-documento-vigencia-fim"
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="assinatura">Responsável pela Assinatura</Label>
