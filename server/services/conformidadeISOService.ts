@@ -7,6 +7,7 @@ import {
   veiculos, 
   equipamentos,
   segDocumentosColaboradores,
+  segDocumentos,
   fornecedores,
   baseConhecimento
 } from '@shared/schema';
@@ -193,9 +194,17 @@ async function verificarEquipamentos(unidade?: string) {
 async function verificarSST() {
   const hoje = new Date().toISOString().split('T')[0];
   
-  const [totalResult] = await db.select({ count: count() }).from(segDocumentosColaboradores);
-  const total = totalResult?.count || 0;
+  // Documentos de colaboradores
+  const [totalColabResult] = await db.select({ count: count() }).from(segDocumentosColaboradores);
+  const totalColab = totalColabResult?.count || 0;
   
+  // Documentos gerais (PCMSO, PGR, etc.)
+  const [totalGeraisResult] = await db.select({ count: count() }).from(segDocumentos);
+  const totalGerais = totalGeraisResult?.count || 0;
+  
+  const total = totalColab + totalGerais;
+  
+  // EPIs vencidos (colaboradores)
   const [epiVencidoResult] = await db.select({ count: count() })
     .from(segDocumentosColaboradores)
     .where(and(
@@ -204,6 +213,7 @@ async function verificarSST() {
     ));
   const epiVencido = epiVencidoResult?.count || 0;
   
+  // ASOs vencidos (colaboradores)
   const [asoVencidoResult] = await db.select({ count: count() })
     .from(segDocumentosColaboradores)
     .where(and(
@@ -212,7 +222,24 @@ async function verificarSST() {
     ));
   const asoVencido = asoVencidoResult?.count || 0;
   
-  return { total, epiVencido, asoVencido, conformidade: total > 0 ? Math.round(((total - epiVencido - asoVencido) / total) * 100) : 100 };
+  // Documentos gerais vencidos (vigenciaFim < hoje)
+  const [geraisVencidosResult] = await db.select({ count: count() })
+    .from(segDocumentos)
+    .where(lt(segDocumentos.vigenciaFim, hoje));
+  const geraisVencidos = geraisVencidosResult?.count || 0;
+  
+  const totalVencidos = epiVencido + asoVencido + geraisVencidos;
+  const conformidade = total > 0 ? Math.round(((total - totalVencidos) / total) * 100) : 100;
+  
+  return { 
+    total, 
+    totalColab, 
+    totalGerais,
+    epiVencido, 
+    asoVencido, 
+    geraisVencidos,
+    conformidade: Math.max(0, conformidade)
+  };
 }
 
 async function verificarFornecedores(unidade?: string) {
@@ -471,12 +498,30 @@ export async function calcularConformidadeISO(unidade?: string): Promise<Conform
       meta: 90
     },
     {
+      id: '45001-6.1',
+      codigo: '6.1',
+      titulo: 'Ações para Abordar Riscos e Oportunidades',
+      descricao: 'Programas de SST (PCMSO, PGR, PPRA, LTCAT)',
+      status: sstData.geraisVencidos === 0 && sstData.totalGerais > 0 ? 'conforme' : 
+              sstData.totalGerais === 0 ? 'em_implementacao' : 'nao_conforme',
+      evidencias: [
+        `${sstData.totalGerais} documentos gerais de SST`,
+        `${sstData.geraisVencidos} documentos vencidos`
+      ],
+      moduloRelacionado: 'SST',
+      indicador: sstData.totalGerais > 0 ? Math.round(((sstData.totalGerais - sstData.geraisVencidos) / sstData.totalGerais) * 100) : 0,
+      meta: 100
+    },
+    {
       id: '45001-8.1.2',
       codigo: '8.1.2',
       titulo: 'Eliminando Perigos e Reduzindo Riscos de SSO',
       descricao: 'Controle de EPIs e equipamentos de segurança',
       status: sstData.epiVencido === 0 ? 'conforme' : 'nao_conforme',
-      evidencias: [`${sstData.total} registros de SST`, `${sstData.epiVencido} EPIs vencidos`],
+      evidencias: [
+        `${sstData.totalColab} documentos de colaboradores`,
+        `${sstData.epiVencido} EPIs vencidos`
+      ],
       moduloRelacionado: 'SST',
       indicador: sstData.conformidade,
       meta: 100
