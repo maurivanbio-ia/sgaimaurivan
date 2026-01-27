@@ -97,6 +97,7 @@ export default function SegurancaTrabalho() {
     colaboradorId: "",
     empreendimentoId: "",
     tipoDocumento: "",
+    tipoDescritivo: "",
     nomeDocumento: "",
     descricao: "",
     arquivoUrl: "",
@@ -304,6 +305,7 @@ export default function SegurancaTrabalho() {
       colaboradorId: "",
       empreendimentoId: "",
       tipoDocumento: "",
+      tipoDescritivo: "",
       nomeDocumento: "",
       descricao: "",
       arquivoUrl: "",
@@ -483,6 +485,11 @@ export default function SegurancaTrabalho() {
         updates.tipoDocumento = result.tipoDocumento;
       }
       
+      // Tipo descritivo - o tipo real do documento (PCMSO, PGR, ASO, LTCAT, etc.)
+      if (result.tipoDescritivo && result.tipoDescritivo !== 'null') {
+        updates.tipoDescritivo = result.tipoDescritivo;
+      }
+      
       // Nomenclatura sugerida - preenche o campo Nome do Documento automaticamente
       if (result.nomenclatura && result.nomenclatura !== 'null') {
         setSuggestedNomenclatura(result.nomenclatura);
@@ -528,6 +535,7 @@ export default function SegurancaTrabalho() {
       colaboradorId: documento.colaboradorId ? documento.colaboradorId.toString() : (documento.colaboradorNome === "Escritório" ? "escritorio" : ""),
       empreendimentoId: documento.empreendimentoId?.toString() || "",
       tipoDocumento: documento.tipoDocumento,
+      tipoDescritivo: (documento as any).tipoDescritivo || "",
       nomeDocumento: (documento as any).nomeDocumento || "",
       descricao: documento.descricao || "",
       arquivoUrl: documento.arquivoUrl || "",
@@ -1156,8 +1164,8 @@ export default function SegurancaTrabalho() {
                   <TableBody>
                     {documentos.map((doc) => (
                       <TableRow key={doc.id} data-testid={`row-documento-${doc.id}`}>
-                        <TableCell className="font-medium" data-testid={`text-documento-tipo-${doc.id}`}>{doc.tipoDocumento}</TableCell>
-                        <TableCell data-testid={`text-documento-colaborador-${doc.id}`}>{doc.colaboradorNome}</TableCell>
+                        <TableCell className="font-medium" data-testid={`text-documento-tipo-${doc.id}`}>{(doc as any).tipoDescritivo || doc.tipoDocumento}</TableCell>
+                        <TableCell data-testid={`text-documento-colaborador-${doc.id}`}>{doc.colaboradorNome || (doc.colaboradorId ? `Colaborador #${doc.colaboradorId}` : "Escritório")}</TableCell>
                         <TableCell data-testid={`text-documento-descricao-${doc.id}`}>{doc.descricao || "-"}</TableCell>
                         <TableCell data-testid={`text-documento-validade-${doc.id}`}>
                           {doc.dataValidade ? new Date(doc.dataValidade).toLocaleDateString("pt-BR") : "-"}

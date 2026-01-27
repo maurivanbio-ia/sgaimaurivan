@@ -4866,13 +4866,14 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         return val;
       };
       
-      // Mapeia o tipo para o formato do select (MAIÚSCULAS conforme esperado pelo frontend)
+      // Mapeia o tipo para categoria do select (ASO, NR, EPI, CIPA, outro)
       const tipoMap: Record<string, string> = {
         'PGR': 'outro', 'PCMSO': 'outro', 'PPRA': 'outro', 'LTCAT': 'outro',
         'ASO': 'ASO', 'CIPA': 'CIPA', 'BRIGADA': 'outro', 'TREIN': 'NR',
         'EPI': 'EPI', 'CAT': 'outro', 'LAUDO': 'outro', 'CERT': 'outro', 'DOC': 'outro', 'NR': 'NR'
       };
-      const tipoNormalizado = tipoMap[parsedData.tipoDocumento?.toUpperCase()] || 'outro';
+      const tipoOriginal = parsedData.tipoDocumento?.toUpperCase() || 'DOC';
+      const tipoNormalizado = tipoMap[tipoOriginal] || 'outro';
       
       const result = { 
         success: true,
@@ -4881,6 +4882,7 @@ RESPONDA SOMENTE COM JSON VÁLIDO (sem markdown, sem explicações):
         dataValidade: normalizeNull(parsedData.dataValidade),
         responsavel: normalizeNull(parsedData.responsavel),
         tipoDocumento: tipoNormalizado,
+        tipoDescritivo: tipoOriginal, // Tipo real do documento (PCMSO, PGR, ASO, etc.)
         status: normalizeNull(parsedData.status),
         nomeEmpresa: normalizeNull(parsedData.nomeEmpresa),
         nomeColaborador: normalizeNull(parsedData.nomeColaborador),
