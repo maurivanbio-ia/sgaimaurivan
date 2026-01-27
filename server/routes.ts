@@ -4707,34 +4707,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tipoLabel = tipoLabels[tipo] || tipoLabels.outro;
       
-      const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST). 
-Analise o seguinte documento "${nome || 'Sem título'}" do tipo ${tipoLabel} e forneça:
+      const prompt = `Você é um especialista em Segurança e Saúde do Trabalho (SST).
+Analise o documento "${nome || 'Sem título'}" do tipo ${tipoLabel}.
 
-1. **Descrição resumida** (2-3 parágrafos): O que o documento aborda, seus principais pontos e objetivos.
-2. **Riscos identificados**: Lista dos principais riscos ocupacionais mencionados.
-3. **Medidas de controle**: Principais ações preventivas ou corretivas recomendadas.
-4. **Pontos de atenção**: Aspectos críticos que requerem acompanhamento.
+EXTRAIA AS SEGUINTES INFORMAÇÕES DO DOCUMENTO:
+
+1. **descricao**: Resumo CURTO do documento (máximo 5 linhas). Apenas descreva do que se trata o documento de forma objetiva.
+
+2. **dataEmissao**: Data de emissão/elaboração do documento. Procure por termos como "data de emissão", "elaborado em", "data", ou datas no início/cabeçalho do documento. Formato: DD/MM/YYYY ou null se não encontrar.
+
+3. **dataValidade**: Data de validade/vencimento do documento. Procure por termos como "válido até", "validade", "vigência até", "vencimento". Formato: DD/MM/YYYY ou null se não encontrar.
+
+4. **responsavel**: Nome do responsável técnico/assinante do documento. Procure por termos como "responsável técnico", "elaborado por", "assinatura", "técnico responsável", nomes com títulos como "Eng.", "Dr.", "Técnico". Retorne apenas o nome ou null se não encontrar.
+
+5. **tipoDocumento**: Tipo do documento detectado. Valores possíveis: ppra, pcmso, pgr, ltcat, aso, cipa, brigada, treinamento, epi, cat, outro
+
+6. **status**: Se o documento está válido ou expirado baseado nas datas encontradas. Valores: valido, vencido, proximo_vencimento (se vence em menos de 30 dias), ou null se não puder determinar.
 
 DOCUMENTO:
-${conteudo.substring(0, 8000)}
+${conteudo.substring(0, 10000)}
 
-Responda de forma profissional e técnica, adequada para registro em sistema de gestão SST.`;
+RESPONDA APENAS EM JSON VÁLIDO, sem markdown, exatamente neste formato:
+{
+  "descricao": "texto curto aqui",
+  "dataEmissao": "DD/MM/YYYY ou null",
+  "dataValidade": "DD/MM/YYYY ou null",
+  "responsavel": "nome ou null",
+  "tipoDocumento": "tipo",
+  "status": "valido/vencido/proximo_vencimento/null"
+}`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Você é um especialista técnico em Segurança e Saúde do Trabalho.' },
+          { role: 'system', content: 'Você é um especialista técnico em SST. Responda APENAS em JSON válido, sem texto adicional.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 1500,
-        temperature: 0.3,
+        max_tokens: 800,
+        temperature: 0.1,
       });
       
-      const descricao = completion.choices[0]?.message?.content || 'Não foi possível gerar a descrição.';
+      const responseText = completion.choices[0]?.message?.content || '{}';
+      
+      // Parse JSON response
+      let parsedData: any = {};
+      try {
+        // Remove possíveis marcadores de código markdown
+        const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        parsedData = JSON.parse(cleanJson);
+      } catch (parseError) {
+        console.error('[SST AI] Erro ao parsear JSON:', responseText);
+        parsedData = { descricao: responseText };
+      }
       
       res.json({ 
-        success: true, 
-        descricao,
+        success: true,
+        descricao: parsedData.descricao || '',
+        dataEmissao: parsedData.dataEmissao || null,
+        dataValidade: parsedData.dataValidade || null,
+        responsavel: parsedData.responsavel || null,
+        tipoDocumento: parsedData.tipoDocumento || tipo,
+        status: parsedData.status || null,
         tokens: completion.usage?.total_tokens || 0
       });
     } catch (error) {
