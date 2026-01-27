@@ -4638,7 +4638,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const originalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
       const fileName = `sst_documentos/${timestamp}_${originalName}`;
       
-      await client.uploadFromBytes(fileName, req.file.buffer);
+      console.log(`[SST Upload] Iniciando upload de: ${originalName}`);
+      
+      const uploadResult = await client.uploadFromBytes(fileName, req.file.buffer);
+      
+      if (!uploadResult.ok) {
+        console.error('[SST Upload] Erro no upload:', uploadResult.error);
+        return res.status(500).json({ error: 'Falha ao salvar arquivo no storage' });
+      }
+      
+      console.log(`[SST Upload] Upload concluído: ${fileName}`);
       
       // Get public URL
       const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
@@ -4651,13 +4660,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (mimeType === 'text/plain') {
         textContent = req.file.buffer.toString('utf-8');
       } else if (mimeType === 'application/pdf') {
-        // For PDF, we'll extract basic text (simplified - real implementation would use pdf-parse)
         try {
           const pdfParse = await import('pdf-parse');
           const pdfData = await pdfParse.default(req.file.buffer);
           textContent = pdfData.text;
+          console.log(`[SST Upload] Texto extraído do PDF: ${textContent.length} caracteres`);
         } catch (e) {
-          console.log('PDF parsing not available, using filename only');
+          console.log('[SST Upload] PDF parsing falhou, usando nome do arquivo');
           textContent = `Documento PDF: ${originalName}`;
         }
       } else {
@@ -4668,7 +4677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true, 
         url: fileUrl,
         fileName: originalName,
-        textContent: textContent.substring(0, 10000) // Limit for AI analysis
+        textContent: textContent.substring(0, 10000)
       });
     } catch (error) {
       console.error('Erro ao fazer upload de documento SST:', error);
