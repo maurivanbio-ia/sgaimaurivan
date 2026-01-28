@@ -4561,37 +4561,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extrair o caminho do arquivo da URL do Object Storage
       const url = documento.arquivoUrl;
-      let filePath = '';
+      let objectPath = '';
       
-      // URL pode ser: /files/sst_documentos/... ou URL completa do Object Storage
-      if (url.startsWith('/files/')) {
-        filePath = url;
-      } else if (url.includes('sst_documentos/')) {
+      // URL pode ser completa do Object Storage ou path relativo
+      if (url.includes('sst_documentos/')) {
         const match = url.match(/sst_documentos\/.+/);
-        filePath = match ? `/files/${match[0]}` : '';
-      } else {
-        // Tentar extrair o caminho após o bucket ID
-        const match = url.match(/\/([^\/]+\/sst_documentos\/.+)$/);
-        filePath = match ? `/files/${match[1]}` : '';
+        objectPath = match ? match[0] : '';
       }
 
-      if (!filePath) {
+      if (!objectPath) {
         console.error('[SST Download] Não foi possível extrair caminho do arquivo:', url);
         return res.status(404).json({ error: 'Caminho do arquivo inválido' });
       }
 
-      console.log('[SST Download] Baixando arquivo:', filePath);
+      console.log('[SST Download] Baixando arquivo:', objectPath);
       
-      const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
-      const objectStorageService = new ObjectStorageService();
-      const fullObjectPath = objectStorageService.getFullObjectPath(filePath);
+      // Usar cliente Object Storage diretamente (sem adicionar .private/)
+      const { Client } = await import("@replit/object-storage");
+      const client = new Client();
+      
+      // Obter o arquivo do Object Storage
+      const downloadResult = await client.downloadAsBytes(objectPath);
+      
+      if (!downloadResult.ok) {
+        console.error('[SST Download] Erro ao baixar:', downloadResult.error);
+        return res.status(404).json({ error: 'Arquivo não encontrado no storage' });
+      }
       
       // Configurar headers para download
       const filename = documento.nomenclatura || documento.descricao || `documento-${id}`;
       const ext = url.split('.').pop() || 'pdf';
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}.${ext}"`);
+      const mimeType = ext === 'pdf' ? 'application/pdf' : 'application/octet-stream';
       
-      await objectStorageService.downloadFile(fullObjectPath, res);
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}.${ext}"`);
+      res.send(downloadResult.value);
     } catch (error: any) {
       console.error('[SST Download] Erro:', error);
       const { ObjectNotFoundError } = await import("./objectStorage");
