@@ -4475,19 +4475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = req.body;
       
-      // Valida campos obrigatórios
-      if (!data.tipoDocumento) {
-        return res.status(400).json({ error: 'Tipo de documento é obrigatório' });
-      }
-      if (!data.arquivoUrl) {
-        return res.status(400).json({ error: 'Arquivo é obrigatório' });
-      }
-      // dataEmissao não é mais obrigatória - usa data atual como fallback
-      if (!data.dataEmissao) {
-        data.dataEmissao = new Date().toISOString().split('T')[0];
-      }
-      
-      // Se não houver empreendimento selecionado, usa o primeiro disponível da unidade do usuário
+      // Se não houver empreendimento selecionado, tenta usar o primeiro disponível
       let empreendimentoId = data.empreendimentoId;
       if (!empreendimentoId) {
         const user = req.user as any;
@@ -4495,8 +4483,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const empreendimentos = await storage.getEmpreendimentos(unidade);
         if (empreendimentos.length > 0) {
           empreendimentoId = empreendimentos[0].id;
-        } else {
-          return res.status(400).json({ error: 'Empreendimento é obrigatório' });
         }
       }
       
@@ -4506,7 +4492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const documentoData = {
         ...data,
-        empreendimentoId,
+        empreendimentoId: empreendimentoId || null,
         colaboradorId,
         colaboradorNome,
       };
