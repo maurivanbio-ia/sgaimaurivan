@@ -4748,11 +4748,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const pdfParse = await import('pdf-parse');
           const pdfData = await pdfParse.default(req.file.buffer);
-          textContent = pdfData.text;
+          textContent = pdfData.text?.trim() || '';
           console.log(`[SST Upload] Texto extraído do PDF: ${textContent.length} caracteres`);
-        } catch (e) {
-          console.log('[SST Upload] PDF parsing falhou, usando nome do arquivo');
-          textContent = `Documento PDF: ${originalName}`;
+          
+          // Se o PDF não tem texto extraível (escaneado/imagem), usa o nome do arquivo para análise
+          if (!textContent || textContent.length < 50) {
+            console.log('[SST Upload] PDF com pouco ou nenhum texto - provavelmente escaneado ou assinado digitalmente');
+            // Tenta extrair informações do nome do arquivo
+            const nomeInfo = originalName.replace(/[-_]/g, ' ').replace('.pdf', '');
+            textContent = `DOCUMENTO ESCANEADO/ASSINADO DIGITALMENTE\n\nNome do arquivo: ${originalName}\nInformações detectadas no nome: ${nomeInfo}\n\nObs: O texto deste documento não pôde ser extraído automaticamente. O documento pode ser uma imagem escaneada ou estar protegido por assinatura digital.`;
+          }
+        } catch (e: any) {
+          console.log('[SST Upload] PDF parsing falhou:', e?.message || e);
+          const nomeInfo = originalName.replace(/[-_]/g, ' ').replace('.pdf', '');
+          textContent = `Documento PDF: ${originalName}\nInformações do nome: ${nomeInfo}\nErro na extração: O texto não pôde ser extraído automaticamente.`;
         }
       } else {
         textContent = `Documento: ${originalName} (tipo: ${mimeType})`;
