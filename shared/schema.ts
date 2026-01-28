@@ -1269,13 +1269,13 @@ export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores"
   id: serial("id").primaryKey(),
   colaboradorId: integer("colaborador_id").references(() => colaboradores.id), // Pode ser null para "Escritório"
   colaboradorNome: text("colaborador_nome"), // Nome alternativo quando colaboradorId for null (ex: "Escritório")
-  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
-  tipoDocumento: text("tipo_documento").notNull(), // Categoria: ASO, NR, EPI, CIPA, outro
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  tipoDocumento: text("tipo_documento"), // Categoria: ASO, NR, EPI, CIPA, outro
   tipoDescritivo: text("tipo_descritivo"), // Tipo real do documento: PCMSO, PGR, LTCAT, ASO, etc.
   nomeDocumento: text("nome_documento"), // Nomenclatura padronizada do arquivo (SST-ASO-2025-JOAO_SILVA-ECOBR)
   descricao: text("descricao"),
-  arquivoUrl: text("arquivo_url").notNull(),
-  dataEmissao: date("data_emissao").notNull(),
+  arquivoUrl: text("arquivo_url"),
+  dataEmissao: date("data_emissao"),
   dataValidade: date("data_validade"),
   vigenciaInicio: date("vigencia_inicio"), // Data de início da vigência
   vigenciaFim: date("vigencia_fim"), // Data de fim da vigência
@@ -1283,7 +1283,7 @@ export const segDocumentosColaboradores = pgTable("seg_documentos_colaboradores"
   medicoResponsavel: text("medico_responsavel"), // Nome do médico responsável
   registroCrm: text("registro_crm"), // Registro CRM do médico
   assinaturaResponsavel: text("assinatura_responsavel"),
-  status: text("status").notNull().default("valido"), // valido, vencido, pendente
+  status: text("status").default("valido"), // valido, vencido, pendente
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });
