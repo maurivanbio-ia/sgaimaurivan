@@ -4561,6 +4561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extrair o caminho do arquivo da URL do Object Storage
       const url = documento.arquivoUrl;
+      console.log('[SST Download] URL do banco de dados:', url);
+      
       let objectPath = '';
       
       // URL pode ser completa do Object Storage ou path relativo
@@ -4574,18 +4576,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Caminho do arquivo inválido' });
       }
 
-      console.log('[SST Download] Baixando arquivo:', objectPath);
+      console.log('[SST Download] Object path extraído:', objectPath);
       
       // Usar cliente Object Storage diretamente (sem adicionar .private/)
       const { Client } = await import("@replit/object-storage");
       const client = new Client();
+      
+      // Listar arquivos no diretório para debug
+      const listResult = await client.list({ prefix: 'sst_documentos/' });
+      if (listResult.ok && Array.isArray(listResult.value)) {
+        console.log('[SST Download] Arquivos no storage:', listResult.value.slice(0, 5).map((o: any) => o.name));
+      }
       
       // Obter o arquivo do Object Storage
       const downloadResult = await client.downloadAsBytes(objectPath);
       
       if (!downloadResult.ok) {
         console.error('[SST Download] Erro ao baixar:', downloadResult.error);
-        return res.status(404).json({ error: 'Arquivo não encontrado no storage' });
+        console.error('[SST Download] Object path tentado:', objectPath);
+        return res.status(404).json({ error: 'Arquivo não encontrado no storage', path: objectPath });
       }
       
       // Configurar headers para download
@@ -4727,9 +4736,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const originalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
       const fileName = `sst_documentos/${timestamp}_${originalName}`;
       
-      console.log(`[SST Upload] Iniciando upload de: ${originalName}`);
+      console.log(`[SST Upload] Iniciando upload de: ${originalName}, tamanho: ${req.file.buffer.length} bytes`);
       
-      const uploadResult = await client.uploadFromBytes(fileName, req.file.buffer);
+      // Garantir que o buffer é passado como Uint8Array
+      const fileBuffer = new Uint8Array(req.file.buffer);
+      console.log(`[SST Upload] Buffer convertido: ${fileBuffer.length} bytes`);
+      
+      const uploadResult = await client.uploadFromBytes(fileName, fileBuffer);
       
       if (!uploadResult.ok) {
         console.error('[SST Upload] Erro no upload:', uploadResult.error);
