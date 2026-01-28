@@ -9,7 +9,8 @@ import {
   segDocumentosColaboradores,
   programasSst,
   fornecedores,
-  baseConhecimento
+  baseConhecimento,
+  empreendimentos
 } from '@shared/schema';
 import { eq, and, lt, gte, or, count, SQL } from 'drizzle-orm';
 
@@ -191,45 +192,94 @@ async function verificarEquipamentos(unidade?: string) {
   return { total, manutencaoVencida, conformidade: Math.max(0, conformidade) };
 }
 
-async function verificarSST() {
+async function verificarSST(unidade?: string) {
   const hoje = new Date().toISOString().split('T')[0];
   
-  // Documentos de colaboradores
-  const [totalColabResult] = await db.select({ count: count() }).from(segDocumentosColaboradores);
+  // Documentos de colaboradores (filtrar por unidade via empreendimento)
+  let totalColabConditions: SQL[] = [];
+  if (unidade) {
+    // Buscar empreendimentos da unidade
+    const empreendimentosUnidade = await db.select({ id: empreendimentos.id })
+      .from(empreendimentos)
+      .where(eq(empreendimentos.unidade, unidade));
+    const empreendimentoIds = empreendimentosUnidade.map(e => e.id);
+    
+    if (empreendimentoIds.length > 0) {
+      totalColabConditions.push(
+        or(...empreendimentoIds.map(id => eq(segDocumentosColaboradores.empreendimentoId, id))) as SQL
+      );
+    }
+  }
+  
+  const [totalColabResult] = totalColabConditions.length > 0
+    ? await db.select({ count: count() }).from(segDocumentosColaboradores).where(and(...totalColabConditions))
+    : await db.select({ count: count() }).from(segDocumentosColaboradores);
   const totalColab = totalColabResult?.count || 0;
   
-  // Documentos gerais (PCMSO, PGR, etc.)
-  const [totalGeraisResult] = await db.select({ count: count() }).from(programasSst);
+  // Documentos gerais (PCMSO, PGR, etc.) - filtrar por unidade
+  const geraisConditions: SQL[] = [];
+  if (unidade) geraisConditions.push(eq(programasSst.unidade, unidade));
+  
+  const [totalGeraisResult] = geraisConditions.length > 0
+    ? await db.select({ count: count() }).from(programasSst).where(and(...geraisConditions))
+    : await db.select({ count: count() }).from(programasSst);
   const totalGerais = totalGeraisResult?.count || 0;
   
   const total = totalColab + totalGerais;
   
+  console.log(`[ISO 45001] Verificação SST (unidade=${unidade || 'todas'}): totalColab=${totalColab}, totalGerais=${totalGerais}, total=${total}`);
+  
   // EPIs vencidos (colaboradores)
+  const epiConditions: SQL[] = [
+    eq(segDocumentosColaboradores.tipoDocumento, 'EPI'),
+    lt(segDocumentosColaboradores.dataValidade, hoje)
+  ];
+  if (unidade) {
+    const empreendimentosUnidade = await db.select({ id: empreendimentos.id })
+      .from(empreendimentos)
+      .where(eq(empreendimentos.unidade, unidade));
+    const empreendimentoIds = empreendimentosUnidade.map(e => e.id);
+    if (empreendimentoIds.length > 0) {
+      epiConditions.push(or(...empreendimentoIds.map(id => eq(segDocumentosColaboradores.empreendimentoId, id))) as SQL);
+    }
+  }
   const [epiVencidoResult] = await db.select({ count: count() })
     .from(segDocumentosColaboradores)
-    .where(and(
-      eq(segDocumentosColaboradores.tipoDocumento, 'EPI'),
-      lt(segDocumentosColaboradores.dataValidade, hoje)
-    ));
+    .where(and(...epiConditions));
   const epiVencido = epiVencidoResult?.count || 0;
   
   // ASOs vencidos (colaboradores)
+  const asoConditions: SQL[] = [
+    eq(segDocumentosColaboradores.tipoDocumento, 'ASO'),
+    lt(segDocumentosColaboradores.dataValidade, hoje)
+  ];
+  if (unidade) {
+    const empreendimentosUnidade = await db.select({ id: empreendimentos.id })
+      .from(empreendimentos)
+      .where(eq(empreendimentos.unidade, unidade));
+    const empreendimentoIds = empreendimentosUnidade.map(e => e.id);
+    if (empreendimentoIds.length > 0) {
+      asoConditions.push(or(...empreendimentoIds.map(id => eq(segDocumentosColaboradores.empreendimentoId, id))) as SQL);
+    }
+  }
   const [asoVencidoResult] = await db.select({ count: count() })
     .from(segDocumentosColaboradores)
-    .where(and(
-      eq(segDocumentosColaboradores.tipoDocumento, 'ASO'),
-      lt(segDocumentosColaboradores.dataValidade, hoje)
-    ));
+    .where(and(...asoConditions));
   const asoVencido = asoVencidoResult?.count || 0;
   
   // Documentos gerais vencidos (dataValidade < hoje)
+  const geraisVencidosConditions: SQL[] = [lt(programasSst.dataValidade, hoje)];
+  if (unidade) geraisVencidosConditions.push(eq(programasSst.unidade, unidade));
+  
   const [geraisVencidosResult] = await db.select({ count: count() })
     .from(programasSst)
-    .where(lt(programasSst.dataValidade, hoje));
+    .where(and(...geraisVencidosConditions));
   const geraisVencidos = geraisVencidosResult?.count || 0;
   
   const totalVencidos = epiVencido + asoVencido + geraisVencidos;
   const conformidade = total > 0 ? Math.round(((total - totalVencidos) / total) * 100) : 100;
+  
+  console.log(`[ISO 45001] SST Final: epiVencido=${epiVencido}, asoVencido=${asoVencido}, geraisVencidos=${geraisVencidos}, conformidade=${conformidade}%`);
   
   return { 
     total, 
@@ -282,7 +332,7 @@ export async function calcularConformidadeISO(unidade?: string): Promise<Conform
   const rhData = await verificarRH(unidade);
   const frotaData = await verificarFrota(unidade);
   const equipamentosData = await verificarEquipamentos(unidade);
-  const sstData = await verificarSST();
+  const sstData = await verificarSST(unidade);
   const fornecedoresData = await verificarFornecedores(unidade);
   const documentosData = await verificarDocumentos();
   
