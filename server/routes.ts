@@ -7330,11 +7330,23 @@ Regras:
     }
   });
 
-  // Obter URL de upload para imagem de destaque
+  // Upload direto de imagem de destaque da newsletter (armazenamento local)
+  const multerNewsletter = (await import('multer')).default;
+  const fsNewsletter = await import('fs');
+  const pathNewsletter = await import('path');
+  
+  const newsletterStorageDir = pathNewsletter.default.join(process.cwd(), 'uploads', 'newsletter-destaques');
+  if (!fsNewsletter.default.existsSync(newsletterStorageDir)) {
+    fsNewsletter.default.mkdirSync(newsletterStorageDir, { recursive: true });
+  }
+  
+  const newsletterUpload = multerNewsletter({ storage: multerNewsletter.memoryStorage() });
+  
+  // Rota antiga (retorna URL para upload direto) - mantida para compatibilidade
   app.post('/api/newsletter/destaques/imagem/upload-url', requireAuth, requireNewsletterAdmin, async (req, res) => {
     try {
       const { extension = 'jpg' } = req.body;
-      console.log('[Newsletter Destaques] Requesting upload URL for extension:', extension);
+      console.log('[Newsletter Destaques] Gerando caminho para upload local, extension:', extension);
       
       const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
       
@@ -7343,13 +7355,80 @@ Regras:
         return res.status(400).json({ error: 'Extensão de arquivo inválida' });
       }
       
-      const objectStorage = new ObjectStorageService();
-      const { uploadUrl, filePath } = await objectStorage.getNewsletterDestaqueImageUploadURL(extension.toLowerCase());
-      console.log('[Newsletter Destaques] Upload URL generated successfully for:', filePath);
-      res.json({ uploadUrl, filePath });
+      // Gerar caminho para o arquivo
+      const timestamp = Date.now();
+      const fileName = `destaque_${timestamp}.${extension.toLowerCase()}`;
+      const filePath = `/api/newsletter/destaques/imagem/${fileName}`;
+      
+      // Retornar URL de upload direto (nova rota)
+      const uploadUrl = `/api/newsletter/destaques/imagem/upload`;
+      
+      console.log('[Newsletter Destaques] Upload path generated:', filePath);
+      res.json({ uploadUrl, filePath, fileName });
     } catch (error) {
       console.error('[Newsletter Destaques] Error getting upload URL:', error);
       res.status(500).json({ error: 'Erro ao obter URL de upload', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+  
+  // Nova rota: Upload direto de imagem da newsletter
+  app.post('/api/newsletter/destaques/imagem/upload', requireAuth, requireNewsletterAdmin, newsletterUpload.single('imagem'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Imagem é obrigatória' });
+      }
+      
+      const timestamp = Date.now();
+      const originalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const ext = pathNewsletter.default.extname(originalName).toLowerCase() || '.jpg';
+      const fileName = `destaque_${timestamp}${ext}`;
+      const localFilePath = pathNewsletter.default.join(newsletterStorageDir, fileName);
+      
+      console.log(`[Newsletter Upload] Salvando imagem: ${fileName}, tamanho: ${req.file.buffer.length} bytes`);
+      
+      // Salvar arquivo localmente
+      fsNewsletter.default.writeFileSync(localFilePath, req.file.buffer);
+      
+      // Verificar se foi salvo corretamente
+      const savedFile = fsNewsletter.default.statSync(localFilePath);
+      console.log(`[Newsletter Upload] Imagem salva: ${savedFile.size} bytes`);
+      
+      // URL para acesso à imagem
+      const imageUrl = `/api/newsletter/destaques/imagem/${fileName}`;
+      
+      res.json({ 
+        success: true, 
+        filePath: imageUrl,
+        fileName: fileName
+      });
+    } catch (error) {
+      console.error('[Newsletter Upload] Erro:', error);
+      res.status(500).json({ error: 'Erro ao fazer upload da imagem' });
+    }
+  });
+  
+  // Servir imagens da newsletter
+  app.get('/api/newsletter/destaques/imagem/:fileName', async (req, res) => {
+    try {
+      const fileName = req.params.fileName;
+      const filePath = pathNewsletter.default.join(newsletterStorageDir, fileName);
+      
+      if (!fsNewsletter.default.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Imagem não encontrada' });
+      }
+      
+      const ext = pathNewsletter.default.extname(fileName).toLowerCase();
+      let mimeType = 'image/jpeg';
+      if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.gif') mimeType = 'image/gif';
+      else if (ext === '.webp') mimeType = 'image/webp';
+      
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(fsNewsletter.default.readFileSync(filePath));
+    } catch (error) {
+      console.error('[Newsletter Image] Erro:', error);
+      res.status(500).json({ error: 'Erro ao carregar imagem' });
     }
   });
 
