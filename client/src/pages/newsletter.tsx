@@ -619,31 +619,25 @@ export default function NewsletterPage() {
                             
                             setUploadingImage(true);
                             try {
-                              const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-                              console.log('[Newsletter] Uploading image with extension:', extension);
+                              console.log('[Newsletter] Uploading image:', file.name);
                               
-                              const urlRes = await apiRequest("POST", "/api/newsletter/destaques/imagem/upload-url", { extension });
+                              // Upload direto via FormData
+                              const formData = new FormData();
+                              formData.append('imagem', file);
                               
-                              if (!urlRes.ok) {
-                                const errorData = await urlRes.json();
-                                console.error('[Newsletter] Error getting upload URL:', errorData);
-                                throw new Error(errorData.error || 'Erro ao obter URL de upload');
-                              }
-                              
-                              const { uploadUrl, filePath } = await urlRes.json();
-                              console.log('[Newsletter] Got upload URL, uploading file...');
-                              
-                              const uploadResponse = await fetch(uploadUrl, {
-                                method: 'PUT',
-                                body: file,
-                                headers: { 'Content-Type': file.type }
+                              const uploadResponse = await fetch('/api/newsletter/destaques/imagem/upload', {
+                                method: 'POST',
+                                body: formData,
+                                credentials: 'include'
                               });
                               
                               if (!uploadResponse.ok) {
-                                console.error('[Newsletter] Upload failed:', uploadResponse.status, uploadResponse.statusText);
-                                throw new Error('Falha no upload da imagem');
+                                const errorData = await uploadResponse.json();
+                                console.error('[Newsletter] Upload failed:', errorData);
+                                throw new Error(errorData.error || 'Falha no upload da imagem');
                               }
                               
+                              const { filePath } = await uploadResponse.json();
                               console.log('[Newsletter] Image uploaded successfully:', filePath);
                               setNewDestaque(prev => ({ ...prev, imagemUrl: filePath }));
                               toast({ title: "Imagem enviada com sucesso!" });
@@ -717,31 +711,25 @@ export default function NewsletterPage() {
                               
                               setUploadingLogo(true);
                               try {
-                                const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
-                                console.log('[Newsletter] Uploading logo with extension:', extension);
+                                console.log('[Newsletter] Uploading logo:', file.name);
                                 
-                                const urlRes = await apiRequest("POST", "/api/newsletter/destaques/imagem/upload-url", { extension });
+                                // Upload direto via FormData
+                                const formData = new FormData();
+                                formData.append('imagem', file);
                                 
-                                if (!urlRes.ok) {
-                                  const errorData = await urlRes.json();
-                                  console.error('[Newsletter] Error getting logo upload URL:', errorData);
-                                  throw new Error(errorData.error || 'Erro ao obter URL de upload');
-                                }
-                                
-                                const { uploadUrl, filePath } = await urlRes.json();
-                                console.log('[Newsletter] Got logo upload URL, uploading...');
-                                
-                                const uploadResponse = await fetch(uploadUrl, {
-                                  method: 'PUT',
-                                  body: file,
-                                  headers: { 'Content-Type': file.type }
+                                const uploadResponse = await fetch('/api/newsletter/destaques/imagem/upload', {
+                                  method: 'POST',
+                                  body: formData,
+                                  credentials: 'include'
                                 });
                                 
                                 if (!uploadResponse.ok) {
-                                  console.error('[Newsletter] Logo upload failed:', uploadResponse.status);
-                                  throw new Error('Falha no upload do logo');
+                                  const errorData = await uploadResponse.json();
+                                  console.error('[Newsletter] Logo upload failed:', errorData);
+                                  throw new Error(errorData.error || 'Falha no upload do logo');
                                 }
                                 
+                                const { filePath } = await uploadResponse.json();
                                 console.log('[Newsletter] Logo uploaded successfully:', filePath);
                                 setNewDestaque(prev => ({ ...prev, logoClienteUrl: filePath }));
                                 toast({ title: "Logo enviado com sucesso!" });
