@@ -370,19 +370,35 @@ Responda APENAS no formato JSON válido, sem markdown ou texto adicional:
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     const dataAtual = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
     
-    // Converter URLs de imagem para URLs públicas
-    const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEPLOYMENT_URL || process.env.REPLIT_DEV_DOMAIN}`
-      : 'https://ecobrasilgestor.bio';
+    // Converter URLs de imagem para URLs públicas completas
+    const baseUrl = process.env.REPLIT_DEPLOYMENT_URL 
+      ? `https://${process.env.REPLIT_DEPLOYMENT_URL}`
+      : process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'https://ecobrasilgestor.bio';
+    
+    const processImageUrl = (url: string | null): string | null => {
+      if (!url) return null;
+      // Novo formato: /api/newsletter/destaques/imagem/...
+      if (url.startsWith('/api/newsletter/destaques/imagem/')) {
+        return `${baseUrl}${url}`;
+      }
+      // Formato antigo: /files/newsletter-destaques/...
+      if (url.startsWith('/files/newsletter-destaques/')) {
+        return `${baseUrl}/api/newsletter/destaques/imagem/${url.replace('/files/newsletter-destaques/', '')}`;
+      }
+      // URL absoluta (já processada ou externa)
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+      }
+      // Outro caminho relativo - adicionar baseUrl
+      return `${baseUrl}${url}`;
+    };
     
     const processedDestaques = destaquesProj.map(projeto => ({
       ...projeto,
-      imagemUrl: projeto.imagemUrl?.startsWith('/files/newsletter-destaques/')
-        ? `${baseUrl}/newsletter-images/${projeto.imagemUrl.replace('/files/newsletter-destaques/', '')}`
-        : projeto.imagemUrl,
-      logoClienteUrl: projeto.logoClienteUrl?.startsWith('/files/newsletter-destaques/')
-        ? `${baseUrl}/newsletter-images/${projeto.logoClienteUrl.replace('/files/newsletter-destaques/', '')}`
-        : projeto.logoClienteUrl
+      imagemUrl: processImageUrl(projeto.imagemUrl),
+      logoClienteUrl: processImageUrl(projeto.logoClienteUrl)
     }));
     
     // Gerar HTML dos destaques de projetos EcoBrasil - Layout compatível com email
