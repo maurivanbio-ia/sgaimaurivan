@@ -1406,19 +1406,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve newsletter images publicly (for email clients)
+  // Serve newsletter images publicly (for email clients) - armazenamento local
   app.get("/newsletter-images/:filePath(*)", async (req, res) => {
     try {
-      const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
-      const objectStorageService = new ObjectStorageService();
-      const fullObjectPath = objectStorageService.getFullObjectPath(`/files/newsletter-destaques/${req.params.filePath}`);
-      await objectStorageService.downloadFile(fullObjectPath, res);
-    } catch (error: any) {
-      console.error("Newsletter image download error:", error);
-      const { ObjectNotFoundError } = await import("./objectStorage");
-      if (error instanceof ObjectNotFoundError) {
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      const fileName = req.params.filePath;
+      const newsletterDir = path.default.join(process.cwd(), 'uploads', 'newsletter-destaques');
+      const filePath = path.default.join(newsletterDir, fileName);
+      
+      console.log('[Newsletter Images] Buscando imagem:', filePath);
+      
+      if (!fs.default.existsSync(filePath)) {
+        console.error('[Newsletter Images] Imagem não encontrada:', filePath);
         return res.status(404).json({ message: "Imagem não encontrada" });
       }
+      
+      const ext = path.default.extname(fileName).toLowerCase();
+      let mimeType = 'image/jpeg';
+      if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.gif') mimeType = 'image/gif';
+      else if (ext === '.webp') mimeType = 'image/webp';
+      
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(fs.default.readFileSync(filePath));
+    } catch (error: any) {
+      console.error("Newsletter image download error:", error);
       return res.status(500).json({ message: "Erro ao carregar imagem" });
     }
   });
