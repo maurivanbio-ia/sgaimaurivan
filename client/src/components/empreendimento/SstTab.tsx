@@ -14,7 +14,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Users, FileText, Plus, Shield, AlertCircle, CheckCircle, 
   ClipboardList, Stethoscope, AlertTriangle, MessageSquare, Search,
-  Calendar, Edit, Trash2, FileCheck, Activity
+  Calendar, Edit, Trash2, FileCheck, Activity, GraduationCap, Eye, Download
 } from "lucide-react";
 import { Link } from "wouter";
 import type { 
@@ -123,13 +123,14 @@ export function SstTab({ empreendimentoId }: SstTabProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-flex">
           <TabsTrigger value="resumo" className="text-xs">Resumo</TabsTrigger>
           <TabsTrigger value="programas" className="text-xs">Programas</TabsTrigger>
           <TabsTrigger value="asos" className="text-xs">ASO</TabsTrigger>
           <TabsTrigger value="cat" className="text-xs">CAT</TabsTrigger>
           <TabsTrigger value="dds" className="text-xs">DDS</TabsTrigger>
           <TabsTrigger value="investigacoes" className="text-xs">Investigações</TabsTrigger>
+          <TabsTrigger value="treinamentos" className="text-xs">Treinamentos</TabsTrigger>
           <TabsTrigger value="pops" className="text-xs">POP's</TabsTrigger>
         </TabsList>
 
@@ -164,6 +165,10 @@ export function SstTab({ empreendimentoId }: SstTabProps) {
 
         <TabsContent value="investigacoes" className="space-y-4 mt-4">
           <InvestigacoesSection empreendimentoId={empreendimentoId} investigacoes={investigacoes} />
+        </TabsContent>
+
+        <TabsContent value="treinamentos" className="space-y-4 mt-4">
+          <TreinamentosSection empreendimentoId={empreendimentoId} documentos={documentos} />
         </TabsContent>
 
         <TabsContent value="pops" className="space-y-4 mt-4">
@@ -1248,6 +1253,108 @@ function POPsSection({ empreendimentoId, documentos }: { empreendimentoId: numbe
                       >
                         <FileText className="h-4 w-4" />
                       </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoId: number; documentos: SegDocumentoColaborador[] }) {
+  const treinamentos = documentos.filter((doc) => {
+    const tipoDoc = doc.tipoDocumento?.toLowerCase() || '';
+    const tipoDesc = (doc as any).tipoDescritivo?.toLowerCase() || '';
+    return tipoDoc.includes('treinamento') || tipoDoc === 'nr' || tipoDesc.includes('treinamento') || 
+           tipoDoc === 'certificado de treinamento';
+  });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'valido':
+        return <Badge className="bg-green-100 text-green-700">Válido</Badge>;
+      case 'vencido':
+        return <Badge className="bg-red-100 text-red-700">Vencido</Badge>;
+      case 'a_vencer':
+        return <Badge className="bg-yellow-100 text-yellow-700">A Vencer</Badge>;
+      default:
+        return <Badge variant="outline">{status || 'Pendente'}</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 text-purple-600" />
+            Treinamentos SST
+          </h4>
+          <p className="text-sm text-muted-foreground mt-1">
+            Treinamentos e certificações de segurança vinculados a este empreendimento
+          </p>
+        </div>
+        <Link href="/seguranca-trabalho">
+          <Button variant="outline" size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Cadastrar Treinamento
+          </Button>
+        </Link>
+      </div>
+
+      {treinamentos.length === 0 ? (
+        <Card className="py-8 text-center text-muted-foreground">
+          <GraduationCap className="mx-auto h-12 w-12 mb-4 text-muted-foreground/50" />
+          <p>Nenhum treinamento cadastrado para este empreendimento</p>
+          <p className="text-xs mt-2">
+            Cadastre treinamentos na Central SST selecionando tipo "Treinamento NR" ou "Certificado de Treinamento"
+          </p>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {treinamentos.map((treinamento) => (
+            <Card key={treinamento.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h5 className="font-semibold text-sm">
+                      {(treinamento as any).nomeDocumento || (treinamento as any).tipoDescritivo || 'Treinamento SST'}
+                    </h5>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {treinamento.descricao || 'Sem descrição'}
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      {treinamento.dataValidade && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Validade: {new Date(treinamento.dataValidade).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {getStatusBadge(treinamento.status || 'valido')}
+                    {treinamento.arquivoUrl && (
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => window.open(`/api/seg-documentos/${treinamento.id}/view`, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => window.open(`/api/seg-documentos/${treinamento.id}/download`, '_blank')}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
