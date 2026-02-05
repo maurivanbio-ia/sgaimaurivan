@@ -1476,6 +1476,27 @@ export type DdsRegistro = typeof ddsRegistros.$inferSelect;
 export type InsertInvestigacaoIncidente = z.infer<typeof insertInvestigacaoIncidenteSchema>;
 export type InvestigacaoIncidente = typeof investigacoesIncidentes.$inferSelect;
 
+// Lista de Presença para Treinamentos SST
+export const segTreinamentoPresencas = pgTable("seg_treinamento_presencas", {
+  id: serial("id").primaryKey(),
+  documentoId: integer("documento_id").references(() => segDocumentosColaboradores.id).notNull(),
+  nome: text("nome").notNull(),
+  funcao: text("funcao"),
+  cpf: text("cpf"),
+  assinatura: boolean("assinatura").default(false),
+  presente: boolean("presente").default(true),
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertSegTreinamentoPresencaSchema = createInsertSchema(segTreinamentoPresencas).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertSegTreinamentoPresenca = z.infer<typeof insertSegTreinamentoPresencaSchema>;
+export type SegTreinamentoPresenca = typeof segTreinamentoPresencas.$inferSelect;
+
 // =============================================
 // PORTAL DO CLIENTE - Clientes e Usuários de Cliente
 // =============================================
