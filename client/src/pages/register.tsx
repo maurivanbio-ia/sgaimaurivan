@@ -216,6 +216,7 @@ export default function Register() {
                     <SelectItem value="diretor">Diretor(a)</SelectItem>
                     <SelectItem value="rh">Recursos Humanos</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="sst">SST (Segurança do Trabalho)</SelectItem>
                     <SelectItem value="colaborador">Colaborador(a)</SelectItem>
                   </SelectContent>
                 </Select>
