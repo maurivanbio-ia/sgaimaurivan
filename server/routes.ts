@@ -139,23 +139,12 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-// Allowed email domain for platform access
-const ALLOWED_EMAIL_DOMAIN = "@ecobrasil.bio.br";
-
-// Helper function to validate email domain
-const isAllowedEmailDomain = (email: string): boolean => {
-  return email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN);
-};
-
-// Register schema
+// Register schema - accepts any valid email
 const registerSchema = z.object({
-  email: z.string().email().refine(
-    (email) => isAllowedEmailDomain(email),
-    { message: `Apenas emails com domínio ${ALLOWED_EMAIL_DOMAIN} podem se cadastrar na plataforma` }
-  ),
+  email: z.string().email("Email inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
   unidade: z.enum(["goiania", "salvador", "luiz-eduardo-magalhaes"]),
-  cargo: z.enum(["coordenador", "diretor", "rh", "financeiro", "colaborador"]),
+  cargo: z.enum(["coordenador", "diretor", "rh", "financeiro", "colaborador", "sst"]),
 });
 
 // Client login schema
@@ -334,13 +323,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
-      
-      // Validate email domain
-      if (!isAllowedEmailDomain(email)) {
-        return res.status(403).json({ 
-          message: `Acesso negado. Apenas emails com domínio ${ALLOWED_EMAIL_DOMAIN} podem acessar a plataforma.` 
-        });
-      }
       
       const user = await storage.getUserByEmail(email);
       if (!user) {
