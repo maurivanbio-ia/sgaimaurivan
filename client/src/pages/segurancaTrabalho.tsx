@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -132,6 +133,7 @@ export default function SegurancaTrabalho() {
     dataValidade: "",
     vigenciaInicio: "",
     vigenciaFim: "",
+    semVigencia: false,
     empresaResponsavel: "",
     medicoResponsavel: "",
     registroCrm: "",
@@ -353,6 +355,7 @@ export default function SegurancaTrabalho() {
       dataValidade: "",
       vigenciaInicio: "",
       vigenciaFim: "",
+      semVigencia: false,
       empresaResponsavel: "",
       medicoResponsavel: "",
       registroCrm: "",
@@ -641,7 +644,7 @@ export default function SegurancaTrabalho() {
     setDocumentoForm({
       colaboradorId: documento.colaboradorId ? documento.colaboradorId.toString() : (documento.colaboradorNome === "Escritório" ? "escritorio" : ""),
       empreendimentoId: documento.empreendimentoId?.toString() || "",
-      tipoDocumento: documento.tipoDocumento,
+      tipoDocumento: documento.tipoDocumento || "",
       tipoDescritivo: doc.tipoDescritivo || "",
       subtipoAso: doc.subtipoAso || "",
       nomeDocumento: doc.nomeDocumento || "",
@@ -651,6 +654,7 @@ export default function SegurancaTrabalho() {
       dataValidade: documento.dataValidade || "",
       vigenciaInicio: doc.vigenciaInicio || "",
       vigenciaFim: doc.vigenciaFim || "",
+      semVigencia: doc.semVigencia || false,
       empresaResponsavel: doc.empresaResponsavel || "",
       medicoResponsavel: doc.medicoResponsavel || "",
       registroCrm: doc.registroCrm || "",
@@ -1284,8 +1288,25 @@ export default function SegurancaTrabalho() {
                         type="date"
                         value={documentoForm.vigenciaFim}
                         onChange={(e) => setDocumentoForm({ ...documentoForm, vigenciaFim: e.target.value })}
+                        disabled={documentoForm.semVigencia}
                         data-testid="input-documento-vigencia-fim"
                       />
+                    </div>
+                    <div className="col-span-2 flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="semVigencia"
+                        checked={documentoForm.semVigencia}
+                        onCheckedChange={(checked) => setDocumentoForm({ 
+                          ...documentoForm, 
+                          semVigencia: checked === true,
+                          vigenciaFim: checked === true ? "" : documentoForm.vigenciaFim,
+                          dataValidade: checked === true ? "" : documentoForm.dataValidade
+                        })}
+                        data-testid="checkbox-sem-vigencia"
+                      />
+                      <Label htmlFor="semVigencia" className="text-sm font-medium cursor-pointer">
+                        Documento sem vigência (não expira)
+                      </Label>
                     </div>
                   </div>
 
