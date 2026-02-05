@@ -4489,6 +4489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/seg-documentos', requireAuth, async (req, res) => {
     try {
       const data = req.body;
+      console.log('[SST] Recebendo dados para criar documento:', JSON.stringify(data));
       
       // Se não houver empreendimento selecionado, tenta usar o primeiro disponível
       let empreendimentoId = data.empreendimentoId;
@@ -4505,19 +4506,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const colaboradorId = data.colaboradorId === null || data.colaboradorId === undefined ? null : data.colaboradorId;
       const colaboradorNome = colaboradorId === null ? (data.colaboradorNome || 'Escritório') : null;
       
-      const documentoData = {
-        ...data,
+      // Remove campos vazios para evitar erros de tipo
+      const documentoData: any = {
+        tipoDocumento: data.tipoDocumento || null,
+        tipoDescritivo: data.tipoDescritivo || null,
+        nomeDocumento: data.nomeDocumento || null,
+        descricao: data.descricao || null,
+        arquivoUrl: data.arquivoUrl || null,
+        dataEmissao: data.dataEmissao || null,
+        dataValidade: data.dataValidade || null,
+        vigenciaInicio: data.vigenciaInicio || null,
+        vigenciaFim: data.vigenciaFim || null,
+        empresaResponsavel: data.empresaResponsavel || null,
+        medicoResponsavel: data.medicoResponsavel || null,
+        registroCrm: data.registroCrm || null,
+        assinaturaResponsavel: data.assinaturaResponsavel || null,
+        status: data.status || 'valido',
         empreendimentoId: empreendimentoId || null,
         colaboradorId,
         colaboradorNome,
       };
       
-      console.log('[SST] Criando documento:', JSON.stringify(documentoData));
+      console.log('[SST] Criando documento com dados processados:', JSON.stringify(documentoData));
       const documento = await storage.createSegDocumento(documentoData);
+      console.log('[SST] Documento criado com sucesso, ID:', documento.id);
       res.status(201).json(documento);
-    } catch (error) {
-      console.error('Error creating documento:', error);
-      res.status(500).json({ error: 'Failed to create documento' });
+    } catch (error: any) {
+      console.error('[SST] Error creating documento:', error);
+      res.status(500).json({ error: 'Failed to create documento', details: error?.message || 'Unknown error' });
     }
   });
 
