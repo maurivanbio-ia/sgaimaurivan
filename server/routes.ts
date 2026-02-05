@@ -4527,7 +4527,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid documento ID' });
       }
 
-      const documento = await storage.updateSegDocumento(id, req.body);
+      // Sincroniza vigenciaFim com dataValidade para cálculo correto de vencimentos
+      const updates = { ...req.body };
+      if (updates.vigenciaFim) {
+        updates.dataValidade = updates.vigenciaFim;
+      }
+      // Se semVigencia for true, limpa dataValidade
+      if (updates.semVigencia === true) {
+        updates.dataValidade = null;
+        updates.vigenciaFim = null;
+      }
+
+      const documento = await storage.updateSegDocumento(id, updates);
       res.json(documento);
     } catch (error) {
       console.error('Error updating documento:', error);
