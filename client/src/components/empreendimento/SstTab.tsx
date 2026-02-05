@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -248,41 +249,114 @@ function ResumoSST({
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Docs Válidos</p>
-                <p className="text-2xl font-bold text-green-700">{documentosValidos.length}</p>
-              </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow hover:bg-green-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Docs Válidos</p>
+                    <p className="text-2xl font-bold text-green-700">{documentosValidos.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 max-h-80 overflow-y-auto">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm text-green-700">Documentos Válidos</h4>
+              {documentosValidos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum documento válido</p>
+              ) : (
+                <div className="space-y-1">
+                  {documentosValidos.map((doc) => (
+                    <Link key={doc.id} href={`/seguranca-trabalho?doc=${doc.id}`}>
+                      <div className="p-2 rounded hover:bg-gray-100 cursor-pointer border-l-2 border-green-500">
+                        <p className="text-sm font-medium truncate">{doc.nomeDocumento || doc.tipoDocumento}</p>
+                        <p className="text-xs text-muted-foreground">{doc.colaboradorNome || 'Documento geral'}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </PopoverContent>
+        </Popover>
 
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-yellow-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">A Vencer</p>
-                <p className="text-2xl font-bold text-yellow-700">{documentosAVencer.length}</p>
-              </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow hover:bg-yellow-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">A Vencer</p>
+                    <p className="text-2xl font-bold text-yellow-700">{documentosAVencer.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 max-h-80 overflow-y-auto">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm text-yellow-700">Documentos a Vencer</h4>
+              {documentosAVencer.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum documento próximo do vencimento</p>
+              ) : (
+                <div className="space-y-1">
+                  {documentosAVencer.map((doc) => (
+                    <Link key={doc.id} href={`/seguranca-trabalho?doc=${doc.id}`}>
+                      <div className="p-2 rounded hover:bg-gray-100 cursor-pointer border-l-2 border-yellow-500">
+                        <p className="text-sm font-medium truncate">{doc.nomeDocumento || doc.tipoDocumento}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {doc.colaboradorNome || 'Documento geral'} • Vence: {doc.dataValidade ? new Date(doc.dataValidade).toLocaleDateString('pt-BR') : '-'}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </PopoverContent>
+        </Popover>
 
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <div>
-                <p className="text-xs text-muted-foreground">Vencidos</p>
-                <p className="text-2xl font-bold text-red-700">{documentosVencidos.length}</p>
-              </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow hover:bg-red-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Vencidos</p>
+                    <p className="text-2xl font-bold text-red-700">{documentosVencidos.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 max-h-80 overflow-y-auto">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm text-red-700">Documentos Vencidos</h4>
+              {documentosVencidos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum documento vencido</p>
+              ) : (
+                <div className="space-y-1">
+                  {documentosVencidos.map((doc) => (
+                    <Link key={doc.id} href={`/seguranca-trabalho?doc=${doc.id}`}>
+                      <div className="p-2 rounded hover:bg-gray-100 cursor-pointer border-l-2 border-red-500">
+                        <p className="text-sm font-medium truncate">{doc.nomeDocumento || doc.tipoDocumento}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {doc.colaboradorNome || 'Documento geral'} • Venceu: {doc.dataValidade ? new Date(doc.dataValidade).toLocaleDateString('pt-BR') : '-'}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </PopoverContent>
+        </Popover>
 
         <Card className="shadow-sm">
           <CardContent className="p-4">
