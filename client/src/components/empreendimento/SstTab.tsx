@@ -1266,12 +1266,70 @@ function POPsSection({ empreendimentoId, documentos }: { empreendimentoId: numbe
 }
 
 function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoId: number; documentos: SegDocumentoColaborador[] }) {
+  const { toast } = useToast();
+  const [selectedTreinamentoId, setSelectedTreinamentoId] = useState<number | null>(null);
+  const [isPresencaDialogOpen, setIsPresencaDialogOpen] = useState(false);
+  const [novaPresenca, setNovaPresenca] = useState({ nome: '', funcao: '', cpf: '' });
+
   const treinamentos = documentos.filter((doc) => {
     const tipoDoc = doc.tipoDocumento?.toLowerCase() || '';
     const tipoDesc = (doc as any).tipoDescritivo?.toLowerCase() || '';
     return tipoDoc.includes('treinamento') || tipoDoc === 'nr' || tipoDesc.includes('treinamento') || 
            tipoDoc === 'certificado de treinamento';
   });
+
+  const { data: presencas = [], refetch: refetchPresencas } = useQuery<any[]>({
+    queryKey: ['/api/seg-documentos', selectedTreinamentoId, 'presencas'],
+    queryFn: async () => {
+      if (!selectedTreinamentoId) return [];
+      const res = await fetch(`/api/seg-documentos/${selectedTreinamentoId}/presencas`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Erro ao carregar lista de presença');
+      return res.json();
+    },
+    enabled: !!selectedTreinamentoId,
+  });
+
+  const addPresencaMutation = useMutation({
+    mutationFn: async (data: { nome: string; funcao?: string; cpf?: string }) => {
+      const res = await apiRequest('POST', `/api/seg-documentos/${selectedTreinamentoId}/presencas`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Participante adicionado', description: 'Participante adicionado à lista de presença' });
+      setNovaPresenca({ nome: '', funcao: '', cpf: '' });
+      refetchPresencas();
+    },
+    onError: () => {
+      toast({ title: 'Erro', description: 'Erro ao adicionar participante', variant: 'destructive' });
+    },
+  });
+
+  const deletePresencaMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/seg-treinamento-presencas/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Participante removido', description: 'Participante removido da lista de presença' });
+      refetchPresencas();
+    },
+    onError: () => {
+      toast({ title: 'Erro', description: 'Erro ao remover participante', variant: 'destructive' });
+    },
+  });
+
+  const handleAddPresenca = () => {
+    if (!novaPresenca.nome.trim()) {
+      toast({ title: 'Atenção', description: 'Nome é obrigatório', variant: 'destructive' });
+      return;
+    }
+    addPresencaMutation.mutate(novaPresenca);
+  };
+
+  const openPresencaDialog = (treinamentoId: number) => {
+    setSelectedTreinamentoId(treinamentoId);
+    setIsPresencaDialogOpen(true);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -1338,24 +1396,34 @@ function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoI
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     {getStatusBadge(treinamento.status || 'valido')}
-                    {treinamento.arquivoUrl && (
-                      <div className="flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => window.open(`/api/seg-documentos/${treinamento.id}/view`, '_blank')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => window.open(`/api/seg-documentos/${treinamento.id}/download`, '_blank')}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => openPresencaDialog(treinamento.id)}
+                        title="Lista de Presença"
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
+                      {treinamento.arquivoUrl && (
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => window.open(`/api/seg-documentos/${treinamento.id}/view`, '_blank')}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => window.open(`/api/seg-documentos/${treinamento.id}/download`, '_blank')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1363,6 +1431,105 @@ function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoI
           ))}
         </div>
       )}
+
+      <Dialog open={isPresencaDialogOpen} onOpenChange={setIsPresencaDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Lista de Presença
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">Adicionar Participante</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label htmlFor="nome" className="text-xs">Nome *</Label>
+                    <Input 
+                      id="nome"
+                      placeholder="Nome do participante"
+                      value={novaPresenca.nome}
+                      onChange={(e) => setNovaPresenca({...novaPresenca, nome: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="funcao" className="text-xs">Função</Label>
+                    <Input 
+                      id="funcao"
+                      placeholder="Função/Cargo"
+                      value={novaPresenca.funcao}
+                      onChange={(e) => setNovaPresenca({...novaPresenca, funcao: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cpf" className="text-xs">CPF</Label>
+                    <Input 
+                      id="cpf"
+                      placeholder="000.000.000-00"
+                      value={novaPresenca.cpf}
+                      onChange={(e) => setNovaPresenca({...novaPresenca, cpf: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={handleAddPresenca}
+                  disabled={addPresencaMutation.isPending}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {addPresencaMutation.isPending ? 'Adicionando...' : 'Adicionar'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span>Participantes ({presencas.length})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {presencas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhum participante cadastrado ainda
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {presencas.map((p, idx) => (
+                      <div key={p.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-muted-foreground w-6">{idx + 1}.</span>
+                          <div>
+                            <p className="text-sm font-medium">{p.nome}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {p.funcao && <span>{p.funcao}</span>}
+                              {p.funcao && p.cpf && <span> • </span>}
+                              {p.cpf && <span>{p.cpf}</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deletePresencaMutation.mutate(p.id)}
+                          disabled={deletePresencaMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
