@@ -1,6 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -63,6 +64,11 @@ import type { Colaborador, SegDocumentoColaborador, Empreendimento } from "@shar
 export default function SegurancaTrabalho() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const searchString = useSearch();
+  
+  // Parse query params
+  const urlParams = new URLSearchParams(searchString);
+  const highlightDocId = urlParams.get('doc');
 
   // Estados
   const [activeTab, setActiveTab] = useState("colaboradores");
@@ -78,6 +84,26 @@ export default function SegurancaTrabalho() {
   const [isUploading, setIsUploading] = useState(false);
   const [documentContent, setDocumentContent] = useState<string>("");
   const [isEmpreendimentoEspecifico, setIsEmpreendimentoEspecifico] = useState(false);
+  const [highlightedDocumento, setHighlightedDocumento] = useState<number | null>(null);
+  
+  // Se veio um doc na URL, muda para aba de documentos e destaca
+  useEffect(() => {
+    if (highlightDocId) {
+      setActiveTab("documentos");
+      const docId = parseInt(highlightDocId);
+      setHighlightedDocumento(docId);
+      // Scroll para o documento após um pequeno delay para dar tempo de renderizar
+      setTimeout(() => {
+        const element = document.getElementById(`doc-${docId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      // Remove highlight após 3 segundos
+      const timer = setTimeout(() => setHighlightedDocumento(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightDocId]);
 
   // Formulário Colaborador
   const [colaboradorForm, setColaboradorForm] = useState({
@@ -1327,7 +1353,12 @@ export default function SegurancaTrabalho() {
                   </TableHeader>
                   <TableBody>
                     {documentos.map((doc) => (
-                      <TableRow key={doc.id} data-testid={`row-documento-${doc.id}`}>
+                      <TableRow 
+                        key={doc.id} 
+                        data-testid={`row-documento-${doc.id}`}
+                        className={highlightedDocumento === doc.id ? "bg-yellow-100 dark:bg-yellow-900 animate-pulse ring-2 ring-yellow-400" : ""}
+                        id={`doc-${doc.id}`}
+                      >
                         <TableCell className="font-medium" data-testid={`text-documento-tipo-${doc.id}`}>{(doc as any).tipoDescritivo || doc.tipoDocumento}</TableCell>
                         <TableCell data-testid={`text-documento-colaborador-${doc.id}`}>{doc.colaboradorNome || (doc.colaboradorId ? `Colaborador #${doc.colaboradorId}` : "Escritório")}</TableCell>
                         <TableCell data-testid={`text-documento-empreendimento-${doc.id}`}>
