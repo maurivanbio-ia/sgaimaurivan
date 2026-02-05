@@ -1269,7 +1269,7 @@ function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoI
   const { toast } = useToast();
   const [selectedTreinamentoId, setSelectedTreinamentoId] = useState<number | null>(null);
   const [isPresencaDialogOpen, setIsPresencaDialogOpen] = useState(false);
-  const [novaPresenca, setNovaPresenca] = useState({ nome: '', funcao: '', cpf: '' });
+  const [isUploading, setIsUploading] = useState(false);
 
   const treinamentos = documentos.filter((doc) => {
     const tipoDoc = doc.tipoDocumento?.toLowerCase() || '';
@@ -1278,52 +1278,54 @@ function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoI
            tipoDoc === 'certificado de treinamento';
   });
 
-  const { data: presencas = [], refetch: refetchPresencas } = useQuery<any[]>({
-    queryKey: ['/api/seg-documentos', selectedTreinamentoId, 'presencas'],
+  const { data: listaPresenca, refetch: refetchListaPresenca } = useQuery<any>({
+    queryKey: ['/api/seg-documentos', selectedTreinamentoId, 'lista-presenca'],
     queryFn: async () => {
-      if (!selectedTreinamentoId) return [];
-      const res = await fetch(`/api/seg-documentos/${selectedTreinamentoId}/presencas`, { credentials: 'include' });
+      if (!selectedTreinamentoId) return null;
+      const res = await fetch(`/api/seg-documentos/${selectedTreinamentoId}/lista-presenca`, { credentials: 'include' });
       if (!res.ok) throw new Error('Erro ao carregar lista de presença');
       return res.json();
     },
     enabled: !!selectedTreinamentoId,
   });
 
-  const addPresencaMutation = useMutation({
-    mutationFn: async (data: { nome: string; funcao?: string; cpf?: string }) => {
-      const res = await apiRequest('POST', `/api/seg-documentos/${selectedTreinamentoId}/presencas`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: 'Participante adicionado', description: 'Participante adicionado à lista de presença' });
-      setNovaPresenca({ nome: '', funcao: '', cpf: '' });
-      refetchPresencas();
-    },
-    onError: () => {
-      toast({ title: 'Erro', description: 'Erro ao adicionar participante', variant: 'destructive' });
-    },
-  });
+  const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTreinamentoId) return;
 
-  const deletePresencaMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest('DELETE', `/api/seg-treinamento-presencas/${id}`);
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: 'Participante removido', description: 'Participante removido da lista de presença' });
-      refetchPresencas();
-    },
-    onError: () => {
-      toast({ title: 'Erro', description: 'Erro ao remover participante', variant: 'destructive' });
-    },
-  });
-
-  const handleAddPresenca = () => {
-    if (!novaPresenca.nome.trim()) {
-      toast({ title: 'Atenção', description: 'Nome é obrigatório', variant: 'destructive' });
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      toast({ title: 'Erro', description: 'Apenas arquivos PDF são aceitos', variant: 'destructive' });
       return;
     }
-    addPresencaMutation.mutate(novaPresenca);
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    try {
+      const res = await fetch(`/api/seg-documentos/${selectedTreinamentoId}/lista-presenca/analisar`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Erro ao analisar PDF');
+      }
+
+      const resultado = await res.json();
+      toast({ 
+        title: 'Análise concluída', 
+        description: resultado.mensagem || 'Lista de presença analisada com sucesso' 
+      });
+      refetchListaPresenca();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message || 'Erro ao analisar PDF', variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
   };
 
   const openPresencaDialog = (treinamentoId: number) => {
@@ -1437,96 +1439,125 @@ function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoI
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Lista de Presença
+              Lista de Presença - Análise com IA
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <Card>
               <CardHeader className="py-3">
-                <CardTitle className="text-sm">Adicionar Participante</CardTitle>
+                <CardTitle className="text-sm">Upload da Lista de Presença (PDF)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <Label htmlFor="nome" className="text-xs">Nome *</Label>
-                    <Input 
-                      id="nome"
-                      placeholder="Nome do participante"
-                      value={novaPresenca.nome}
-                      onChange={(e) => setNovaPresenca({...novaPresenca, nome: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="funcao" className="text-xs">Função</Label>
-                    <Input 
-                      id="funcao"
-                      placeholder="Função/Cargo"
-                      value={novaPresenca.funcao}
-                      onChange={(e) => setNovaPresenca({...novaPresenca, funcao: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cpf" className="text-xs">CPF</Label>
-                    <Input 
-                      id="cpf"
-                      placeholder="000.000.000-00"
-                      value={novaPresenca.cpf}
-                      onChange={(e) => setNovaPresenca({...novaPresenca, cpf: e.target.value})}
-                    />
-                  </div>
+                <p className="text-sm text-muted-foreground">
+                  Faça upload do PDF da lista de presença assinada. A IA irá extrair os nomes e comparar com o RH do empreendimento.
+                </p>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleUploadPdf}
+                    disabled={isUploading}
+                    className="flex-1"
+                  />
+                  {isUploading && (
+                    <span className="text-sm text-muted-foreground animate-pulse">Analisando...</span>
+                  )}
                 </div>
-                <Button 
-                  size="sm" 
-                  onClick={handleAddPresenca}
-                  disabled={addPresencaMutation.isPending}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {addPresencaMutation.isPending ? 'Adicionando...' : 'Adicionar'}
-                </Button>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="py-3">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>Participantes ({presencas.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {presencas.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Nenhum participante cadastrado ainda
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {presencas.map((p, idx) => (
-                      <div key={p.id} className="flex items-center justify-between border-b pb-2 last:border-0">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-muted-foreground w-6">{idx + 1}.</span>
-                          <div>
-                            <p className="text-sm font-medium">{p.nome}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {p.funcao && <span>{p.funcao}</span>}
-                              {p.funcao && p.cpf && <span> • </span>}
-                              {p.cpf && <span>{p.cpf}</span>}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deletePresencaMutation.mutate(p.id)}
-                          disabled={deletePresencaMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+            {listaPresenca && (
+              <>
+                <Card className="border-green-200 bg-green-50/50">
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        Resultado da Análise
+                      </span>
+                      <Badge className="bg-green-600 text-white text-lg px-3">
+                        {listaPresenca.percentualParticipacao}%
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Total RH do Empreendimento</p>
+                        <p className="font-semibold text-lg">{listaPresenca.totalRh} colaboradores</p>
                       </div>
-                    ))}
-                  </div>
+                      <div>
+                        <p className="text-muted-foreground">Presentes no Treinamento</p>
+                        <p className="font-semibold text-lg">{listaPresenca.totalPresentes} colaboradores</p>
+                      </div>
+                    </div>
+                    {listaPresenca.arquivoPdfUrl && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3"
+                        onClick={() => window.open(listaPresenca.arquivoPdfUrl, '_blank')}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver PDF
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {listaPresenca.nomesReconhecidos?.length > 0 && (
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm flex items-center gap-2 text-green-600">
+                        <CheckCircle className="h-4 w-4" />
+                        Colaboradores Reconhecidos ({listaPresenca.nomesReconhecidos.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {listaPresenca.nomesReconhecidos.map((nome: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                            {nome}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
+
+                {listaPresenca.nomesNaoReconhecidos?.length > 0 && (
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm flex items-center gap-2 text-yellow-600">
+                        <AlertTriangle className="h-4 w-4" />
+                        Nomes Não Reconhecidos no RH ({listaPresenca.nomesNaoReconhecidos.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Estes nomes foram extraídos do PDF mas não foram encontrados no RH do empreendimento
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {listaPresenca.nomesNaoReconhecidos.map((nome: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-yellow-50 border-yellow-200 text-yellow-700">
+                            {nome}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+
+            {!listaPresenca && (
+              <Card className="py-8 text-center text-muted-foreground">
+                <FileText className="mx-auto h-12 w-12 mb-4 text-muted-foreground/50" />
+                <p>Nenhuma lista de presença analisada ainda</p>
+                <p className="text-xs mt-2">Faça upload do PDF acima para iniciar a análise</p>
+              </Card>
+            )}
           </div>
         </DialogContent>
       </Dialog>

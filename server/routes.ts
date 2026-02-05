@@ -4558,77 +4558,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =============================================
-  // LISTA DE PRESENÇA - TREINAMENTOS SST
+  // LISTA DE PRESENÇA - TREINAMENTOS SST (PDF + IA)
   // =============================================
   
-  // Get lista de presença de um documento
-  app.get('/api/seg-documentos/:documentoId/presencas', requireAuth, async (req, res) => {
+  // Get análise de lista de presença de um documento
+  app.get('/api/seg-documentos/:documentoId/lista-presenca', requireAuth, async (req, res) => {
     try {
       const documentoId = parseInt(req.params.documentoId);
       if (isNaN(documentoId)) {
         return res.status(400).json({ error: 'ID do documento inválido' });
       }
 
-      const presencas = await storage.getSegTreinamentoPresencas(documentoId);
-      res.json(presencas);
+      const listaPresenca = await storage.getSegTreinamentoListaPresenca(documentoId);
+      res.json(listaPresenca || null);
     } catch (error) {
-      console.error('Error fetching presencas:', error);
+      console.error('Error fetching lista presenca:', error);
       res.status(500).json({ error: 'Erro ao buscar lista de presença' });
     }
   });
 
-  // Create presença
-  app.post('/api/seg-documentos/:documentoId/presencas', requireAuth, async (req, res) => {
+  // Upload PDF e analisar com IA
+  const multerPresenca = (await import('multer')).default;
+  const fsPresenca = await import('fs');
+  const pathPresenca = await import('path');
+  
+  const presencaStorageDir = pathPresenca.default.join(process.cwd(), 'uploads', 'sst_documentos');
+  if (!fsPresenca.default.existsSync(presencaStorageDir)) {
+    fsPresenca.default.mkdirSync(presencaStorageDir, { recursive: true });
+  }
+  
+  const presencaStorage = multerPresenca.diskStorage({
+    destination: (_req, _file, cb) => cb(null, presencaStorageDir),
+    filename: (_req, file, cb) => {
+      const timestamp = Date.now();
+      const originalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      cb(null, `presenca_${timestamp}_${originalName}`);
+    }
+  });
+  const uploadPresenca = multerPresenca({ storage: presencaStorage });
+
+  app.post('/api/seg-documentos/:documentoId/lista-presenca/analisar', requireAuth, uploadPresenca.single('arquivo'), async (req, res) => {
     try {
       const documentoId = parseInt(req.params.documentoId);
       if (isNaN(documentoId)) {
         return res.status(400).json({ error: 'ID do documento inválido' });
       }
 
-      const data = { ...req.body, documentoId };
-      const presenca = await storage.createSegTreinamentoPresenca(data);
-      res.status(201).json(presenca);
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo PDF é obrigatório' });
+      }
+
+      const documento = await storage.getSegDocumentoById(documentoId);
+      if (!documento) {
+        return res.status(404).json({ error: 'Documento de treinamento não encontrado' });
+      }
+
+      const empreendimentoId = documento.empreendimentoId;
+      if (!empreendimentoId) {
+        return res.status(400).json({ error: 'Documento não está vinculado a um empreendimento' });
+      }
+
+      // Buscar colaboradores do RH do empreendimento
+      const colaboradores = await storage.getColaboradores({ empreendimentoId, status: 'ativo' });
+      const nomesRh = colaboradores.map(c => c.nome.toLowerCase().trim());
+
+      // Ler o conteúdo do PDF
+      const pdfPath = req.file.path;
+      const pdfBuffer = fsPresenca.default.readFileSync(pdfPath);
+      
+      // Usar OpenAI para extrair nomes do PDF
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      
+      // Converter PDF para base64 para enviar à API
+      const pdfBase64 = pdfBuffer.toString('base64');
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `Você é um assistente especializado em extrair nomes de pessoas de documentos PDF de listas de presença.
+Analise o documento e extraia TODOS os nomes de pessoas presentes na lista de presença.
+Retorne APENAS um JSON no formato: {"nomes": ["Nome 1", "Nome 2", "Nome 3"]}
+Se não encontrar nomes, retorne: {"nomes": []}
+Não inclua explicações, apenas o JSON.`
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Extraia todos os nomes de pessoas desta lista de presença de treinamento:'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:application/pdf;base64,${pdfBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 2000,
+      });
+
+      let nomesExtraidos: string[] = [];
+      try {
+        const content = response.choices[0]?.message?.content || '{"nomes": []}';
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          nomesExtraidos = parsed.nomes || [];
+        }
+      } catch (parseError) {
+        console.error('Erro ao parsear resposta da IA:', parseError);
+      }
+
+      // Comparar com RH
+      const nomesReconhecidos: string[] = [];
+      const nomesNaoReconhecidos: string[] = [];
+
+      for (const nomeExtraido of nomesExtraidos) {
+        const nomeNormalizado = nomeExtraido.toLowerCase().trim();
+        const encontrado = nomesRh.some(nomeRh => {
+          // Verificar se há correspondência parcial (nome completo ou parte do nome)
+          return nomeRh.includes(nomeNormalizado) || nomeNormalizado.includes(nomeRh) ||
+                 nomeRh.split(' ').some(parte => nomeNormalizado.includes(parte) && parte.length > 3);
+        });
+
+        if (encontrado) {
+          nomesReconhecidos.push(nomeExtraido);
+        } else {
+          nomesNaoReconhecidos.push(nomeExtraido);
+        }
+      }
+
+      const totalRh = colaboradores.length;
+      const totalPresentes = nomesReconhecidos.length;
+      const percentualParticipacao = totalRh > 0 ? ((totalPresentes / totalRh) * 100).toFixed(2) : '0';
+
+      // Salvar resultado
+      const arquivoPdfUrl = `/api/sst/download/${req.file.filename}`;
+      const resultado = await storage.createOrUpdateSegTreinamentoListaPresenca({
+        documentoId,
+        arquivoPdfUrl,
+        nomesExtraidos,
+        nomesReconhecidos,
+        nomesNaoReconhecidos,
+        totalRh,
+        totalPresentes,
+        percentualParticipacao,
+      });
+
+      res.json({
+        ...resultado,
+        mensagem: `Análise concluída: ${totalPresentes} de ${totalRh} colaboradores do RH foram identificados na lista de presença (${percentualParticipacao}%)`
+      });
     } catch (error) {
-      console.error('Error creating presenca:', error);
-      res.status(500).json({ error: 'Erro ao adicionar presença' });
+      console.error('Error analyzing lista presenca:', error);
+      res.status(500).json({ error: 'Erro ao analisar lista de presença' });
     }
   });
 
-  // Update presença
-  app.patch('/api/seg-treinamento-presencas/:id', requireAuth, async (req, res) => {
+  // Delete lista de presença
+  app.delete('/api/seg-documentos/:documentoId/lista-presenca', requireAuth, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'ID inválido' });
+      const documentoId = parseInt(req.params.documentoId);
+      if (isNaN(documentoId)) {
+        return res.status(400).json({ error: 'ID do documento inválido' });
       }
 
-      const updated = await storage.updateSegTreinamentoPresenca(id, req.body);
-      if (!updated) {
-        return res.status(404).json({ error: 'Presença não encontrada' });
-      }
-      res.json(updated);
-    } catch (error) {
-      console.error('Error updating presenca:', error);
-      res.status(500).json({ error: 'Erro ao atualizar presença' });
-    }
-  });
-
-  // Delete presença
-  app.delete('/api/seg-treinamento-presencas/:id', requireAuth, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'ID inválido' });
+      const listaPresenca = await storage.getSegTreinamentoListaPresenca(documentoId);
+      if (!listaPresenca) {
+        return res.status(404).json({ error: 'Lista de presença não encontrada' });
       }
 
-      const deleted = await storage.deleteSegTreinamentoPresenca(id);
+      const deleted = await storage.deleteSegTreinamentoListaPresenca(listaPresenca.id);
       if (!deleted) {
-        return res.status(404).json({ error: 'Presença não encontrada' });
+        return res.status(404).json({ error: 'Lista de presença não encontrada' });
       }
       res.json({ success: true });
     } catch (error) {
-      console.error('Error deleting presenca:', error);
-      res.status(500).json({ error: 'Erro ao remover presença' });
+      console.error('Error deleting lista presenca:', error);
+      res.status(500).json({ error: 'Erro ao remover lista de presença' });
     }
   });
 
