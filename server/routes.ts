@@ -4761,43 +4761,56 @@ Não inclua explicações, apenas o JSON.`
     }
   });
 
-  // Download documento SST por nome de arquivo (armazenamento local)
+  // Download documento SST por nome de arquivo (Object Storage)
   app.get('/api/sst/download/:fileName', requireAuth, async (req, res) => {
     try {
-      const fs = await import('fs');
       const path = await import('path');
+      const { ObjectStorageService, objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+      const objStorage = new ObjectStorageService();
       
       const fileName = req.params.fileName;
-      const sstDir = path.default.join(process.cwd(), 'uploads', 'sst_documentos');
-      const filePath = path.default.join(sstDir, fileName);
       
-      console.log('[SST Download] Buscando arquivo local:', filePath);
+      console.log('[SST Download] Buscando arquivo no Object Storage:', fileName);
       
-      // Verificar se o arquivo existe
-      if (!fs.default.existsSync(filePath)) {
-        console.error('[SST Download] Arquivo não encontrado:', filePath);
+      // Buscar arquivo do Object Storage
+      const privateDir = objStorage.getPrivateObjectDir();
+      const objectPath = `${privateDir}/sst_documentos/${fileName}`;
+      
+      const pathParts = objectPath.split('/').filter(p => p.length > 0);
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
+      
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      
+      const [exists] = await file.exists();
+      if (!exists) {
+        console.error('[SST Download] Arquivo não encontrado no Object Storage:', objectPath);
         return res.status(404).json({ error: 'Arquivo não encontrado' });
       }
       
-      const fileStats = fs.default.statSync(filePath);
-      console.log('[SST Download] Arquivo encontrado, tamanho:', fileStats.size, 'bytes');
+      const [fileBuffer] = await file.download();
+      const [metadata] = await file.getMetadata();
+      
+      console.log('[SST Download] Arquivo encontrado, tamanho:', fileBuffer.length, 'bytes');
       
       // Determinar tipo MIME
       const ext = path.default.extname(fileName).toLowerCase();
-      let mimeType = 'application/octet-stream';
-      if (ext === '.pdf') mimeType = 'application/pdf';
-      else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-      else if (ext === '.png') mimeType = 'image/png';
-      else if (ext === '.doc') mimeType = 'application/msword';
-      else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      let mimeType = metadata.contentType || 'application/octet-stream';
+      if (!mimeType || mimeType === 'application/octet-stream') {
+        if (ext === '.pdf') mimeType = 'application/pdf';
+        else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.doc') mimeType = 'application/msword';
+        else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
       
-      // Configurar headers para visualização inline (não download forçado)
+      // Configurar headers para download (attachment em vez de inline)
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', fileStats.size);
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       
       // Enviar arquivo
-      const fileBuffer = fs.default.readFileSync(filePath);
       res.send(fileBuffer);
     } catch (error: any) {
       console.error('[SST Download] Erro:', error);
@@ -4805,11 +4818,12 @@ Não inclua explicações, apenas o JSON.`
     }
   });
   
-  // Download documento SST por ID (busca no banco e serve do armazenamento local)
+  // Download documento SST por ID (busca no banco e serve do Object Storage)
   app.get('/api/seg-documentos/:id/download', requireAuth, async (req, res) => {
     try {
-      const fs = await import('fs');
       const path = await import('path');
+      const { ObjectStorageService, objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+      const objStorage = new ObjectStorageService();
       
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -4846,39 +4860,50 @@ Não inclua explicações, apenas o JSON.`
         return res.status(404).json({ error: 'Caminho do arquivo inválido' });
       }
 
-      const sstDir = path.default.join(process.cwd(), 'uploads', 'sst_documentos');
-      const filePath = path.default.join(sstDir, fileName);
+      console.log('[SST Download] Buscando arquivo no Object Storage:', fileName);
       
-      console.log('[SST Download] Buscando arquivo local:', filePath);
+      // Buscar arquivo do Object Storage
+      const privateDir = objStorage.getPrivateObjectDir();
+      const objectPath = `${privateDir}/sst_documentos/${fileName}`;
       
-      // Verificar se o arquivo existe localmente
-      if (!fs.default.existsSync(filePath)) {
-        console.error('[SST Download] Arquivo não encontrado localmente:', filePath);
+      const pathParts = objectPath.split('/').filter(p => p.length > 0);
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
+      
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      
+      const [exists] = await file.exists();
+      if (!exists) {
+        console.error('[SST Download] Arquivo não encontrado no Object Storage:', objectPath);
         return res.status(404).json({ error: 'Arquivo não encontrado' });
       }
       
-      const fileStats = fs.default.statSync(filePath);
-      console.log('[SST Download] Arquivo encontrado, tamanho:', fileStats.size, 'bytes');
+      const [fileBuffer] = await file.download();
+      const [metadata] = await file.getMetadata();
+      
+      console.log('[SST Download] Arquivo encontrado, tamanho:', fileBuffer.length, 'bytes');
       
       // Determinar tipo MIME
       const ext = path.default.extname(fileName).toLowerCase();
-      let mimeType = 'application/octet-stream';
-      if (ext === '.pdf') mimeType = 'application/pdf';
-      else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-      else if (ext === '.png') mimeType = 'image/png';
-      else if (ext === '.doc') mimeType = 'application/msword';
-      else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      let mimeType = metadata.contentType || 'application/octet-stream';
+      if (!mimeType || mimeType === 'application/octet-stream') {
+        if (ext === '.pdf') mimeType = 'application/pdf';
+        else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.doc') mimeType = 'application/msword';
+        else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
       
       // Nome para exibição
-      const displayName = documento.nomenclatura || documento.descricao || `documento-${id}`;
+      const displayName = (documento as any).nomenclatura || documento.descricao || `documento-${id}`;
       
-      // Configurar headers para visualização inline
+      // Configurar headers para download forçado
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', fileStats.size);
-      res.setHeader('Content-Disposition', `inline; filename="${displayName}${ext}"`);
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.setHeader('Content-Disposition', `attachment; filename="${displayName}${ext}"`);
       
       // Enviar arquivo
-      const fileBuffer = fs.default.readFileSync(filePath);
       res.send(fileBuffer);
     } catch (error: any) {
       console.error('[SST Download] Erro:', error);
@@ -4991,16 +5016,10 @@ Não inclua explicações, apenas o JSON.`
   });
 
   // ========== SST - UPLOAD DE DOCUMENTOS ==========
-  // Usa armazenamento local (filesystem) devido a problemas com Object Storage
+  // Usa Object Storage para persistência de arquivos
   const multerSst = (await import('multer')).default;
-  const fsSst = await import('fs');
-  const pathSst = await import('path');
-  
-  // Configurar storage local para arquivos SST
-  const sstStorageDir = pathSst.default.join(process.cwd(), 'uploads', 'sst_documentos');
-  if (!fsSst.default.existsSync(sstStorageDir)) {
-    fsSst.default.mkdirSync(sstStorageDir, { recursive: true });
-  }
+  const { ObjectStorageService, objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+  const sstObjectStorage = new ObjectStorageService();
   
   const sstUpload = multerSst({ storage: multerSst.memoryStorage() });
   
@@ -5013,23 +5032,32 @@ Não inclua explicações, apenas o JSON.`
       const timestamp = Date.now();
       const originalName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
       const fileName = `${timestamp}_${originalName}`;
-      const filePath = pathSst.default.join(sstStorageDir, fileName);
       
-      console.log(`[SST Upload] Salvando arquivo local: ${fileName}, tamanho: ${req.file.buffer.length} bytes`);
+      console.log(`[SST Upload] Salvando arquivo no Object Storage: ${fileName}, tamanho: ${req.file.buffer.length} bytes`);
       
-      // Salvar arquivo no sistema de arquivos local
-      fsSst.default.writeFileSync(filePath, req.file.buffer);
+      // Salvar arquivo no Object Storage (pasta privada sst_documentos)
+      const privateDir = sstObjectStorage.getPrivateObjectDir();
+      const objectPath = `${privateDir}/sst_documentos/${fileName}`;
       
-      // Verificar se o arquivo foi salvo corretamente
-      const savedFile = fsSst.default.statSync(filePath);
-      console.log(`[SST Upload] Arquivo salvo: ${savedFile.size} bytes`);
+      // Parse bucket name and object name from path
+      const pathParts = objectPath.split('/').filter(p => p.length > 0);
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
       
-      if (savedFile.size !== req.file.buffer.length) {
-        console.error('[SST Upload] Erro: tamanho do arquivo não corresponde!');
-        return res.status(500).json({ error: 'Falha ao salvar arquivo' });
-      }
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
       
-      // URL para download via API local
+      await file.save(req.file.buffer, {
+        contentType: req.file.mimetype,
+        metadata: {
+          originalName: originalName,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+      
+      console.log(`[SST Upload] Arquivo salvo no Object Storage: ${objectPath}`);
+      
+      // URL para download via API
       const fileUrl = `/api/sst/download/${fileName}`;
       
       console.log(`[SST Upload] Upload concluído: ${fileName}`);
