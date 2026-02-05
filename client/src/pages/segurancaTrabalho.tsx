@@ -1317,6 +1317,7 @@ export default function SegurancaTrabalho() {
                     <TableRow>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Colaborador</TableHead>
+                      <TableHead>Empreendimento</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Validade</TableHead>
                       <TableHead>Status</TableHead>
@@ -1328,6 +1329,9 @@ export default function SegurancaTrabalho() {
                       <TableRow key={doc.id} data-testid={`row-documento-${doc.id}`}>
                         <TableCell className="font-medium" data-testid={`text-documento-tipo-${doc.id}`}>{(doc as any).tipoDescritivo || doc.tipoDocumento}</TableCell>
                         <TableCell data-testid={`text-documento-colaborador-${doc.id}`}>{doc.colaboradorNome || (doc.colaboradorId ? `Colaborador #${doc.colaboradorId}` : "Escritório")}</TableCell>
+                        <TableCell data-testid={`text-documento-empreendimento-${doc.id}`}>
+                          {(doc as any).empreendimentoNome || "Geral"}
+                        </TableCell>
                         <TableCell data-testid={`text-documento-descricao-${doc.id}`}>{doc.descricao || "-"}</TableCell>
                         <TableCell data-testid={`text-documento-validade-${doc.id}`}>
                           {doc.dataValidade ? new Date(doc.dataValidade).toLocaleDateString("pt-BR") : "-"}
