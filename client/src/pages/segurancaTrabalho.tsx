@@ -266,8 +266,8 @@ export default function SegurancaTrabalho() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"], exact: false });
       toast({ title: "Sucesso", description: "Documento criado com sucesso!" });
       resetDocumentoForm();
       setIsDocumentoDialogOpen(false);
@@ -288,8 +288,8 @@ export default function SegurancaTrabalho() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"], exact: false });
       toast({ title: "Sucesso", description: "Documento atualizado com sucesso!" });
       resetDocumentoForm();
       setIsDocumentoDialogOpen(false);
@@ -314,8 +314,8 @@ export default function SegurancaTrabalho() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"], exact: false });
       toast({ title: "Sucesso", description: "Documento excluído com sucesso!" });
     },
     onError: () => {
