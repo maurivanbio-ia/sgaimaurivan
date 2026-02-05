@@ -5031,12 +5031,84 @@ Não inclua explicações, apenas o JSON.`
           textContent = pdfData.text?.trim() || '';
           console.log(`[SST Upload] Texto extraído do PDF: ${textContent.length} caracteres`);
           
-          // Se o PDF não tem texto extraível (escaneado/imagem), usa o nome do arquivo para análise
+          // Se o PDF não tem texto extraível (escaneado/imagem), usa OpenAI Vision para OCR
           if (!textContent || textContent.length < 50) {
-            console.log('[SST Upload] PDF com pouco ou nenhum texto - provavelmente escaneado ou assinado digitalmente');
-            // Tenta extrair informações do nome do arquivo
-            const nomeInfo = originalName.replace(/[-_]/g, ' ').replace('.pdf', '');
-            textContent = `DOCUMENTO ESCANEADO/ASSINADO DIGITALMENTE\n\nNome do arquivo: ${originalName}\nInformações detectadas no nome: ${nomeInfo}\n\nObs: O texto deste documento não pôde ser extraído automaticamente. O documento pode ser uma imagem escaneada ou estar protegido por assinatura digital.`;
+            console.log('[SST Upload] PDF com pouco texto - usando OpenAI Vision para OCR...');
+            
+            try {
+              const OpenAI = (await import('openai')).default;
+              const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+              const { fromBuffer } = await import('pdf2pic');
+              
+              // Converte primeira página do PDF para imagem PNG
+              const converter = fromBuffer(req.file.buffer, {
+                density: 200,
+                format: 'png',
+                width: 1600,
+                height: 2000,
+                savePath: '/tmp'
+              });
+              
+              const pageImage = await converter(1, { responseType: 'base64' });
+              const imageBase64 = pageImage.base64;
+              
+              if (!imageBase64) {
+                throw new Error('Falha ao converter PDF para imagem');
+              }
+              
+              console.log('[SST Upload] PDF convertido para imagem, enviando para Vision API...');
+              
+              const visionResponse = await openai.chat.completions.create({
+                model: 'gpt-4o',
+                max_tokens: 4096,
+                messages: [
+                  {
+                    role: 'system',
+                    content: `Você é um especialista em OCR e extração de texto de documentos de Segurança do Trabalho (SST).
+Extraia TODO o texto legível do documento, incluindo:
+- Nome do documento/tipo (ASO, LTCAT, PCMSO, PGR, PPRA, etc.)
+- Nome da empresa/empreendimento
+- Nome do colaborador (se houver)
+- CRM do médico (se houver)
+- Datas (emissão, validade, exame, etc.)
+- NR relacionada (se houver)
+- Qualquer outra informação relevante
+
+Retorne o texto extraído de forma estruturada e organizada.`
+                  },
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'text',
+                        text: `Extraia todo o texto deste documento PDF de SST. Nome do arquivo: ${originalName}`
+                      },
+                      {
+                        type: 'image_url',
+                        image_url: {
+                          url: `data:image/png;base64,${imageBase64}`,
+                          detail: 'high'
+                        }
+                      }
+                    ]
+                  }
+                ]
+              });
+              
+              const extractedText = visionResponse.choices[0]?.message?.content || '';
+              if (extractedText && extractedText.length > 50) {
+                console.log(`[SST Upload] Vision OCR extraiu ${extractedText.length} caracteres`);
+                textContent = extractedText;
+              } else {
+                console.log('[SST Upload] Vision OCR não conseguiu extrair texto suficiente');
+                const nomeInfo = originalName.replace(/[-_]/g, ' ').replace('.pdf', '');
+                textContent = `DOCUMENTO ESCANEADO/ASSINADO DIGITALMENTE\n\nNome do arquivo: ${originalName}\nInformações detectadas no nome: ${nomeInfo}\n\nObs: O texto deste documento não pôde ser extraído automaticamente.`;
+              }
+            } catch (visionError: any) {
+              console.log('[SST Upload] Vision OCR falhou:', visionError?.message || visionError);
+              const nomeInfo = originalName.replace(/[-_]/g, ' ').replace('.pdf', '');
+              textContent = `DOCUMENTO ESCANEADO/ASSINADO DIGITALMENTE\n\nNome do arquivo: ${originalName}\nInformações detectadas no nome: ${nomeInfo}\n\nObs: O texto deste documento não pôde ser extraído automaticamente.`;
+            }
           }
         } catch (e: any) {
           console.log('[SST Upload] PDF parsing falhou:', e?.message || e);
