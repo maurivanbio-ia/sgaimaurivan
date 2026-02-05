@@ -1476,26 +1476,29 @@ export type DdsRegistro = typeof ddsRegistros.$inferSelect;
 export type InsertInvestigacaoIncidente = z.infer<typeof insertInvestigacaoIncidenteSchema>;
 export type InvestigacaoIncidente = typeof investigacoesIncidentes.$inferSelect;
 
-// Lista de Presença para Treinamentos SST
-export const segTreinamentoPresencas = pgTable("seg_treinamento_presencas", {
+// Lista de Presença para Treinamentos SST (Upload de PDF + Análise IA)
+export const segTreinamentoListaPresenca = pgTable("seg_treinamento_lista_presenca", {
   id: serial("id").primaryKey(),
   documentoId: integer("documento_id").references(() => segDocumentosColaboradores.id).notNull(),
-  nome: text("nome").notNull(),
-  funcao: text("funcao"),
-  cpf: text("cpf"),
-  assinatura: boolean("assinatura").default(false),
-  presente: boolean("presente").default(true),
+  arquivoPdfUrl: text("arquivo_pdf_url"),
+  nomesExtraidos: text("nomes_extraidos").array(),
+  nomesReconhecidos: text("nomes_reconhecidos").array(),
+  nomesNaoReconhecidos: text("nomes_nao_reconhecidos").array(),
+  totalRh: integer("total_rh").default(0),
+  totalPresentes: integer("total_presentes").default(0),
+  percentualParticipacao: decimal("percentual_participacao", { precision: 5, scale: 2 }).default("0"),
+  analisadoEm: timestamp("analisado_em"),
   observacoes: text("observacoes"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
-export const insertSegTreinamentoPresencaSchema = createInsertSchema(segTreinamentoPresencas).omit({
+export const insertSegTreinamentoListaPresencaSchema = createInsertSchema(segTreinamentoListaPresenca).omit({
   id: true,
   criadoEm: true,
 });
 
-export type InsertSegTreinamentoPresenca = z.infer<typeof insertSegTreinamentoPresencaSchema>;
-export type SegTreinamentoPresenca = typeof segTreinamentoPresencas.$inferSelect;
+export type InsertSegTreinamentoListaPresenca = z.infer<typeof insertSegTreinamentoListaPresencaSchema>;
+export type SegTreinamentoListaPresenca = typeof segTreinamentoListaPresenca.$inferSelect;
 
 // =============================================
 // PORTAL DO CLIENTE - Clientes e Usuários de Cliente
