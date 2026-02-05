@@ -738,6 +738,28 @@ export default function SegurancaTrabalho() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600" data-testid="text-documentos-vencidos">{indicadores.documentosVencidos}</div>
+              {indicadores.documentosVencidos > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/seg-documentos/sync-datas', { method: 'POST' });
+                      const data = await res.json();
+                      if (data.success) {
+                        toast({ title: "Sucesso", description: data.message });
+                        queryClient.invalidateQueries({ queryKey: ["/api/seguranca/indicadores"], exact: false });
+                        queryClient.invalidateQueries({ queryKey: ["/api/seg-documentos"], exact: false });
+                      }
+                    } catch (error) {
+                      toast({ title: "Erro", description: "Falha ao sincronizar datas", variant: "destructive" });
+                    }
+                  }}
+                >
+                  Corrigir Datas
+                </Button>
+              )}
             </CardContent>
           </Card>
           <Card data-testid="card-indicador-conformidade">
@@ -1290,7 +1312,13 @@ export default function SegurancaTrabalho() {
                         onChange={(e) => setDocumentoForm({ ...documentoForm, vigenciaFim: e.target.value })}
                         disabled={documentoForm.semVigencia}
                         data-testid="input-documento-vigencia-fim"
+                        className="cursor-pointer"
                       />
+                      {documentoForm.vigenciaFim && !documentoForm.semVigencia && (
+                        <p className="text-xs text-muted-foreground">
+                          Data atual: {new Date(documentoForm.vigenciaFim + 'T00:00:00').toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2 flex items-center space-x-2 pt-2">
                       <Checkbox
