@@ -186,6 +186,7 @@ function Router() {
                     <Route path="/ramais-contatos" component={RamaisContatos} />
                     <Route path="/links-uteis" component={LinksUteis} />
                     <Route path="/rh" component={Rh} />
+                    <Route path="/cursos-treinamentos" component={Treinamentos} />
                     <Route path="/treinamentos" component={Treinamentos} />
                     <Route path="/projetos" component={Projetos} />
                     <Route path="/gestao-dados" component={GestaoDados} />
