@@ -4546,6 +4546,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sincronizar datas de validade com vigência para documentos existentes
+  app.post('/api/seg-documentos/sync-datas', requireAuth, async (req, res) => {
+    try {
+      // Busca todos os documentos
+      const documentos = await storage.getSegDocumentos({});
+      let updated = 0;
+      
+      for (const doc of documentos) {
+        const d = doc as any;
+        // Se tem vigenciaFim e não é semVigencia, sincroniza com dataValidade
+        if (d.vigenciaFim && !d.semVigencia && d.dataValidade !== d.vigenciaFim) {
+          await storage.updateSegDocumento(doc.id, { dataValidade: d.vigenciaFim });
+          updated++;
+        }
+        // Se semVigencia é true, limpa dataValidade
+        if (d.semVigencia && d.dataValidade) {
+          await storage.updateSegDocumento(doc.id, { dataValidade: null });
+          updated++;
+        }
+      }
+      
+      res.json({ success: true, updated, message: `${updated} documentos sincronizados` });
+    } catch (error) {
+      console.error('Error syncing datas:', error);
+      res.status(500).json({ error: 'Failed to sync datas' });
+    }
+  });
+
   // Delete documento de segurança
   app.delete('/api/seg-documentos/:id', requireAuth, async (req, res) => {
     try {
