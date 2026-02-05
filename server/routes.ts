@@ -4557,6 +4557,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =============================================
+  // LISTA DE PRESENÇA - TREINAMENTOS SST
+  // =============================================
+  
+  // Get lista de presença de um documento
+  app.get('/api/seg-documentos/:documentoId/presencas', requireAuth, async (req, res) => {
+    try {
+      const documentoId = parseInt(req.params.documentoId);
+      if (isNaN(documentoId)) {
+        return res.status(400).json({ error: 'ID do documento inválido' });
+      }
+
+      const presencas = await storage.getSegTreinamentoPresencas(documentoId);
+      res.json(presencas);
+    } catch (error) {
+      console.error('Error fetching presencas:', error);
+      res.status(500).json({ error: 'Erro ao buscar lista de presença' });
+    }
+  });
+
+  // Create presença
+  app.post('/api/seg-documentos/:documentoId/presencas', requireAuth, async (req, res) => {
+    try {
+      const documentoId = parseInt(req.params.documentoId);
+      if (isNaN(documentoId)) {
+        return res.status(400).json({ error: 'ID do documento inválido' });
+      }
+
+      const data = { ...req.body, documentoId };
+      const presenca = await storage.createSegTreinamentoPresenca(data);
+      res.status(201).json(presenca);
+    } catch (error) {
+      console.error('Error creating presenca:', error);
+      res.status(500).json({ error: 'Erro ao adicionar presença' });
+    }
+  });
+
+  // Update presença
+  app.patch('/api/seg-treinamento-presencas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+
+      const updated = await storage.updateSegTreinamentoPresenca(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Presença não encontrada' });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating presenca:', error);
+      res.status(500).json({ error: 'Erro ao atualizar presença' });
+    }
+  });
+
+  // Delete presença
+  app.delete('/api/seg-treinamento-presencas/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+
+      const deleted = await storage.deleteSegTreinamentoPresenca(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Presença não encontrada' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting presenca:', error);
+      res.status(500).json({ error: 'Erro ao remover presença' });
+    }
+  });
+
   // Download documento SST por nome de arquivo (armazenamento local)
   app.get('/api/sst/download/:fileName', requireAuth, async (req, res) => {
     try {

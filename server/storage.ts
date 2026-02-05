@@ -79,6 +79,9 @@ import {
   type InsertColaborador,
   type SegDocumentoColaborador,
   type InsertSegDocumento,
+  segTreinamentoPresencas,
+  type SegTreinamentoPresenca,
+  type InsertSegTreinamentoPresenca,
   projetos,
   type Projeto,
   type InsertProjeto,
@@ -392,6 +395,12 @@ export interface IStorage {
   createSegDocumento(documento: InsertSegDocumento): Promise<SegDocumentoColaborador>;
   updateSegDocumento(id: number, updates: Partial<InsertSegDocumento>): Promise<SegDocumentoColaborador>;
   deleteSegDocumento(id: number): Promise<boolean>;
+  
+  // Lista de Presença - Treinamentos SST
+  getSegTreinamentoPresencas(documentoId: number): Promise<SegTreinamentoPresenca[]>;
+  createSegTreinamentoPresenca(presenca: InsertSegTreinamentoPresenca): Promise<SegTreinamentoPresenca>;
+  updateSegTreinamentoPresenca(id: number, updates: Partial<InsertSegTreinamentoPresenca>): Promise<SegTreinamentoPresenca | undefined>;
+  deleteSegTreinamentoPresenca(id: number): Promise<boolean>;
 
   getSegurancaIndicadores(empreendimentoId?: number): Promise<{
     totalDocumentos: number;
@@ -2876,6 +2885,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSegDocumento(id: number): Promise<boolean> {
     const result = await db.delete(segDocumentosColaboradores).where(eq(segDocumentosColaboradores.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Lista de Presença - Treinamentos SST
+  async getSegTreinamentoPresencas(documentoId: number): Promise<SegTreinamentoPresenca[]> {
+    return db.select().from(segTreinamentoPresencas).where(eq(segTreinamentoPresencas.documentoId, documentoId)).orderBy(segTreinamentoPresencas.nome);
+  }
+
+  async createSegTreinamentoPresenca(presenca: InsertSegTreinamentoPresenca): Promise<SegTreinamentoPresenca> {
+    const [created] = await db.insert(segTreinamentoPresencas).values(presenca).returning();
+    return created;
+  }
+
+  async updateSegTreinamentoPresenca(id: number, updates: Partial<InsertSegTreinamentoPresenca>): Promise<SegTreinamentoPresenca | undefined> {
+    const [updated] = await db.update(segTreinamentoPresencas).set(updates).where(eq(segTreinamentoPresencas.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSegTreinamentoPresenca(id: number): Promise<boolean> {
+    const result = await db.delete(segTreinamentoPresencas).where(eq(segTreinamentoPresencas.id, id));
     return result.rowCount !== null && result.rowCount > 0;
   }
 
