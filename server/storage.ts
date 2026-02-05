@@ -2936,11 +2936,13 @@ export class DatabaseStorage implements IStorage {
 
     const totalDocumentos = documentos.length;
     const documentosValidos = documentos.filter(d => d.status === 'valido').length;
+    // Documentos vencidos: apenas aqueles que têm data de validade, não são "sem vigência", e estão vencidos
     const documentosVencidos = documentos.filter(d => 
-      d.dataValidade && d.dataValidade < hoje
+      d.dataValidade && d.dataValidade < hoje && !d.semVigencia
     ).length;
+    // Documentos a vencer: apenas aqueles que têm data de validade e não são "sem vigência"
     const documentosAVencer = documentos.filter(d => 
-      d.dataValidade && d.dataValidade >= hoje && d.dataValidade <= em30Dias
+      d.dataValidade && d.dataValidade >= hoje && d.dataValidade <= em30Dias && !d.semVigencia
     ).length;
 
     const percentualConformidade = totalDocumentos > 0 
