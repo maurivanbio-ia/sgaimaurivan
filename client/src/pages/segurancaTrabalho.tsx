@@ -1099,6 +1099,7 @@ export default function SegurancaTrabalho() {
                           <SelectItem value="ASO">ASO - Atestado de Saúde Ocupacional</SelectItem>
                           <SelectItem value="PPRA">PPRA - Programa de Prevenção de Riscos Ambientais</SelectItem>
                           <SelectItem value="APR">APR - Análise Preliminar de Riscos</SelectItem>
+                          <SelectItem value="POP">POP - Procedimento Operacional Padrão</SelectItem>
                           <SelectItem value="NR">Treinamento NR</SelectItem>
                           <SelectItem value="EPI">Registro de EPI</SelectItem>
                           <SelectItem value="CIPA">Certificado CIPA</SelectItem>
