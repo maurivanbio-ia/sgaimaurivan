@@ -4,8 +4,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, Users, Loader2, GraduationCap, UserPlus, X } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Users, Loader2, GraduationCap, UserPlus, X, BookOpen, Shield, FileText, Calendar, Building2, Eye, Download } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,7 @@ const STATUS_OPTIONS = [
 export default function TreinamentosPage() {
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState("cursos");
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 350);
   const [tipoFilter, setTipoFilter] = useState("all");
@@ -133,6 +135,20 @@ export default function TreinamentosPage() {
   const [participantesDialogOpen, setParticipantesDialogOpen] = useState(false);
   const [selectedTreinamento, setSelectedTreinamento] = useState<Treinamento | null>(null);
   const [addParticipanteDialogOpen, setAddParticipanteDialogOpen] = useState(false);
+
+  const { data: empreendimentos = [] } = useQuery<any[]>({
+    queryKey: ["/api/empreendimentos"],
+  });
+
+  const { data: treinamentosSst = [], isLoading: loadingTreinamentosSst } = useQuery<any[]>({
+    queryKey: ["/api/seg-documentos"],
+    select: (data) => data.filter((doc: any) => {
+      const tipoDoc = doc.tipoDocumento?.toLowerCase() || '';
+      const tipoDesc = doc.tipoDescritivo?.toLowerCase() || '';
+      const tipo = tipoDoc || tipoDesc;
+      return tipo.includes('treinamento') || tipo === 'nr' || tipoDoc === 'treinamento' || tipoDoc === 'certificado de treinamento';
+    }),
+  });
 
   const filters = useMemo(() => {
     const params: Record<string, string> = {};
@@ -361,27 +377,61 @@ export default function TreinamentosPage() {
     return date.toLocaleDateString("pt-BR");
   };
 
+  const getEmpreendimentoNome = (id: number) => {
+    const emp = empreendimentos.find((e: any) => e.id === id);
+    return emp?.nome || 'Não vinculado';
+  };
+
+  const getStatusBadgeSst = (status: string) => {
+    switch (status) {
+      case 'valido':
+        return <Badge className="bg-green-100 text-green-700">Válido</Badge>;
+      case 'vencido':
+        return <Badge className="bg-red-100 text-red-700">Vencido</Badge>;
+      case 'a_vencer':
+        return <Badge className="bg-yellow-100 text-yellow-700">A Vencer</Badge>;
+      default:
+        return <Badge variant="outline">{status || 'Pendente'}</Badge>;
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6" data-testid="page-treinamentos">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <GraduationCap className="h-8 w-8" />
-            Gestão de Treinamentos
+            Cursos e Treinamentos
           </h1>
           <p className="text-muted-foreground mt-2">
-            Gerencie treinamentos e capacitações da equipe
+            Gerencie cursos gerais e treinamentos de segurança do trabalho
           </p>
         </div>
         <div className="flex gap-2">
           <RefreshButton />
-          <Button onClick={handleNew} data-testid="button-novo-treinamento">
-            <Plus className="h-4 w-4 mr-2" /> Novo Treinamento
-          </Button>
         </div>
       </div>
 
-      <Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
+          <TabsTrigger value="cursos" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Cursos
+          </TabsTrigger>
+          <TabsTrigger value="treinamentos-sst" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Treinamentos SST
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cursos" className="space-y-6 mt-4">
+          <div className="flex justify-end">
+            <Button onClick={handleNew} data-testid="button-novo-treinamento">
+              <Plus className="h-4 w-4 mr-2" /> Novo Curso
+            </Button>
+          </div>
+
+          <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
@@ -516,6 +566,100 @@ export default function TreinamentosPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="treinamentos-sst" className="space-y-6 mt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground">
+              Treinamentos e certificações SST cadastrados na Central de Segurança do Trabalho
+            </p>
+            <a href="/seguranca-trabalho" onClick={(e) => { e.preventDefault(); window.location.href = '/seguranca-trabalho'; }}>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" /> Cadastrar na Central SST
+              </Button>
+            </a>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-orange-600" />
+                Treinamentos SST ({treinamentosSst.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingTreinamentosSst ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : treinamentosSst.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="mx-auto h-12 w-12 mb-4 text-muted-foreground/50" />
+                  <p>Nenhum treinamento SST cadastrado</p>
+                  <p className="text-sm mt-1">Cadastre treinamentos na Central SST selecionando tipo "Treinamento NR" ou "Certificado de Treinamento"</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {treinamentosSst.map((doc: any) => (
+                    <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <h5 className="font-semibold text-sm line-clamp-2">
+                              {doc.nomeDocumento || doc.tipoDocumento || 'Treinamento SST'}
+                            </h5>
+                            {getStatusBadgeSst(doc.status)}
+                          </div>
+                          
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {doc.descricao || 'Sem descrição'}
+                          </p>
+
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            {doc.empreendimentoId && (
+                              <div className="flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {getEmpreendimentoNome(doc.empreendimentoId)}
+                              </div>
+                            )}
+                            {doc.dataValidade && (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Validade: {new Date(doc.dataValidade).toLocaleDateString('pt-BR')}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2 pt-2">
+                            {doc.arquivoUrl && (
+                              <>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => window.open(`/api/seg-documentos/${doc.id}/view`, '_blank')}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" /> Ver
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => window.open(`/api/seg-documentos/${doc.id}/download`, '_blank')}
+                                >
+                                  <Download className="h-4 w-4 mr-1" /> Baixar
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
