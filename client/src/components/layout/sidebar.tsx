@@ -170,7 +170,7 @@ export default function Sidebar() {
       label: "Capacitação",
       icon: GraduationCap,
       items: [
-        { href: "/treinamentos", label: "Treinamentos", icon: GraduationCap, testid: "nav-treinamentos" },
+        { href: "/cursos-treinamentos", label: "Cursos e Treinamentos", icon: GraduationCap, testid: "nav-cursos-treinamentos" },
       ]
     },
     {
