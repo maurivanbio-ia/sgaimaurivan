@@ -977,6 +977,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const unidade = req.user?.unidade || '';
       const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
       
+      const defaultLicenseStats = { active: 0, expiring: 0, expired: 0, proxVencer: 0 };
+      const defaultCondStats = { pendentes: 0, cumpridas: 0, vencidas: 0 };
+      const defaultEntregaStats = { pendentes: 0, entregues: 0, atrasadas: 0 };
+      const defaultFrotaStats = { total: 0, disponiveis: 0, emUso: 0, manutencao: 0, alugados: 0 };
+      const defaultEquipStats = { total: 0, disponiveis: 0, emUso: 0, manutencao: 0 };
+      const defaultRhStats = { total: 0, ativos: 0, afastados: 0 };
+      const defaultDemandasStats = { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
+      const defaultContratosStats = { total: 0, ativos: 0, valorTotal: 0 };
+
       const [
         licenseStats,
         condicionanteStats,
@@ -989,29 +998,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         demandasStats,
         contratosStats
       ] = await Promise.all([
-        storage.getLicenseStats(unidade, empreendimentoId),
-        storage.getCondicionanteStats(unidade, empreendimentoId),
-        storage.getEntregaStats(unidade, empreendimentoId),
-        storage.getAgendaPrazos(unidade, empreendimentoId),
-        storage.getMonthlyExpiryData(unidade, empreendimentoId),
-        storage.getFrotaStats(unidade, empreendimentoId),
-        storage.getEquipamentosStats(unidade, empreendimentoId),
-        storage.getRhStats(unidade, empreendimentoId),
-        storage.getDemandasStats(unidade, empreendimentoId),
-        storage.getContratosStats(unidade, empreendimentoId)
+        storage.getLicenseStats(unidade, empreendimentoId).catch(() => defaultLicenseStats),
+        storage.getCondicionanteStats(unidade, empreendimentoId).catch(() => defaultCondStats),
+        storage.getEntregaStats(unidade, empreendimentoId).catch(() => defaultEntregaStats),
+        storage.getAgendaPrazos(unidade, empreendimentoId).catch(() => []),
+        storage.getMonthlyExpiryData(unidade, empreendimentoId).catch(() => []),
+        storage.getFrotaStats(unidade, empreendimentoId).catch(() => defaultFrotaStats),
+        storage.getEquipamentosStats(unidade, empreendimentoId).catch(() => defaultEquipStats),
+        storage.getRhStats(unidade, empreendimentoId).catch(() => defaultRhStats),
+        storage.getDemandasStats(unidade, empreendimentoId).catch(() => defaultDemandasStats),
+        storage.getContratosStats(unidade, empreendimentoId).catch(() => defaultContratosStats)
       ]);
 
       res.json({
-        licenses: licenseStats,
-        condicionantes: condicionanteStats,
-        entregas: entregaStats,
-        agenda: prazos,
-        monthlyExpiry: monthlyData,
-        frota: frotaStats,
-        equipamentos: equipamentosStats,
-        rh: rhStats,
-        demandas: demandasStats,
-        contratos: contratosStats
+        licenses: licenseStats || defaultLicenseStats,
+        condicionantes: condicionanteStats || defaultCondStats,
+        entregas: entregaStats || defaultEntregaStats,
+        agenda: prazos || [],
+        monthlyExpiry: monthlyData || [],
+        frota: frotaStats || defaultFrotaStats,
+        equipamentos: equipamentosStats || defaultEquipStats,
+        rh: rhStats || defaultRhStats,
+        demandas: demandasStats || defaultDemandasStats,
+        contratos: contratosStats || defaultContratosStats
       });
     } catch (error) {
       console.error("Get dashboard stats error:", error);
