@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, ArrowLeft, Building2, UserCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 import registerBackground from "@assets/register-background-puma.png";
 
@@ -54,8 +54,11 @@ export default function Register() {
         description: "Bem-vindo ao sistema!",
       });
 
-      // Redireciona para o dashboard após registro bem-sucedido
-      setLocation("/");
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
+      setTimeout(() => {
+        setLocation("/");
+      }, 500);
     } catch (error: any) {
       const message = error.message || "Erro ao criar conta. Tente novamente.";
       setError(message);
