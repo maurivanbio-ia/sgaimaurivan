@@ -4,201 +4,108 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { 
-  Cloud, 
-  CheckCircle, 
-  XCircle, 
-  RefreshCw, 
-  Upload, 
-  Trash2, 
-  FileJson, 
+import {
+  Cloud,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Download,
+  Trash2,
+  FileJson,
   Calendar,
   HardDrive,
   ArrowLeft,
   Loader2,
-  FolderOpen,
-  Folder,
-  File,
-  FolderSync,
-  ChevronRight,
-  Home,
+  ShieldCheck,
+  Database,
+  Play,
   AlertCircle,
-  Mail
 } from "lucide-react";
 
-interface OneDriveFile {
-  name: string;
-  path: string;
+interface BackupFile {
+  key: string;
+  lastModified: string | null;
   size: number;
-  modified: string;
 }
 
-interface OneDriveEntry {
-  name: string;
-  path: string;
-  type: 'folder' | 'file';
-  size?: number;
-  modified?: string;
-}
-
-interface ConnectionStatus {
+interface TriggerResult {
   success: boolean;
-  accountName?: string;
-  email?: string;
+  timestamp?: string;
+  tables?: Record<string, number>;
+  filePath?: string;
   error?: string;
 }
 
-interface BackupListResult {
-  success: boolean;
-  files?: OneDriveFile[];
-  error?: string;
-}
-
-interface FolderListResult {
-  success: boolean;
-  entries?: OneDriveEntry[];
-  error?: string;
-}
-
-export default function OneDriveBackupsPage() {
+export default function BackupsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isUploading, setIsUploading] = useState(false);
-  const [currentPath, setCurrentPath] = useState('');
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
-  const { data: connectionStatus, isLoading: isTestingConnection, refetch: retestConnection } = useQuery<ConnectionStatus>({
-    queryKey: ["/api/onedrive/test"],
-    retry: false,
+  const { data: backups, isLoading, refetch } = useQuery<BackupFile[]>({
+    queryKey: ["/api/backups"],
+    retry: 1,
   });
 
-  const { data: backupsList, isLoading: isLoadingBackups, refetch: refetchBackups } = useQuery<BackupListResult>({
-    queryKey: ["/api/onedrive/backups"],
-    enabled: connectionStatus?.success === true,
-    retry: false,
-  });
-
-  const { data: folderContents, isLoading: isLoadingFolders, refetch: refetchFolders } = useQuery<FolderListResult>({
-    queryKey: ["/api/onedrive/folders", currentPath],
-    enabled: connectionStatus?.success === true,
-    retry: false,
-  });
-
-  const uploadBackupMutation = useMutation({
+  const triggerMutation = useMutation({
     mutationFn: async () => {
-      setIsUploading(true);
-      const response = await apiRequest("POST", "/api/onedrive/backup");
-      return response.json();
+      const response = await apiRequest("POST", "/api/backups/trigger");
+      return response.json() as Promise<TriggerResult>;
     },
     onSuccess: (data) => {
-      setIsUploading(false);
       if (data.success) {
+        const totalRecords = data.tables ? Object.values(data.tables).reduce((a, b) => a + b, 0) : 0;
         toast({
-          title: "Backup enviado!",
-          description: `Arquivo salvo em: ${data.onedrivePath}`,
+          title: "Backup realizado com sucesso!",
+          description: `${totalRecords.toLocaleString()} registros salvos em ${data.timestamp}`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/backups"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
       } else {
         toast({
-          title: "Erro ao enviar backup",
+          title: "Erro ao realizar backup",
           description: data.error || "Tente novamente",
           variant: "destructive",
         });
       }
     },
     onError: (error: any) => {
-      setIsUploading(false);
       toast({
         title: "Erro",
-        description: error.message || "Falha ao enviar backup",
+        description: error.message || "Falha ao executar backup",
         variant: "destructive",
       });
     },
   });
 
-  const cleanupMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("DELETE", "/api/onedrive/cleanup?days=30");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast({
-          title: "Limpeza concluída",
-          description: `${data.deleted} arquivo(s) removido(s)`,
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/backups"] });
+  const handleDownload = async (fileName: string) => {
+    setDownloadingFile(fileName);
+    try {
+      const response = await apiRequest("GET", `/api/backups/${fileName}`);
+      if (!response.ok) {
+        throw new Error("Falha ao baixar arquivo");
       }
-    },
-    onError: (error: any) => {
+      const content = await response.text();
+      const blob = new Blob([content], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Download iniciado", description: fileName });
+    } catch (error: any) {
       toast({
-        title: "Erro",
-        description: error.message || "Falha na limpeza",
+        title: "Erro no download",
+        description: error.message,
         variant: "destructive",
       });
-    },
-  });
-
-  const initFoldersMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/onedrive/folders/init");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast({
-          title: "Estrutura criada!",
-          description: `${data.foldersCreated} pastas criadas no OneDrive`,
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/folders"] });
-      } else {
-        toast({
-          title: "Erro",
-          description: data.error || "Falha ao criar estrutura",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Falha ao criar estrutura",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const syncAllMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/onedrive/folders/sync-all");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast({
-          title: "Sincronização concluída!",
-          description: `${data.synced} empreendimentos sincronizados, ${data.errors} erros`,
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/onedrive/folders"] });
-        refetchFolders();
-      } else {
-        toast({
-          title: "Erro",
-          description: data.error || "Falha na sincronização",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Falha na sincronização",
-        variant: "destructive",
-      });
-    },
-  });
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -206,38 +113,27 @@ export default function OneDriveBackupsPage() {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Data desconhecida";
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
-  const navigateToFolder = (path: string) => {
-    setCurrentPath(path);
-    queryClient.invalidateQueries({ queryKey: ["/api/onedrive/folders", path] });
+  const getFileNameFromKey = (key: string) => {
+    return key.split("/").pop() || key;
   };
 
-  const navigateUp = () => {
-    const parts = currentPath.split('/').filter(p => p);
-    parts.pop();
-    const newPath = parts.length > 0 ? '/' + parts.join('/') : '';
-    setCurrentPath(newPath);
-  };
-
-  const getBreadcrumbs = () => {
-    if (!currentPath) return [];
-    return currentPath.split('/').filter(p => p);
-  };
-
-  const totalSize = backupsList?.files?.reduce((acc, file) => acc + file.size, 0) || 0;
+  const totalSize = (backups || []).reduce((acc, f) => acc + f.size, 0);
+  const latestBackup = backups?.[0];
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-6xl">
+    <div className="container mx-auto py-6 px-4 max-w-5xl">
       <div className="flex items-center gap-4 mb-6">
         <a href="/">
           <Button variant="ghost" size="icon">
@@ -246,63 +142,26 @@ export default function OneDriveBackupsPage() {
         </a>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Cloud className="h-6 w-6 text-blue-500" />
-            OneDrive - Gestão de Arquivos
+            <ShieldCheck className="h-6 w-6 text-green-600" />
+            Backup e Segurança de Dados
           </h1>
           <p className="text-muted-foreground text-sm">
-            Backups e estrutura de pastas sincronizada com o OneDrive
+            Backups automáticos diários do banco de dados — armazenados com segurança
           </p>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Status da Conexão</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isTestingConnection ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="text-sm">Verificando...</span>
-              </div>
-            ) : connectionStatus?.success ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                <div>
-                  <p className="font-medium text-green-600">Conectado</p>
-                  <p className="text-xs text-muted-foreground">{connectionStatus.accountName}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-red-500" />
-                <div>
-                  <p className="font-medium text-red-600">Desconectado</p>
-                  <p className="text-xs text-muted-foreground">{connectionStatus?.error || "Verifique a conexão"}</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Conta Vinculada</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-500" />
+              <CheckCircle className="h-5 w-5 text-green-500" />
               <div>
-                <p className="font-medium text-sm truncate">
-                  {connectionStatus?.email || 'Não conectado'}
-                </p>
-                {connectionStatus?.email !== 'ecobrasilbm@gmail.com' && connectionStatus?.success && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Reconectar para ecobrasilbm
-                  </p>
-                )}
+                <p className="font-medium text-green-600 text-sm">Ativo</p>
+                <p className="text-xs text-muted-foreground">Backup diário 00:00</p>
               </div>
             </div>
           </CardContent>
@@ -315,7 +174,7 @@ export default function OneDriveBackupsPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               <FileJson className="h-5 w-5 text-blue-500" />
-              <span className="text-2xl font-bold">{backupsList?.files?.length || 0}</span>
+              <span className="text-2xl font-bold">{isLoading ? "..." : (backups?.length || 0)}</span>
               <span className="text-sm text-muted-foreground">arquivos</span>
             </div>
           </CardContent>
@@ -328,304 +187,181 @@ export default function OneDriveBackupsPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               <HardDrive className="h-5 w-5 text-purple-500" />
-              <span className="text-2xl font-bold">{formatFileSize(totalSize)}</span>
+              <span className="text-2xl font-bold">{isLoading ? "..." : formatFileSize(totalSize)}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Último Backup</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-amber-500" />
+              <p className="text-xs font-medium">
+                {isLoading ? "..." : (latestBackup ? formatDate(latestBackup.lastModified) : "Nenhum ainda")}
+              </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="folders" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="folders" className="gap-2">
-            <FolderOpen className="h-4 w-4" />
-            Estrutura de Pastas
-          </TabsTrigger>
-          <TabsTrigger value="backups" className="gap-2">
-            <Cloud className="h-4 w-4" />
-            Backups
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="folders" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ações de Sincronização</CardTitle>
-              <CardDescription>
-                Sincronize a estrutura de pastas da plataforma com o OneDrive
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() => initFoldersMutation.mutate()}
-                  disabled={!connectionStatus?.success || initFoldersMutation.isPending}
-                  className="gap-2"
-                >
-                  {initFoldersMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <FolderOpen className="h-4 w-4" />
-                  )}
-                  Criar Estrutura Institucional
-                </Button>
-
-                <Button
-                  onClick={() => syncAllMutation.mutate()}
-                  disabled={!connectionStatus?.success || syncAllMutation.isPending}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  {syncAllMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <FolderSync className="h-4 w-4" />
-                  )}
-                  Sincronizar Todos Empreendimentos
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  onClick={() => refetchFolders()}
-                  disabled={isLoadingFolders}
-                  className="gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoadingFolders ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Navegador de Pastas</CardTitle>
-                  <CardDescription>
-                    Pasta raiz: /ECOBRASIL_CONSULTORIA_AMBIENTAL/
-                  </CardDescription>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-1 text-sm mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => navigateToFolder('')}
-                >
-                  <Home className="h-3 w-3 mr-1" />
-                  ECOBRASIL
-                </Button>
-                {getBreadcrumbs().map((crumb, index) => (
-                  <span key={index} className="flex items-center">
-                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => {
-                        const pathParts = getBreadcrumbs().slice(0, index + 1);
-                        navigateToFolder('/' + pathParts.join('/'));
-                      }}
-                    >
-                      {crumb}
-                    </Button>
-                  </span>
-                ))}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingFolders ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : !connectionStatus?.success ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <XCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Conecte ao OneDrive para ver as pastas</p>
-                </div>
-              ) : folderContents?.entries?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Pasta vazia</p>
-                  <p className="text-sm">Clique em "Criar Estrutura Institucional" para começar</p>
-                </div>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Ações de Backup
+          </CardTitle>
+          <CardDescription>
+            Os backups incluem todos os dados do sistema: licenças, contratos, usuários, documentos e muito mais
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => triggerMutation.mutate()}
+              disabled={triggerMutation.isPending}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              {triggerMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <div className="space-y-1">
-                  {currentPath && (
-                    <div
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
-                      onClick={navigateUp}
-                    >
-                      <Folder className="h-5 w-5 text-amber-500" />
-                      <span className="font-medium text-sm">..</span>
-                      <span className="text-xs text-muted-foreground">(voltar)</span>
-                    </div>
-                  )}
-                  {folderContents?.entries?.map((entry) => (
-                    <div
-                      key={entry.path}
-                      className={`flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 ${
-                        entry.type === 'folder' ? 'cursor-pointer' : ''
-                      }`}
-                      onClick={() => {
-                        if (entry.type === 'folder') {
-                          const relativePath = entry.path.replace('/ECOBRASIL_CONSULTORIA_AMBIENTAL', '');
-                          navigateToFolder(relativePath);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        {entry.type === 'folder' ? (
-                          <Folder className="h-5 w-5 text-amber-500" />
-                        ) : (
-                          <File className="h-5 w-5 text-blue-500" />
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{entry.name}</p>
-                          {entry.type === 'file' && entry.modified && (
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span>{formatDate(entry.modified)}</span>
-                              {entry.size && <span>{formatFileSize(entry.size)}</span>}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {entry.type === 'folder' && (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <Play className="h-4 w-4" />
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              {triggerMutation.isPending ? "Executando backup..." : "Executar Backup Agora"}
+            </Button>
 
-        <TabsContent value="backups" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ações de Backup</CardTitle>
-              <CardDescription>Gerencie seus backups no OneDrive</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() => uploadBackupMutation.mutate()}
-                  disabled={!connectionStatus?.success || isUploading}
-                  className="gap-2"
-                >
-                  {isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  {isUploading ? "Enviando..." : "Criar e Enviar Backup"}
-                </Button>
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              Atualizar Lista
+            </Button>
+          </div>
 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    retestConnection();
-                    refetchBackups();
-                  }}
-                  disabled={isTestingConnection || isLoadingBackups}
-                  className="gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isTestingConnection || isLoadingBackups ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  onClick={() => cleanupMutation.mutate()}
-                  disabled={!connectionStatus?.success || cleanupMutation.isPending || (backupsList?.files?.length || 0) === 0}
-                  className="gap-2"
-                >
-                  {cleanupMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                  Limpar Antigos (+30 dias)
-                </Button>
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="font-medium">Backup automático configurado</p>
+                <p className="text-xs mt-1">
+                  O sistema realiza backup automático todo dia às 00:00 (horário de Brasília). 
+                  Os arquivos são mantidos por 30 dias. Quando o Dropbox estiver conectado, 
+                  os backups também são sincronizados automaticamente.
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Backups Armazenados</CardTitle>
-              <CardDescription>
-                Pasta: /EcoGestor/BACKUPS/
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingBackups ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : !connectionStatus?.success ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <XCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Conecte ao OneDrive para ver os backups</p>
-                </div>
-              ) : backupsList?.files?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Cloud className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum backup encontrado</p>
-                  <p className="text-sm">Clique em "Criar e Enviar Backup" para começar</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {backupsList?.files?.map((file, index) => (
-                    <div
-                      key={file.path}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${
-                        index === 0 ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' : 'bg-muted/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileJson className={`h-5 w-5 ${index === 0 ? 'text-green-600' : 'text-blue-500'}`} />
-                        <div>
-                          <p className="font-medium text-sm">{file.name}</p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(file.modified)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <HardDrive className="h-3 w-3" />
-                              {formatFileSize(file.size)}
-                            </span>
-                          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Backups Disponíveis</CardTitle>
+          <CardDescription>
+            Clique em "Baixar" para fazer download de qualquer backup para o seu computador
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Carregando backups...</span>
+            </div>
+          ) : !backups || backups.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Cloud className="h-16 w-16 mx-auto mb-3 opacity-30" />
+              <p className="text-lg font-medium">Nenhum backup encontrado</p>
+              <p className="text-sm mt-1">Clique em "Executar Backup Agora" para criar o primeiro backup</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {backups.map((file, index) => {
+                const fileName = getFileNameFromKey(file.key);
+                const isDownloading = downloadingFile === fileName;
+                return (
+                  <div
+                    key={file.key}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      index === 0
+                        ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
+                        : "bg-muted/30 border-border"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileJson className={`h-5 w-5 flex-shrink-0 ${index === 0 ? "text-green-600" : "text-blue-500"}`} />
+                      <div>
+                        <p className="font-medium text-sm">{fileName}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(file.lastModified)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <HardDrive className="h-3 w-3" />
+                            {formatFileSize(file.size)}
+                          </span>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
                       {index === 0 && (
                         <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
                           Mais recente
                         </Badge>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(fileName)}
+                        disabled={isDownloading}
+                        className="gap-1"
+                      >
+                        {isDownloading ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Download className="h-3 w-3" />
+                        )}
+                        Baixar
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Separator className="my-6" />
 
-      <div className="text-center text-sm text-muted-foreground space-y-2">
-        <p>
-          <strong>Estrutura de Pastas:</strong> Todos os arquivos são organizados em <strong>/ECOBRASIL_CONSULTORIA_AMBIENTAL/</strong> no seu OneDrive.
-        </p>
-        <p>
-          Cada empreendimento tem sua própria pasta em <strong>/03_PROJETOS/</strong> com subpastas padronizadas (Gestão, Relatórios, Mapas, etc.).
-        </p>
-      </div>
+      <Card className="border-amber-200 dark:border-amber-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <Cloud className="h-5 w-5" />
+            Sincronização com Dropbox
+          </CardTitle>
+          <CardDescription>
+            Conecte o Dropbox para sincronizar backups automaticamente na nuvem toda semana
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <XCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-amber-700 dark:text-amber-400 text-sm">Dropbox não conectado</p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                Para ativar a sincronização automática semanal com o Dropbox, acesse o painel do Replit → 
+                Tools → Connectors → Dropbox e faça login com sua conta.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
