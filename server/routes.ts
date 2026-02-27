@@ -3390,7 +3390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/backups', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.cargo !== 'diretor') {
+      if (user?.role !== 'admin' && user?.cargo !== 'admin' && user?.cargo !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem gerenciar backups.' });
       }
       
@@ -3406,7 +3406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/backups/trigger', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.cargo !== 'diretor') {
+      if (user?.role !== 'admin' && user?.cargo !== 'admin' && user?.cargo !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem executar backups.' });
       }
       
@@ -3437,7 +3437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/backups/:fileName', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.cargo !== 'diretor') {
+      if (user?.role !== 'admin' && user?.cargo !== 'admin' && user?.cargo !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem baixar backups.' });
       }
       
