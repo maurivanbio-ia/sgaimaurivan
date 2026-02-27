@@ -310,9 +310,9 @@ export default function GestaoDados() {
     enabled: !!selectedPasta?.id,
   });
 
-  // Mutation para criar pasta (requer senha)
+  // Mutation para criar pasta
   const createFolderMutation = useMutation({
-    mutationFn: async (data: { nome: string; paiId?: number | null; empreendimentoId?: number; senha: string }) => {
+    mutationFn: async (data: { nome: string; paiId?: number | null; empreendimentoId?: number }) => {
       const res = await fetch("/api/pastas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -330,9 +330,6 @@ export default function GestaoDados() {
       refetchPastas();
       toast({ title: "Sucesso", description: "Pasta criada com sucesso!" });
       setIsCreateFolderOpen(false);
-      setIsPasswordDialogOpen(false);
-      setFolderPassword("");
-      setPendingAction(null);
       setNewFolderName("");
       setParentFolderId(null);
     },
@@ -764,15 +761,10 @@ export default function GestaoDados() {
       toast({ title: "Erro", description: "Nome da pasta é obrigatório.", variant: "destructive" });
       return;
     }
-    if (!folderPassword.trim()) {
-      toast({ title: "Erro", description: "Senha de administrador é obrigatória.", variant: "destructive" });
-      return;
-    }
     createFolderMutation.mutate({
       nome: newFolderName.trim(),
       paiId: parentFolderId,
       empreendimentoId: selectedEmpreendimento ? parseInt(selectedEmpreendimento) : undefined,
-      senha: folderPassword,
     });
   };
 
@@ -823,7 +815,7 @@ export default function GestaoDados() {
   );
 
   return (
-    <SensitivePageWrapper moduleName="Gestão de Dados">
+    <SensitivePageWrapper moduleName="Gestão de Dados" bypassRoles={["admin", "diretor", "coordenador", "rh"]}>
     <div className="container mx-auto p-6 space-y-6">
       {/* Banner de Demanda Pendente */}
       {demandaPendente && (
