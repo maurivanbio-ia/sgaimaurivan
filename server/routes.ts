@@ -106,7 +106,7 @@ import { testDropboxConnection, uploadToDropbox, listDropboxBackups, deleteOldDr
 import { seiaService } from "./services/seiaService";
 import { newsletterService } from "./services/newsletterService";
 import { blogService } from "./services/blogService";
-import { blogArtigos, blogComentarios, blogReacoes, insertBlogArtigoSchema, insertBlogComentarioSchema, newsletterAssinantes } from "@shared/schema";
+import { blogArtigos, blogComentarios, blogReacoes, insertBlogArtigoSchema, insertBlogComentarioSchema, newsletterAssinantes, users } from "@shared/schema";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
@@ -12817,7 +12817,51 @@ Regras:
   cron.schedule('0 */6 * * *', verificarProcessosMonitorados);
   console.log('[CRON] Process monitoring job scheduled (every 6 hours)');
 
-  // Register n8n webhooks (before creating HTTP server)
+  // ========================================
+  // USER MANAGEMENT (admin only)
+  // ========================================
+  app.get('/api/users', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+      const allUsers = await db.select({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade, criadoEm: users.createdAt }).from(users).orderBy(users.id);
+      res.json(allUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/users/:id', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      if (id === req.session.userId) return res.status(400).json({ error: 'Você não pode excluir sua própria conta' });
+      const [deleted] = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id, email: users.email });
+      if (!deleted) return res.status(404).json({ error: 'Usuário não encontrado' });
+      res.json({ success: true, deleted });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch('/api/users/:id', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      const { role, cargo, unidade } = req.body;
+      const [updated] = await db.update(users).set({ ...(role && { role }), ...(cargo && { cargo }), ...(unidade && { unidade }) }).where(eq(users.id, id)).returning({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade });
+      if (!updated) return res.status(404).json({ error: 'Usuário não encontrado' });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+    // Register n8n webhooks (before creating HTTP server)
   registerN8nWebhooks(app);
   
   // Register Evolution API webhooks (WhatsApp)
