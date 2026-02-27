@@ -286,6 +286,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Middleware for Gestão de Dados (pastas): coordinators and above bypass the sensitive lock
+  const requireGestaoAcesso = async (req: any, res: any, next: any) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    // Already unlocked via session
+    if (req.session.sensitiveUnlocked) {
+      return next();
+    }
+    // Allow coordinators and above without manual unlock
+    const [user] = await db.select({ cargo: users.cargo, role: users.role })
+      .from(users)
+      .where(eq(users.id, req.session.userId));
+    const freeRoles = ["admin", "diretor", "coordenador", "rh"];
+    if (user && (freeRoles.includes(user.cargo ?? "") || freeRoles.includes(user.role ?? ""))) {
+      return next();
+    }
+    return res.status(403).json({ 
+      message: "Acesso restrito. Digite a senha para acessar esta área.",
+      requiresUnlock: true,
+      unlockType: "sensitive"
+    });
+  };
+
   // Client portal authentication middleware
   const requireClienteAuth = async (req: any, res: any, next: any) => {
     if (!req.session.clienteUsuarioId || !req.session.clienteId) {
@@ -4210,7 +4234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =============================================
   
   // GET /api/pastas - List all folders for the current unidade
-  app.get('/api/pastas', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.get('/api/pastas', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -4232,7 +4256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/pastas/:id - Get single folder details
-  app.get('/api/pastas/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.get('/api/pastas/:id', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -4252,7 +4276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // POST /api/pastas - Create new folder
-  app.post('/api/pastas', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.post('/api/pastas', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -4292,7 +4316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // PUT /api/pastas/:id - Update folder
-  app.put('/api/pastas/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.put('/api/pastas/:id', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -4309,7 +4333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // DELETE /api/pastas/:id - Delete folder and all contents
-  app.delete('/api/pastas/:id', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.delete('/api/pastas/:id', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -4329,7 +4353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/pastas/:id/arquivos - List files in folder
-  app.get('/api/pastas/:id/arquivos', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.get('/api/pastas/:id/arquivos', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -4348,7 +4372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // POST /api/pastas/:id/arquivos - Create file reference in folder after upload
-  app.post('/api/pastas/:id/arquivos', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.post('/api/pastas/:id/arquivos', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const user = req.user as any;
       const unidade = user?.unidade || 'salvador';
@@ -4422,7 +4446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/pastas/:id/subpastas - Get subfolders of a folder
-  app.get('/api/pastas/:id/subpastas', requireAuth, requireSensitiveUnlock, async (req, res) => {
+  app.get('/api/pastas/:id/subpastas', requireAuth, requireGestaoAcesso, async (req, res) => {
     try {
       const paiId = parseInt(req.params.id);
       if (isNaN(paiId)) {

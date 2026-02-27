@@ -4,22 +4,35 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Lock, ShieldCheck, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 interface SensitivePageWrapperProps {
   children: React.ReactNode;
   moduleName: string;
+  bypassRoles?: string[];
 }
 
-export function SensitivePageWrapper({ children, moduleName }: SensitivePageWrapperProps) {
-  const { data: sensitiveStatus, isLoading, error } = useSensitiveStatus();
+export function SensitivePageWrapper({ children, moduleName, bypassRoles }: SensitivePageWrapperProps) {
+  const { data: sensitiveStatus, isLoading: statusLoading, error } = useSensitiveStatus();
+  const { data: currentUser, isLoading: userLoading } = useQuery<{ role: string; cargo: string }>({
+    queryKey: ["/api/auth/user"],
+  });
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
   const [, setLocation] = useLocation();
 
+  const isLoading = statusLoading || userLoading;
+
+  // Check if the user's role bypasses the lock for this module
+  const userRole = currentUser?.cargo || currentUser?.role || "";
+  const isBypassRole = bypassRoles && bypassRoles.length > 0 && bypassRoles.includes(userRole);
+
+  const isUnlocked = sensitiveStatus?.unlocked || isBypassRole;
+
   useEffect(() => {
-    if (!isLoading && sensitiveStatus && !sensitiveStatus.unlocked) {
+    if (!isLoading && sensitiveStatus && !isUnlocked) {
       setShowUnlockDialog(true);
     }
-  }, [isLoading, sensitiveStatus]);
+  }, [isLoading, sensitiveStatus, isUnlocked]);
 
   if (isLoading) {
     return (
@@ -53,7 +66,7 @@ export function SensitivePageWrapper({ children, moduleName }: SensitivePageWrap
     );
   }
 
-  if (!sensitiveStatus?.unlocked) {
+  if (!isUnlocked) {
     return (
       <>
         <div className="container mx-auto py-8">
