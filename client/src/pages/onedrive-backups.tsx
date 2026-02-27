@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -22,6 +25,7 @@ import {
   Database,
   Play,
   AlertCircle,
+  Lock,
 } from "lucide-react";
 
 interface BackupFile {
@@ -42,6 +46,9 @@ export default function BackupsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const { data: backups, isLoading, refetch } = useQuery<BackupFile[]>({
     queryKey: ["/api/backups"],
@@ -49,8 +56,12 @@ export default function BackupsPage() {
   });
 
   const triggerMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/backups/trigger");
+    mutationFn: async (password: string) => {
+      const response = await apiRequest("POST", "/api/backups/trigger", { adminPassword: password });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Erro ao executar backup");
+      }
       return response.json() as Promise<TriggerResult>;
     },
     onSuccess: (data) => {
@@ -61,6 +72,9 @@ export default function BackupsPage() {
           description: `${totalRecords.toLocaleString()} registros salvos em ${data.timestamp}`,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
+        setShowPasswordDialog(false);
+        setAdminPassword("");
+        setPasswordError("");
       } else {
         toast({
           title: "Erro ao realizar backup",
@@ -70,13 +84,28 @@ export default function BackupsPage() {
       }
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Falha ao executar backup",
-        variant: "destructive",
-      });
+      const msg = error.message || "Falha ao executar backup";
+      if (msg.includes("Senha") || msg.includes("password") || msg.includes("incorreta")) {
+        setPasswordError("Senha de administrador incorreta. Tente novamente.");
+      } else {
+        toast({
+          title: "Erro",
+          description: msg,
+          variant: "destructive",
+        });
+        setShowPasswordDialog(false);
+      }
     },
   });
+
+  const handleBackupConfirm = () => {
+    if (!adminPassword.trim()) {
+      setPasswordError("Digite a senha de administrador.");
+      return;
+    }
+    setPasswordError("");
+    triggerMutation.mutate(adminPassword);
+  };
 
   const handleDownload = async (fileName: string) => {
     setDownloadingFile(fileName);
@@ -220,7 +249,7 @@ export default function BackupsPage() {
         <CardContent>
           <div className="flex flex-wrap gap-3">
             <Button
-              onClick={() => triggerMutation.mutate()}
+              onClick={() => { setAdminPassword(""); setPasswordError(""); setShowPasswordDialog(true); }}
               disabled={triggerMutation.isPending}
               className="gap-2 bg-green-600 hover:bg-green-700"
             >
@@ -362,6 +391,59 @@ export default function BackupsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Admin Password Dialog for Backup */}
+      <Dialog open={showPasswordDialog} onOpenChange={(open) => { setShowPasswordDialog(open); if (!open) { setAdminPassword(""); setPasswordError(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              Confirmação de Backup
+            </DialogTitle>
+            <DialogDescription>
+              Por segurança, informe a senha de administrador para executar o backup manual do banco de dados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-password">Senha de Administrador</Label>
+              <Input
+                id="admin-password"
+                type="password"
+                placeholder="Digite a senha de administrador"
+                value={adminPassword}
+                onChange={(e) => { setAdminPassword(e.target.value); setPasswordError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleBackupConfirm(); }}
+                noNormalize
+                autoFocus
+              />
+              {passwordError && (
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <XCircle className="h-3.5 w-3.5" />
+                  {passwordError}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowPasswordDialog(false); setAdminPassword(""); setPasswordError(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleBackupConfirm}
+              disabled={triggerMutation.isPending}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              {triggerMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              {triggerMutation.isPending ? "Executando..." : "Confirmar Backup"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
