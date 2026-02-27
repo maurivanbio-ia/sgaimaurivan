@@ -198,7 +198,7 @@ export default function Sidebar() {
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
         { href: "/blog-admin", label: "Blog Institucional", icon: Globe, testid: "nav-blog-admin" },
-        { href: "/onedrive-backups", label: "Backups OneDrive", icon: Cloud, testid: "nav-onedrive-backups" },
+        { href: "/onedrive-backups", label: "Backup de Dados", icon: Cloud, testid: "nav-onedrive-backups" },
       ]
     },
   ];
