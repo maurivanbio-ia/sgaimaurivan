@@ -26,6 +26,9 @@ import {
   Play,
   AlertCircle,
   Lock,
+  FolderOpen,
+  Upload,
+  User,
 } from "lucide-react";
 
 interface BackupFile {
@@ -53,6 +56,42 @@ export default function BackupsPage() {
   const { data: backups, isLoading, refetch } = useQuery<BackupFile[]>({
     queryKey: ["/api/backups"],
     retry: 1,
+  });
+
+  const { data: dropboxStatus, isLoading: isCheckingDropbox, refetch: refetchDropbox } = useQuery<{
+    success: boolean;
+    accountName?: string;
+    email?: string;
+    backupFolder?: string;
+    error?: string;
+  }>({
+    queryKey: ["/api/dropbox/test"],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const dropboxBackupMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dropbox/backup", {});
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Erro ao enviar backup para Dropbox");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Backup enviado ao Dropbox!",
+        description: data.dropboxPath ? `Salvo em: ${data.dropboxPath}` : "Arquivo enviado com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao enviar para Dropbox",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const triggerMutation = useMutation({
@@ -368,27 +407,93 @@ export default function BackupsPage() {
 
       <Separator className="my-6" />
 
-      <Card className="border-amber-200 dark:border-amber-800">
+      <Card className={dropboxStatus?.success ? "border-blue-200 dark:border-blue-800" : "border-amber-200 dark:border-amber-800"}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+          <CardTitle className={`flex items-center gap-2 ${dropboxStatus?.success ? "text-blue-700 dark:text-blue-400" : "text-amber-700 dark:text-amber-400"}`}>
             <Cloud className="h-5 w-5" />
             Sincronização com Dropbox
+            {isCheckingDropbox && <Loader2 className="h-4 w-4 animate-spin ml-1" />}
           </CardTitle>
           <CardDescription>
-            Conecte o Dropbox para sincronizar backups automaticamente na nuvem toda semana
+            Backups automáticos sincronizados com o Dropbox toda semana (domingos às 02:00)
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
-            <XCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-amber-700 dark:text-amber-400 text-sm">Dropbox não conectado</p>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                Para ativar a sincronização automática semanal com o Dropbox, acesse o painel do Replit → 
-                Tools → Connectors → Dropbox e faça login com sua conta.
-              </p>
+        <CardContent className="space-y-3">
+          {isCheckingDropbox ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-3">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Verificando conexão com Dropbox...
             </div>
-          </div>
+          ) : dropboxStatus?.success ? (
+            <>
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-blue-700 dark:text-blue-400 text-sm">Dropbox conectado</p>
+                  <div className="mt-2 space-y-1">
+                    {dropboxStatus.accountName && (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-500">
+                        <User className="h-3 w-3" />
+                        {dropboxStatus.accountName} ({dropboxStatus.email})
+                      </div>
+                    )}
+                    {dropboxStatus.backupFolder && (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-500">
+                        <FolderOpen className="h-3 w-3" />
+                        Pasta de backups: <span className="font-mono">{dropboxStatus.backupFolder}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-blue-700 border-blue-300"
+                  onClick={() => refetchDropbox()}
+                  disabled={isCheckingDropbox}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Testar conexão
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-green-700 border-green-300"
+                  onClick={() => dropboxBackupMutation.mutate()}
+                  disabled={dropboxBackupMutation.isPending}
+                >
+                  {dropboxBackupMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  Enviar backup agora
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <XCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-amber-700 dark:text-amber-400 text-sm">Dropbox não conectado</p>
+                {dropboxStatus?.error && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 font-mono">{dropboxStatus.error}</p>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1.5 mt-2 text-amber-700"
+                  onClick={() => refetchDropbox()}
+                  disabled={isCheckingDropbox}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Tentar novamente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
