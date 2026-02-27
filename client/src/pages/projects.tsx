@@ -138,17 +138,22 @@ export default function Projects() {
                             {project.nome}
                           </h3>
                           <Badge 
-                            variant={project.status === "ativo" ? "default" : "secondary"}
-                            className={project.status === "ativo" 
-                              ? "bg-green-100 text-green-800 hover:bg-green-100" 
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-100"}
+                            variant={project.status?.toLowerCase() === "ativo" ? "default" : "secondary"}
+                            className={project.status?.toLowerCase() === "ativo" 
+                              ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300" 
+                              : project.status?.toLowerCase() === "inativo" || project.status?.toLowerCase() === "cancelado"
+                              ? "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                              : project.status?.toLowerCase() === "concluido"
+                              ? "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+                              : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-300"}
                             data-testid={`badge-status-${project.id}`}
                           >
-                            {project.status === "ativo" ? "Ativo" : 
-                             project.status === "inativo" ? "Inativo" :
-                             project.status === "em_planejamento" ? "Em Planejamento" :
-                             project.status === "em_execucao" ? "Em Execução" :
-                             project.status === "concluido" ? "Concluído" : project.status}
+                            {project.status?.toLowerCase() === "ativo" ? "Ativo" : 
+                             project.status?.toLowerCase() === "inativo" ? "Inativo" :
+                             project.status?.toLowerCase() === "em_planejamento" ? "Em Planejamento" :
+                             project.status?.toLowerCase() === "em_execucao" ? "Em Execução" :
+                             project.status?.toLowerCase() === "concluido" ? "Concluído" :
+                             project.status?.toLowerCase() === "cancelado" ? "Cancelado" : project.status}
                           </Badge>
                         </div>
                         <div className="space-y-1">

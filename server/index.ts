@@ -1,10 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { textNormalizationMiddleware } from "./middleware/normalizeText";
 
 const app = express();
+app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 app.use(textNormalizationMiddleware);
