@@ -1,0 +1,202 @@
+A plataforma EcoBrasil Gestor é um sistema corporativo de gestão ambiental que exige padronização absoluta dos dados para:
+
+. Garantir integridade e rastreabilidade
+. Evitar inconsistências em relatórios
+. Melhorar consultas no banco
+. Facilitar integração futura com BI, IA e dashboards
+
+É obrigatório que TODOS os dados digitados pelos usuários sigam padrão técnico institucional.
+
+1️⃣ PADRONIZAÇÃO AUTOMÁTICA DE TEXTO
+REQUISITO GLOBAL
+
+Toda entrada textual da plataforma deve obedecer às seguintes regras:
+
+. Converter automaticamente para LETRAS MAIÚSCULAS
+. Remover automaticamente TODOS os acentos
+. Remover caracteres especiais desnecessários
+. Permitir apenas caracteres válidos: A-Z, 0-9 e pontuação técnica básica (., / -)
+. Aplicar a regra em TODOS os formulários e campos do sistema
+
+Essa regra deve valer para:
+
+. Cadastro de empreendimentos
+. Cadastro de projetos
+. Demandas (Kanban)
+. RH
+. Financeiro
+. Equipamentos
+. Relatórios
+. Observações
+. Campos customizados
+
+IMPLEMENTAÇÃO TÉCNICA
+
+Criar função global reutilizável:
+
+function normalizeInput(value) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[^A-Z0-9\s.,/-]/gi, "") // remove caracteres inválidos
+    .toUpperCase();
+}
+
+Aplicar em:
+
+. onChange de todos os inputs
+. Antes de salvar no banco
+. Em validação de backend
+. Em middleware global
+
+Se for React + React Hook Form:
+
+Criar um Hook customizado:
+
+const handleUppercase = (e) => {
+  e.target.value = normalizeInput(e.target.value);
+};
+2️⃣ AUTOPREENCHIMENTO INTELIGENTE
+OBJETIVO
+
+Reduzir digitação repetitiva e erros humanos.
+
+IMPLEMENTAR:
+A) AutoComplete baseado no banco
+
+Para campos como:
+
+. EMPREENDIMENTO
+. COORDENADOR
+. MUNICÍPIO
+. ESTADO
+. SETOR
+. TIPO DE EQUIPAMENTO
+. STATUS
+
+Implementar:
+
+. Busca dinâmica enquanto digita
+. Sugestão dropdown
+. Tecla ENTER seleciona sugestão
+. Histórico de termos mais usados
+. Cache local para performance
+
+B) AutoPreenchimento inteligente contextual
+
+Exemplo:
+
+Se selecionar EMPREENDIMENTO:
+. Preencher automaticamente MUNICÍPIO
+. Preencher automaticamente ESTADO
+. Preencher automaticamente COORDENADOR
+
+Se selecionar PROJETO:
+. Preencher automaticamente EMPREENDIMENTO
+. Preencher automaticamente ETAPA
+
+Se selecionar FUNCIONÁRIO:
+. Preencher automaticamente SETOR
+
+3️⃣ CORRETOR ORTOGRÁFICO INTELIGENTE
+OBJETIVO
+
+Garantir padrão técnico institucional e evitar erros em relatórios.
+
+IMPLEMENTAR:
+A) Spellcheck nativo
+
+Ativar:
+
+spellcheck="true"
+
+Mas isso não é suficiente.
+
+B) Corretor customizado institucional
+
+Criar:
+
+. Dicionário técnico ambiental interno
+. Termos como:
+LICENCIAMENTO
+IMPACTO AMBIENTAL
+CONDICIONANTE
+FAUNA
+FLORA
+MONITORAMENTO
+UHE
+IBAMA
+ANA
+ANEEL
+
+Se palavra digitada não existir no dicionário:
+. Sublinhar em vermelho
+. Sugerir correção
+. Permitir aceitar sugestão
+
+C) Integração futura com IA
+
+Permitir módulo opcional:
+
+. Correção gramatical automática em campos longos
+. Sugestão de redação técnica
+. Padronização institucional
+
+Exemplo:
+
+Usuário digita:
+"monitoramento foi feito em 3 ponto"
+
+Sistema sugere:
+"MONITORAMENTO FOI REALIZADO EM 3 PONTOS."
+
+4️⃣ VALIDAÇÃO NO BACKEND
+
+Não confiar apenas no frontend.
+
+Implementar no backend:
+
+. Middleware que normalize dados antes de salvar
+. Sanitização contra SQL Injection
+. Bloqueio de caracteres inválidos
+
+5️⃣ EXPERIÊNCIA DO USUÁRIO
+
+Apesar da padronização automática:
+
+. Não mostrar transformação abrupta
+. Aplicar suavemente
+. Não quebrar UX
+. Mostrar aviso discreto:
+"PADRÃO INSTITUCIONAL AUTOMÁTICO ATIVADO"
+
+6️⃣ LOGS E RASTREABILIDADE
+
+Registrar:
+
+. Texto original digitado
+. Texto final normalizado
+. Usuário responsável
+. Data e hora
+
+Permite auditoria futura.
+
+7️⃣ CONFIGURAÇÃO ADMINISTRATIVA
+
+Criar painel Admin para:
+
+. Ativar/desativar corretor
+. Atualizar dicionário institucional
+. Permitir exceções específicas
+. Definir campos que NÃO devem normalizar (ex: e-mail, senha)
+
+RESULTADO ESPERADO
+
+Após implementação:
+
+. 100% dos dados padronizados
+. Zero inconsistência textual
+. Relatórios com padrão institucional
+. Melhor performance em buscas
+. Base pronta para BI e IA
+. Ambiente corporativo robusto
