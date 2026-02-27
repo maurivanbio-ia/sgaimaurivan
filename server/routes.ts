@@ -230,6 +230,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Admin-only edit/delete middleware (checks cargo field)
+  const requireAdminEdit = async (req: any, res: any, next: any) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const user = await storage.getUser(req.session.userId);
+    if (!user || (user.cargo !== "admin" && user.role !== "admin")) {
+      return res.status(403).json({ 
+        message: "Apenas administradores podem modificar ou excluir este registro.",
+        code: "ADMIN_ONLY"
+      });
+    }
+    req.user = user;
+    next();
+  };
+
   // Blog admin authorization middleware (admin, diretor, coordenador only OR unlocked with password)
   const requireBlogAdmin = async (req: any, res: any, next: any) => {
     if (!req.session.userId) {
@@ -589,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/empreendimentos/:id", requireAuth, async (req, res) => {
+  app.put("/api/empreendimentos/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userUnidade = req.user?.unidade;
@@ -616,7 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/empreendimentos/:id", requireAuth, async (req, res) => {
+  app.delete("/api/empreendimentos/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userUnidade = req.user?.unidade;
@@ -773,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/licencas/:id", requireAuth, async (req, res) => {
+  app.put("/api/licencas/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
@@ -785,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/licencas/:id", requireAuth, async (req, res) => {
+  app.delete("/api/licencas/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteLicenca(id);
@@ -866,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/condicionantes/:id", requireAuth, async (req, res) => {
+  app.put("/api/condicionantes/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertCondicionanteSchema.partial().parse(req.body);
@@ -878,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/condicionantes/:id", requireAuth, async (req, res) => {
+  app.delete("/api/condicionantes/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCondicionante(id);
@@ -948,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/entregas/:id", requireAuth, async (req, res) => {
+  app.put("/api/entregas/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertEntregaSchema.partial().parse(req.body);
@@ -960,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/entregas/:id", requireAuth, async (req, res) => {
+  app.delete("/api/entregas/:id", requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteEntrega(id);
@@ -2551,7 +2567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update equipamento
-  app.put('/api/equipamentos/:id', requireAuth, async (req, res) => {
+  app.put('/api/equipamentos/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2566,7 +2582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete equipamento
-  app.delete('/api/equipamentos/:id', requireAuth, async (req, res) => {
+  app.delete('/api/equipamentos/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2826,7 +2842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update veículo
-  app.put('/api/frota/:id', requireAuth, async (req, res) => {
+  app.put('/api/frota/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2841,7 +2857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete veículo
-  app.delete('/api/frota/:id', requireAuth, async (req, res) => {
+  app.delete('/api/frota/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -5614,7 +5630,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   // Update projeto
-  app.put('/api/projetos/:id', requireAuth, async (req, res) => {
+  app.put('/api/projetos/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -5629,7 +5645,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   // Delete projeto
-  app.delete('/api/projetos/:id', requireAuth, async (req, res) => {
+  app.delete('/api/projetos/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -5798,7 +5814,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
 
   app.post('/api/contratos', requireAuth, contratoController.createContrato);
   app.patch('/api/contratos/:id', requireAuth, contratoController.updateContrato);
-  app.delete('/api/contratos/:id', requireAuth, contratoController.deleteContrato);
+  app.delete('/api/contratos/:id', requireAuth, requireAdminEdit, contratoController.deleteContrato);
   
   // Upload de documento para contrato
   app.post('/api/contratos/upload', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
@@ -6290,7 +6306,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
-  app.delete('/api/rh/:id', requireAuth, async (req, res) => {
+  app.delete('/api/rh/:id', requireAuth, requireAdminEdit, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
