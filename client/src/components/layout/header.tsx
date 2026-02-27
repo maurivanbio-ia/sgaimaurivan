@@ -8,8 +8,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUnidade } from "@/contexts/UnidadeContext";
-import { Building2 } from "lucide-react";
+import { Building2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 export default function Header() {
@@ -140,6 +141,19 @@ export default function Header() {
 
           {/* Ações (sempre visíveis) + Menu mobile */}
           <div className="flex items-center space-x-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 dark:bg-green-950/40 border border-green-300 dark:border-green-700 cursor-default select-none">
+                    <ShieldCheck className="h-3 w-3 text-green-600 dark:text-green-400" />
+                    <span className="text-[10px] font-bold text-green-700 dark:text-green-400 tracking-wider">PADRÃO</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
+                  Padrão institucional ativo: todos os campos de texto são normalizados automaticamente para maiúsculas sem acentos.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <NotificationBell />
             <ThemeToggle />
 
