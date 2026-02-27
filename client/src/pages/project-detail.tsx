@@ -224,46 +224,46 @@ export default function ProjectDetail() {
 
       {/* Tabs System */}
       <Tabs defaultValue="licencas" className="w-full">
-        <TabsList className="grid w-full grid-cols-10 mb-6">
-          <TabsTrigger value="licencas" className="flex items-center gap-2" data-testid="tab-licencas">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Licenças</span>
+        <TabsList className="flex w-full overflow-x-auto mb-6 h-auto flex-nowrap justify-start">
+          <TabsTrigger value="licencas" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-licencas">
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span>Licenças</span>
           </TabsTrigger>
-          <TabsTrigger value="projetos" className="flex items-center gap-2" data-testid="tab-projetos">
-            <FolderKanban className="h-4 w-4" />
-            <span className="hidden sm:inline">Projetos</span>
+          <TabsTrigger value="projetos" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-projetos">
+            <FolderKanban className="h-4 w-4 flex-shrink-0" />
+            <span>Projetos</span>
           </TabsTrigger>
-          <TabsTrigger value="contratos" className="flex items-center gap-2" data-testid="tab-contratos">
-            <Briefcase className="h-4 w-4" />
-            <span className="hidden sm:inline">Contratos</span>
+          <TabsTrigger value="contratos" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-contratos">
+            <Briefcase className="h-4 w-4 flex-shrink-0" />
+            <span>Contratos</span>
           </TabsTrigger>
-          <TabsTrigger value="cronograma" className="flex items-center gap-2" data-testid="tab-cronograma">
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Cronograma</span>
+          <TabsTrigger value="cronograma" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-cronograma">
+            <Calendar className="h-4 w-4 flex-shrink-0" />
+            <span>Cronograma</span>
           </TabsTrigger>
-          <TabsTrigger value="rh" className="flex items-center gap-2" data-testid="tab-rh">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">RH</span>
+          <TabsTrigger value="rh" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-rh">
+            <Users className="h-4 w-4 flex-shrink-0" />
+            <span>RH</span>
           </TabsTrigger>
-          <TabsTrigger value="demandas" className="flex items-center gap-2" data-testid="tab-demandas">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Demandas</span>
+          <TabsTrigger value="demandas" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-demandas">
+            <ClipboardList className="h-4 w-4 flex-shrink-0" />
+            <span>Demandas</span>
           </TabsTrigger>
-          <TabsTrigger value="sst" className="flex items-center gap-2" data-testid="tab-sst">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">SST</span>
+          <TabsTrigger value="sst" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-sst">
+            <Shield className="h-4 w-4 flex-shrink-0" />
+            <span>SST</span>
           </TabsTrigger>
-          <TabsTrigger value="dados" className="flex items-center gap-2" data-testid="tab-dados">
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Dados</span>
+          <TabsTrigger value="dados" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-dados">
+            <Database className="h-4 w-4 flex-shrink-0" />
+            <span>Dados</span>
           </TabsTrigger>
-          <TabsTrigger value="equipamentos" className="flex items-center gap-2" data-testid="tab-equipamentos">
-            <Wrench className="h-4 w-4" />
-            <span className="hidden sm:inline">Equipamentos</span>
+          <TabsTrigger value="equipamentos" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-equipamentos">
+            <Wrench className="h-4 w-4 flex-shrink-0" />
+            <span>Equipamentos</span>
           </TabsTrigger>
-          <TabsTrigger value="frota" className="flex items-center gap-2" data-testid="tab-frota">
-            <Truck className="h-4 w-4" />
-            <span className="hidden sm:inline">Frota</span>
+          <TabsTrigger value="frota" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-frota">
+            <Truck className="h-4 w-4 flex-shrink-0" />
+            <span>Frota</span>
           </TabsTrigger>
         </TabsList>
 
