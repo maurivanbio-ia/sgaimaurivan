@@ -6,6 +6,8 @@ import {
   insertEmpreendimentoSchema, 
   insertLicencaAmbientalSchema,
   insertCondicionanteSchema,
+  insertCondicionanteEvidenciaSchema,
+  condicionanteEvidencias,
   insertEntregaSchema,
   insertNotificationSchema,
   insertEquipamentoSchema,
@@ -901,6 +903,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Delete condicionante error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Condicionante Evidências routes
+  app.get("/api/condicionantes/:condicionanteId/evidencias", requireAuth, async (req, res) => {
+    try {
+      const condicionanteId = parseInt(req.params.condicionanteId);
+      const evidencias = await db.select().from(condicionanteEvidencias)
+        .where(eq(condicionanteEvidencias.condicionanteId, condicionanteId))
+        .orderBy(condicionanteEvidencias.criadoEm);
+      res.json(evidencias);
+    } catch (error) {
+      console.error("Get evidencias error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/condicionantes/:condicionanteId/evidencias", requireAuth, async (req, res) => {
+    try {
+      const condicionanteId = parseInt(req.params.condicionanteId);
+      const user = (req.session as any)?.user;
+      const data = insertCondicionanteEvidenciaSchema.parse({
+        ...req.body,
+        condicionanteId,
+        criadoPor: user?.email || user?.nome,
+      });
+      const [evidencia] = await db.insert(condicionanteEvidencias).values(data).returning();
+      res.status(201).json(evidencia);
+    } catch (error) {
+      console.error("Create evidencia error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.put("/api/condicionantes/evidencias/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [evidencia] = await db.update(condicionanteEvidencias)
+        .set(req.body)
+        .where(eq(condicionanteEvidencias.id, id))
+        .returning();
+      res.json(evidencia);
+    } catch (error) {
+      console.error("Update evidencia error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.post("/api/condicionantes/evidencias/:id/aprovar", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = (req.session as any)?.user;
+      const [evidencia] = await db.update(condicionanteEvidencias)
+        .set({
+          aprovado: true,
+          aprovadoPor: user?.nome || user?.email,
+          dataAprovacao: new Date(),
+        })
+        .where(eq(condicionanteEvidencias.id, id))
+        .returning();
+      res.json(evidencia);
+    } catch (error) {
+      console.error("Approve evidencia error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.delete("/api/condicionantes/evidencias/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(condicionanteEvidencias).where(eq(condicionanteEvidencias.id, id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete evidencia error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

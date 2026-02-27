@@ -1,0 +1,150 @@
+Objetivo: Resolver falhas graves de atualização em tempo real e melhorar drasticamente velocidade e responsividade da plataforma.
+
+CONTEXTO DO PROBLEMA
+
+A plataforma apresenta falhas graves de sincronização e atualização de dados:
+
+. Ao inserir documentos (ex.: evidências de condicionantes), a interface não atualiza automaticamente
+. Ao criar novo empreendimento, licença ou condicionante, o dado só aparece após refresh manual
+. Listagens ficam desatualizadas
+. Estados inconsistentes entre frontend e backend
+. Sensação de lentidão e travamento
+
+Isso compromete:
+
+. Experiência do usuário
+. Confiabilidade operacional
+. Controle de condicionantes
+. Gestão documental
+. Credibilidade da plataforma
+
+A atualização manual (F5) não pode ser necessária.
+
+OBJETIVO TÉCNICO
+
+Garantir que:
+
+. Toda inserção, edição ou exclusão atualize automaticamente a interface
+. Nenhuma listagem permaneça desatualizada
+. A sincronização frontend-backend seja imediata
+. A navegação seja rápida e fluida
+. A plataforma seja escalável e performática
+
+1️⃣ IMPLEMENTAR ATUALIZAÇÃO EM TEMPO REAL
+
+Escolher uma das abordagens abaixo conforme arquitetura:
+
+Opção A – WebSockets / Socket.IO
+
+Implementar canal persistente entre cliente e servidor.
+
+Sempre que ocorrer:
+. Criação de documento
+. Criação de empreendimento
+. Atualização de status
+. Upload de evidência
+. Criação de condicionante
+. Alteração de demanda
+
+Emitir evento:
+
+socket.emit("dataUpdated", { entity: "condicionante", id })
+
+No frontend:
+
+socket.on("dataUpdated", () => {
+  refetch()
+})
+Opção B – Server-Sent Events (SSE)
+
+Caso arquitetura seja REST tradicional.
+
+Opção C – React Query / TanStack Query corretamente configurado
+
+Se já usa React Query:
+
+. Garantir invalidateQueries() após mutation
+. Usar optimistic updates
+. Habilitar refetchOnWindowFocus
+. Usar staleTime adequado
+. Evitar cache travado
+
+Exemplo obrigatório:
+
+await mutation.mutateAsync(data)
+queryClient.invalidateQueries(["condicionantes", licenseId])
+2️⃣ ELIMINAR ESTADOS INCONSISTENTES
+
+. Garantir que toda mutation retorne o objeto atualizado
+. Atualizar cache imediatamente
+. Evitar depender de reload de página
+. Evitar estado duplicado local vs servidor
+
+3️⃣ OTIMIZAÇÃO DE PERFORMANCE
+
+A plataforma deve ser mais rápida e leve.
+
+Implementar:
+
+A) Lazy Loading
+
+Carregar dados sob demanda.
+
+B) Paginação real no backend
+
+Não carregar tudo de uma vez.
+
+C) Indexação no banco
+
+Criar índices em:
+. license_id
+. empreendimento_id
+. status
+. data_vencimento
+
+D) Evitar consultas N+1
+
+Usar joins otimizados.
+
+E) Compressão de resposta
+
+Ativar gzip ou brotli no servidor.
+
+4️⃣ MELHORAR UPLOAD DE DOCUMENTOS
+
+Problema atual:
+Upload ocorre, mas a interface não reflete imediatamente.
+
+Implementar:
+
+. Upload assíncrono com retorno do objeto salvo
+. Atualização automática da lista de documentos
+. Barra de progresso
+. Estado visual “SALVANDO...”
+. Notificação de sucesso
+
+5️⃣ EXPERIÊNCIA DO USUÁRIO
+
+A plataforma deve parecer:
+
+. Instantânea
+. Responsiva
+. Profissional
+. Corporativa
+
+Implementar:
+
+. Skeleton loading
+. Feedback visual imediato
+. Transições suaves
+. Toast de confirmação
+
+6️⃣ CRITÉRIOS DE ACEITAÇÃO
+
+Após implementação:
+
+. Criar empreendimento → aparece instantaneamente na lista
+. Inserir documento → aparece sem refresh
+. Alterar status de condicionante → atualiza automaticamente
+. Criar demanda vinculada → aparece imediatamente no Kanban
+. Nenhuma ação exige F5

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -514,7 +515,13 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 ml-4">
+                  <div className="flex gap-2 ml-4 flex-wrap justify-end">
+                    <Link href={`/licencas/${license.id}`}>
+                      <Button variant="default" size="sm" className="gap-1">
+                        <Shield className="h-4 w-4" />
+                        Detalhes
+                      </Button>
+                    </Link>
                     <Button
                       variant="outline"
                       size="sm"

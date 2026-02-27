@@ -1,0 +1,93 @@
+Você é responsável por evoluir o módulo “LICENÇAS” da plataforma EcoBrasil Gestor. O módulo já cadastra e exibe licenças (LP, LI, LO) em card com número, órgão emissor, datas e PDF. Implementar “CONDICIONANTES” como continuidade direta do módulo Licença. Condicionantes não devem existir fora do contexto de uma licença. Toda condicionante deve estar obrigatoriamente vinculada a um registro de licença, e toda navegação começa pela licença.
+
+1. PRINCÍPIO ARQUITETURAL
+
+. “Licença” é a entidade pai.
+. “Condicionante” é entidade filha obrigatória.
+. Todas as telas de condicionantes ficam dentro do fluxo de Licenças.
+. URLs, permissões e UI seguem o padrão do módulo Licença.
+
+Exemplos de rotas (adapte ao stack):
+. /licencas
+. /licencas/:licenseId
+. /licencas/:licenseId/condicionantes
+. /licencas/:licenseId/condicionantes/:condId
+
+2. UI. CONTINUIDADE NA TELA DA LICENÇA
+
+Na página ou card expandido da licença, criar navegação por abas ou seções internas:
+
+. DETALHES DA LICENÇA
+. CONDICIONANTES
+. DOCUMENTOS E EVIDÊNCIAS
+. CRONOGRAMA E CALENDÁRIO
+. HISTÓRICO E AUDITORIA
+
+A aba CONDICIONANTES deve ser a continuidade natural. Sem sair do módulo.
+
+3. CONDICIONANTES. FUNCIONALIDADES DENTRO DE LICENÇA
+
+3.1 Listagem dentro da licença
+Exibir tabela com filtros e busca. Colunas mínimas:
+. Item. Código. Título. Categoria. Responsável. Vencimento. Status. Progresso. Atraso.
+
+3.2 Cadastro e edição
+Criar “NOVA CONDICIONANTE” dentro da licença atual. Ao salvar, vincular automaticamente licenseId.
+
+3.3 Painel de conformidade por licença
+No topo da aba, exibir:
+. Total. Cumpridas. Em andamento. Atrasadas. Vencendo em breve (7, 15, 30 dias).
+. Percentual de conformidade daquela licença.
+
+4. INTEGRAÇÃO. SEM QUEBRAR O FLUXO DO MÓDULO LICENÇA
+
+Tudo deve ser acionado de dentro da condicionante.
+
+4.1 Demandas (Kanban)
+. Dentro da condicionante, botão “CRIAR DEMANDA” cria Job já vinculado.
+. Mostrar lista de demandas vinculadas na página da condicionante.
+. No Kanban, mostrar badge “LICENÇA: LO 120/2020 . COND: C01”.
+
+4.2 Cronograma
+. Botão “ADICIONAR AO CRONOGRAMA” cria milestone vinculado à condicionante.
+. Em recorrências, gerar próximos marcos automaticamente por janela configurável.
+
+4.3 Calendário
+. Criar evento automático a partir do vencimento e lembretes 30, 15, 7, 1 dias.
+. Permitir filtro “LICENÇAS . CONDICIONANTES”.
+
+5. DOCUMENTOS. EVIDÊNCIAS COMO PARTE DO MÓDULO LICENÇA
+
+Os documentos de cumprimento devem ser vinculados à condicionante e exibidos no contexto da licença.
+
+Regras:
+. Evidências ficam em “CONDICIONANTE_EVIDENCIA”
+. Permitir anexos de terceiros (ex.: licenças de outras empresas) com metadados
+. Permitir aprovação por perfil revisor
+. Condicionante do tipo ENTREGA_DOCUMENTO só pode virar CUMPRIDA se houver evidência aprovada
+
+6. PADRONIZAÇÃO DE TEXTO
+
+Aplicar regra global da plataforma em todos os campos editáveis do módulo Licença e Condicionantes:
+. Entrada sempre em MAIÚSCULO e sem acento
+. Sanitização frontend e backend
+. Exceções apenas para e-mail, URLs e senhas
+. Descrição oficial pode manter texto original se necessário, mas qualquer campo operacional deve normalizar
+
+7. AUDITORIA
+
+Registrar em log:
+. Quem criou ou editou licença, condicionante e evidência
+. Alterações de status e prazos
+. Upload e aprovação de evidências
+. Vinculação com demandas, cronograma e calendário
+
+8. CRITÉRIOS DE ACEITAÇÃO
+
+. Condicionantes só existem dentro de uma licença, sem tela global de condicionantes.
+. Usuário cadastra, filtra e acompanha condicionantes pela tela da licença.
+. Condicionante cria e acompanha demandas vinculadas e aparece no Kanban com referência.
+. Condicionante gera marcos no cronograma e eventos no calendário.
+. Evidências anexadas e aprovadas dentro da condicionante, aceitando documentos de terceiros.
+. Exportação por licença (CSV, XLSX e PDF de conformidade).
+. Padronização MAIÚSCULO sem acento aplicada.
