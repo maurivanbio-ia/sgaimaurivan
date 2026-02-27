@@ -56,8 +56,9 @@ const getStatusBadgeClass = (status: string) => {
     em_execucao: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
     concluido: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
     inativo: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+    cancelado: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
   };
-  return classes[status] || "";
+  return classes[status?.toLowerCase()] || "";
 };
 
 const getStatusLabel = (status: string) => {
@@ -67,8 +68,9 @@ const getStatusLabel = (status: string) => {
     em_execucao: "Em Execução",
     concluido: "Concluído",
     inativo: "Inativo",
+    cancelado: "Cancelado",
   };
-  return labels[status] || status;
+  return labels[status?.toLowerCase()] || status;
 };
 
 export default function ProjectDetail() {

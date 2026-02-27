@@ -1,14 +1,31 @@
 import { Request, Response, NextFunction } from "express";
 
 const SKIP_FIELDS = new Set([
-  "email", "senha", "password", "token", "hash", "url",
-  "cpf", "cnpj", "cep", "secret", "key", "accessToken",
-  "refreshToken", "contentType", "mimeType",
+  // Auth / Security
+  "email", "senha", "password", "token", "hash", "secret", "key",
+  "accessToken", "refreshToken",
+  // Identifiers / Codes
+  "cpf", "cnpj", "cep", "url", "contentType", "mimeType",
+  // Functional enum-like fields that must stay lowercase
+  "status", "tipo", "setor", "prioridade", "origem", "unidade", "cargo", "role",
+  "categoria", "tipologia", "complexidade", "tipoCondicionante", "tipoOutorga",
+  "tipoCampo", "tipoDocumento", "tipoContrato", "tipoEntidade",
+  "recorrente", "recorrenciaCron", "recorrenciaFim",
+  "variantePeriodo", "periodicidade", "frequencia",
+  // Dates / Numbers stored as strings
+  "dataInicio", "dataFim", "dataEntrega", "dataEmissao", "dataConclusao",
+  "prazo", "validade", "dataEmissao",
+  // JSON / config fields
+  "config", "metadata", "metadados", "json", "tags", "anexos",
+  // Coordinates
+  "latitude", "longitude",
 ]);
 
 const SKIP_FIELD_PATTERNS = [
   /email/i, /senha/i, /password/i, /token/i, /secret/i,
   /cnpj/i, /cpf/i, /cep/i, /url/i, /hash/i,
+  /status$/i, /^tipo/i, /cron/i, /json/i, /config/i,
+  /latitude/i, /longitude/i, /^data/i, /^prazo/i, /^validade/i,
 ];
 
 function normalizeText(value: string): string {
@@ -22,6 +39,7 @@ function normalizeText(value: string): string {
 }
 
 function shouldSkip(key: string): boolean {
+  if (SKIP_FIELDS.has(key)) return true;
   if (SKIP_FIELDS.has(key.toLowerCase())) return true;
   if (SKIP_FIELD_PATTERNS.some(p => p.test(key))) return true;
   return false;
