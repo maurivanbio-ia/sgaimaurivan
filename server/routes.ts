@@ -6405,7 +6405,24 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
-  app.delete('/api/rh/:id', requireAuth, async (req, res) => {
+  app.patch('/api/rh/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'ID inválido' });
+      }
+      const data = insertRhRegistroSchema.partial().parse(req.body);
+      const [updated] = await db.update(rhRegistros).set(data).where(eq(rhRegistros.id, id)).returning();
+      if (!updated) {
+        return res.status(404).json({ message: 'Registro não encontrado' });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+    app.delete('/api/rh/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -6431,15 +6448,17 @@ Retorne o texto extraído de forma estruturada e organizada.`
         return res.status(400).json({ message: "Nenhum arquivo enviado" });
       }
 
+      const fsModule = await import('fs');
       const crypto = await import('crypto');
-      const checksum = crypto.createHash('md5').update(req.file.buffer).digest('hex');
+      const fileBuffer = fsModule.readFileSync(req.file.path);
+      const checksum = crypto.createHash('md5').update(fileBuffer).digest('hex');
       const userId = req.session.userId!;
 
       const [arquivo] = await db.insert(arquivos).values({
         nome: req.file.originalname,
-        tipo: req.file.mimetype,
+        mime: req.file.mimetype,
         tamanho: req.file.size,
-        dados: req.file.buffer,
+        caminho: req.file.path,
         checksum,
         origem: "contrato_rh",
         uploaderId: userId,
@@ -6469,15 +6488,17 @@ Retorne o texto extraído de forma estruturada e organizada.`
         return res.status(404).json({ message: "Registro de RH não encontrado" });
       }
 
+      const fsModule2 = await import('fs');
       const crypto = await import('crypto');
-      const checksum = crypto.createHash('md5').update(req.file.buffer).digest('hex');
+      const fileBuffer2 = fsModule2.readFileSync(req.file.path);
+      const checksum = crypto.createHash('md5').update(fileBuffer2).digest('hex');
       const userId = req.session.userId!;
 
       const [arquivo] = await db.insert(arquivos).values({
         nome: req.file.originalname,
-        tipo: req.file.mimetype,
+        mime: req.file.mimetype,
         tamanho: req.file.size,
-        dados: req.file.buffer,
+        caminho: req.file.path,
         checksum,
         origem: "rh",
         uploaderId: userId,
@@ -6515,7 +6536,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
       const docs = await db.select({
         id: arquivos.id,
         nome: arquivos.nome,
-        tipo: arquivos.tipo,
+        mime: arquivos.mime,
         tamanho: arquivos.tamanho,
         criadoEm: arquivos.criadoEm,
       }).from(arquivos).where(inArray(arquivos.id, arquivoIds));
