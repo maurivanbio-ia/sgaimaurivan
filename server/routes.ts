@@ -605,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/empreendimentos/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.put("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userUnidade = req.user?.unidade;
@@ -632,7 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/empreendimentos/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const userUnidade = req.user?.unidade;
@@ -789,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/licencas/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.put("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
@@ -801,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/licencas/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteLicenca(id);
@@ -882,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/condicionantes/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.put("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertCondicionanteSchema.partial().parse(req.body);
@@ -894,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/condicionantes/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete("/api/condicionantes/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCondicionante(id);
@@ -964,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/entregas/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.put("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertEntregaSchema.partial().parse(req.body);
@@ -976,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/entregas/:id", requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete("/api/entregas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteEntrega(id);
@@ -2567,7 +2567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update equipamento
-  app.put('/api/equipamentos/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.put('/api/equipamentos/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2582,7 +2582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete equipamento
-  app.delete('/api/equipamentos/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete('/api/equipamentos/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2842,7 +2842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update veículo
-  app.put('/api/frota/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.put('/api/frota/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -2857,7 +2857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete veículo
-  app.delete('/api/frota/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete('/api/frota/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -3386,14 +3386,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BACKUP ROUTES
   // =============================================
 
-  // GET /api/backups - List all backups
+  // GET /api/backups - List all backups (any logged-in user can view)
   app.get('/api/backups', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.cargo !== 'admin' && user?.cargo !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem gerenciar backups.' });
-      }
-      
       const backups = await listBackups();
       res.json(backups);
     } catch (error) {
@@ -3402,14 +3397,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/backups/trigger - Trigger manual backup
+  // POST /api/backups/trigger - Trigger manual backup (requires admin password)
   app.post('/api/backups/trigger', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.cargo !== 'admin' && user?.cargo !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem executar backups.' });
+      const { adminPassword } = req.body;
+      if (!ADMIN_UNLOCK_PASSWORD) {
+        return res.status(500).json({ error: 'Senha de administrador não configurada.' });
+      }
+      if (!adminPassword || adminPassword !== ADMIN_UNLOCK_PASSWORD) {
+        return res.status(403).json({ 
+          error: 'Senha de administrador incorreta.',
+          code: 'INVALID_ADMIN_PASSWORD'
+        });
       }
       
+      const user = req.user;
       console.log('[Backup] Backup manual solicitado por:', user?.email);
       const result = await performBackup();
       
@@ -3433,13 +3435,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/backups/:fileName - Download specific backup
+  // GET /api/backups/:fileName - Download specific backup (any logged-in user)
   app.get('/api/backups/:fileName', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.cargo !== 'admin' && user?.cargo !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem baixar backups.' });
-      }
       
       const { fileName } = req.params;
       const content = await downloadBackup(fileName);
@@ -5630,7 +5628,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   // Update projeto
-  app.put('/api/projetos/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.put('/api/projetos/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -5645,7 +5643,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   // Delete projeto
-  app.delete('/api/projetos/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete('/api/projetos/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -5814,7 +5812,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
 
   app.post('/api/contratos', requireAuth, contratoController.createContrato);
   app.patch('/api/contratos/:id', requireAuth, contratoController.updateContrato);
-  app.delete('/api/contratos/:id', requireAuth, requireAdminEdit, contratoController.deleteContrato);
+  app.delete('/api/contratos/:id', requireAuth, contratoController.deleteContrato);
   
   // Upload de documento para contrato
   app.post('/api/contratos/upload', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
@@ -6306,7 +6304,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
-  app.delete('/api/rh/:id', requireAuth, requireAdminEdit, async (req, res) => {
+  app.delete('/api/rh/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
