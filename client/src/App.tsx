@@ -59,6 +59,7 @@ import OneDriveBackups from "./pages/onedrive-backups";
 import BlogPublic from "./pages/blog-public";
 import BlogArtigo from "./pages/blog-artigo";
 import BlogAdmin from "./pages/blog-admin";
+import AdminUsuarios from "./pages/admin-usuarios";
 import Sidebar from "./components/layout/sidebar";
 import ColaboradorLayout from "./components/layout/colaborador-layout";
 import { PermissionGate } from "./components/PermissionGate";
@@ -204,6 +205,7 @@ function Router() {
                     <Route path="/processos-monitorados" component={ProcessosMonitorados} />
                     <Route path="/newsletter" component={Newsletter} />
                     <Route path="/blog-admin" component={BlogAdmin} />
+                    <Route path="/admin/usuarios" component={AdminUsuarios} />
                     <Route path="/onedrive-backups" component={OneDriveBackups} />
                     <Route component={NotFound} />
                   </Switch>
