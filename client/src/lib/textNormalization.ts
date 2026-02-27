@@ -7,6 +7,7 @@ const SKIP_TYPES = new Set([
 const SKIP_NAME_PATTERNS = [
   /email/i, /senha/i, /password/i, /token/i, /secret/i,
   /cnpj/i, /cpf/i, /cep/i, /tel/i, /phone/i, /fone/i,
+  /login/i,
 ];
 
 export function normalizeInput(value: string): string {
@@ -21,10 +22,12 @@ export function normalizeInput(value: string): string {
 
 export function shouldNormalizeField(
   type: string | undefined,
-  name: string | undefined
+  name: string | undefined,
+  id?: string | undefined
 ): boolean {
   if (type && SKIP_TYPES.has(type)) return false;
   if (name && SKIP_NAME_PATTERNS.some((p) => p.test(name))) return false;
+  if (id && SKIP_NAME_PATTERNS.some((p) => p.test(id))) return false;
   return true;
 }
 
