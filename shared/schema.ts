@@ -55,6 +55,7 @@ export const licencasAmbientais = pgTable("licencas_ambientais", {
   id: serial("id").primaryKey(),
   numero: text("numero").notNull(),
   tipo: text("tipo").notNull(),
+  tipoOutorga: text("tipo_outorga"), // "superficial" | "subterranea" — apenas para Licença de Outorga
   orgaoEmissor: text("orgao_emissor").notNull(),
   dataEmissao: date("data_emissao").notNull(),
   validade: date("validade").notNull(),
