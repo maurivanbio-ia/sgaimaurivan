@@ -7,6 +7,7 @@ import {
   treinamentos, baseConhecimento, tarefas, datasetPastas, datasets
 } from '@shared/schema';
 import { objectStorageClient } from '../replit_integrations/object_storage/objectStorage';
+import { uploadToDropbox, deleteOldDropboxBackups } from './dropboxService';
 import { format } from 'date-fns';
 
 interface BackupResult {
@@ -106,6 +107,19 @@ export async function performBackup(): Promise<BackupResult> {
     
     await cleanupOldBackups(bucketName);
     
+    try {
+      const dropboxFileName = `backup_${timestamp}.json`;
+      const dropboxResult = await uploadToDropbox(dropboxFileName, backupJson);
+      if (dropboxResult.success) {
+        console.log(`[Backup] Sincronizado com Dropbox: ${dropboxResult.path}`);
+        await deleteOldDropboxBackups(30);
+      } else {
+        console.warn(`[Backup] Dropbox não disponível (normal se não conectado): ${dropboxResult.error}`);
+      }
+    } catch (dropboxError) {
+      console.warn('[Backup] Dropbox sync ignorado (não conectado):', dropboxError instanceof Error ? dropboxError.message : dropboxError);
+    }
+    
     return {
       success: true,
       timestamp,
@@ -192,6 +206,48 @@ export async function downloadBackup(fileName: string): Promise<string | null> {
   }
 }
 
+export async function syncFilesToDropbox(): Promise<{ success: boolean; synced: number; errors: string[] }> {
+  const errors: string[] = [];
+  let synced = 0;
+
+  try {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || '';
+    if (!privateDir) {
+      return { success: false, synced: 0, errors: ['PRIVATE_OBJECT_DIR não configurado'] };
+    }
+
+    const parts = privateDir.split('/').filter(p => p);
+    const bucketName = parts[0];
+    const bucket = objectStorageClient.bucket(bucketName);
+
+    const [allFiles] = await bucket.getFiles();
+    const nonBackupFiles = allFiles.filter(f => !f.name.startsWith('backups/') && !f.name.endsWith('/'));
+
+    console.log(`[Backup] Sincronizando ${nonBackupFiles.length} arquivos com Dropbox...`);
+
+    for (const file of nonBackupFiles) {
+      try {
+        const [content] = await file.download();
+        const dropboxPath = `arquivos/${file.name}`;
+        const result = await uploadToDropbox(dropboxPath, content);
+        if (result.success) {
+          synced++;
+        } else {
+          errors.push(`Falha ao enviar ${file.name}: ${result.error}`);
+        }
+      } catch (err: any) {
+        errors.push(`Erro no arquivo ${file.name}: ${err.message}`);
+      }
+    }
+
+    console.log(`[Backup] Sincronização de arquivos concluída: ${synced} arquivos enviados`);
+    return { success: true, synced, errors };
+  } catch (error: any) {
+    console.error('[Backup] Erro na sincronização de arquivos:', error.message);
+    return { success: false, synced, errors: [error.message] };
+  }
+}
+
 export function initBackupService() {
   console.log('[Backup] Inicializando serviço de backup automático...');
   
@@ -207,6 +263,23 @@ export function initBackupService() {
   }, {
     timezone: 'America/Sao_Paulo'
   });
+
+  cron.schedule('0 2 * * 0', async () => {
+    console.log('[Backup] Executando sincronização semanal de arquivos com Dropbox (domingo 02:00)...');
+    try {
+      const result = await syncFilesToDropbox();
+      if (result.success) {
+        console.log(`[Backup] Sincronização de arquivos concluída: ${result.synced} arquivos enviados`);
+      } else {
+        console.warn('[Backup] Dropbox não disponível para sincronização de arquivos (normal se não conectado)');
+      }
+    } catch (err) {
+      console.warn('[Backup] Sincronização de arquivos ignorada (Dropbox não conectado)');
+    }
+  }, {
+    timezone: 'America/Sao_Paulo'
+  });
   
   console.log('[Backup] Backup automático agendado para 00:00 (horário de Brasília)');
+  console.log('[Backup] Sincronização de arquivos agendada para domingos às 02:00 (horário de Brasília)');
 }
