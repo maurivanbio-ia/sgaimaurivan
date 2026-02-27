@@ -67,13 +67,45 @@ export const licencasAmbientais = pgTable("licencas_ambientais", {
 
 export const condicionantes = pgTable("condicionantes", {
   id: serial("id").primaryKey(),
-  descricao: text("descricao").notNull(),
+  // Identificação
+  item: text("item"), // Número do item, ex: "1", "1.1"
+  codigo: text("codigo"), // Código curto, ex: "C01"
+  titulo: text("titulo"), // Título curto da condicionante
+  descricao: text("descricao").notNull(), // Descrição completa
+  categoria: text("categoria"), // Ex: Monitoramento, Controle, Documento, Relatório
+  tipoCondicionante: text("tipo_condicionante"), // periodica, pontual, entrega_documento
+  // Responsável
+  responsavelId: integer("responsavel_id").references(() => users.id),
+  responsavelNome: text("responsavel_nome"), // Nome livre quando não vinculado a usuário
+  // Datas e progresso
   prazo: date("prazo").notNull(),
-  status: text("status").notNull().default("pendente"), // pendente, cumprida, vencida
+  progresso: integer("progresso").notNull().default(0), // 0-100
+  // Status e notas
+  status: text("status").notNull().default("pendente"), // pendente, em_andamento, cumprida, vencida, cancelada
   observacoes: text("observacoes"),
+  // Vínculo obrigatório com licença
   licencaId: integer("licenca_id").references(() => licencasAmbientais.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+// Evidências vinculadas a condicionantes
+export const condicionanteEvidencias = pgTable("condicionante_evidencias", {
+  id: serial("id").primaryKey(),
+  condicionanteId: integer("condicionante_id").references(() => condicionantes.id, { onDelete: "cascade" }).notNull(),
+  nome: text("nome").notNull(), // Nome do documento/evidência
+  tipo: text("tipo").notNull().default("documento"), // documento, imagem, relatorio, terceiros
+  url: text("url"), // URL do arquivo no storage
+  descricao: text("descricao"),
+  // Aprovação
+  aprovado: boolean("aprovado").notNull().default(false),
+  aprovadoPor: text("aprovado_por"), // Nome do revisor
+  dataAprovacao: timestamp("data_aprovacao"),
+  // Metadados para documentos de terceiros
+  emitidoPor: text("emitido_por"), // Ex: "Empresa X"
+  dataEmissao: date("data_emissao"),
+  criadoPor: text("criado_por"), // Email do usuário que fez upload
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 
 export const entregas = pgTable("entregas", {
@@ -263,6 +295,8 @@ export const cronogramaItens = pgTable("cronograma_itens", {
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   projetoId: integer("projeto_id"), // Vinculo opcional com projeto
   demandaId: integer("demanda_id"), // Vinculo opcional com demanda
+  condicionanteId: integer("condicionante_id").references(() => condicionantes.id), // Vínculo opcional com condicionante
+  licencaId: integer("licenca_id").references(() => licencasAmbientais.id), // Vínculo opcional com licença
   tipo: text("tipo").notNull().default("etapa"), // campanha, relatorio, marco, etapa
   titulo: text("titulo").notNull(), // Nome do item (substituindo etapa)
   etapa: text("etapa"), // Mantido para compatibilidade
@@ -406,9 +440,11 @@ export const demandas = pgTable("demandas", {
   tempoReal: integer("tempo_real"), // em horas
   observacoes: text("observacoes"),
   // Campos novos para integração
-  origem: text("origem"), // manual, campanha, contrato, licenca
+  origem: text("origem"), // manual, campanha, contrato, licenca, condicionante
   campanhaId: integer("campanha_id").references(() => campanhas.id),
   contratoId: integer("contrato_id").references(() => contratos.id),
+  licencaId: integer("licenca_id").references(() => licencasAmbientais.id),
+  condicionanteId: integer("condicionante_id").references(() => condicionantes.id),
   recorrente: boolean("recorrente").notNull().default(false),
   recorrenciaCron: text("recorrencia_cron"), // expressão cron para repetição
   recorrenciaFim: date("recorrencia_fim"), // data final para parar de gerar instâncias
@@ -620,6 +656,13 @@ export const insertCondicionanteSchema = createInsertSchema(condicionantes).omit
   id: true,
   criadoEm: true,
   atualizadoEm: true,
+});
+
+export const insertCondicionanteEvidenciaSchema = createInsertSchema(condicionanteEvidencias).omit({
+  id: true,
+  criadoEm: true,
+  dataAprovacao: true,
+  aprovado: true,
 });
 
 export const insertEntregaSchema = createInsertSchema(entregas).omit({
@@ -1088,6 +1131,8 @@ export type InsertLicencaAmbiental = z.infer<typeof insertLicencaAmbientalSchema
 export type LicencaAmbiental = typeof licencasAmbientais.$inferSelect;
 export type InsertCondicionante = z.infer<typeof insertCondicionanteSchema>;
 export type Condicionante = typeof condicionantes.$inferSelect;
+export type InsertCondicionanteEvidencia = z.infer<typeof insertCondicionanteEvidenciaSchema>;
+export type CondicionanteEvidencia = typeof condicionanteEvidencias.$inferSelect;
 export type InsertEntrega = z.infer<typeof insertEntregaSchema>;
 export type Entrega = typeof entregas.$inferSelect;
 export type InsertAlertConfig = z.infer<typeof insertAlertConfigSchema>;

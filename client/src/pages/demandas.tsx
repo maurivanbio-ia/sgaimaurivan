@@ -690,6 +690,16 @@ function DemandaCard({
             <Badge variant="outline" className="text-xs">
               {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", { locale: ptBR }) : "-"}
             </Badge>
+            {(demanda as any).condicionanteId && (
+              <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-300">
+                COND #{(demanda as any).condicionanteId}
+              </Badge>
+            )}
+            {(demanda as any).origem === "condicionante" && !(demanda as any).condicionanteId && (
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/20">
+                LICENÇA
+              </Badge>
+            )}
           </div>
 
           <p className="text-xs text-muted-foreground mt-2">{responsavelNome}</p>

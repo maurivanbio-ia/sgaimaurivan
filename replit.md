@@ -76,6 +76,19 @@ A document and template library supporting various document types, categories, c
 ### Conformidade ISO (ISO Conformity)
 An automatic ISO compliance monitoring system supporting standards like ISO 14001, 9001, and 45001. It calculates compliance scores from existing platform data, generates alerts for non-conformities, and provides a visual dashboard.
 
+### Módulo Licenças — Evolução com Condicionantes
+Comprehensive evolution of the LICENÇAS module implementing Condicionantes as mandatory children of Licenças:
+- **License Detail Page** (`/licencas/:id`): 5-tab page (Detalhes, Condicionantes, Documentos e Evidências, Cronograma, Histórico e Auditoria)
+- **Condicionantes Management**: Full CRUD within license context with enriched fields: item, código, título, categoria, tipoCondicionante (periódica/pontual/entrega_documento), responsavelNome, progresso (0-100%), status (pendente/em_andamento/cumprida/vencida/cancelada)
+- **Compliance Panel**: Real-time panel showing Total, Cumpridas, Em Andamento, Pendentes, Vencidas, % Conformidade, and alerts for items vencendo em 7/15/30 dias
+- **Filterable Table**: Columns — Item, Código, Título, Categoria, Responsável, Vencimento, Status, Progresso, Atraso
+- **Evidências (condicionante_evidencias table)**: Documents/evidence per condicionante with approval workflow, support for third-party documents (emitidoPor, dataEmissao), file upload via ObjectUploader
+- **Demandas Integration**: "Criar Demanda" button within condicionante creates a Kanban card linked via condicionanteId/licencaId; Kanban badge shows "COND #ID" for linked cards
+- **Cronograma Integration**: "Adicionar ao Cronograma" button creates milestone linked to condicionante
+- **Timeline View**: Chronological view of condicionante deadlines in the Cronograma tab
+- **Navigation**: LicencasTab cards have "Detalhes" button → /licencas/:id; breadcrumb navigation in detail page
+- **Schema Changes**: condicionantes table extended (11 new columns), condicionante_evidencias table added, demandas/cronograma_itens gain licencaId and condicionanteId FK columns
+
 ### Camadas Geoespaciais (Geospatial Layers)
 Manages interactive geospatial layers for the `empreendimentos` map, supporting KMZ, KML, and GeoJSON uploads. Layers are categorized, integrated into Leaflet-based rendering with customization options, tooltips, popups, and layer controls. Data is multi-tenant isolated.
 
