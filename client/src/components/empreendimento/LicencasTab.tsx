@@ -25,11 +25,20 @@ interface LicencasTabProps {
 const licenseSchema = z.object({
   numero: z.string().min(1, "Número da licença é obrigatório"),
   tipo: z.string().min(1, "Tipo é obrigatório"),
+  tipoOutorga: z.string().optional(),
   orgaoEmissor: z.string().min(1, "Órgão emissor é obrigatório"),
   dataEmissao: z.string().min(1, "Data de emissão é obrigatória"),
   validade: z.string().min(1, "Validade é obrigatória"),
   arquivoPdf: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.tipo === "Licença de Outorga") {
+      return !!data.tipoOutorga;
+    }
+    return true;
+  },
+  { message: "Selecione o tipo de outorga (Superficial ou Subterrânea)", path: ["tipoOutorga"] }
+);
 
 type LicenseFormData = z.infer<typeof licenseSchema>;
 
@@ -39,6 +48,8 @@ const licenseTypes = [
   "Licença de Operação (LO)",
   "Licença Ambiental Simplificada (LAS)",
   "Autorização Ambiental",
+  "Licença de Alteração",
+  "Licença de Outorga",
 ];
 
 export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
@@ -154,6 +165,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
     form.reset({
       numero: license.numero || "",
       tipo: license.tipo,
+      tipoOutorga: (license as any).tipoOutorga || "",
       orgaoEmissor: license.orgaoEmissor,
       dataEmissao: license.dataEmissao,
       validade: license.validade,
@@ -167,6 +179,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
     form.reset({
       numero: "",
       tipo: "",
+      tipoOutorga: "",
       orgaoEmissor: "",
       dataEmissao: "",
       validade: "",
@@ -231,7 +244,15 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tipo de licença *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            if (val !== "Licença de Outorga") {
+                              form.setValue("tipoOutorga", "");
+                            }
+                          }}
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o tipo de licença" />
@@ -249,6 +270,30 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                       </FormItem>
                     )}
                   />
+
+                  {form.watch("tipo") === "Licença de Outorga" && (
+                    <FormField
+                      control={form.control}
+                      name="tipoOutorga"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Outorga *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o tipo de outorga" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="superficial">Superficial</SelectItem>
+                              <SelectItem value="subterranea">Subterrânea</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <FormField
                     control={form.control}
@@ -416,9 +461,14 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <h4 className="text-lg font-semibold text-card-foreground mr-3">
+                    <div className="flex items-center mb-2 flex-wrap gap-2">
+                      <h4 className="text-lg font-semibold text-card-foreground">
                         {license.tipo}
+                        {(license as any).tipoOutorga && (
+                          <span className="ml-2 text-sm font-normal text-blue-600 dark:text-blue-400">
+                            — {(license as any).tipoOutorga === "superficial" ? "Superficial" : "Subterrânea"}
+                          </span>
+                        )}
                       </h4>
                       <span className={`status-badge ${getStatusClass(license.status)}`}>
                         {getStatusLabel(license.status)}
