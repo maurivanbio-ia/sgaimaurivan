@@ -267,14 +267,22 @@ export function initBackupService() {
   cron.schedule('0 2 * * 0', async () => {
     console.log('[Backup] Executando sincronização semanal de arquivos com Dropbox (domingo 02:00)...');
     try {
+      // Sync Object Storage files
       const result = await syncFilesToDropbox();
       if (result.success) {
-        console.log(`[Backup] Sincronização de arquivos concluída: ${result.synced} arquivos enviados`);
-      } else {
-        console.warn('[Backup] Dropbox não disponível para sincronização de arquivos (normal se não conectado)');
+        console.log(`[Backup] Object Storage → Dropbox: ${result.synced} arquivos enviados`);
       }
     } catch (err) {
-      console.warn('[Backup] Sincronização de arquivos ignorada (Dropbox não conectado)');
+      console.warn('[Backup] Sincronização Object Storage ignorada:', err);
+    }
+
+    try {
+      // Sync all uploaded files (arquivos table) using the full sync service
+      const { syncAllFilesToDropbox } = await import('./dropboxSyncService');
+      const fullResult = await syncAllFilesToDropbox();
+      console.log(`[Backup] Arquivos DB → Dropbox: ${fullResult.synced} sincronizados, ${fullResult.errors} erros`);
+    } catch (err: any) {
+      console.warn('[Backup] Sync completo de arquivos ignorado:', err.message);
     }
   }, {
     timezone: 'America/Sao_Paulo'

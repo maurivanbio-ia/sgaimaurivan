@@ -3149,3 +3149,27 @@ export const insertBlogReacaoSchema = createInsertSchema(blogReacoes).omit({
 export type InsertBlogReacao = z.infer<typeof insertBlogReacaoSchema>;
 export type BlogReacao = typeof blogReacoes.$inferSelect;
 
+
+// =============================================
+// DROPBOX SYNC LOG
+// =============================================
+export const dropboxSyncLog = pgTable("dropbox_sync_log", {
+  id: serial("id").primaryKey(),
+  arquivoId: integer("arquivo_id"),
+  arquivoNome: text("arquivo_nome").notNull(),
+  arquivoOrigem: text("arquivo_origem"),
+  dropboxPath: text("dropbox_path"),
+  status: text("status").notNull().default("pending"), // pending | synced | error
+  errorMessage: text("error_message"),
+  fileSize: integer("file_size"),
+  syncedAt: timestamp("synced_at"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertDropboxSyncLogSchema = createInsertSchema(dropboxSyncLog).omit({
+  id: true,
+  criadoEm: true,
+});
+
+export type InsertDropboxSyncLog = z.infer<typeof insertDropboxSyncLogSchema>;
+export type DropboxSyncLog = typeof dropboxSyncLog.$inferSelect;
