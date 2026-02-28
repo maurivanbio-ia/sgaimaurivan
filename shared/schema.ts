@@ -309,6 +309,10 @@ export const cronogramaItens = pgTable("cronograma_itens", {
   observacoes: text("observacoes"),
   prioridade: text("prioridade").default("media"), // baixa, media, alta
   unidade: text("unidade").notNull().default('goiania'),
+  // Recorrência
+  recorrencia: text("recorrencia"), // null, mensal, bimestral, trimestral, semestral, anual, bianual
+  recorrenciaFim: date("recorrencia_fim"), // data limite para geração de ocorrências
+  recorrenciaPaiId: integer("recorrencia_pai_id"), // ID do item pai (para ocorrências filhas)
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
 });

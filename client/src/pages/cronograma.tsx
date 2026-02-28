@@ -29,7 +29,8 @@ import {
   CalendarDays,
   Building2,
   FolderOpen,
-  RefreshCw
+  RefreshCw,
+  Repeat
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 import type { CronogramaItem, Empreendimento, Projeto } from "@shared/schema";
@@ -53,6 +54,21 @@ const PRIORIDADE_OPTIONS = [
   { value: "media", label: "Média", color: "text-yellow-600" },
   { value: "alta", label: "Alta", color: "text-red-600" },
 ];
+
+const RECORRENCIA_OPTIONS = [
+  { value: "nenhuma", label: "Sem recorrência" },
+  { value: "mensal", label: "🗓️ Mensal (todo mês)" },
+  { value: "bimestral", label: "🗓️ Bimestral (a cada 2 meses)" },
+  { value: "trimestral", label: "🗓️ Trimestral (a cada 3 meses)" },
+  { value: "semestral", label: "🗓️ Semestral (a cada 6 meses)" },
+  { value: "anual", label: "🗓️ Anual (todo ano)" },
+  { value: "bianual", label: "🗓️ Bianual (a cada 2 anos)" },
+];
+
+const RECORRENCIA_LABELS: Record<string, string> = {
+  mensal: "Mensal", bimestral: "Bimestral", trimestral: "Trimestral",
+  semestral: "Semestral", anual: "Anual", bianual: "Bianual",
+};
 
 export default function CronogramaPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -369,6 +385,18 @@ export default function CronogramaPage() {
                               {item.prioridade}
                             </Badge>
                           )}
+                          {(item as any).recorrencia && (
+                            <Badge variant="outline" className="text-purple-600 border-purple-300 bg-purple-50">
+                              <Repeat className="h-3 w-3 mr-1" />
+                              {RECORRENCIA_LABELS[(item as any).recorrencia] || (item as any).recorrencia}
+                            </Badge>
+                          )}
+                          {(item as any).recorrenciaPaiId && (
+                            <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50 text-xs">
+                              <Repeat className="h-3 w-3 mr-1" />
+                              Recorrente
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
@@ -407,7 +435,10 @@ export default function CronogramaPage() {
                         variant="ghost" 
                         size="icon"
                         onClick={() => {
-                          if (confirm("Tem certeza que deseja excluir este item?")) {
+                          const msg = (item as any).recorrencia
+                            ? "Este item é recorrente. Excluir apagará também todas as ocorrências futuras. Confirma?"
+                            : "Tem certeza que deseja excluir este item?";
+                          if (confirm(msg)) {
                             deleteMutation.mutate(item.id);
                           }
                         }}
@@ -452,6 +483,8 @@ function CronogramaForm({
     empreendimentoId: item?.empreendimentoId ? String(item.empreendimentoId) : "",
     projetoId: item?.projetoId ? String(item.projetoId) : "",
     observacoes: item?.observacoes || "",
+    recorrencia: (item as any)?.recorrencia || "nenhuma",
+    recorrenciaFim: (item as any)?.recorrenciaFim || "",
   });
 
   const filteredProjetos = formData.empreendimentoId 
@@ -464,6 +497,8 @@ function CronogramaForm({
       ...formData,
       empreendimentoId: formData.empreendimentoId ? parseInt(formData.empreendimentoId) : null,
       projetoId: formData.projetoId ? parseInt(formData.projetoId) : null,
+      recorrencia: formData.recorrencia === "nenhuma" ? null : formData.recorrencia,
+      recorrenciaFim: formData.recorrenciaFim || null,
     });
   };
 
@@ -592,6 +627,50 @@ function CronogramaForm({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Recorrência */}
+        <div className="col-span-2 border rounded-lg p-3 bg-muted/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Repeat className="h-4 w-4 text-primary" />
+            <Label className="text-sm font-semibold">Recorrência</Label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="recorrencia" className="text-xs text-muted-foreground">Frequência</Label>
+              <Select
+                value={formData.recorrencia}
+                onValueChange={(v) => setFormData(prev => ({ ...prev, recorrencia: v }))}
+              >
+                <SelectTrigger data-testid="select-recorrencia">
+                  <SelectValue placeholder="Sem recorrência" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RECORRENCIA_OPTIONS.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {formData.recorrencia && formData.recorrencia !== "nenhuma" && (
+              <div>
+                <Label htmlFor="recorrenciaFim" className="text-xs text-muted-foreground">Repetir até (opcional)</Label>
+                <Input
+                  id="recorrenciaFim"
+                  type="date"
+                  value={formData.recorrenciaFim}
+                  onChange={(e) => setFormData(prev => ({ ...prev, recorrenciaFim: e.target.value }))}
+                  data-testid="input-recorrencia-fim"
+                />
+              </div>
+            )}
+          </div>
+          {formData.recorrencia && formData.recorrencia !== "nenhuma" && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ℹ️ Serão criadas automaticamente entradas {RECORRENCIA_LABELS[formData.recorrencia]?.toLowerCase()} no cronograma e calendário
+              {formData.recorrenciaFim ? ` até ${formData.recorrenciaFim}` : " por até 3 anos"}.
+            </p>
+          )}
         </div>
 
         <div className="col-span-2">
