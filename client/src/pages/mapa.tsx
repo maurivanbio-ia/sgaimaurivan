@@ -33,14 +33,39 @@ const statusLabels: Record<string, string> = {
 
 const tipoConfig: Record<string, { color: string; icon: string; label: string }> = {
   hidreletrica: { color: '#3b82f6', icon: '💧', label: 'Hidrelétrica' },
-  parque_eolico: { color: '#10b981', icon: '🌪️', label: 'Parque Eólico' },
+  hidrelétrica: { color: '#3b82f6', icon: '💧', label: 'Hidrelétrica' },
+  parque_eolico: { color: '#10b981', icon: '🌬️', label: 'Parque Eólico' },
+  parque_eólico: { color: '#10b981', icon: '🌬️', label: 'Parque Eólico' },
+  eolico: { color: '#10b981', icon: '🌬️', label: 'Parque Eólico' },
+  eólico: { color: '#10b981', icon: '🌬️', label: 'Parque Eólico' },
   usina_solar: { color: '#fbbf24', icon: '☀️', label: 'Usina Solar' },
+  solar: { color: '#fbbf24', icon: '☀️', label: 'Usina Solar' },
+  fotovoltaico: { color: '#fbbf24', icon: '☀️', label: 'Fotovoltaico' },
   termoeletrica: { color: '#ef4444', icon: '🔥', label: 'Termelétrica' },
+  termoelétrica: { color: '#ef4444', icon: '🔥', label: 'Termelétrica' },
   linha_transmissao: { color: '#f59e0b', icon: '⚡', label: 'Linha de Transmissão' },
+  linha_transmissão: { color: '#f59e0b', icon: '⚡', label: 'Linha de Transmissão' },
+  transmissao: { color: '#f59e0b', icon: '⚡', label: 'Linha de Transmissão' },
+  transmissão: { color: '#f59e0b', icon: '⚡', label: 'Linha de Transmissão' },
   mina: { color: '#8b5cf6', icon: '⛏️', label: 'Mineração' },
+  mineracao: { color: '#8b5cf6', icon: '⛏️', label: 'Mineração' },
+  mineração: { color: '#8b5cf6', icon: '⛏️', label: 'Mineração' },
   pchs: { color: '#06b6d4', icon: '🏭', label: 'PCH' },
+  pch: { color: '#06b6d4', icon: '🏭', label: 'PCH' },
+  agropecuario: { color: '#84cc16', icon: '🌾', label: 'Agropecuário' },
+  agropecuário: { color: '#84cc16', icon: '🌾', label: 'Agropecuário' },
+  industria: { color: '#f97316', icon: '🏭', label: 'Indústria' },
+  indústria: { color: '#f97316', icon: '🏭', label: 'Indústria' },
   outro: { color: '#6b7280', icon: '📍', label: 'Outro' },
 };
+
+function getTipoInfo(tipo: string) {
+  if (!tipo) return tipoConfig.outro;
+  const lower = tipo.toLowerCase().trim().replace(/\s+/g, '_');
+  return tipoConfig[tipo] || tipoConfig[lower] ||
+    Object.entries(tipoConfig).find(([k]) => lower.includes(k) || k.includes(lower))?.[1] ||
+    tipoConfig.outro;
+}
 
 const categoriaConfig: Record<string, { color: string; label: string; icon: string }> = {
   uc: { color: '#22c55e', label: 'Unidades de Conservação', icon: '🌲' },
@@ -111,23 +136,24 @@ export default function MapaEmpreendimentos() {
 
   const empreendimentosFiltrados = useMemo(() => {
     return empreendimentosComCoordenadas.filter(emp => {
-      if (statusFilter !== "todos" && emp.status !== statusFilter) return false;
-      if (tipoFilter !== "todos" && emp.tipo !== tipoFilter) return false;
+      if (statusFilter !== "todos" && (emp.status?.toLowerCase() || '') !== statusFilter) return false;
+      if (tipoFilter !== "todos" && (emp.tipo?.toLowerCase() || '') !== tipoFilter) return false;
       return true;
     });
   }, [empreendimentosComCoordenadas, statusFilter, tipoFilter]);
 
   const tipos = useMemo(() => {
-    const uniqueTipos = new Set(empreendimentos.map(emp => emp.tipo));
+    const uniqueTipos = new Set(empreendimentos.map(emp => emp.tipo?.toLowerCase() || 'outro'));
     return Array.from(uniqueTipos);
   }, [empreendimentos]);
 
   const statusCounts = useMemo(() => {
-    return empreendimentosComCoordenadas.reduce((acc, emp) => {
-      acc[emp.status] = (acc[emp.status] || 0) + 1;
+    return empreendimentos.reduce((acc, emp) => {
+      const s = emp.status?.toLowerCase() || 'ativo';
+      acc[s] = (acc[s] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-  }, [empreendimentosComCoordenadas]);
+  }, [empreendimentos]);
 
   const camadasPorCategoria = useMemo(() => {
     const grouped: Record<string, CamadaGeoespacial[]> = {};
@@ -166,8 +192,8 @@ export default function MapaEmpreendimentos() {
     markersRef.current = [];
 
     empreendimentosFiltrados.forEach(emp => {
-      const statusColor = statusColors[emp.status] || statusColors.ativo;
-      const tipoInfo = tipoConfig[emp.tipo] || tipoConfig.outro;
+      const statusColor = statusColors[emp.status?.toLowerCase() || 'ativo'] || statusColors.ativo;
+      const tipoInfo = getTipoInfo(emp.tipo);
       
       const icon = L.divIcon({
         className: "custom-marker",
