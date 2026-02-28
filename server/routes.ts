@@ -6226,6 +6226,45 @@ Retorne o texto extraído de forma estruturada e organizada.`
         unidade: currentUser.unidade || 'goiania'
       });
       const [item] = await db.insert(cronogramaItens).values(data).returning();
+
+      // Generate recurring occurrences if recorrencia is set
+      if (data.recorrencia && data.recorrencia !== 'nenhuma') {
+        const intervalMonths: Record<string, number> = {
+          mensal: 1, bimestral: 2, trimestral: 3, semestral: 6, anual: 12, bianual: 24
+        };
+        const months = intervalMonths[data.recorrencia] || 0;
+        if (months > 0) {
+          const startDate = new Date(data.dataInicio);
+          const endDate = new Date(data.dataFim);
+          const duration = endDate.getTime() - startDate.getTime();
+          const limitDate = data.recorrenciaFim
+            ? new Date(data.recorrenciaFim)
+            : new Date(startDate.getFullYear() + 3, startDate.getMonth(), startDate.getDate());
+
+          const occurrences = [];
+          let occStart = new Date(startDate);
+          occStart.setMonth(occStart.getMonth() + months);
+
+          while (occStart <= limitDate) {
+            const occEnd = new Date(occStart.getTime() + duration);
+            occurrences.push({
+              ...data,
+              dataInicio: occStart.toISOString().split('T')[0],
+              dataFim: occEnd.toISOString().split('T')[0],
+              status: 'pendente' as const,
+              concluido: false,
+              recorrenciaPaiId: item.id,
+            });
+            occStart = new Date(occStart);
+            occStart.setMonth(occStart.getMonth() + months);
+          }
+
+          if (occurrences.length > 0) {
+            await db.insert(cronogramaItens).values(occurrences);
+          }
+        }
+      }
+
       res.json(item);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -6254,13 +6293,16 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
   
-  // DELETE cronograma item
+  // DELETE cronograma item (also deletes child recurring items)
   app.delete('/api/cronograma/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "ID inválido" });
       }
+
+      // Delete child recurring items first
+      await db.delete(cronogramaItens).where(eq(cronogramaItens.recorrenciaPaiId, id));
       
       const [deleted] = await db.delete(cronogramaItens).where(eq(cronogramaItens.id, id)).returning();
       
