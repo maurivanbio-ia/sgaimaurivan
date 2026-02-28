@@ -10933,7 +10933,59 @@ Regras:
   });
 
   // Análise automática de documento com IA
-  app.post('/api/base-conhecimento/analyze', requireAuth, async (req, res) => {
+  // POST /api/base-conhecimento/upload-arquivo - Upload e extração de texto
+  const multerBCMem = (await import('multer')).default;
+  const bcUpload = multerBCMem({ storage: multerBCMem.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  
+  app.post('/api/base-conhecimento/upload-arquivo', requireAuth, bcUpload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      
+      const { extractTextFromBuffer } = await import('./services/documentAnalysisService');
+      const fs2 = await import('fs');
+      const path2 = await import('path');
+      const crypto2 = await import('crypto');
+      
+      // Save file to disk
+      const uploadDir = path2.join(process.cwd(), 'uploads');
+      if (!fs2.existsSync(uploadDir)) fs2.mkdirSync(uploadDir, { recursive: true });
+      const uniqueName = `bc-${Date.now()}-${crypto2.randomBytes(4).toString('hex')}${path2.extname(req.file.originalname)}`;
+      const filePath = path2.join(uploadDir, uniqueName);
+      fs2.writeFileSync(filePath, req.file.buffer);
+      
+      // Save to arquivos table
+      const checksum = crypto2.createHash('md5').update(req.file.buffer).digest('hex');
+      const [arquivo] = await db.insert(arquivos).values({
+        nome: req.file.originalname,
+        mime: req.file.mimetype,
+        tamanho: req.file.size,
+        caminho: filePath,
+        checksum,
+        origem: 'base_conhecimento',
+        uploaderId: req.session.userId!,
+      }).returning();
+      
+      const fileUrl = `/api/arquivos/${arquivo.id}/download`;
+      
+      // Extract text from file
+      const textoExtraido = await extractTextFromBuffer(req.file.buffer, req.file.mimetype);
+      
+      res.json({
+        url: fileUrl,
+        arquivoId: arquivo.id,
+        nome: req.file.originalname,
+        tipo: req.file.mimetype,
+        tamanho: req.file.size,
+        textoExtraido: textoExtraido.substring(0, 12000),
+        temConteudo: textoExtraido.length > 0,
+      });
+    } catch (error: any) {
+      console.error('Error uploading base conhecimento file:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+    app.post('/api/base-conhecimento/analyze', requireAuth, async (req, res) => {
     try {
       const { filename, contentPreview } = req.body;
       if (!filename) {
