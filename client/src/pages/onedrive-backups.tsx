@@ -476,15 +476,24 @@ export default function BackupsPage() {
           ) : (
             <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
               <XCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 space-y-2">
                 <p className="font-medium text-amber-700 dark:text-amber-400 text-sm">Dropbox não conectado</p>
                 {dropboxStatus?.error && (
-                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 font-mono">{dropboxStatus.error}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500 font-mono bg-amber-100 dark:bg-amber-900/30 rounded p-1.5 break-words">{dropboxStatus.error}</p>
                 )}
+                {dropboxStatus?.error?.includes('expirado') || dropboxStatus?.error?.includes('expired') ? (
+                  <div className="text-xs text-amber-700 dark:text-amber-400 space-y-1 bg-amber-100 dark:bg-amber-900/20 rounded p-2">
+                    <p className="font-semibold">Como resolver:</p>
+                    <p>1. Vá em <strong>Secrets (Variáveis)</strong> no painel do Replit</p>
+                    <p>2. Adicione a variável <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">DROPBOX_ACCESS_TOKEN</code></p>
+                    <p>3. Cole um token válido do Dropbox (gerado em dropbox.com/developers)</p>
+                    <p>4. Reinicie o servidor</p>
+                  </div>
+                ) : null}
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="gap-1.5 mt-2 text-amber-700"
+                  className="gap-1.5 text-amber-700"
                   onClick={() => refetchDropbox()}
                   disabled={isCheckingDropbox}
                 >

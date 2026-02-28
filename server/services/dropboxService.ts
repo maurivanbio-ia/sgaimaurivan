@@ -6,15 +6,12 @@ import { Dropbox } from 'dropbox';
 const BACKUP_SHARED_LINK = 'https://www.dropbox.com/scl/fo/lejw1kns4jbz21sp736h7/AKpPu0B13Bt3XLW77U9PlWw?rlkey=ivtn667px17nftar2elc8jp01&dl=0';
 const BACKUP_FOLDER_FALLBACK = '/EcoGestor-Backups';
 
-let connectionSettings: any;
-
-async function getAccessToken() {
-  if (
-    connectionSettings &&
-    connectionSettings.settings?.expires_at &&
-    new Date(connectionSettings.settings.expires_at).getTime() > Date.now()
-  ) {
-    return connectionSettings.settings.access_token;
+// Do NOT cache connectionSettings — always fetch fresh, token expires every 4h
+async function getAccessToken(): Promise<string> {
+  // Fallback: use DROPBOX_ACCESS_TOKEN env var if set
+  if (process.env.DROPBOX_ACCESS_TOKEN) {
+    console.log('[Dropbox] Using DROPBOX_ACCESS_TOKEN env var');
+    return process.env.DROPBOX_ACCESS_TOKEN;
   }
 
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -24,15 +21,15 @@ async function getAccessToken() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL
     : null;
 
-  if (!xReplitToken) {
-    throw new Error('X-Replit-Token not found for repl/depl');
+  if (!xReplitToken || !hostname) {
+    throw new Error('Credenciais do Replit não encontradas (REPL_IDENTITY / WEB_REPL_RENEWAL)');
   }
 
-  connectionSettings = await fetch(
+  const connectionSettings = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=dropbox',
     {
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'X-Replit-Token': xReplitToken,
       },
     }
@@ -50,11 +47,40 @@ async function getAccessToken() {
     );
   }
 
+  // Check if the token from Replit connector is expired
+  const expiresAt =
+    connectionSettings?.settings?.oauth?.credentials?.expires_at ||
+    connectionSettings?.settings?.expires_at;
+
+  if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+    const msg =
+      'Token do Dropbox expirado em ' +
+      new Date(expiresAt).toLocaleString('pt-BR') +
+      '. Reconecte o Dropbox nas configurações do Replit ou defina a variável DROPBOX_ACCESS_TOKEN.';
+    console.error('[Dropbox] ' + msg);
+    throw new Error(msg);
+  }
+
   return accessToken;
 }
 
-// WARNING: Never cache this client — tokens expire.
-async function getUncachableDropboxClient() {
+// WARNING: Never cache this client — tokens expire every 4h.
+export async function getUncachableDropboxClient() {
+  // Option A: Use refresh token + client credentials (best for long-term)
+  if (
+    process.env.DROPBOX_REFRESH_TOKEN &&
+    process.env.DROPBOX_CLIENT_ID &&
+    process.env.DROPBOX_CLIENT_SECRET
+  ) {
+    console.log('[Dropbox] Using DROPBOX_REFRESH_TOKEN + CLIENT credentials (auto-refresh enabled)');
+    return new Dropbox({
+      clientId: process.env.DROPBOX_CLIENT_ID,
+      clientSecret: process.env.DROPBOX_CLIENT_SECRET,
+      refreshToken: process.env.DROPBOX_REFRESH_TOKEN,
+    } as any);
+  }
+
+  // Option B: Static access token or Replit connector token
   const accessToken = await getAccessToken();
   return new Dropbox({ accessToken });
 }
@@ -197,9 +223,14 @@ export async function testDropboxConnection(): Promise<{
   accountName?: string;
   email?: string;
   backupFolder?: string;
+  tokenSource?: string;
   error?: string;
 }> {
   try {
+    const tokenSource = process.env.DROPBOX_ACCESS_TOKEN
+      ? 'env_var'
+      : 'replit_connector';
+
     const dbx = await getUncachableDropboxClient();
     const response = await dbx.usersGetCurrentAccount();
     const accountName = response.result.name.display_name;
@@ -212,7 +243,7 @@ export async function testDropboxConnection(): Promise<{
     console.log(
       `[Dropbox] Conexão testada com sucesso. Conta: ${accountName} (${email}). Pasta: ${backupFolder}`
     );
-    return { success: true, accountName, email, backupFolder };
+    return { success: true, accountName, email, backupFolder, tokenSource };
   } catch (error: any) {
     console.error('[Dropbox] Erro ao testar conexão:', error.message);
     return { success: false, error: error.message };
