@@ -56,7 +56,6 @@ import LinksUteis from "./pages/links-uteis";
 import ProcessosMonitorados from "./pages/processos-monitorados";
 import Newsletter from "./pages/newsletter";
 import OneDriveBackups from "./pages/onedrive-backups";
-import DropboxSync from "./pages/dropbox-sync";
 import BlogPublic from "./pages/blog-public";
 import BlogArtigo from "./pages/blog-artigo";
 import BlogAdmin from "./pages/blog-admin";
@@ -208,7 +207,6 @@ function Router() {
                     <Route path="/blog-admin" component={BlogAdmin} />
                     <Route path="/admin/usuarios" component={AdminUsuarios} />
                     <Route path="/onedrive-backups" component={OneDriveBackups} />
-                    <Route path="/dropbox-sync" component={DropboxSync} />
                     <Route component={NotFound} />
                   </Switch>
                 </PermissionGate>
