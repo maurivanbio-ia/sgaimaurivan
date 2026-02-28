@@ -4,7 +4,10 @@ import { Dropbox } from 'dropbox';
 
 // Pasta compartilhada do Dropbox para backups do EcoGestor
 const BACKUP_SHARED_LINK = 'https://www.dropbox.com/scl/fo/lejw1kns4jbz21sp736h7/AKpPu0B13Bt3XLW77U9PlWw?rlkey=ivtn667px17nftar2elc8jp01&dl=0';
-const BACKUP_FOLDER_FALLBACK = '/EcoGestor-Backups';
+// For "App folder" scoped apps, the root is "" and maps to /Apps/Ecobrasilgestor/ in Dropbox
+// For "Full Dropbox" apps, use an absolute path like /EcoGestor-Backups
+const BACKUP_FOLDER_FALLBACK = '/Backups';
+const APP_FOLDER_ROOT = '';
 
 // Do NOT cache connectionSettings — always fetch fresh, token expires every 4h
 async function getAccessToken(): Promise<string> {
@@ -89,27 +92,53 @@ export async function getUncachableDropboxClient() {
 let resolvedBackupPath: string | null = null;
 
 async function getBackupFolderPath(): Promise<string> {
-  if (resolvedBackupPath) return resolvedBackupPath;
+  if (resolvedBackupPath !== null) return resolvedBackupPath;
 
+  const dbx = await getUncachableDropboxClient();
+
+  // Step 1: try to resolve the shared link (Full Dropbox + sharing.read)
   try {
-    const dbx = await getUncachableDropboxClient();
     const meta = await dbx.sharingGetSharedLinkMetadata({ url: BACKUP_SHARED_LINK });
     const result = meta.result as any;
-
     if (result['.tag'] === 'folder' && result.path_lower) {
       console.log(`[Dropbox] Pasta compartilhada resolvida: ${result.path_lower}`);
       resolvedBackupPath = result.path_lower;
       return resolvedBackupPath!;
     }
   } catch (err: any) {
-    console.warn(
-      '[Dropbox] Não foi possível resolver pasta compartilhada, usando caminho padrão:',
-      err?.error?.error_summary || err.message
-    );
+    console.warn('[Dropbox] Shared link não resolvido:', err?.error?.error_summary || err.message);
   }
 
-  resolvedBackupPath = BACKUP_FOLDER_FALLBACK;
-  return BACKUP_FOLDER_FALLBACK;
+  // Step 2: try absolute path (Full Dropbox app)
+  try {
+    await dbx.filesCreateFolderV2({ path: BACKUP_FOLDER_FALLBACK, autorename: false });
+    console.log(`[Dropbox] Pasta criada: ${BACKUP_FOLDER_FALLBACK}`);
+    resolvedBackupPath = BACKUP_FOLDER_FALLBACK;
+    return BACKUP_FOLDER_FALLBACK;
+  } catch (err: any) {
+    const summary = err?.error?.error_summary || '';
+    if (summary.includes('path/conflict/folder')) {
+      // Folder already exists — this is fine
+      console.log(`[Dropbox] Pasta ${BACKUP_FOLDER_FALLBACK} já existe (Full Dropbox)`);
+      resolvedBackupPath = BACKUP_FOLDER_FALLBACK;
+      return BACKUP_FOLDER_FALLBACK;
+    }
+    // If path error mentions "not_found" for the root, it's probably an App folder app
+    console.warn('[Dropbox] Caminho absoluto falhou, tentando modo pasta do app:', summary);
+  }
+
+  // Step 3: App folder mode — root is "" (maps to /Apps/Ecobrasilgestor/ in user's Dropbox)
+  try {
+    await dbx.filesCreateFolderV2({ path: '/Backups', autorename: false });
+  } catch (err: any) {
+    const summary = err?.error?.error_summary || '';
+    if (!summary.includes('path/conflict/folder')) {
+      console.warn('[Dropbox] Não foi possível criar subpasta /Backups no app folder:', summary);
+    }
+  }
+  console.log('[Dropbox] Usando modo App Folder: pasta /Backups (relativa ao app)');
+  resolvedBackupPath = '/Backups';
+  return '/Backups';
 }
 
 export async function uploadToDropbox(
