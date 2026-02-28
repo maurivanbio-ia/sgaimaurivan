@@ -3575,17 +3575,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== DROPBOX BACKUP ROUTES ====================
   
-  // GET /api/dropbox/test - Test Dropbox connection
+  // GET /api/dropbox/test - Test Dropbox connection (any authenticated user)
   app.get('/api/dropbox/test', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      const isAdmin = user?.role === 'admin' || user?.role === 'diretor';
-      const hasSensitiveAccess = req.session?.sensitiveUnlocked === true;
-      console.log(`[Dropbox/test] user=${user?.email} role=${user?.role} cargo=${user?.cargo} isAdmin=${isAdmin}`);
-      if (!isAdmin && !hasSensitiveAccess) {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
-
       const result = await testDropboxConnection();
       res.json(result);
     } catch (error: any) {
@@ -3678,8 +3670,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/folders/init', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      const allowedRoles = ['admin', 'diretor', 'coordenador'];
+      if (!allowedRoles.includes(user?.role)) {
+        return res.status(403).json({ error: 'Acesso negado.' });
       }
       
       const { createInstitutionalFolderStructure } = await import('./services/dropboxService');
@@ -3738,8 +3731,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/folders/sync-all', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      const allowedRoles = ['admin', 'diretor', 'coordenador'];
+      if (!allowedRoles.includes(user?.role)) {
+        return res.status(403).json({ error: 'Acesso negado.' });
       }
       
       const { createInstitutionalFolderStructure, createEmpreendimentoFolderStructure } = await import('./services/dropboxService');
@@ -3802,8 +3796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/sync-files', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      const allowedRoles = ['admin', 'diretor', 'coordenador'];
+      if (!allowedRoles.includes(user?.role)) {
+        return res.status(403).json({ error: 'Acesso negado.' });
       }
       const { syncAllFilesToDropbox } = await import('./services/dropboxSyncService');
       res.json({ success: true, message: 'Sincronização iniciada em segundo plano.' });
@@ -3821,8 +3816,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/sync-retry', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      const allowedRoles = ['admin', 'diretor', 'coordenador'];
+      if (!allowedRoles.includes(user?.role)) {
+        return res.status(403).json({ error: 'Acesso negado.' });
       }
       const { retrySyncErrors } = await import('./services/dropboxSyncService');
       const result = await retrySyncErrors();
