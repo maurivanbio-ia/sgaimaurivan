@@ -199,6 +199,7 @@ export default function Sidebar() {
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
         { href: "/blog-admin", label: "Blog Institucional", icon: Globe, testid: "nav-blog-admin" },
         { href: "/onedrive-backups", label: "Backup de Dados", icon: Cloud, testid: "nav-onedrive-backups" },
+        { href: "/dropbox-sync", label: "Sync Dropbox", icon: Cloud, testid: "nav-dropbox-sync" },
       ]
     },
   ];

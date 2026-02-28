@@ -3772,6 +3772,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== DROPBOX FILE SYNC ROUTES ====================
+
+  // GET /api/dropbox/sync-status - Get sync statistics
+  app.get('/api/dropbox/sync-status', requireAuth, async (req: any, res) => {
+    try {
+      const { getSyncStatus } = await import('./services/dropboxSyncService');
+      const status = await getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/dropbox/sync-log - Get paginated sync log
+  app.get('/api/dropbox/sync-log', requireAuth, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const { getSyncLog } = await import('./services/dropboxSyncService');
+      const log = await getSyncLog(limit, offset);
+      res.json(log);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/dropbox/sync-files - Trigger full file sync to Dropbox
+  app.post('/api/dropbox/sync-files', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      const { syncAllFilesToDropbox } = await import('./services/dropboxSyncService');
+      res.json({ success: true, message: 'Sincronização iniciada em segundo plano.' });
+      syncAllFilesToDropbox().then(result => {
+        console.log(`[DropboxSync] Concluído: ${result.synced} sincronizados, ${result.errors} erros`);
+      }).catch(err => {
+        console.error('[DropboxSync] Erro na sincronização:', err.message);
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/dropbox/sync-retry - Retry failed syncs
+  app.post('/api/dropbox/sync-retry', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+      }
+      const { retrySyncErrors } = await import('./services/dropboxSyncService');
+      const result = await retrySyncErrors();
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== ONEDRIVE ROUTES ====================
   
   // GET /api/onedrive/test - Test OneDrive connection
