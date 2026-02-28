@@ -249,6 +249,7 @@ export async function criarPastasParaEmpreendimento(
   
   let cloudSyncResult = false;
   if (syncCloud && result.success) {
+    // Sync with OneDrive
     try {
       const { createEmpreendimentoFolderStructure } = await import('./onedriveService');
       const cloudResult = await createEmpreendimentoFolderStructure(cliente, uf, codigo || '', nome);
@@ -258,6 +259,18 @@ export async function criarPastasParaEmpreendimento(
       }
     } catch (err) {
       console.log(`[Folder Structure] OneDrive não configurado ou erro na sincronização: ${err}`);
+    }
+
+    // Sync with Dropbox
+    try {
+      const { createEmpreendimentoFolderStructure: createDropboxFolders } = await import('./dropboxService');
+      const dropboxResult = await createDropboxFolders(cliente, uf, codigo || '', nome);
+      if (dropboxResult.success) {
+        console.log(`[Folder Structure] Pastas criadas no Dropbox para ${codigo || nome} (${dropboxResult.foldersCreated} pastas)`);
+        cloudSyncResult = true;
+      }
+    } catch (err) {
+      console.log(`[Folder Structure] Dropbox não configurado ou erro na sincronização: ${err}`);
     }
   }
   

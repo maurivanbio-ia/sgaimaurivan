@@ -64,7 +64,7 @@ export async function uploadArquivo(req: Request, res: Response) {
     }
 
     const userId = (req.session as any).userId;
-    const { origem } = req.body;
+    const { origem, empreendimentoCliente, empreendimentoUf, empreendimentoCodigo, empreendimentoNome } = req.body;
 
     // Calcular checksum do arquivo
     const fileBuffer = fs.readFileSync(req.file.path);
@@ -85,6 +85,27 @@ export async function uploadArquivo(req: Request, res: Response) {
       .returning();
 
     res.json(arquivo);
+
+    // Sync to Dropbox in background (non-blocking)
+    setImmediate(async () => {
+      try {
+        const { syncFileToDropbox } = await import('../services/dropboxService');
+        await syncFileToDropbox({
+          fileBuffer,
+          originalName: req.file!.originalname,
+          mimeType: req.file!.mimetype,
+          module: origem || 'documento',
+          empreendimento: empreendimentoCliente ? {
+            cliente: empreendimentoCliente,
+            uf: empreendimentoUf || 'BR',
+            codigo: empreendimentoCodigo || '',
+            nome: empreendimentoNome || empreendimentoCodigo || '',
+          } : undefined,
+        });
+      } catch (dropboxErr: any) {
+        console.warn('[Dropbox] Sync em background falhou:', dropboxErr.message);
+      }
+    });
   } catch (error: any) {
     console.error("Erro ao fazer upload:", error);
     res.status(500).json({ message: error.message || "Erro ao fazer upload do arquivo" });

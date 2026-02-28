@@ -555,6 +555,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Promote current user to admin using admin password (self-service role fix)
+  app.post("/api/auth/promote-admin", requireAuth, async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password || password !== ADMIN_UNLOCK_PASSWORD) {
+        return res.status(401).json({ success: false, message: "Senha incorreta" });
+      }
+      const userId = req.session.userId!;
+      await db.update(users).set({ role: 'admin' }).where(eq(users.id, userId));
+      console.log(`[Auth] Usuário ${req.user?.email} promovido a admin via promote-admin`);
+      res.json({ success: true, message: "Role atualizado para admin com sucesso. Faça logout e login novamente." });
+    } catch (error) {
+      console.error("Promote admin error:", error);
+      res.status(500).json({ success: false, message: "Erro ao atualizar role" });
+    }
+  });
+
   // Empreendimento routes
   app.get("/api/empreendimentos", requireAuth, async (req, res) => {
     try {
