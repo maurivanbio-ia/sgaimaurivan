@@ -332,42 +332,57 @@ export async function createEmpreendimentoFolderStructure(
   error?: string;
 }> {
   try {
-    const nomeProjeto = `${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(codigo || nome)}`;
-    const projetoPath = `${DROPBOX_ROOT}/03_PROJETOS/${nomeProjeto}`;
+    // Nomenclatura: CÓDIGO_CLIENTE_UF (código primeiro, conforme gestão documental)
+    const codigoNorm = normalizarTexto(codigo || nome);
+    const clienteNorm = normalizarTexto(cliente);
+    const ufNorm = normalizarTexto(uf || 'BR');
+    const nomeProjeto = `${codigoNorm}_${clienteNorm}_${ufNorm}`;
+    const projetoPath = `${DROPBOX_ROOT}/3. PROJETOS/${nomeProjeto}`;
 
+    // Estrutura hierárquica: 1. Pasta, 1.1. Subpasta, 1.1.1. Subsubpasta
     const estruturaProjeto = [
-      '01_GESTAO_E_CONTRATOS',
-      '01_GESTAO_E_CONTRATOS/Contrato_Principal',
-      '01_GESTAO_E_CONTRATOS/Aditivos',
-      '02_PLANEJAMENTO_E_CRONOGRAMA',
-      '02_PLANEJAMENTO_E_CRONOGRAMA/Cronograma',
-      '02_PLANEJAMENTO_E_CRONOGRAMA/Planos_de_Trabalho',
-      '03_BANCOS_DE_DADOS',
-      '03_BANCOS_DE_DADOS/Campo',
-      '03_BANCOS_DE_DADOS/Processados',
-      '04_RELATORIOS_E_PARECERES',
-      '04_RELATORIOS_E_PARECERES/Minutas',
-      '04_RELATORIOS_E_PARECERES/Versoes_Finais',
-      '05_MAPAS_E_GEOSPATIAL',
-      '05_MAPAS_E_GEOSPATIAL/Shapefiles',
-      '05_MAPAS_E_GEOSPATIAL/Mapas_Finais',
-      '06_COMUNICACOES',
-      '06_COMUNICACOES/Oficios',
-      '06_COMUNICACOES/Emails_Relevantes',
-      '07_ENTREGAS_E_PROTOCOLOS',
-      '07_ENTREGAS_E_PROTOCOLOS/Enviados',
-      '07_ENTREGAS_E_PROTOCOLOS/Protocolos',
+      '1. GESTAO_E_CONTRATOS',
+      '1. GESTAO_E_CONTRATOS/1.1. Contrato_Principal',
+      '1. GESTAO_E_CONTRATOS/1.2. Aditivos',
+      '1. GESTAO_E_CONTRATOS/1.3. Autorizacoes',
+      '2. PLANEJAMENTO_E_CRONOGRAMA',
+      '2. PLANEJAMENTO_E_CRONOGRAMA/2.1. Cronograma',
+      '2. PLANEJAMENTO_E_CRONOGRAMA/2.2. Planos_de_Trabalho',
+      '2. PLANEJAMENTO_E_CRONOGRAMA/2.3. Atas_de_Reuniao',
+      '3. BANCOS_DE_DADOS',
+      '3. BANCOS_DE_DADOS/3.1. Campo',
+      '3. BANCOS_DE_DADOS/3.1. Campo/3.1.1. Formularios',
+      '3. BANCOS_DE_DADOS/3.1. Campo/3.1.2. Fotos',
+      '3. BANCOS_DE_DADOS/3.2. Processados',
+      '3. BANCOS_DE_DADOS/3.2. Processados/3.2.1. Planilhas',
+      '3. BANCOS_DE_DADOS/3.2. Processados/3.2.2. Banco_Final',
+      '4. RELATORIOS_E_PARECERES',
+      '4. RELATORIOS_E_PARECERES/4.1. Minutas',
+      '4. RELATORIOS_E_PARECERES/4.2. Versoes_Finais',
+      '4. RELATORIOS_E_PARECERES/4.3. Pareceres_Tecnicos',
+      '5. MAPAS_E_GEOESPACIAL',
+      '5. MAPAS_E_GEOESPACIAL/5.1. Shapefiles',
+      '5. MAPAS_E_GEOESPACIAL/5.2. Mapas_Finais',
+      '5. MAPAS_E_GEOESPACIAL/5.3. KMZ_KML',
+      '6. COMUNICACOES',
+      '6. COMUNICACOES/6.1. Oficios',
+      '6. COMUNICACOES/6.2. Emails_Relevantes',
+      '6. COMUNICACOES/6.3. Notificacoes_Orgaos',
+      '7. ENTREGAS_E_PROTOCOLOS',
+      '7. ENTREGAS_E_PROTOCOLOS/7.1. Enviados',
+      '7. ENTREGAS_E_PROTOCOLOS/7.2. Protocolos',
+      '7. ENTREGAS_E_PROTOCOLOS/7.3. Recibos',
     ];
 
     let foldersCreated = 0;
 
-    await createDropboxFolder('/03_PROJETOS');
-    await createDropboxFolder(`/03_PROJETOS/${nomeProjeto}`);
+    await createDropboxFolder('/3. PROJETOS');
+    await createDropboxFolder(`/3. PROJETOS/${nomeProjeto}`);
     foldersCreated++;
 
     for (const subpasta of estruturaProjeto) {
       const result = await createDropboxFolder(
-        `/03_PROJETOS/${nomeProjeto}/${subpasta}`
+        `/3. PROJETOS/${nomeProjeto}/${subpasta}`
       );
       if (result.success) foldersCreated++;
     }
@@ -391,38 +406,39 @@ export async function createInstitutionalFolderStructure(): Promise<{
   error?: string;
 }> {
   try {
+    // Estrutura institucional com numeração hierárquica (1., 1.1., 1.1.1.)
     const estruturaInstitucional = [
       '',
-      '/01_ADMINISTRATIVO_E_JURIDICO',
-      '/01_ADMINISTRATIVO_E_JURIDICO/Contratos',
-      '/01_ADMINISTRATIVO_E_JURIDICO/Financeiro',
-      '/01_ADMINISTRATIVO_E_JURIDICO/Recursos_Humanos',
-      '/01_ADMINISTRATIVO_E_JURIDICO/Compliance_e_LGPD',
-      '/02_COMERCIAL_E_CLIENTES',
-      '/02_COMERCIAL_E_CLIENTES/Propostas_Enviadas',
-      '/02_COMERCIAL_E_CLIENTES/Propostas_Aprovadas',
-      '/02_COMERCIAL_E_CLIENTES/Leads',
-      '/02_COMERCIAL_E_CLIENTES/Relacionamento',
-      '/03_PROJETOS',
-      '/04_BASE_TECNICA_E_REFERENCIAS',
-      '/04_BASE_TECNICA_E_REFERENCIAS/Legislacao',
-      '/04_BASE_TECNICA_E_REFERENCIAS/Normas_Tecnicas',
-      '/04_BASE_TECNICA_E_REFERENCIAS/Artigos_Cientificos',
-      '/04_BASE_TECNICA_E_REFERENCIAS/Manuais_Metodologicos',
-      '/05_MODELOS_E_PADROES',
-      '/05_MODELOS_E_PADROES/Templates_Relatorios',
-      '/05_MODELOS_E_PADROES/Modelos_Planilhas',
-      '/05_MODELOS_E_PADROES/Padroes_Graficos',
-      '/05_MODELOS_E_PADROES/Termos_e_Formularios',
-      '/06_SISTEMAS_E_AUTOMACOES',
-      '/06_SISTEMAS_E_AUTOMACOES/Workflows_n8n',
-      '/06_SISTEMAS_E_AUTOMACOES/Scripts_R_Python',
-      '/06_SISTEMAS_E_AUTOMACOES/Dashboards',
-      '/06_SISTEMAS_E_AUTOMACOES/Backups_Sistemas',
-      '/07_ARQUIVO_MORTO',
-      '/07_ARQUIVO_MORTO/Projetos_Encerrados',
-      '/07_ARQUIVO_MORTO/Contratos_Finalizados',
-      '/07_ARQUIVO_MORTO/Documentos_Historicos',
+      '/1. ADMINISTRATIVO_E_JURIDICO',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.1. Contratos',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.2. Financeiro',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.3. Recursos_Humanos',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. Compliance_e_LGPD',
+      '/2. COMERCIAL_E_CLIENTES',
+      '/2. COMERCIAL_E_CLIENTES/2.1. Propostas_Enviadas',
+      '/2. COMERCIAL_E_CLIENTES/2.2. Propostas_Aprovadas',
+      '/2. COMERCIAL_E_CLIENTES/2.3. Leads',
+      '/2. COMERCIAL_E_CLIENTES/2.4. Relacionamento',
+      '/3. PROJETOS',
+      '/4. BASE_TECNICA_E_REFERENCIAS',
+      '/4. BASE_TECNICA_E_REFERENCIAS/4.1. Legislacao',
+      '/4. BASE_TECNICA_E_REFERENCIAS/4.2. Normas_Tecnicas',
+      '/4. BASE_TECNICA_E_REFERENCIAS/4.3. Artigos_Cientificos',
+      '/4. BASE_TECNICA_E_REFERENCIAS/4.4. Manuais_Metodologicos',
+      '/5. MODELOS_E_PADROES',
+      '/5. MODELOS_E_PADROES/5.1. Templates_Relatorios',
+      '/5. MODELOS_E_PADROES/5.2. Modelos_Planilhas',
+      '/5. MODELOS_E_PADROES/5.3. Padroes_Graficos',
+      '/5. MODELOS_E_PADROES/5.4. Termos_e_Formularios',
+      '/6. SISTEMAS_E_AUTOMACOES',
+      '/6. SISTEMAS_E_AUTOMACOES/6.1. Workflows_n8n',
+      '/6. SISTEMAS_E_AUTOMACOES/6.2. Scripts_R_Python',
+      '/6. SISTEMAS_E_AUTOMACOES/6.3. Dashboards',
+      '/6. SISTEMAS_E_AUTOMACOES/6.4. Backups_Sistemas',
+      '/7. ARQUIVO_MORTO',
+      '/7. ARQUIVO_MORTO/7.1. Projetos_Encerrados',
+      '/7. ARQUIVO_MORTO/7.2. Contratos_Finalizados',
+      '/7. ARQUIVO_MORTO/7.3. Documentos_Historicos',
     ];
 
     let foldersCreated = 0;
@@ -495,8 +511,12 @@ export async function uploadFileToEmpreendimento(
 ): Promise<{ success: boolean; path?: string; error?: string }> {
   try {
     const dbx = await getUncachableDropboxClient();
-    const nomeProjeto = `${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(codigo || nome)}`;
-    const filePath = `${DROPBOX_ROOT}/03_PROJETOS/${nomeProjeto}/${subpasta}/${fileName}`;
+    // Nomenclatura: CÓDIGO_CLIENTE_UF (código primeiro)
+    const codigoNorm = normalizarTexto(codigo || nome);
+    const clienteNorm = normalizarTexto(cliente);
+    const ufNorm = normalizarTexto(uf || 'BR');
+    const nomeProjeto = `${codigoNorm}_${clienteNorm}_${ufNorm}`;
+    const filePath = `${DROPBOX_ROOT}/3. PROJETOS/${nomeProjeto}/${subpasta}/${fileName}`;
 
     const response = await dbx.filesUpload({
       path: filePath,
@@ -515,31 +535,31 @@ export async function uploadFileToEmpreendimento(
 
 // ── ABNT naming & module-aware sync ──────────────────────────────────────────
 
-// Maps module names to their ABNT project subfolder
+// Maps module names to their project subfolder (using hierarchical numbering)
 const MODULE_FOLDER_MAP: Record<string, string> = {
-  licenca: '07_ENTREGAS_E_PROTOCOLOS/Licencas',
-  condicionante: '07_ENTREGAS_E_PROTOCOLOS/Condicionantes',
-  evidencia: '07_ENTREGAS_E_PROTOCOLOS/Evidencias',
-  relatorio: '04_RELATORIOS_E_PARECERES/Versoes_Finais',
-  minuta: '04_RELATORIOS_E_PARECERES/Minutas',
-  mapa: '05_MAPAS_E_GEOSPATIAL/Mapas_Finais',
-  shapefile: '05_MAPAS_E_GEOSPATIAL/Shapefiles',
-  camada: '05_MAPAS_E_GEOSPATIAL/Camadas_KMZ',
-  contrato: '01_GESTAO_E_CONTRATOS/Contrato_Principal',
-  aditivo: '01_GESTAO_E_CONTRATOS/Aditivos',
-  banco_de_dados: '03_BANCOS_DE_DADOS/Processados',
-  campo: '03_BANCOS_DE_DADOS/Campo',
-  oficio: '06_COMUNICACOES/Oficios',
-  comunicacao: '06_COMUNICACOES/Emails_Relevantes',
-  protocolo: '07_ENTREGAS_E_PROTOCOLOS/Protocolos',
-  entrega: '07_ENTREGAS_E_PROTOCOLOS/Enviados',
-  monitoramento: '03_BANCOS_DE_DADOS/Campo',
-  amostra: '03_BANCOS_DE_DADOS/Campo',
-  documento: '04_RELATORIOS_E_PARECERES/Versoes_Finais',
-  base_conhecimento: `${DROPBOX_ROOT}/04_BASE_TECNICA_E_REFERENCIAS`,
-  proposta: `${DROPBOX_ROOT}/02_COMERCIAL_E_CLIENTES/Propostas_Enviadas`,
-  rh: `${DROPBOX_ROOT}/01_ADMINISTRATIVO_E_JURIDICO/Recursos_Humanos`,
-  financeiro: `${DROPBOX_ROOT}/01_ADMINISTRATIVO_E_JURIDICO/Financeiro`,
+  licenca: '7. ENTREGAS_E_PROTOCOLOS/7.2. Protocolos',
+  condicionante: '7. ENTREGAS_E_PROTOCOLOS/7.2. Protocolos',
+  evidencia: '7. ENTREGAS_E_PROTOCOLOS/7.1. Enviados',
+  relatorio: '4. RELATORIOS_E_PARECERES/4.2. Versoes_Finais',
+  minuta: '4. RELATORIOS_E_PARECERES/4.1. Minutas',
+  mapa: '5. MAPAS_E_GEOESPACIAL/5.2. Mapas_Finais',
+  shapefile: '5. MAPAS_E_GEOESPACIAL/5.1. Shapefiles',
+  camada: '5. MAPAS_E_GEOESPACIAL/5.3. KMZ_KML',
+  contrato: '1. GESTAO_E_CONTRATOS/1.1. Contrato_Principal',
+  aditivo: '1. GESTAO_E_CONTRATOS/1.2. Aditivos',
+  banco_de_dados: '3. BANCOS_DE_DADOS/3.2. Processados',
+  campo: '3. BANCOS_DE_DADOS/3.1. Campo',
+  oficio: '6. COMUNICACOES/6.1. Oficios',
+  comunicacao: '6. COMUNICACOES/6.2. Emails_Relevantes',
+  protocolo: '7. ENTREGAS_E_PROTOCOLOS/7.2. Protocolos',
+  entrega: '7. ENTREGAS_E_PROTOCOLOS/7.1. Enviados',
+  monitoramento: '3. BANCOS_DE_DADOS/3.1. Campo',
+  amostra: '3. BANCOS_DE_DADOS/3.1. Campo',
+  documento: '4. RELATORIOS_E_PARECERES/4.2. Versoes_Finais',
+  base_conhecimento: `${DROPBOX_ROOT}/4. BASE_TECNICA_E_REFERENCIAS`,
+  proposta: `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.1. Propostas_Enviadas`,
+  rh: `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.3. Recursos_Humanos`,
+  financeiro: `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.2. Financeiro`,
 };
 
 /**
@@ -586,15 +606,19 @@ export async function syncFileToDropbox(params: {
     const subpastaRelativa = MODULE_FOLDER_MAP[folderKey];
 
     if (empreendimento) {
-      const nomeProjeto = `${normalizarTexto(empreendimento.cliente)}_${normalizarTexto(empreendimento.uf)}_${normalizarTexto(empreendimento.codigo || empreendimento.nome)}`;
-      const subpasta = subpastaRelativa && !subpastaRelativa.startsWith('/ECOBRASIL')
+      // Nomenclatura: CÓDIGO_CLIENTE_UF (código primeiro)
+      const codigoNorm = normalizarTexto(empreendimento.codigo || empreendimento.nome);
+      const clienteNorm = normalizarTexto(empreendimento.cliente);
+      const ufNorm = normalizarTexto(empreendimento.uf || 'BR');
+      const nomeProjeto = `${codigoNorm}_${clienteNorm}_${ufNorm}`;
+      const subpasta = subpastaRelativa && !subpastaRelativa.startsWith(DROPBOX_ROOT)
         ? subpastaRelativa
-        : '04_RELATORIOS_E_PARECERES/Versoes_Finais';
-      targetPath = `${DROPBOX_ROOT}/03_PROJETOS/${nomeProjeto}/${subpasta}`;
+        : '4. RELATORIOS_E_PARECERES/4.2. Versoes_Finais';
+      targetPath = `${DROPBOX_ROOT}/3. PROJETOS/${nomeProjeto}/${subpasta}`;
     } else if (subpastaRelativa && subpastaRelativa.startsWith(DROPBOX_ROOT)) {
       targetPath = subpastaRelativa;
     } else {
-      targetPath = `${DROPBOX_ROOT}/06_SISTEMAS_E_AUTOMACOES/Backups_Sistemas`;
+      targetPath = `${DROPBOX_ROOT}/6. SISTEMAS_E_AUTOMACOES/6.4. Backups_Sistemas`;
     }
 
     const fileName = useAbntNaming && empreendimento
