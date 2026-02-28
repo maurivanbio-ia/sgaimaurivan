@@ -27,6 +27,9 @@ import {
   Sparkles,
   Copy,
   Check,
+  Upload,
+  X,
+  FileUp,
 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -221,6 +224,9 @@ export default function BaseConhecimentoPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [extractedText, setExtractedText] = useState<string>("");
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const filters = useMemo(() => {
@@ -342,6 +348,8 @@ export default function BaseConhecimentoPage() {
 
   const handleNew = () => {
     setEditingItem(null);
+    setUploadedFileName("");
+    setExtractedText("");
     form.reset({
       titulo: "",
       descricao: "",
@@ -372,6 +380,8 @@ export default function BaseConhecimentoPage() {
 
   const handleEdit = (item: BaseConhecimento) => {
     setEditingItem(item);
+    setUploadedFileName(item.arquivoNome || "");
+    setExtractedText("");
     form.reset({
       titulo: item.titulo,
       descricao: item.descricao || "",
@@ -423,57 +433,100 @@ export default function BaseConhecimentoPage() {
     setTemaFilter("all");
   };
 
+  const handleUploadFile = async (file: File) => {
+    setIsUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/base-conhecimento/upload-arquivo", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      
+      form.setValue("arquivoUrl", data.url);
+      form.setValue("arquivoNome", data.nome);
+      form.setValue("arquivoTipo", data.tipo?.split("/")[1] || "pdf");
+      setUploadedFileName(data.nome);
+      
+      if (data.textoExtraido) {
+        setExtractedText(data.textoExtraido);
+      }
+      
+      toast({
+        title: "Arquivo enviado",
+        description: data.temConteudo 
+          ? `"${data.nome}" enviado e texto extraído com sucesso. Clique em Analisar com IA.`
+          : `"${data.nome}" enviado com sucesso.`,
+      });
+      
+      // Auto-trigger analysis after upload
+      await handleAnalyzeDocumentWithContent(data.nome, data.textoExtraido || "");
+    } catch (error: any) {
+      toast({ title: "Erro no upload", description: error.message, variant: "destructive" });
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const handleAnalyzeDocumentWithContent = async (filename: string, content: string) => {
+    setIsAnalyzing(true);
+    try {
+      const response = await apiRequest("POST", "/api/base-conhecimento/analyze", {
+        filename,
+        contentPreview: content,
+      });
+      const analysis = await response.json();
+      applyAnalysisToForm(analysis);
+      toast({
+        title: "Análise IA concluída",
+        description: analysis.isArtigoCientifico
+          ? "Artigo científico identificado! Campos preenchidos automaticamente."
+          : "Variáveis extraídas e campos preenchidos automaticamente.",
+      });
+    } catch {
+      toast({ title: "Erro na análise", description: "Não foi possível analisar o documento", variant: "destructive" });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const applyAnalysisToForm = (analysis: any) => {
+    if (analysis.titulo) form.setValue("titulo", analysis.titulo);
+    if (analysis.tema) form.setValue("tema", analysis.tema);
+    if (analysis.tags || analysis.palavrasChave) form.setValue("tags", analysis.tags || analysis.palavrasChave);
+    if (analysis.resumoAuto) form.setValue("resumoAuto", analysis.resumoAuto);
+    if (analysis.descricaoGerada && !form.getValues("descricao")) form.setValue("descricao", analysis.descricaoGerada);
+    if (analysis.versao && !form.getValues("versao")) form.setValue("versao", analysis.versao);
+    if (analysis.isArtigoCientifico) {
+      form.setValue("isArtigoCientifico", true);
+      form.setValue("tipo", "artigo_cientifico");
+      if (analysis.autores) form.setValue("autores", analysis.autores);
+      if (analysis.anoPublicacao) form.setValue("anoPublicacao", analysis.anoPublicacao);
+      if (analysis.periodico) form.setValue("periodico", analysis.periodico);
+      if (analysis.doi) form.setValue("doi", analysis.doi);
+      if (analysis.citacaoAbnt) form.setValue("citacaoAbnt", analysis.citacaoAbnt);
+      if (analysis.referenciaAbnt) form.setValue("referenciaAbnt", analysis.referenciaAbnt);
+    }
+  };
+
   const handleAnalyzeDocument = async () => {
     const filename = form.getValues("arquivoNome");
     const conteudo = form.getValues("conteudo");
+    const content = extractedText || conteudo || "";
     
-    if (!filename && !conteudo) {
+    if (!filename && !conteudo && !extractedText) {
       toast({
         title: "Atenção",
-        description: "Informe o nome do arquivo ou conteúdo para análise",
+        description: "Faça upload de um arquivo ou informe o nome do arquivo para análise",
         variant: "destructive",
       });
       return;
     }
 
-    setIsAnalyzing(true);
-    try {
-      const response = await apiRequest("POST", "/api/base-conhecimento/analyze", {
-        filename: filename || "documento.pdf",
-        contentPreview: conteudo,
-      });
-      const analysis = await response.json();
-      
-      if (analysis.titulo) form.setValue("titulo", analysis.titulo);
-      if (analysis.tema) form.setValue("tema", analysis.tema);
-      if (analysis.tags) form.setValue("tags", analysis.tags);
-      if (analysis.resumoAuto) form.setValue("resumoAuto", analysis.resumoAuto);
-      if (analysis.isArtigoCientifico) {
-        form.setValue("isArtigoCientifico", true);
-        form.setValue("tipo", "artigo_cientifico");
-        if (analysis.autores) form.setValue("autores", analysis.autores);
-        if (analysis.anoPublicacao) form.setValue("anoPublicacao", analysis.anoPublicacao);
-        if (analysis.periodico) form.setValue("periodico", analysis.periodico);
-        if (analysis.doi) form.setValue("doi", analysis.doi);
-        if (analysis.citacaoAbnt) form.setValue("citacaoAbnt", analysis.citacaoAbnt);
-        if (analysis.referenciaAbnt) form.setValue("referenciaAbnt", analysis.referenciaAbnt);
-      }
-
-      toast({
-        title: "Análise concluída",
-        description: analysis.isArtigoCientifico 
-          ? "Artigo científico identificado! Citação e referência geradas."
-          : "Documento analisado com sucesso.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível analisar o documento",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
+    await handleAnalyzeDocumentWithContent(filename || "documento.pdf", content);
   };
 
   const copyToClipboard = (text: string, field: string) => {
@@ -891,40 +944,95 @@ export default function BaseConhecimentoPage() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="arquivoUrl"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>URL do Arquivo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* File Upload Section */}
+                <div className="md:col-span-2 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Arquivo do Documento</span>
+                  </div>
+                  
+                  {/* Upload area */}
+                  <div
+                    className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                    onClick={() => document.getElementById("bc-file-input")?.click()}
+                    onDragOver={(e) => { e.preventDefault(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files[0];
+                      if (file) handleUploadFile(file);
+                    }}
+                  >
+                    <input
+                      id="bc-file-input"
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.docx,.doc,.txt,.xlsx,.xls,.pptx,.ppt,.md"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadFile(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    {isUploadingFile || isAnalyzing ? (
+                      <div className="flex flex-col items-center gap-2 text-primary">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                        <span className="text-sm font-medium">
+                          {isUploadingFile ? "Enviando arquivo..." : "Analisando com IA..."}
+                        </span>
+                      </div>
+                    ) : uploadedFileName ? (
+                      <div className="flex flex-col items-center gap-2 text-green-600">
+                        <FileText className="h-8 w-8" />
+                        <span className="text-sm font-medium">{uploadedFileName}</span>
+                        <span className="text-xs text-muted-foreground">Arquivo enviado e analisado — clique para trocar</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Upload className="h-8 w-8" />
+                        <span className="text-sm font-medium">Arraste um arquivo ou clique para fazer upload</span>
+                        <span className="text-xs">PDF, DOCX, TXT, XLSX, PPT (máx. 20MB)</span>
+                        <span className="text-xs text-primary">A IA extrairá automaticamente todas as variáveis do documento</span>
+                      </div>
+                    )}
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="arquivoNome"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do Arquivo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="documento.pdf" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  {/* URL and file name fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="arquivoUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">URL / Caminho do Arquivo</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Preenchido após upload ou cole URL externa" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="arquivoNome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">Nome do Arquivo</FormLabel>
+                          <FormControl>
+                            <Input placeholder="documento.pdf" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
 
                 <div className="md:col-span-2 flex justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleAnalyzeDocument}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || isUploadingFile}
                     className="gap-2"
                   >
                     {isAnalyzing ? (
