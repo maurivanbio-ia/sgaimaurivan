@@ -512,3 +512,118 @@ export async function uploadFileToEmpreendimento(
     return { success: false, error: error.message };
   }
 }
+
+// ── ABNT naming & module-aware sync ──────────────────────────────────────────
+
+// Maps module names to their ABNT project subfolder
+const MODULE_FOLDER_MAP: Record<string, string> = {
+  licenca: '07_ENTREGAS_E_PROTOCOLOS/Licencas',
+  condicionante: '07_ENTREGAS_E_PROTOCOLOS/Condicionantes',
+  evidencia: '07_ENTREGAS_E_PROTOCOLOS/Evidencias',
+  relatorio: '04_RELATORIOS_E_PARECERES/Versoes_Finais',
+  minuta: '04_RELATORIOS_E_PARECERES/Minutas',
+  mapa: '05_MAPAS_E_GEOSPATIAL/Mapas_Finais',
+  shapefile: '05_MAPAS_E_GEOSPATIAL/Shapefiles',
+  camada: '05_MAPAS_E_GEOSPATIAL/Camadas_KMZ',
+  contrato: '01_GESTAO_E_CONTRATOS/Contrato_Principal',
+  aditivo: '01_GESTAO_E_CONTRATOS/Aditivos',
+  banco_de_dados: '03_BANCOS_DE_DADOS/Processados',
+  campo: '03_BANCOS_DE_DADOS/Campo',
+  oficio: '06_COMUNICACOES/Oficios',
+  comunicacao: '06_COMUNICACOES/Emails_Relevantes',
+  protocolo: '07_ENTREGAS_E_PROTOCOLOS/Protocolos',
+  entrega: '07_ENTREGAS_E_PROTOCOLOS/Enviados',
+  monitoramento: '03_BANCOS_DE_DADOS/Campo',
+  amostra: '03_BANCOS_DE_DADOS/Campo',
+  documento: '04_RELATORIOS_E_PARECERES/Versoes_Finais',
+  base_conhecimento: `${DROPBOX_ROOT}/04_BASE_TECNICA_E_REFERENCIAS`,
+  proposta: `${DROPBOX_ROOT}/02_COMERCIAL_E_CLIENTES/Propostas_Enviadas`,
+  rh: `${DROPBOX_ROOT}/01_ADMINISTRATIVO_E_JURIDICO/Recursos_Humanos`,
+  financeiro: `${DROPBOX_ROOT}/01_ADMINISTRATIVO_E_JURIDICO/Financeiro`,
+};
+
+/**
+ * Generates an ABNT-compliant file name.
+ * Format: ECB-[CODIGO]-[TIPO]-[YYYYMMDD]-[ORIGINAL]
+ */
+export function gerarNomeAbnt(
+  codigoProjeto: string,
+  tipoDocumento: string,
+  nomeOriginal: string
+): string {
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const ext = nomeOriginal.includes('.') ? nomeOriginal.split('.').pop()!.toLowerCase() : '';
+  const baseName = nomeOriginal.replace(/\.[^.]+$/, '');
+  const normalizado = normalizarTexto(baseName).substring(0, 40);
+  const tipo = normalizarTexto(tipoDocumento).substring(0, 10);
+  const codigo = normalizarTexto(codigoProjeto).substring(0, 15);
+  return `ECB-${codigo}-${tipo}-${date}-${normalizado}${ext ? '.' + ext : ''}`;
+}
+
+/**
+ * Universal file sync to Dropbox with ABNT naming.
+ * Call this from any file upload endpoint.
+ */
+export async function syncFileToDropbox(params: {
+  fileBuffer: Buffer;
+  originalName: string;
+  mimeType?: string;
+  module: string;          // e.g. 'licenca', 'relatorio', 'mapa'
+  empreendimento?: {
+    cliente: string;
+    uf: string;
+    codigo: string;
+    nome: string;
+  };
+  useAbntNaming?: boolean;
+}): Promise<{ success: boolean; path?: string; error?: string }> {
+  try {
+    const { fileBuffer, originalName, module, empreendimento, useAbntNaming = true } = params;
+    const dbx = await getUncachableDropboxClient();
+
+    let targetPath: string;
+    const folderKey = module.toLowerCase().replace(/\s+/g, '_');
+    const subpastaRelativa = MODULE_FOLDER_MAP[folderKey];
+
+    if (empreendimento) {
+      const nomeProjeto = `${normalizarTexto(empreendimento.cliente)}_${normalizarTexto(empreendimento.uf)}_${normalizarTexto(empreendimento.codigo || empreendimento.nome)}`;
+      const subpasta = subpastaRelativa && !subpastaRelativa.startsWith('/ECOBRASIL')
+        ? subpastaRelativa
+        : '04_RELATORIOS_E_PARECERES/Versoes_Finais';
+      targetPath = `${DROPBOX_ROOT}/03_PROJETOS/${nomeProjeto}/${subpasta}`;
+    } else if (subpastaRelativa && subpastaRelativa.startsWith(DROPBOX_ROOT)) {
+      targetPath = subpastaRelativa;
+    } else {
+      targetPath = `${DROPBOX_ROOT}/06_SISTEMAS_E_AUTOMACOES/Backups_Sistemas`;
+    }
+
+    const fileName = useAbntNaming && empreendimento
+      ? gerarNomeAbnt(empreendimento.codigo || empreendimento.nome, module, originalName)
+      : originalName;
+
+    const fullFilePath = `${targetPath}/${fileName}`;
+
+    // Ensure folder exists
+    try {
+      await dbx.filesCreateFolderV2({ path: targetPath, autorename: false });
+    } catch (e: any) {
+      if (!e?.error?.error_summary?.includes('conflict/folder')) {
+        console.warn(`[Dropbox] Não foi possível criar pasta ${targetPath}:`, e?.error?.error_summary);
+      }
+    }
+
+    const response = await dbx.filesUpload({
+      path: fullFilePath,
+      contents: fileBuffer,
+      mode: { '.tag': 'add' },
+      autorename: true,
+    });
+
+    const finalPath = response.result.path_display || fullFilePath;
+    console.log(`[Dropbox] Arquivo sincronizado: ${finalPath}`);
+    return { success: true, path: finalPath };
+  } catch (error: any) {
+    console.error('[Dropbox] Erro ao sincronizar arquivo:', error.message);
+    return { success: false, error: error.message };
+  }
+}
