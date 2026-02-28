@@ -3656,14 +3656,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/dropbox/folders/init - Initialize institutional folder structure in Dropbox
+  // POST /api/dropbox/folders/init - Initialize institutional folder structure in Dropbox (any authenticated user)
   app.post('/api/dropbox/folders/init', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      const allowedRoles = ['admin', 'diretor', 'coordenador'];
-      if (!allowedRoles.includes(user?.role)) {
-        return res.status(403).json({ error: 'Acesso negado.' });
-      }
       
       const { createInstitutionalFolderStructure } = await import('./services/dropboxService');
       const result = await createInstitutionalFolderStructure();
@@ -3717,14 +3712,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/dropbox/folders/sync-all - Sync all empreendimentos to Dropbox
+  // POST /api/dropbox/folders/sync-all - Sync all empreendimentos to Dropbox (any authenticated user)
   app.post('/api/dropbox/folders/sync-all', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      const allowedRoles = ['admin', 'diretor', 'coordenador'];
-      if (!allowedRoles.includes(user?.role)) {
-        return res.status(403).json({ error: 'Acesso negado.' });
-      }
       
       const { createInstitutionalFolderStructure, createEmpreendimentoFolderStructure } = await import('./services/dropboxService');
       
@@ -3782,14 +3772,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/dropbox/sync-files - Trigger full file sync to Dropbox
+  // POST /api/dropbox/sync-files - Trigger full file sync to Dropbox (any authenticated user)
   app.post('/api/dropbox/sync-files', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      const allowedRoles = ['admin', 'diretor', 'coordenador'];
-      if (!allowedRoles.includes(user?.role)) {
-        return res.status(403).json({ error: 'Acesso negado.' });
-      }
       const { syncAllFilesToDropbox } = await import('./services/dropboxSyncService');
       res.json({ success: true, message: 'Sincronização iniciada em segundo plano.' });
       syncAllFilesToDropbox().then(result => {
@@ -3802,14 +3787,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/dropbox/sync-retry - Retry failed syncs
+  // POST /api/dropbox/sync-retry - Retry failed syncs (any authenticated user)
   app.post('/api/dropbox/sync-retry', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      const allowedRoles = ['admin', 'diretor', 'coordenador'];
-      if (!allowedRoles.includes(user?.role)) {
-        return res.status(403).json({ error: 'Acesso negado.' });
-      }
       const { retrySyncErrors } = await import('./services/dropboxSyncService');
       const result = await retrySyncErrors();
       res.json({ success: true, ...result });
