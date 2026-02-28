@@ -3562,10 +3562,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dropbox/test', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
+      const isAdmin = user?.role === 'admin' || user?.role === 'diretor';
+      const hasSensitiveAccess = req.session?.sensitiveUnlocked === true;
+      console.log(`[Dropbox/test] user=${user?.email} role=${user?.role} cargo=${user?.cargo} isAdmin=${isAdmin}`);
+      if (!isAdmin && !hasSensitiveAccess) {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
-      
+
       const result = await testDropboxConnection();
       res.json(result);
     } catch (error: any) {
