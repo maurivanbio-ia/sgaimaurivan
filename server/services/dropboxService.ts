@@ -69,18 +69,17 @@ async function getAccessToken(): Promise<string> {
 
 // WARNING: Never cache this client — tokens expire every 4h.
 export async function getUncachableDropboxClient() {
-  // Option A: Use refresh token + client credentials (best for long-term)
-  if (
-    process.env.DROPBOX_REFRESH_TOKEN &&
-    process.env.DROPBOX_CLIENT_ID &&
-    process.env.DROPBOX_CLIENT_SECRET
-  ) {
-    console.log('[Dropbox] Using DROPBOX_REFRESH_TOKEN + CLIENT credentials (auto-refresh enabled)');
-    return new Dropbox({
-      clientId: process.env.DROPBOX_CLIENT_ID,
-      clientSecret: process.env.DROPBOX_CLIENT_SECRET,
-      refreshToken: process.env.DROPBOX_REFRESH_TOKEN,
-    } as any);
+  const clientId = process.env.DROPBOX_CLIENT_ID?.trim();
+  const clientSecret = process.env.DROPBOX_CLIENT_SECRET?.trim();
+  const refreshToken = process.env.DROPBOX_REFRESH_TOKEN?.trim();
+
+  // Option A: Use refresh token + client credentials (best for long-term, auto-refreshes)
+  if (clientId && clientSecret && refreshToken) {
+    console.log('[Dropbox] Using DropboxAuth with refresh token (auto-refresh enabled)');
+    const { DropboxAuth } = await import('dropbox');
+    const auth = new DropboxAuth({ clientId, clientSecret, refreshToken });
+    await auth.refreshAccessToken();
+    return new Dropbox({ auth });
   }
 
   // Option B: Static access token or Replit connector token
