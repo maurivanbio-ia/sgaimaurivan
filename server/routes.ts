@@ -3562,7 +3562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dropbox/test', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3578,7 +3578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dropbox/backups', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3594,7 +3594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/backup', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3641,7 +3641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/dropbox/cleanup', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3658,7 +3658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/folders/init', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3718,7 +3718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dropbox/folders/sync-all', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3758,7 +3758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/onedrive/test', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3780,7 +3780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/onedrive/backups', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3795,7 +3795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/onedrive/backup', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3839,7 +3839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/onedrive/cleanup', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3854,7 +3854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/onedrive/folders/init', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
@@ -3923,7 +3923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/onedrive/folders/sync-all', requireAuth, async (req: any, res) => {
     try {
       const user = req.user;
-      if (user?.cargo?.toLowerCase() !== 'admin' && user?.cargo?.toLowerCase() !== 'diretor') {
+      if (user?.role !== 'admin' && user?.role !== 'diretor') {
         return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
       }
       
