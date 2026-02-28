@@ -3177,3 +3177,220 @@ export const insertDropboxSyncLogSchema = createInsertSchema(dropboxSyncLog).omi
 
 export type InsertDropboxSyncLog = z.infer<typeof insertDropboxSyncLogSchema>;
 export type DropboxSyncLog = typeof dropboxSyncLog.$inferSelect;
+
+// =============================================
+// ADITIVOS DE CONTRATOS
+// =============================================
+export const aditivosContratos = pgTable("aditivos_contratos", {
+  id: serial("id").primaryKey(),
+  contratoId: integer("contrato_id").references(() => contratos.id),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  numero: text("numero").notNull(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  tipo: text("tipo").default("aditivo"), // aditivo | apostila | rerratificacao
+  valor: text("valor"),
+  dataAssinatura: text("data_assinatura"),
+  dataVigenciaInicio: text("data_vigencia_inicio"),
+  dataVigenciaFim: text("data_vigencia_fim"),
+  status: text("status").default("ativo"), // ativo | encerrado | cancelado
+  arquivo: text("arquivo"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertAditivoContratoSchema = createInsertSchema(aditivosContratos).omit({ id: true, criadoEm: true });
+export type InsertAditivoContrato = z.infer<typeof insertAditivoContratoSchema>;
+export type AditivoContrato = typeof aditivosContratos.$inferSelect;
+
+// =============================================
+// AUTORIZAÇÕES AMBIENTAIS
+// =============================================
+export const autorizacoes = pgTable("autorizacoes", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  tipo: text("tipo").notNull(), // LP | LI | LO | ASV | LAC | AO | Outorga | Portaria | outro
+  numero: text("numero").notNull(),
+  titulo: text("titulo").notNull(),
+  orgaoEmissor: text("orgao_emissor"),
+  descricao: text("descricao"),
+  dataEmissao: text("data_emissao"),
+  dataValidade: text("data_validade"),
+  status: text("status").default("vigente"), // vigente | vencida | cancelada | em_renovacao
+  arquivo: text("arquivo"),
+  observacoes: text("observacoes"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertAutorizacaoSchema = createInsertSchema(autorizacoes).omit({ id: true, criadoEm: true });
+export type InsertAutorizacao = z.infer<typeof insertAutorizacaoSchema>;
+export type Autorizacao = typeof autorizacoes.$inferSelect;
+
+// =============================================
+// MINUTAS DE DOCUMENTOS
+// =============================================
+export const minutas = pgTable("minutas", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  titulo: text("titulo").notNull(),
+  tipo: text("tipo").default("relatorio"), // relatorio | oficio | parecer | contrato | outro
+  descricao: text("descricao"),
+  versao: text("versao").default("1.0"),
+  conteudo: text("conteudo"),
+  status: text("status").default("rascunho"), // rascunho | revisao | aprovada | enviada
+  responsavel: text("responsavel"),
+  arquivo: text("arquivo"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow(),
+});
+
+export const insertMinutaSchema = createInsertSchema(minutas).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertMinuta = z.infer<typeof insertMinutaSchema>;
+export type Minuta = typeof minutas.$inferSelect;
+
+// =============================================
+// PARECERES TÉCNICOS
+// =============================================
+export const pareceresTecnicos = pgTable("pareceres_tecnicos", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  titulo: text("titulo").notNull(),
+  numero: text("numero"),
+  tipo: text("tipo").default("tecnico"), // tecnico | juridico | financeiro | ambiental
+  autor: text("autor"),
+  orgaoDestino: text("orgao_destino"),
+  conclusao: text("conclusao"),
+  recomendacoes: text("recomendacoes"),
+  status: text("status").default("em_elaboracao"), // em_elaboracao | concluido | aprovado | enviado
+  arquivo: text("arquivo"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertParecerTecnicoSchema = createInsertSchema(pareceresTecnicos).omit({ id: true, criadoEm: true });
+export type InsertParecerTecnico = z.infer<typeof insertParecerTecnicoSchema>;
+export type ParecerTecnico = typeof pareceresTecnicos.$inferSelect;
+
+// =============================================
+// PLANOS DE TRABALHO
+// =============================================
+export const planosTrab = pgTable("planos_trabalho", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  titulo: text("titulo").notNull(),
+  objetivo: text("objetivo"),
+  metodologia: text("metodologia"),
+  dataInicio: text("data_inicio"),
+  dataFim: text("data_fim"),
+  status: text("status").default("elaboracao"), // elaboracao | aprovado | em_execucao | concluido | suspenso
+  responsavel: text("responsavel"),
+  arquivo: text("arquivo"),
+  observacoes: text("observacoes"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertPlanoTrabSchema = createInsertSchema(planosTrab).omit({ id: true, criadoEm: true });
+export type InsertPlanoTrab = z.infer<typeof insertPlanoTrabSchema>;
+export type PlanoTrab = typeof planosTrab.$inferSelect;
+
+// =============================================
+// ATAS DE REUNIÃO
+// =============================================
+export const atasReuniao = pgTable("atas_reuniao", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  titulo: text("titulo").notNull(),
+  local: text("local"),
+  data: text("data").notNull(),
+  horario: text("horario"),
+  participantes: text("participantes"),
+  pauta: text("pauta"),
+  deliberacoes: text("deliberacoes"),
+  acoesDecididas: text("acoes_decididas"),
+  proximaReuniao: text("proxima_reuniao"),
+  arquivo: text("arquivo"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertAtaReuniaoSchema = createInsertSchema(atasReuniao).omit({ id: true, criadoEm: true });
+export type InsertAtaReuniao = z.infer<typeof insertAtaReuniaoSchema>;
+export type AtaReuniao = typeof atasReuniao.$inferSelect;
+
+// =============================================
+// RECIBOS
+// =============================================
+export const recibos = pgTable("recibos", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  numero: text("numero"),
+  descricao: text("descricao").notNull(),
+  valor: text("valor").notNull(),
+  pagador: text("pagador"),
+  recebedor: text("recebedor"),
+  dataPagamento: text("data_pagamento"),
+  metodoPagamento: text("metodo_pagamento").default("transferencia"), // transferencia | boleto | pix | dinheiro | cheque
+  categoria: text("categoria"),
+  observacoes: text("observacoes"),
+  arquivo: text("arquivo"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertReciboSchema = createInsertSchema(recibos).omit({ id: true, criadoEm: true });
+export type InsertRecibo = z.infer<typeof insertReciboSchema>;
+export type Recibo = typeof recibos.$inferSelect;
+
+// =============================================
+// LEADS / CRM
+// =============================================
+export const leads = pgTable("leads", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  empresa: text("empresa"),
+  email: text("email"),
+  telefone: text("telefone"),
+  origem: text("origem").default("indicacao"), // indicacao | site | linkedin | evento | email | outro
+  status: text("status").default("novo"), // novo | contatado | proposta_enviada | negociando | ganho | perdido
+  interesse: text("interesse"),
+  valorEstimado: text("valor_estimado"),
+  probabilidade: integer("probabilidade").default(50), // 0-100%
+  responsavel: text("responsavel"),
+  proximaAcao: text("proxima_acao"),
+  dataProximaAcao: text("data_proxima_acao"),
+  observacoes: text("observacoes"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow(),
+});
+
+export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type Lead = typeof leads.$inferSelect;
+
+// =============================================
+// RELACIONAMENTO COM CLIENTE
+// =============================================
+export const relacionamentosCliente = pgTable("relacionamentos_cliente", {
+  id: serial("id").primaryKey(),
+  clienteNome: text("cliente_nome").notNull(),
+  empresa: text("empresa"),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  leadId: integer("lead_id").references(() => leads.id),
+  tipo: text("tipo").notNull(), // reuniao | ligacao | email | visita | proposta | outro
+  assunto: text("assunto").notNull(),
+  descricao: text("descricao"),
+  data: text("data").notNull(),
+  resultado: text("resultado"),
+  proximaAcao: text("proxima_acao"),
+  responsavel: text("responsavel"),
+  unidade: text("unidade"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertRelacionamentoClienteSchema = createInsertSchema(relacionamentosCliente).omit({ id: true, criadoEm: true });
+export type InsertRelacionamentoCliente = z.infer<typeof insertRelacionamentoClienteSchema>;
+export type RelacionamentoCliente = typeof relacionamentosCliente.$inferSelect;

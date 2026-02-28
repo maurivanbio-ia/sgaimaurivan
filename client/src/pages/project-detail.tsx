@@ -20,7 +20,11 @@ import {
   MapPin,
   Phone,
   Mail,
-  FolderKanban
+  FolderKanban,
+  FilePlus2,
+  ShieldCheck,
+  BookOpen,
+  MessageSquare
 } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 import { LicencasTab } from "@/components/empreendimento/LicencasTab";
@@ -33,6 +37,10 @@ import { GestaoDadosTab } from "@/components/empreendimento/GestaoDadosTab";
 import { EquipamentosTab } from "@/components/empreendimento/EquipamentosTab";
 import { FrotaTab } from "@/components/empreendimento/FrotaTab";
 import { ProjetosTab } from "@/components/empreendimento/ProjetosTab";
+import { AditivosTab } from "@/components/empreendimento/AditivosTab";
+import { AutorizacoesTab } from "@/components/empreendimento/AutorizacoesTab";
+import { AtasReuniaoTab } from "@/components/empreendimento/AtasReuniaoTab";
+import { DocumentosTecnicosTab } from "@/components/empreendimento/DocumentosTecnicosTab";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const getTipoLabel = (tipo: string) => {
@@ -267,6 +275,22 @@ export default function ProjectDetail() {
             <Truck className="h-4 w-4 flex-shrink-0" />
             <span>Frota</span>
           </TabsTrigger>
+          <TabsTrigger value="aditivos" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-aditivos">
+            <FilePlus2 className="h-4 w-4 flex-shrink-0" />
+            <span>Aditivos</span>
+          </TabsTrigger>
+          <TabsTrigger value="autorizacoes" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-autorizacoes">
+            <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+            <span>Autorizações</span>
+          </TabsTrigger>
+          <TabsTrigger value="documentos-tecnicos" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-documentos-tecnicos">
+            <BookOpen className="h-4 w-4 flex-shrink-0" />
+            <span>Documentos Técnicos</span>
+          </TabsTrigger>
+          <TabsTrigger value="atas-reuniao" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-atas-reuniao">
+            <MessageSquare className="h-4 w-4 flex-shrink-0" />
+            <span>Reuniões</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="licencas">
@@ -307,6 +331,22 @@ export default function ProjectDetail() {
 
         <TabsContent value="frota">
           <FrotaTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="aditivos">
+          <AditivosTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="autorizacoes">
+          <AutorizacoesTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="documentos-tecnicos">
+          <DocumentosTecnicosTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="atas-reuniao">
+          <AtasReuniaoTab empreendimentoId={parseInt(id!)} />
         </TabsContent>
       </Tabs>
     </div>

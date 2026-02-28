@@ -107,6 +107,17 @@ import { seiaService } from "./services/seiaService";
 import { newsletterService } from "./services/newsletterService";
 import { blogService } from "./services/blogService";
 import { blogArtigos, blogComentarios, blogReacoes, insertBlogArtigoSchema, insertBlogComentarioSchema, newsletterAssinantes, users } from "@shared/schema";
+import {
+  aditivosContratos, insertAditivoContratoSchema,
+  autorizacoes, insertAutorizacaoSchema,
+  minutas, insertMinutaSchema,
+  pareceresTecnicos, insertParecerTecnicoSchema,
+  planosTrab, insertPlanoTrabSchema,
+  atasReuniao, insertAtaReuniaoSchema,
+  recibos, insertReciboSchema,
+  leads, insertLeadSchema,
+  relacionamentosCliente, insertRelacionamentoClienteSchema,
+} from "@shared/schema";
 import { criarEstruturaInstitucional, criarPastasParaEmpreendimento, sincronizarPastasExistentes, ESTRUTURA_INSTITUCIONAL, ESTRUTURA_PROJETO } from "./services/folderStructureService";
 import { 
   auditLogs,
@@ -12976,6 +12987,288 @@ Regras:
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // ─── ADITIVOS DE CONTRATOS ───────────────────────────────────────────────
+  app.get("/api/aditivos-contratos", requireAuth, async (req, res) => {
+    try {
+      const { contratoId, empreendimentoId } = req.query;
+      const conditions = [];
+      if (contratoId) conditions.push(eq(aditivosContratos.contratoId, parseInt(contratoId as string)));
+      if (empreendimentoId) conditions.push(eq(aditivosContratos.empreendimentoId, parseInt(empreendimentoId as string)));
+      const items = conditions.length > 0 ? await db.select().from(aditivosContratos).where(and(...conditions)).orderBy(desc(aditivosContratos.criadoEm)) : await db.select().from(aditivosContratos).orderBy(desc(aditivosContratos.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/aditivos-contratos", requireAuth, async (req, res) => {
+    try {
+      const data = insertAditivoContratoSchema.parse(req.body);
+      const [item] = await db.insert(aditivosContratos).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/aditivos-contratos/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [item] = await db.update(aditivosContratos).set(req.body).where(eq(aditivosContratos.id, id)).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/aditivos-contratos/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(aditivosContratos).where(eq(aditivosContratos.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── AUTORIZAÇÕES AMBIENTAIS ─────────────────────────────────────────────
+  app.get("/api/autorizacoes", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(autorizacoes).where(eq(autorizacoes.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(autorizacoes.criadoEm))
+        : await db.select().from(autorizacoes).orderBy(desc(autorizacoes.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/autorizacoes", requireAuth, async (req, res) => {
+    try {
+      const data = insertAutorizacaoSchema.parse(req.body);
+      const [item] = await db.insert(autorizacoes).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/autorizacoes/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(autorizacoes).set(req.body).where(eq(autorizacoes.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/autorizacoes/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(autorizacoes).where(eq(autorizacoes.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── MINUTAS ─────────────────────────────────────────────────────────────
+  app.get("/api/minutas", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(minutas).where(eq(minutas.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(minutas.criadoEm))
+        : await db.select().from(minutas).orderBy(desc(minutas.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/minutas", requireAuth, async (req, res) => {
+    try {
+      const data = insertMinutaSchema.parse(req.body);
+      const [item] = await db.insert(minutas).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/minutas/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(minutas).set({ ...req.body, atualizadoEm: new Date() }).where(eq(minutas.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/minutas/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(minutas).where(eq(minutas.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── PARECERES TÉCNICOS ──────────────────────────────────────────────────
+  app.get("/api/pareceres-tecnicos", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(pareceresTecnicos).where(eq(pareceresTecnicos.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(pareceresTecnicos.criadoEm))
+        : await db.select().from(pareceresTecnicos).orderBy(desc(pareceresTecnicos.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/pareceres-tecnicos", requireAuth, async (req, res) => {
+    try {
+      const data = insertParecerTecnicoSchema.parse(req.body);
+      const [item] = await db.insert(pareceresTecnicos).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/pareceres-tecnicos/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(pareceresTecnicos).set(req.body).where(eq(pareceresTecnicos.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/pareceres-tecnicos/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(pareceresTecnicos).where(eq(pareceresTecnicos.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── PLANOS DE TRABALHO ──────────────────────────────────────────────────
+  app.get("/api/planos-trabalho", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(planosTrab).where(eq(planosTrab.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(planosTrab.criadoEm))
+        : await db.select().from(planosTrab).orderBy(desc(planosTrab.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/planos-trabalho", requireAuth, async (req, res) => {
+    try {
+      const data = insertPlanoTrabSchema.parse(req.body);
+      const [item] = await db.insert(planosTrab).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/planos-trabalho/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(planosTrab).set(req.body).where(eq(planosTrab.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/planos-trabalho/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(planosTrab).where(eq(planosTrab.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── ATAS DE REUNIÃO ─────────────────────────────────────────────────────
+  app.get("/api/atas-reuniao", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(atasReuniao).where(eq(atasReuniao.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(atasReuniao.criadoEm))
+        : await db.select().from(atasReuniao).orderBy(desc(atasReuniao.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/atas-reuniao", requireAuth, async (req, res) => {
+    try {
+      const data = insertAtaReuniaoSchema.parse(req.body);
+      const [item] = await db.insert(atasReuniao).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/atas-reuniao/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(atasReuniao).set(req.body).where(eq(atasReuniao.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/atas-reuniao/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(atasReuniao).where(eq(atasReuniao.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── RECIBOS ─────────────────────────────────────────────────────────────
+  app.get("/api/recibos", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, unidade } = req.query;
+      const conditions = [];
+      if (empreendimentoId) conditions.push(eq(recibos.empreendimentoId, parseInt(empreendimentoId as string)));
+      if (unidade) conditions.push(eq(recibos.unidade, unidade as string));
+      const items = conditions.length > 0
+        ? await db.select().from(recibos).where(and(...conditions)).orderBy(desc(recibos.criadoEm))
+        : await db.select().from(recibos).orderBy(desc(recibos.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/recibos", requireAuth, async (req, res) => {
+    try {
+      const data = insertReciboSchema.parse(req.body);
+      const [item] = await db.insert(recibos).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/recibos/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(recibos).set(req.body).where(eq(recibos.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/recibos/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(recibos).where(eq(recibos.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── LEADS / CRM ─────────────────────────────────────────────────────────
+  app.get("/api/leads", requireAuth, async (req, res) => {
+    try {
+      const { unidade, status } = req.query;
+      const conditions = [];
+      if (unidade) conditions.push(eq(leads.unidade, unidade as string));
+      if (status) conditions.push(eq(leads.status, status as string));
+      const items = conditions.length > 0
+        ? await db.select().from(leads).where(and(...conditions)).orderBy(desc(leads.criadoEm))
+        : await db.select().from(leads).orderBy(desc(leads.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/leads", requireAuth, async (req, res) => {
+    try {
+      const data = insertLeadSchema.parse(req.body);
+      const [item] = await db.insert(leads).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/leads/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(leads).set({ ...req.body, atualizadoEm: new Date() }).where(eq(leads.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/leads/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(leads).where(eq(leads.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── RELACIONAMENTOS COM CLIENTE ─────────────────────────────────────────
+  app.get("/api/relacionamentos-cliente", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId, leadId, unidade } = req.query;
+      const conditions = [];
+      if (empreendimentoId) conditions.push(eq(relacionamentosCliente.empreendimentoId, parseInt(empreendimentoId as string)));
+      if (leadId) conditions.push(eq(relacionamentosCliente.leadId, parseInt(leadId as string)));
+      if (unidade) conditions.push(eq(relacionamentosCliente.unidade, unidade as string));
+      const items = conditions.length > 0
+        ? await db.select().from(relacionamentosCliente).where(and(...conditions)).orderBy(desc(relacionamentosCliente.criadoEm))
+        : await db.select().from(relacionamentosCliente).orderBy(desc(relacionamentosCliente.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/relacionamentos-cliente", requireAuth, async (req, res) => {
+    try {
+      const data = insertRelacionamentoClienteSchema.parse(req.body);
+      const [item] = await db.insert(relacionamentosCliente).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/relacionamentos-cliente/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(relacionamentosCliente).set(req.body).where(eq(relacionamentosCliente.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/relacionamentos-cliente/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(relacionamentosCliente).where(eq(relacionamentosCliente.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
     // Register n8n webhooks (before creating HTTP server)

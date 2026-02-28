@@ -1,23 +1,21 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, FileText, Loader2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, FileText, Loader2, Users, TrendingUp, MessageSquare, Pencil, Phone, Mail, Building } from "lucide-react";
 import { SensitivePageWrapper } from "@/components/SensitivePageWrapper";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -52,8 +50,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -309,6 +305,14 @@ export default function PropostasComerciais() {
   return (
     <SensitivePageWrapper moduleName="Propostas Comerciais">
     <div className="container mx-auto p-6 space-y-6">
+      <Tabs defaultValue="propostas">
+        <TabsList className="grid grid-cols-3 w-full max-w-md mb-4">
+          <TabsTrigger value="propostas" className="gap-2"><FileText className="h-4 w-4" />Propostas</TabsTrigger>
+          <TabsTrigger value="leads" className="gap-2"><TrendingUp className="h-4 w-4" />Leads / CRM</TabsTrigger>
+          <TabsTrigger value="relacionamento" className="gap-2"><MessageSquare className="h-4 w-4" />Relacionamento</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="propostas">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -675,7 +679,249 @@ export default function PropostasComerciais() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+
+        {/* Leads / CRM Tab */}
+        <TabsContent value="leads">
+          <LeadsSection />
+        </TabsContent>
+
+        {/* Relacionamento Tab */}
+        <TabsContent value="relacionamento">
+          <RelacionamentoSection />
+        </TabsContent>
+      </Tabs>
     </div>
     </SensitivePageWrapper>
+  );
+}
+
+// ─── LEADS / CRM ─────────────────────────────────────────────────────────────
+const STATUS_LEAD_COLORS: Record<string, string> = {
+  novo: "bg-blue-100 text-blue-800",
+  contatado: "bg-yellow-100 text-yellow-800",
+  proposta_enviada: "bg-orange-100 text-orange-800",
+  negociando: "bg-purple-100 text-purple-800",
+  ganho: "bg-green-100 text-green-800",
+  perdido: "bg-red-100 text-red-800",
+};
+
+function LeadsSection() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState({ nome: "", empresa: "", email: "", telefone: "", origem: "indicacao", status: "novo", interesse: "", valorEstimado: "", probabilidade: 50, responsavel: "", proximaAcao: "", dataProximaAcao: "", observacoes: "" });
+
+  const { data: items = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/leads"],
+    queryFn: () => fetch("/api/leads").then(r => r.json()),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data: any) =>
+      editing ? fetch(`/api/leads/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json())
+              : fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/leads"] }); setOpen(false); setEditing(null); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => fetch(`/api/leads/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/leads"] }),
+  });
+
+  function openNew() { setEditing(null); setForm({ nome: "", empresa: "", email: "", telefone: "", origem: "indicacao", status: "novo", interesse: "", valorEstimado: "", probabilidade: 50, responsavel: "", proximaAcao: "", dataProximaAcao: "", observacoes: "" }); setOpen(true); }
+  function openEdit(item: any) { setEditing(item); setForm({ nome: item.nome, empresa: item.empresa || "", email: item.email || "", telefone: item.telefone || "", origem: item.origem || "indicacao", status: item.status || "novo", interesse: item.interesse || "", valorEstimado: item.valorEstimado || "", probabilidade: item.probabilidade || 50, responsavel: item.responsavel || "", proximaAcao: item.proximaAcao || "", dataProximaAcao: item.dataProximaAcao || "", observacoes: item.observacoes || "" }); setOpen(true); }
+
+  const byStatus = items.reduce((acc: Record<string, number>, i: any) => { acc[i.status] = (acc[i.status] || 0) + 1; return acc; }, {});
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        {[["novo","Novos"],["contatado","Contatados"],["negociando","Negociando"],["proposta_enviada","Proposta"],["ganho","Ganhos"],["perdido","Perdidos"]].map(([s, l]) => (
+          <div key={s} className={`rounded-lg p-3 text-center border ${STATUS_LEAD_COLORS[s]?.replace("text", "border") || ""}`}>
+            <p className="text-xl font-bold">{byStatus[s] || 0}</p>
+            <p className="text-xs">{l}</p>
+          </div>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5" />Pipeline de Leads</CardTitle>
+          <Button size="sm" onClick={openNew} className="gap-2"><Plus className="h-4 w-4" />Novo Lead</Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+          : items.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground"><Users className="h-10 w-10 mx-auto mb-2 opacity-30" /><p>Nenhum lead cadastrado</p></div>
+          ) : (
+            <div className="space-y-2">
+              {items.map((item: any) => (
+                <div key={item.id} className="border rounded-lg p-3 flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{item.nome}</span>
+                      {item.empresa && <span className="text-xs text-muted-foreground flex items-center gap-1"><Building className="h-3 w-3" />{item.empresa}</span>}
+                      <Badge className={`text-xs ${STATUS_LEAD_COLORS[item.status] || ""}`}>{item.status?.replace("_", " ")}</Badge>
+                      {item.probabilidade && <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{item.probabilidade}%</span>}
+                    </div>
+                    <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                      {item.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{item.email}</span>}
+                      {item.telefone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{item.telefone}</span>}
+                      {item.valorEstimado && <span>Est.: R$ {item.valorEstimado}</span>}
+                    </div>
+                    {item.proximaAcao && <p className="text-xs text-muted-foreground mt-1 italic">→ {item.proximaAcao}{item.dataProximaAcao ? ` (${item.dataProximaAcao})` : ""}</p>}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3 w-3" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm("Remover lead?")) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editing ? "Editar Lead" : "Novo Lead"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Nome *</Label><Input value={form.nome} onChange={(e: any) => setForm((f: any) => ({ ...f, nome: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Empresa</Label><Input value={form.empresa} onChange={(e: any) => setForm((f: any) => ({ ...f, empresa: e.target.value }))} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Email</Label><Input value={form.email} onChange={(e: any) => setForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Telefone</Label><Input value={form.telefone} onChange={(e: any) => setForm((f: any) => ({ ...f, telefone: e.target.value }))} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Origem</Label>
+              <Select value={form.origem} onValueChange={(v: string) => setForm((f: any) => ({ ...f, origem: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{["indicacao","site","linkedin","evento","email","outro"].map(o => <SelectItem key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label>Status</Label>
+              <Select value={form.status} onValueChange={(v: string) => setForm((f: any) => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{[["novo","Novo"],["contatado","Contatado"],["proposta_enviada","Proposta Enviada"],["negociando","Negociando"],["ganho","Ganho"],["perdido","Perdido"]].map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Interesse</Label><Input value={form.interesse} onChange={(e: any) => setForm((f: any) => ({ ...f, interesse: e.target.value }))} placeholder="Ex: Licenciamento Ambiental" /></div>
+            <div className="space-y-1"><Label>Valor Estimado (R$)</Label><Input value={form.valorEstimado} onChange={(e: any) => setForm((f: any) => ({ ...f, valorEstimado: e.target.value }))} /></div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1"><Label>Probabilidade (%)</Label><Input type="number" min={0} max={100} value={form.probabilidade} onChange={(e: any) => setForm((f: any) => ({ ...f, probabilidade: parseInt(e.target.value) || 0 }))} /></div>
+            <div className="space-y-1"><Label>Responsável</Label><Input value={form.responsavel} onChange={(e: any) => setForm((f: any) => ({ ...f, responsavel: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Data Próxima Ação</Label><Input type="date" value={form.dataProximaAcao} onChange={(e: any) => setForm((f: any) => ({ ...f, dataProximaAcao: e.target.value }))} /></div>
+          </div>
+          <div className="space-y-1"><Label>Próxima Ação</Label><Input value={form.proximaAcao} onChange={(e: any) => setForm((f: any) => ({ ...f, proximaAcao: e.target.value }))} /></div>
+          <div className="space-y-1"><Label>Observações</Label><Textarea value={form.observacoes} onChange={(e: any) => setForm((f: any) => ({ ...f, observacoes: e.target.value }))} rows={2} /></div>
+          <div className="flex gap-2 justify-end"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={() => saveMutation.mutate(form)} disabled={!form.nome || saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar"}</Button></div>
+        </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── RELACIONAMENTO ───────────────────────────────────────────────────────────
+function RelacionamentoSection() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState({ clienteNome: "", empresa: "", tipo: "reuniao", assunto: "", descricao: "", data: "", resultado: "", proximaAcao: "", responsavel: "" });
+
+  const { data: items = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/relacionamentos-cliente"],
+    queryFn: () => fetch("/api/relacionamentos-cliente").then(r => r.json()),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data: any) =>
+      editing ? fetch(`/api/relacionamentos-cliente/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json())
+              : fetch("/api/relacionamentos-cliente", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/relacionamentos-cliente"] }); setOpen(false); setEditing(null); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => fetch(`/api/relacionamentos-cliente/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/relacionamentos-cliente"] }),
+  });
+
+  const TIPO_ICONS: Record<string, string> = { reuniao: "🤝", ligacao: "📞", email: "📧", visita: "🏢", proposta: "📋", outro: "💬" };
+
+  function openNew() { setEditing(null); setForm({ clienteNome: "", empresa: "", tipo: "reuniao", assunto: "", descricao: "", data: "", resultado: "", proximaAcao: "", responsavel: "" }); setOpen(true); }
+  function openEdit(item: any) { setEditing(item); setForm({ clienteNome: item.clienteNome, empresa: item.empresa || "", tipo: item.tipo, assunto: item.assunto, descricao: item.descricao || "", data: item.data, resultado: item.resultado || "", proximaAcao: item.proximaAcao || "", responsavel: item.responsavel || "" }); setOpen(true); }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <CardTitle className="text-base flex items-center gap-2"><MessageSquare className="h-5 w-5" />Histórico de Relacionamentos</CardTitle>
+          <Button size="sm" onClick={openNew} className="gap-2"><Plus className="h-4 w-4" />Registrar Interação</Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+          : items.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground"><MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-30" /><p>Nenhuma interação registrada</p></div>
+          ) : (
+            <div className="space-y-2">
+              {items.map((item: any) => (
+                <div key={item.id} className="border rounded-lg p-3 flex items-start gap-3">
+                  <div className="text-xl flex-shrink-0 mt-0.5">{TIPO_ICONS[item.tipo] || "💬"}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{item.assunto}</span>
+                      <Badge variant="outline" className="text-xs capitalize">{item.tipo}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{item.clienteNome}{item.empresa ? ` · ${item.empresa}` : ""} · {item.data}</div>
+                    {item.descricao && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.descricao}</p>}
+                    {item.resultado && <p className="text-xs text-green-700 mt-1">✓ {item.resultado}</p>}
+                    {item.proximaAcao && <p className="text-xs text-blue-700 mt-0.5 italic">→ {item.proximaAcao}</p>}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3 w-3" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm("Remover?")) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editing ? "Editar Interação" : "Registrar Interação"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Cliente *</Label><Input value={form.clienteNome} onChange={(e: any) => setForm((f: any) => ({ ...f, clienteNome: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Empresa</Label><Input value={form.empresa} onChange={(e: any) => setForm((f: any) => ({ ...f, empresa: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Tipo</Label>
+                <Select value={form.tipo} onValueChange={(v: string) => setForm((f: any) => ({ ...f, tipo: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{["reuniao","ligacao","email","visita","proposta","outro"].map(t => <SelectItem key={t} value={t}>{TIPO_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1"><Label>Data *</Label><Input type="date" value={form.data} onChange={(e: any) => setForm((f: any) => ({ ...f, data: e.target.value }))} /></div>
+            </div>
+            <div className="space-y-1"><Label>Assunto *</Label><Input value={form.assunto} onChange={(e: any) => setForm((f: any) => ({ ...f, assunto: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={form.descricao} onChange={(e: any) => setForm((f: any) => ({ ...f, descricao: e.target.value }))} rows={3} /></div>
+            <div className="space-y-1"><Label>Resultado / Conclusão</Label><Input value={form.resultado} onChange={(e: any) => setForm((f: any) => ({ ...f, resultado: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Próxima Ação</Label><Input value={form.proximaAcao} onChange={(e: any) => setForm((f: any) => ({ ...f, proximaAcao: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Responsável</Label><Input value={form.responsavel} onChange={(e: any) => setForm((f: any) => ({ ...f, responsavel: e.target.value }))} /></div>
+            </div>
+            <div className="flex gap-2 justify-end"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={() => saveMutation.mutate(form)} disabled={!form.clienteNome || !form.assunto || !form.data || saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar"}</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
