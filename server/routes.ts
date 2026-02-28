@@ -3586,13 +3586,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // GET /api/dropbox/backups - List Dropbox backups
+  // GET /api/dropbox/backups - List Dropbox backups (any authenticated user)
   app.get('/api/dropbox/backups', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       const result = await listDropboxBackups();
       res.json(result);
@@ -3602,14 +3598,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // POST /api/dropbox/backup - Upload backup to Dropbox
+  // POST /api/dropbox/backup - Upload backup to Dropbox (any authenticated user)
   app.post('/api/dropbox/backup', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
-      
       // Perform backup first
       const backupResult = await performBackup();
       if (!backupResult.success) {
@@ -3649,13 +3640,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // DELETE /api/dropbox/cleanup - Clean old Dropbox backups
+  // DELETE /api/dropbox/cleanup - Clean old Dropbox backups (any authenticated user)
   app.delete('/api/dropbox/cleanup', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       const days = parseInt(req.query.days as string) || 30;
       const result = await deleteOldDropboxBackups(days);
@@ -3830,13 +3817,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ONEDRIVE ROUTES ====================
   
-  // GET /api/onedrive/test - Test OneDrive connection
+  // GET /api/onedrive/test - Test OneDrive connection (any authenticated user)
   app.get('/api/onedrive/test', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       const { checkOneDriveConnection } = await import('./services/onedriveService');
       const result = await checkOneDriveConnection();
@@ -3852,13 +3835,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // GET /api/onedrive/backups - List OneDrive backups (placeholder for future use)
+  // GET /api/onedrive/backups - List OneDrive backups (any authenticated user)
   app.get('/api/onedrive/backups', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       res.json({ success: true, files: [] });
     } catch (error: any) {
@@ -3867,13 +3846,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // POST /api/onedrive/backup - Upload backup to OneDrive
+  // POST /api/onedrive/backup - Upload backup to OneDrive (any authenticated user)
   app.post('/api/onedrive/backup', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       const backupResult = await performBackup();
       if (!backupResult.success) {
@@ -3911,13 +3886,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // DELETE /api/onedrive/cleanup - Clean old OneDrive backups (placeholder)
+  // DELETE /api/onedrive/cleanup - Clean old OneDrive backups (any authenticated user)
   app.delete('/api/onedrive/cleanup', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       res.json({ success: true, deleted: 0 });
     } catch (error: any) {
@@ -3926,13 +3897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/onedrive/folders/init - Initialize institutional folder structure in OneDrive
+  // POST /api/onedrive/folders/init - Initialize institutional folder structure in OneDrive (any authenticated user)
   app.post('/api/onedrive/folders/init', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       const { createInstitutionalStructure } = await import('./services/onedriveService');
       const result = await createInstitutionalStructure();
@@ -3995,13 +3962,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/onedrive/folders/sync-all - Sync all empreendimentos to OneDrive
+  // POST /api/onedrive/folders/sync-all - Sync all empreendimentos to OneDrive (any authenticated user)
   app.post('/api/onedrive/folders/sync-all', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin' && user?.role !== 'diretor') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-      }
       
       const { syncAllEmpreendimentosToOneDrive } = await import('./services/onedriveService');
       
