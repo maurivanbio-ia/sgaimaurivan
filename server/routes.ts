@@ -3614,14 +3614,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const latestBackup = backups[0];
-      const content = await downloadBackup(latestBackup.fileName);
+      // latestBackup.key is like "backups/backup_TIMESTAMP.json"
+      // downloadBackup adds "backups/" prefix, so strip it
+      const baseFileName = latestBackup.key.replace(/^backups\//, '');
+      const content = await downloadBackup(baseFileName);
       
       if (!content) {
         return res.status(500).json({ success: false, error: 'Falha ao ler backup' });
       }
       
-      // Upload to Dropbox
-      const uploadResult = await uploadToDropbox(latestBackup.fileName, content);
+      // Upload to Dropbox using the base file name
+      const uploadResult = await uploadToDropbox(baseFileName, content);
       
       if (uploadResult.success) {
         // Clean old backups (keep 30 days)
@@ -3630,7 +3633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: uploadResult.success,
-        localBackup: latestBackup.fileName,
+        localBackup: baseFileName,
         dropboxPath: uploadResult.path,
         error: uploadResult.error
       });
@@ -3861,7 +3864,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const latestBackup = backups[0];
-      const content = await downloadBackup(latestBackup.fileName);
+      const baseFileName = latestBackup.key.replace(/^backups\//, '');
+      const content = await downloadBackup(baseFileName);
       
       if (!content) {
         return res.status(500).json({ success: false, error: 'Falha ao ler backup' });
@@ -3871,12 +3875,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const uploadResult = await uploadFileToOneDrive(
         'ECOBRASIL_CONSULTORIA_AMBIENTAL/06_SISTEMAS_E_AUTOMACOES/Backups_Sistemas',
         Buffer.from(content),
-        latestBackup.fileName
+        baseFileName
       );
       
       res.json({
         success: uploadResult.success,
-        localBackup: latestBackup.fileName,
+        localBackup: baseFileName,
         onedrivePath: uploadResult.webUrl,
         error: uploadResult.error
       });
