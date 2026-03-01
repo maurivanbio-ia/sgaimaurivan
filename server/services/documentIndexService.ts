@@ -227,6 +227,92 @@ export function buildDocumentDescription(params: {
 }
 
 /**
+ * Build a concise text description for a structured record (no file involved).
+ * Used to index licenses, demands, contracts, empreendimentos, etc.
+ */
+function buildRecordText(type: string, record: Record<string, any>, empreendimentoNome?: string): string {
+  const parts: string[] = [`Tipo de registro: ${MODULE_LABELS[type] || type}`];
+  if (empreendimentoNome) parts.push(`Empreendimento: ${empreendimentoNome}`);
+
+  const fieldMap: Record<string, string> = {
+    nome: 'Nome', titulo: 'Título', numero: 'Número', tipo: 'Tipo',
+    subtipo: 'Subtipo', status: 'Status', descricao: 'Descrição',
+    orgaoEmissor: 'Órgão Emissor', orgao_emissor: 'Órgão Emissor',
+    dataEmissao: 'Data de Emissão', data_emissao: 'Data de Emissão',
+    dataVencimento: 'Data de Vencimento', data_vencimento: 'Data de Vencimento',
+    dataExpiracao: 'Data de Expiração', data_expiracao: 'Data de Expiração',
+    prazo: 'Prazo', dataPrazo: 'Prazo', data_prazo: 'Prazo',
+    responsavel: 'Responsável', responsavelInterno: 'Responsável Interno',
+    cliente: 'Cliente', localizacao: 'Localização', municipio: 'Município',
+    uf: 'UF', cpf: 'CPF', cnpj: 'CNPJ', email: 'E-mail', telefone: 'Telefone',
+    cargo: 'Cargo', setor: 'Setor', funcao: 'Função',
+    valor: 'Valor', objeto: 'Objeto', categoria: 'Categoria',
+    prioridade: 'Prioridade', observacoes: 'Observações', notas: 'Notas',
+    modelo: 'Modelo', marca: 'Marca', placa: 'Placa', cor: 'Cor',
+    anoFabricacao: 'Ano de Fabricação', ano: 'Ano', codigoPatrimonio: 'Código de Patrimônio',
+    campanha: 'Campanha', pontoColeta: 'Ponto de Coleta', laboratorio: 'Laboratório',
+    tipoAmostra: 'Tipo de Amostra', dataColeta: 'Data de Coleta',
+    nomeColaborador: 'Colaborador', colaborador: 'Colaborador',
+    conteudo: 'Conteúdo', texto: 'Texto', tags: 'Tags',
+  };
+
+  for (const [key, label] of Object.entries(fieldMap)) {
+    const val = record[key];
+    if (val != null && val !== '') {
+      const strVal = Array.isArray(val) ? val.join(', ') : String(val);
+      if (strVal.length > 0) parts.push(`${label}: ${strVal}`);
+    }
+  }
+
+  const dropboxPath = MODULE_DROPBOX_PATH[type];
+  if (dropboxPath) {
+    parts.push(`Localização Dropbox: ${empreendimentoNome ? `PROJETOS / [...] / ${dropboxPath}` : dropboxPath}`);
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Index a structured record (non-file entity) into the RAG.
+ * Call this whenever a record is created or updated in the platform.
+ */
+export async function indexStructuredRecord(params: {
+  unidade: string;
+  type: string;
+  recordId: number;
+  record: Record<string, any>;
+  empreendimentoId?: number;
+  empreendimentoNome?: string;
+  sourceLabel?: string;
+}): Promise<void> {
+  const { unidade, type, recordId, record, empreendimentoId, empreendimentoNome, sourceLabel } = params;
+  try {
+    const text = buildRecordText(type, record, empreendimentoNome);
+    const moduleLabel = MODULE_LABELS[type] || type;
+    const dropboxPath = MODULE_DROPBOX_PATH[type] || '';
+    const source = sourceLabel || `${moduleLabel} #${recordId}`;
+
+    const metadata = {
+      module: type,
+      moduleLabel,
+      dropboxPath: empreendimentoNome && dropboxPath
+        ? `PROJETOS / [CODIGO_EMPREENDIMENTO] / ${dropboxPath}`
+        : dropboxPath,
+      empreendimentoNome: empreendimentoNome || null,
+      empreendimentoId: empreendimentoId || null,
+      recordId,
+      indexedAt: new Date().toISOString(),
+      structured: true,
+    };
+
+    await indexDocument(unidade, text, source, 'structured', empreendimentoId, metadata);
+    console.log(`[RAG] Dado estruturado indexado: ${source} (${unidade})`);
+  } catch (err: any) {
+    console.error(`[RAG] Erro ao indexar registro ${type} #${recordId}:`, err.message);
+  }
+}
+
+/**
  * Auto-index a document when it is uploaded to the platform.
  * Call this from any file upload endpoint.
  */
