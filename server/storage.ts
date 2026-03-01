@@ -1690,7 +1690,7 @@ export class DatabaseStorage implements IStorage {
       results = await db
         .select({
           demanda: demandas,
-          responsavelNome: users.nome,
+          responsavelNome: users.email,
         })
         .from(demandas)
         .leftJoin(users, eq(demandas.responsavelId, users.id))
@@ -1700,7 +1700,7 @@ export class DatabaseStorage implements IStorage {
       results = await db
         .select({
           demanda: demandas,
-          responsavelNome: users.nome,
+          responsavelNome: users.email,
         })
         .from(demandas)
         .leftJoin(users, eq(demandas.responsavelId, users.id))

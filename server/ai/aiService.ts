@@ -378,16 +378,16 @@ const AI_TOOLS = [
     type: "function" as const,
     function: {
       name: "criar_demanda",
-      description: "Cria uma nova demanda/tarefa no sistema. IMPORTANTE: antes de chamar, confirme com o usuário: título, setor e prazo. Se faltar algum campo obrigatório, PERGUNTE antes de executar.",
+      description: "Cria uma nova demanda/tarefa no sistema. CHAME IMEDIATAMENTE quando tiver titulo+setor+prazo. Campos opcionais têm padrões — não pergunte sobre eles.",
       parameters: {
         type: "object",
         properties: {
-          titulo: { type: "string", description: "Título claro da demanda" },
-          descricao: { type: "string", description: "Descrição detalhada da demanda (opcional)" },
-          setor: { type: "string", description: "Setor responsável. Valores aceitos: Licenciamento, Fauna, Flora, RH, Engenharia, Meio Físico, Meio Biótico, Financeiro, Administrativo, Geral. Use 'Geral' se o usuário não especificar." },
-          prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Prioridade da tarefa. Padrão: media" },
-          prazo: { type: "string", description: "Data de entrega YYYY-MM-DD. OBRIGATÓRIO — pergunte ao usuário se não informou." },
-          empreendimentoId: { type: "number", description: "ID do empreendimento associado. Use os dados do banco para encontrar pelo nome." },
+          titulo: { type: "string", description: "[OBRIGATÓRIO] Título da demanda conforme informado pelo usuário" },
+          setor: { type: "string", description: "[OBRIGATÓRIO] Setor: Licenciamento, Fauna, Flora, RH, Engenharia, Meio Físico, Meio Biótico, Financeiro, Administrativo, Geral" },
+          prazo: { type: "string", description: "[OBRIGATÓRIO] Data de entrega formato YYYY-MM-DD" },
+          descricao: { type: "string", description: "[OPCIONAL] Descrição adicional — deixe em branco se não informado" },
+          prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "[OPCIONAL] Padrão: media — USE o padrão sem perguntar" },
+          empreendimentoId: { type: "number", description: "[OPCIONAL] ID do empreendimento — só informe se o usuário mencionou um" },
         },
         required: ["titulo", "setor", "prazo"],
       },
@@ -502,6 +502,8 @@ async function executeTool(toolName: string, args: any, unidade: string, userId?
   const todayStr = today.toISOString().split('T')[0];
   const in7days = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
 
+  console.log(`[AI Tool] ${toolName} | unidade=${unidade} | userId=${userId} | args=${JSON.stringify(args)}`);
+
   try {
     // ── CRIAR DEMANDA ───────────────────────────────────────────────────────
     if (toolName === 'criar_demanda') {
@@ -609,6 +611,19 @@ async function executeTool(toolName: string, args: any, unidade: string, userId?
   }
 }
 
+function detectActionIntent(message: string): boolean {
+  const lower = message.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const actionPatterns = [
+    /\bcri(e|a|ar|ou)\s+(uma?\s+)?(demanda|tarefa|empreendimento)/i,
+    /\bregistr(e|a|ar|ou)\s+(um(a?)?\s+)?(equipamento|veiculo|vei[ií]culo|lancamento|lan[çc]amento)/i,
+    /\badicione?\s+(um(a?)?\s+)?(demanda|tarefa|empreendimento|veiculo|equipamento)/i,
+    /\bcadastre?\s+(um(a?)?\s+)?(demanda|tarefa|empreendimento|veiculo|equipamento|empreend)/i,
+    /\binsira?\s+(um(a?)?\s+)?(demanda|tarefa)/i,
+    /\batualize?\s+(o\s+)?(status)\s+(da\s+)?(licen[çc]a)/i,
+  ];
+  return actionPatterns.some(p => p.test(lower));
+}
+
 function buildSystemPrompt(unidade: string, dbContext: string, docsText: string): string {
   return `Você é o EcoGestor-AI, assistente da Ecobrasil Consultoria Ambiental. Você é um colega experiente em gestão ambiental — inteligente, atento e humano.
 
@@ -642,18 +657,40 @@ ${dbContext}
 
 ${docsText}
 
-## Ações disponíveis — REGRAS OBRIGATÓRIAS
-Você pode criar e atualizar registros diretamente na plataforma usando as ferramentas disponíveis:
-- **criar_demanda** — campos obrigatórios: título, setor, prazo (data de entrega)
+## Ferramentas de ação — PROTOCOLO OBRIGATÓRIO
+
+Você tem acesso a ferramentas reais que executam ações no banco de dados:
+- **criar_demanda** — campos obrigatórios: título, setor, prazo (data YYYY-MM-DD)
 - **criar_empreendimento** — campos obrigatórios: nome, cliente, localização, responsável interno
 - **registrar_equipamento** — campos obrigatórios: nome, tipo, localização atual
-- **registrar_veiculo** — campos obrigatórios: placa, marca, modelo, ano, tipo, combustível, seguro, data da próxima revisão
+- **registrar_veiculo** — campos obrigatórios: placa, marca, modelo, ano, tipo, combustível, seguro, próxima revisão
 - **atualizar_status_licenca** — campos obrigatórios: ID da licença, novo status
 - **registrar_lancamento** — campos obrigatórios: descrição, tipo (receita/despesa), valor
 
-⚠️ REGRA CRÍTICA: NUNCA execute uma ferramenta sem ter TODOS os campos obrigatórios confirmados pelo usuário. Se faltar qualquer campo, PERGUNTE antes de agir. Liste claramente o que falta. Exemplo: "Para criar a demanda, preciso ainda: **prazo de entrega** e **setor** (Licenciamento, Fauna, RH, etc). Pode me informar?"
+### REGRA 1 — Coleta (SOMENTE campos OBRIGATÓRIOS que faltam)
+Campos obrigatórios que precisam ser coletados antes de executar:
+- criar_demanda: **titulo**, **setor**, **prazo** (data)
+- criar_empreendimento: **nome**, **cliente**, **localizacao**, **responsavelInterno**
+- registrar_equipamento: **nome**, **tipo**, **localizacaoAtual**
+- registrar_veiculo: **placa**, **marca**, **modelo**, **ano**, **tipo**, **combustivel**, **seguro**, **proximaRevisao**
+- atualizar_status_licenca: **licencaId**, **novoStatus**
+- registrar_lancamento: **descricao**, **tipo**, **valor**
 
-Após executar com sucesso, confirme o que foi criado e mencione que já está disponível na plataforma.
+Se faltar algum campo OBRIGATÓRIO: escreva UMA pergunta listando o que falta. Campos opcionais (prioridade, descrição, etc.) → use o valor padrão SEM perguntar.
+
+### REGRA 2 — Execução IMEDIATA (quando todos os obrigatórios estão presentes)
+Quando o usuário forneceu todos os campos obrigatórios (mesmo que em mensagens anteriores):
+1. **CHAME A FUNÇÃO IMEDIATAMENTE** — sem pedir confirmação, sem perguntar opcionais
+2. Campos opcionais ausentes: use os padrões (prioridade=media, status=a_fazer, etc.)
+3. Após a ferramenta retornar, confirme o resultado brevemente
+
+### REGRA 3 — ABSOLUTAMENTE PROIBIDO
+❌ NÃO peça campos opcionais (prioridade, descrição, tags, etc.) antes de executar
+❌ NÃO simule criação em texto ("Criei a demanda ID #53") sem ter chamado a função real
+❌ NÃO peça confirmação se já tiver todos os obrigatórios
+❌ NÃO invente IDs — eles vêm do retorno da ferramenta
+
+Após a ferramenta executar com sucesso, confirme brevemente o que foi criado.
 
 ## Regras absolutas
 - Nunca invente dados que não estejam acima
@@ -700,6 +737,11 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
       content: h.content,
     }));
 
+    const isAction = detectActionIntent(message);
+    if (isAction) {
+      console.log('[AI Stream] Action intent detected — using tool_choice: required');
+    }
+
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -708,8 +750,8 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
         { role: 'user', content: message },
       ],
       tools: AI_TOOLS,
-      tool_choice: 'auto',
-      temperature: 0.7,
+      tool_choice: isAction ? 'required' : 'auto',
+      temperature: isAction ? 0.2 : 0.7,
       max_tokens: 900,
       stream: true,
     });
@@ -737,8 +779,16 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
       }
     }
 
-    // Execute tool calls if any
+    // Hallucination detection: AI wrote action text but called no tools
     const toolCallsList = Object.values(toolCallAccum);
+    if (toolCallsList.length === 0 && fullContent) {
+      const actionKeywords = /criei|criei a demanda|cadastrei|registrei|criado com sucesso|id:\s*#\d+|foi criado|foi cadastrado|já aparece|salvo no sistema/i;
+      if (actionKeywords.test(fullContent)) {
+        console.warn('[AI Stream] ⚠️ HALLUCINATION DETECTED: AI described an action in text but called no tools. Message:', message.substring(0, 100));
+        console.warn('[AI Stream] AI response snippet:', fullContent.substring(0, 200));
+      }
+    }
+
     const toolMessages: any[] = [];
 
     for (const tc of toolCallsList) {
