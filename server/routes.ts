@@ -5342,6 +5342,21 @@ Retorne o texto extraído de forma estruturada e organizada.`
         textContent = `Documento: ${originalName} (tipo: ${mimeType})`;
       }
       
+      // Auto-index document for RAG AI
+      try {
+        const { autoIndexDocument } = await import('./services/documentIndexService');
+        await autoIndexDocument({
+          unidade: (req.user as any)?.unidade || 'geral',
+          fileName: originalName,
+          fileUrl,
+          fileType: mimeType,
+          module: 'documento',
+          extraInfo: { titulo: originalName, textoParcial: textContent.substring(0, 500) },
+        });
+      } catch (idxErr: any) {
+        console.warn('[SST Upload] Falha ao indexar para RAG:', idxErr.message);
+      }
+
       res.json({ 
         success: true, 
         url: fileUrl,
@@ -6740,14 +6755,14 @@ Retorne o texto extraído de forma estruturada e organizada.`
       }
       
       const { processQuery } = await import("./ai/aiService");
-      const response = await processQuery({
+      const result = await processQuery({
         unidade,
         userId: req.session.userId!,
         message,
         empreendimentoId,
       });
       
-      res.json({ response });
+      res.json({ response: result.response, documents: result.documents });
     } catch (error: any) {
       console.error("AI query error:", error);
       res.status(500).json({ message: error.message || "Erro ao processar pergunta" });
@@ -6798,6 +6813,31 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
   
+  // List all indexed documents for this unit
+  app.get("/api/ai/documents", requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ message: "Unidade não definida" });
+      const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
+      const { listIndexedDocuments } = await import("./ai/retriever");
+      const docs = await listIndexedDocuments(unidade, empreendimentoId);
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ message: "Erro ao listar documentos" });
+    }
+  });
+
+  // Delete an indexed document
+  app.delete("/api/ai/documents/:id", requireAuth, async (req, res) => {
+    try {
+      const { removeIndexedDocument } = await import("./ai/retriever");
+      await removeIndexedDocument(parseInt(req.params.id));
+      res.json({ message: "Documento removido do índice" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Erro ao remover documento" });
+    }
+  });
+
   // Get available actions
   app.get("/api/ai/actions", requireAuth, async (req, res) => {
     try {
@@ -11045,6 +11085,21 @@ Regras:
       
       // Extract text from file
       const textoExtraido = await extractTextFromBuffer(req.file.buffer, req.file.mimetype);
+
+      // Auto-index for RAG AI
+      try {
+        const { autoIndexDocument } = await import('./services/documentIndexService');
+        await autoIndexDocument({
+          unidade: (req.user as any)?.unidade || 'geral',
+          fileName: req.file.originalname,
+          fileUrl,
+          fileType: req.file.mimetype,
+          module: 'base_conhecimento',
+          extraInfo: { textoExtraido: textoExtraido.substring(0, 500) },
+        });
+      } catch (idxErr: any) {
+        console.warn('[BC Upload] Falha ao indexar para RAG:', idxErr.message);
+      }
       
       res.json({
         url: fileUrl,
