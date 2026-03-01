@@ -372,6 +372,359 @@ ${docsText}
   }
 }
 
+// ─── FERRAMENTAS DE AÇÃO (OpenAI Function Calling) ──────────────────────────
+const AI_TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "criar_demanda",
+      description: "Cria uma nova demanda/tarefa no sistema EcoGestor",
+      parameters: {
+        type: "object",
+        properties: {
+          titulo: { type: "string", description: "Título da demanda" },
+          descricao: { type: "string", description: "Descrição detalhada (opcional)" },
+          prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Prioridade (padrão: media)" },
+          prazo: { type: "string", description: "Prazo em formato YYYY-MM-DD (opcional)" },
+          responsavel: { type: "string", description: "Nome do responsável (opcional)" },
+          empreendimentoId: { type: "number", description: "ID do empreendimento associado (opcional)" },
+        },
+        required: ["titulo"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "atualizar_status_licenca",
+      description: "Atualiza o status de uma licença ambiental existente",
+      parameters: {
+        type: "object",
+        properties: {
+          licencaId: { type: "number", description: "ID numérico da licença a atualizar" },
+          novoStatus: { type: "string", enum: ["ativa", "vencida", "suspensa", "cancelada", "em_renovacao"], description: "Novo status da licença" },
+        },
+        required: ["licencaId", "novoStatus"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "registrar_lancamento",
+      description: "Registra um novo lançamento financeiro (receita ou despesa) na plataforma",
+      parameters: {
+        type: "object",
+        properties: {
+          descricao: { type: "string", description: "Descrição do lançamento" },
+          tipo: { type: "string", enum: ["receita", "despesa"], description: "Tipo do lançamento" },
+          valor: { type: "number", description: "Valor em reais (número positivo)" },
+          data: { type: "string", description: "Data do lançamento em formato YYYY-MM-DD (padrão: hoje)" },
+          empreendimentoId: { type: "number", description: "ID do empreendimento (opcional)" },
+        },
+        required: ["descricao", "tipo", "valor"],
+      },
+    },
+  },
+];
+
+async function executeTool(toolName: string, args: any, unidade: string): Promise<{ success: boolean; result: any; message: string }> {
+  try {
+    if (toolName === 'criar_demanda') {
+      const demanda = await storage.createDemanda({
+        titulo: args.titulo,
+        descricao: args.descricao || null,
+        prioridade: args.prioridade || 'media',
+        prazo: args.prazo || null,
+        responsavel: args.responsavel || null,
+        status: 'pendente',
+        unidade,
+        empreendimentoId: args.empreendimentoId || null,
+      } as any);
+      return { success: true, result: { id: demanda.id, titulo: demanda.titulo }, message: `Demanda "${demanda.titulo}" criada com sucesso! ID: #${demanda.id}` };
+    }
+
+    if (toolName === 'atualizar_status_licenca') {
+      const licenca = await storage.updateLicenca(args.licencaId, { status: args.novoStatus });
+      return { success: true, result: { id: licenca.id }, message: `Status da licença #${licenca.id} atualizado para "${args.novoStatus}"` };
+    }
+
+    if (toolName === 'registrar_lancamento') {
+      const lancamento = await storage.createLancamento({
+        descricao: args.descricao,
+        tipo: args.tipo,
+        valor: String(args.valor),
+        data: args.data || new Date().toISOString().split('T')[0],
+        status: 'pendente',
+        unidade,
+        empreendimentoId: args.empreendimentoId || null,
+      } as any);
+      return { success: true, result: { id: lancamento.id }, message: `Lançamento "${args.descricao}" (R$ ${Number(args.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) registrado! ID: #${lancamento.id}` };
+    }
+
+    return { success: false, result: null, message: `Ferramenta desconhecida: ${toolName}` };
+  } catch (err: any) {
+    return { success: false, result: null, message: `Erro ao executar ${toolName}: ${err.message}` };
+  }
+}
+
+function buildSystemPrompt(unidade: string, dbContext: string, docsText: string): string {
+  return `Você é o EcoGestor-AI, assistente da Ecobrasil Consultoria Ambiental. Você é um colega experiente em gestão ambiental — inteligente, atento e humano.
+
+## Sua personalidade
+- Converse de forma natural e acolhedora, como um colega de trabalho que conhece bem a empresa
+- Use português brasileiro informal-profissional: direto, simpático, sem ser robótico
+- Quando a pergunta for vaga, faça UMA pergunta de esclarecimento antes de responder
+- Mostre que você entendeu o que foi pedido antes de dar a resposta
+- Destaque proativamente informações importantes que o usuário pode não ter pedido mas precisa saber (ex: licença vencendo, demanda atrasada)
+- Quando tiver muitos dados, resuma primeiro e ofereça detalhar se precisar
+- Nunca despeje listas gigantes sem contexto — sempre introduza os dados
+
+## Formatação
+- Use **negrito** para nomes, status e valores importantes
+- Use tabelas markdown (| col | col |) apenas quando tiver 3+ itens comparáveis
+- Use listas com - para enumerações simples
+- Separe seções com uma linha em branco
+- Respostas concisas — máximo 400 palavras salvo pedido explícito de lista completa
+
+## Marcadores de entidade (IMPORTANTE)
+Quando mencionar licenças, demandas ou empreendimentos específicos, use marcadores inline para criar cards clicáveis:
+- Licenças: [LICENCA:ID:nome_ou_numero] (ex: [LICENCA:42:LP 001/2024])
+- Demandas: [DEMANDA:ID:titulo] (ex: [DEMANDA:17:Relatório Semestral])
+- Empreendimentos: [EMP:ID:nome] (ex: [EMP:5:Fazenda Boa Vista])
+Use esses marcadores apenas quando souber o ID real do item nos dados abaixo.
+
+## Dados reais da plataforma (unidade: ${unidade})
+Os dados abaixo são reais, buscados agora do banco de dados. Use-os como base, mas interprete-os — não apenas liste-os.
+
+${dbContext}
+
+${docsText}
+
+## Ações disponíveis
+Você pode executar ações diretamente na plataforma quando o usuário pedir:
+- Criar demandas (use a ferramenta criar_demanda)
+- Atualizar status de licenças (use atualizar_status_licenca com o ID real)
+- Registrar lançamentos financeiros (use registrar_lancamento)
+Sempre confirme brevemente com o usuário antes de executar ações irreversíveis.
+
+## Regras absolutas
+- Nunca invente dados que não estejam acima
+- Se não encontrar a informação, diga claramente e sugira o que o usuário pode fazer
+- Mantenha o contexto da conversa — lembre do que foi dito antes neste chat`;
+}
+
+export async function streamQuery(options: QueryOptions, res: any): Promise<void> {
+  const { unidade, userId, message, empreendimentoId, history = [] } = options;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const sendEvent = (event: string, data: any) => {
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch {}
+  };
+
+  try {
+    const [dbContext, relevantDocs] = await Promise.all([
+      buildDatabaseContext(unidade, message, empreendimentoId),
+      searchSimilarDocuments(unidade, message, 5, empreendimentoId).catch(() => []),
+    ]);
+
+    const SIMILARITY_THRESHOLD = 0.25;
+    const goodDocs = relevantDocs.filter((d: any) => d.similarity >= SIMILARITY_THRESHOLD);
+
+    const docsText = goodDocs.length > 0
+      ? `## DOCUMENTOS INDEXADOS RELEVANTES\n` +
+        goodDocs.map((doc: any, i: number) =>
+          `  [DOC ${i + 1}] ${doc.moduleLabel || doc.sourceType} — "${doc.source}"\n` +
+          `  ${doc.empreendimentoNome ? `Empreendimento: ${doc.empreendimentoNome}\n  ` : ''}` +
+          `Trecho: ${doc.content.substring(0, 250)}...`
+        ).join('\n\n')
+      : '';
+
+    const systemPrompt = buildSystemPrompt(unidade, dbContext, docsText);
+    const historyMessages = (history || []).slice(-8).map(h => ({
+      role: h.role as 'user' | 'assistant',
+      content: h.content,
+    }));
+
+    const stream = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: message },
+      ],
+      tools: AI_TOOLS,
+      tool_choice: 'auto',
+      temperature: 0.7,
+      max_tokens: 900,
+      stream: true,
+    });
+
+    let fullContent = '';
+    const toolCallAccum: { [index: number]: { id: string; name: string; arguments: string } } = {};
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+
+      if (delta?.content) {
+        fullContent += delta.content;
+        sendEvent('token', { content: delta.content });
+      }
+
+      if (delta?.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          if (!toolCallAccum[tc.index]) {
+            toolCallAccum[tc.index] = { id: '', name: '', arguments: '' };
+          }
+          if (tc.id) toolCallAccum[tc.index].id += tc.id;
+          if (tc.function?.name) toolCallAccum[tc.index].name += tc.function.name;
+          if (tc.function?.arguments) toolCallAccum[tc.index].arguments += tc.function.arguments;
+        }
+      }
+    }
+
+    // Execute tool calls if any
+    const toolCallsList = Object.values(toolCallAccum);
+    const toolMessages: any[] = [];
+
+    for (const tc of toolCallsList) {
+      let args: any = {};
+      try { args = JSON.parse(tc.arguments || '{}'); } catch {}
+      const result = await executeTool(tc.name, args, unidade);
+      sendEvent('action', { tool: tc.name, success: result.success, result: result.result, message: result.message });
+      toolMessages.push({
+        role: 'tool' as const,
+        tool_call_id: tc.id || 'tool_0',
+        content: JSON.stringify(result),
+      });
+    }
+
+    // Follow-up response after tool execution
+    if (toolMessages.length > 0) {
+      const followupMessages: any[] = [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: message },
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: toolCallsList.map((tc, i) => ({
+            id: tc.id || `tool_${i}`,
+            type: 'function' as const,
+            function: { name: tc.name, arguments: tc.arguments },
+          })),
+        },
+        ...toolMessages,
+      ];
+
+      const followup = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: followupMessages,
+        temperature: 0.7,
+        max_tokens: 400,
+        stream: true,
+      });
+
+      for await (const chunk of followup) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          fullContent += content;
+          sendEvent('token', { content });
+        }
+      }
+    }
+
+    // Generate 3 follow-up suggestions
+    let suggestions: string[] = ['Há vencimentos esta semana?', 'Quais demandas estão atrasadas?', 'Mostrar resumo geral'];
+    try {
+      const sugComp = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'Gere exatamente 3 perguntas curtas de acompanhamento em português brasileiro baseadas na conversa abaixo. Cada pergunta deve ter no máximo 8 palavras. Responda APENAS com um array JSON: ["pergunta1", "pergunta2", "pergunta3"]' },
+          { role: 'user', content: `Pergunta: "${message.substring(0, 150)}" | Resposta: "${fullContent.substring(0, 200)}"` },
+        ],
+        temperature: 0.9,
+        max_tokens: 120,
+      });
+      const raw = sugComp.choices[0].message.content || '[]';
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      if (Array.isArray(parsed) && parsed.length > 0) suggestions = parsed.slice(0, 3);
+    } catch {}
+
+    const documentCards = goodDocs.map((doc: any) => ({
+      id: doc.id,
+      source: doc.source,
+      sourceType: doc.sourceType,
+      module: doc.module,
+      moduleLabel: doc.moduleLabel,
+      fileUrl: doc.fileUrl,
+      dropboxPath: doc.dropboxPath,
+      empreendimentoNome: doc.empreendimentoNome,
+      similarity: Math.round(doc.similarity * 100),
+      snippet: doc.content.substring(0, 150) + '...',
+    }));
+
+    sendEvent('documents', documentCards);
+    sendEvent('suggestions', suggestions);
+    sendEvent('done', { success: true });
+
+    await db.insert(aiConversations).values({
+      unidade, userId, message, response: fullContent,
+      context: { empreendimentoId, relevantDocs: goodDocs.map((d: any) => ({ id: d.id, source: d.source })) },
+    }).catch(() => {});
+
+    res.end();
+  } catch (err: any) {
+    console.error('[AI Stream] Error:', err);
+    sendEvent('error', { message: err.message || 'Erro ao processar' });
+    res.end();
+  }
+}
+
+export async function getProactiveAlerts(unidade: string): Promise<any[]> {
+  const alerts: any[] = [];
+  try {
+    const today = new Date();
+    const in7 = new Date(today.getTime() + 7 * 86400000);
+    const licencas = await storage.getLicencas();
+    const empList = await storage.getEmpreendimentos(unidade);
+    const empIds = new Set(empList.map((e: any) => e.id));
+
+    for (const lic of licencas) {
+      if (!empIds.has(lic.empreendimentoId)) continue;
+      if (!lic.validade) continue;
+      const val = new Date(lic.validade);
+      if (val <= in7 && val >= today) {
+        const emp = empList.find((e: any) => e.id === lic.empreendimentoId);
+        alerts.push({ type: 'licenca_vencendo', severity: val <= new Date(today.getTime() + 2 * 86400000) ? 'critical' : 'warning', title: `Licença vence em breve`, message: `${lic.tipo || 'Licença'} #${lic.numero || lic.id} — ${emp?.nome || 'Empreendimento'}`, daysLeft: Math.ceil((val.getTime() - today.getTime()) / 86400000), link: `/licencas` });
+      } else if (val < today && lic.status === 'ativa') {
+        alerts.push({ type: 'licenca_vencida', severity: 'critical', title: 'Licença vencida!', message: `${lic.tipo || 'Licença'} #${lic.numero || lic.id} — venceu em ${lic.validade}`, link: `/licencas` });
+      }
+    }
+
+    const demandas = await storage.getDemandas({ unidade });
+    for (const d of demandas as any[]) {
+      if (!d.prazo || d.status === 'concluida' || d.status === 'cancelada') continue;
+      const prazo = new Date(d.prazo);
+      if (prazo < today) {
+        alerts.push({ type: 'demanda_atrasada', severity: 'warning', title: 'Demanda atrasada', message: d.titulo, link: `/demandas` });
+      } else if (prazo <= in7) {
+        alerts.push({ type: 'demanda_vencendo', severity: 'info', title: 'Demanda vence esta semana', message: d.titulo, daysLeft: Math.ceil((prazo.getTime() - today.getTime()) / 86400000), link: `/demandas` });
+      }
+    }
+  } catch (err: any) {
+    console.error('[AI Alerts] Error:', err.message);
+  }
+  return alerts.slice(0, 8);
+}
+
 export async function getConversationHistory(unidade: string, userId: number, limit: number = 10) {
   return await db
     .select()

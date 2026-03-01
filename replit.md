@@ -18,8 +18,16 @@ The frontend uses React, TypeScript, Vite, Wouter for routing, TanStack Query fo
 ### Multi-Tenancy
 Complete data isolation at the unit level across all modules, including financial data and AI functionalities. User access is strictly limited to data within their assigned unit.
 
-### EcoGestor-AI (RAG Completo)
-An integrated AI conversational agent using OpenAI embeddings for document indexing and vector search, and GPT-4o-mini for responses. It provides context-aware, unit-isolated responses with document retrieval and can execute automated actions. Features include auto-indexing, interactive document cards, explicit document location, manual indexing, and index management.
+### EcoGestor-AI (RAG Completo + Advanced)
+An integrated AI conversational agent using OpenAI embeddings for document indexing and vector search, and GPT-4o-mini for responses. Provides context-aware, unit-isolated responses with document retrieval. The floating chat widget (FAB button, bottom-right) persists across navigation. Advanced features:
+- **Streaming responses** — SSE via `POST /api/ai/stream`, tokens appear progressively with blinking cursor
+- **Suggested follow-up questions** — 3 AI-generated chips after each response, clickable to fill input
+- **Direct actions (function calling)** — AI can create demandas, update license status, register financial entries using OpenAI tools
+- **Proactive alerts** — `GET /api/ai/proactive-alerts` fetches urgent license/demanda deadlines, shown as banner on widget open
+- **Clickable entity cards** — `[LICENCA:id:name]`, `[DEMANDA:id:name]`, `[EMP:id:name]` markers in AI text render as linked cards
+- **Session memory** — localStorage key `ecogestor-ai-history-v2`, max 30 messages, persists across page reloads
+- **Voice input** — Web Speech API (pt-BR), microphone button in input area
+- **PDF/TXT drag & drop** — `POST /api/ai/upload-doc` extracts text via pdf-parse, injects as context for next message
 
 ### Dashboards
 Executive Dashboard for high-level overview, and Coordinator Dashboard with gamification elements, rankings, project status, and expense trends, all multi-tenant isolated.
