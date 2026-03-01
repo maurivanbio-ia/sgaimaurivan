@@ -14,6 +14,7 @@ import Dashboard from "./pages/dashboard";
 import DashboardExecutivo from "./pages/dashboard-executivo";
 import DashboardCoordenador from "./pages/dashboard-coordenador";
 import EcoAssistente from "./pages/ecoassistente";
+import FloatingAIChat from "./components/FloatingAIChat";
 import Projects from "./pages/projects";
 import NewProject from "./pages/new-project";
 import EditProject from "./pages/edit-project";
@@ -213,6 +214,7 @@ function Router() {
                   </Switch>
                 </PermissionGate>
               </main>
+              <FloatingAIChat />
             </div>
           )}
         </Route>

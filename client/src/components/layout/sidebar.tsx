@@ -276,6 +276,25 @@ export default function Sidebar() {
                   <div className={cn("mt-0.5 space-y-0", !collapsed && "ml-3 border-l border-border pl-1.5")}>
                     {category.items.map((item) => {
                       const Icon = item.icon;
+                      if (item.href === "/ia") {
+                        return (
+                          <button
+                            key={item.href}
+                            data-testid={item.testid}
+                            className="w-full"
+                            onClick={() => { setMobileOpen(false); document.dispatchEvent(new CustomEvent("open-ai-chat")); }}
+                          >
+                            <div className={cn(
+                              "flex items-center gap-2 px-2 py-1 rounded-md transition-colors cursor-pointer",
+                              "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              collapsed && "justify-center px-1"
+                            )}>
+                              <Icon className="h-3.5 w-3.5 flex-shrink-0 text-violet-500" />
+                              {!collapsed && <span className="text-xs">{item.label}</span>}
+                            </div>
+                          </button>
+                        );
+                      }
                       return (
                         <Link
                           key={item.href}
@@ -307,8 +326,8 @@ export default function Sidebar() {
       </nav>
 
       <div className={cn("px-2 py-2 border-t border-border", collapsed && "px-1")}>
-        <Link href="/ia">
           <button
+            onClick={() => document.dispatchEvent(new CustomEvent("open-ai-chat"))}
             className={cn(
               "w-full flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold transition-all",
               "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md hover:shadow-lg",
@@ -324,7 +343,6 @@ export default function Sidebar() {
               </span>
             )}
           </button>
-        </Link>
       </div>
 
       <div className={cn("px-2 py-1.5 border-t border-border space-y-1", collapsed && "px-1")}>
