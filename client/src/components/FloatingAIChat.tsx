@@ -711,7 +711,10 @@ export default function FloatingAIChat() {
         <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-3 py-2 flex-shrink-0">
           <div className="flex items-center gap-1.5 mb-1">
             <Bell className="h-3 w-3 text-amber-600" />
-            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Alertas do dia</span>
+            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex-1">Alertas do dia</span>
+            <button onClick={() => setAlerts([])} className="h-4 w-4 flex items-center justify-center text-amber-400 hover:text-amber-700 dark:hover:text-amber-200 transition-colors rounded" title="Fechar alertas">
+              <X className="h-3 w-3" />
+            </button>
           </div>
           <div className="space-y-1">
             {alerts.slice(0, 3).map((alert, i) => (
