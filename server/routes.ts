@@ -73,6 +73,7 @@ import {
   metasCustoProjeto,
   insertMetaCustoProjetoSchema,
   financeiroLancamentos,
+  categoriasFinanceiras,
   pontuacoesGamificacao,
   historicosPontuacao,
   historicoDemandasMovimentacoes,
@@ -13218,13 +13219,40 @@ Regras:
   // ─── RECIBOS ─────────────────────────────────────────────────────────────
   app.get("/api/recibos", requireAuth, async (req, res) => {
     try {
-      const { empreendimentoId, unidade } = req.query;
+      const { empreendimentoId, unidade, lancamentoId } = req.query;
       const conditions = [];
       if (empreendimentoId) conditions.push(eq(recibos.empreendimentoId, parseInt(empreendimentoId as string)));
       if (unidade) conditions.push(eq(recibos.unidade, unidade as string));
-      const items = conditions.length > 0
-        ? await db.select().from(recibos).where(and(...conditions)).orderBy(desc(recibos.criadoEm))
-        : await db.select().from(recibos).orderBy(desc(recibos.criadoEm));
+      if (lancamentoId) conditions.push(eq(recibos.lancamentoId, parseInt(lancamentoId as string)));
+      // Join with lancamento and empreendimento for full context
+      const items = await db
+        .select({
+          id: recibos.id,
+          empreendimentoId: recibos.empreendimentoId,
+          lancamentoId: recibos.lancamentoId,
+          numero: recibos.numero,
+          descricao: recibos.descricao,
+          valor: recibos.valor,
+          pagador: recibos.pagador,
+          recebedor: recibos.recebedor,
+          dataPagamento: recibos.dataPagamento,
+          metodoPagamento: recibos.metodoPagamento,
+          categoria: recibos.categoria,
+          observacoes: recibos.observacoes,
+          arquivo: recibos.arquivo,
+          unidade: recibos.unidade,
+          criadoEm: recibos.criadoEm,
+          empreendimentoNome: empreendimentos.nome,
+          lancamentoDescricao: financeiroLancamentos.descricao,
+          lancamentoTipo: financeiroLancamentos.tipo,
+          lancamentoValor: financeiroLancamentos.valor,
+          lancamentoStatus: financeiroLancamentos.status,
+        })
+        .from(recibos)
+        .leftJoin(empreendimentos, eq(recibos.empreendimentoId, empreendimentos.id))
+        .leftJoin(financeiroLancamentos, eq(recibos.lancamentoId, financeiroLancamentos.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(recibos.criadoEm));
       res.json(items);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -13232,8 +13260,47 @@ Regras:
     try {
       const data = insertReciboSchema.parse(req.body);
       const [item] = await db.insert(recibos).values(data).returning();
+      // If linked to a lançamento, update its status to "pago" if not already
+      if (item.lancamentoId) {
+        const [lanc] = await db.select().from(financeiroLancamentos).where(eq(financeiroLancamentos.id, item.lancamentoId)).limit(1);
+        if (lanc && lanc.status !== 'pago') {
+          await db.update(financeiroLancamentos)
+            .set({ status: 'pago', dataPagamento: item.dataPagamento || new Date().toISOString().slice(0, 10), atualizadoEm: new Date() })
+            .where(eq(financeiroLancamentos.id, item.lancamentoId));
+        }
+      }
       res.json(item);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  // Gerar recibo pré-preenchido a partir de um lançamento
+  app.get("/api/recibos/from-lancamento/:lancamentoId", requireAuth, async (req, res) => {
+    try {
+      const lancId = parseInt(req.params.lancamentoId);
+      const [lanc] = await db
+        .select({
+          id: financeiroLancamentos.id,
+          descricao: financeiroLancamentos.descricao,
+          valor: financeiroLancamentos.valor,
+          dataPagamento: financeiroLancamentos.dataPagamento,
+          metodoPagamento: financeiroLancamentos.metodoPagamento,
+          empreendimentoId: financeiroLancamentos.empreendimentoId,
+          unidade: financeiroLancamentos.unidade,
+          tipo: financeiroLancamentos.tipo,
+          status: financeiroLancamentos.status,
+          empreendimentoNome: empreendimentos.nome,
+          empreendimentoCliente: empreendimentos.cliente,
+          categoriaDescricao: categoriasFinanceiras.descricao,
+        })
+        .from(financeiroLancamentos)
+        .leftJoin(empreendimentos, eq(financeiroLancamentos.empreendimentoId, empreendimentos.id))
+        .leftJoin(categoriasFinanceiras, eq(financeiroLancamentos.categoriaId, categoriasFinanceiras.id))
+        .where(eq(financeiroLancamentos.id, lancId))
+        .limit(1);
+      if (!lanc) return res.status(404).json({ error: 'Lançamento não encontrado' });
+      // Check if already has a recibo
+      const [existingRecibo] = await db.select().from(recibos).where(eq(recibos.lancamentoId, lancId)).limit(1);
+      res.json({ lancamento: lanc, reciboExistente: existingRecibo || null });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
   app.put("/api/recibos/:id", requireAuth, async (req, res) => {
     try {

@@ -3326,6 +3326,7 @@ export type AtaReuniao = typeof atasReuniao.$inferSelect;
 export const recibos = pgTable("recibos", {
   id: serial("id").primaryKey(),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  lancamentoId: integer("lancamento_id").references(() => financeiroLancamentos.id), // vínculo com lançamento financeiro
   numero: text("numero"),
   descricao: text("descricao").notNull(),
   valor: text("valor").notNull(),
