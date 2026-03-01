@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building, Plus, User, MapPin, Bus, Eye, Map, Trash2 } from "lucide-react";
+import { Building, Plus, User, MapPin, Bus, Eye, Map, Trash2, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { ExportButton } from "@/components/ExportButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import MapComponent from "@/components/MapComponent";
@@ -29,6 +29,18 @@ export default function Projects() {
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Empreendimento | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+
+  const toggleCard = (id: number) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const expandAll = (ids: number[]) => setExpandedCards(new Set(ids));
+  const collapseAll = () => setExpandedCards(new Set());
   
   const search = useSearch();
   const urlParams = new URLSearchParams(search);
@@ -127,84 +139,109 @@ export default function Projects() {
           </TabsList>
           
           <TabsContent value="list" className="mt-6">
-            <div className="grid gap-6">
-              {projects.map((project) => (
-                <Card key={project.id} className="shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-card-foreground" data-testid={`text-project-name-${project.id}`}>
-                            {project.nome}
-                          </h3>
-                          <Badge 
-                            variant={project.status?.toLowerCase() === "ativo" ? "default" : "secondary"}
-                            className={project.status?.toLowerCase() === "ativo" 
-                              ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300" 
-                              : project.status?.toLowerCase() === "inativo" || project.status?.toLowerCase() === "cancelado"
-                              ? "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
-                              : project.status?.toLowerCase() === "concluido"
-                              ? "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
-                              : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-300"}
-                            data-testid={`badge-status-${project.id}`}
+            <div className="flex justify-end mb-3 gap-2">
+              <Button variant="outline" size="sm" onClick={() => expandAll(projects?.map(p => p.id) ?? [])} className="text-xs gap-1">
+                <ChevronDown className="h-3 w-3" /> Expandir todos
+              </Button>
+              <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
+                <ChevronRight className="h-3 w-3" /> Recolher todos
+              </Button>
+            </div>
+            <div className="grid gap-2">
+              {projects?.map((project) => {
+                const isExpanded = expandedCards.has(project.id);
+                const statusLabel = project.status?.toLowerCase() === "ativo" ? "Ativo"
+                  : project.status?.toLowerCase() === "inativo" ? "Inativo"
+                  : project.status?.toLowerCase() === "em_planejamento" ? "Em Planejamento"
+                  : project.status?.toLowerCase() === "em_execucao" ? "Em Execução"
+                  : project.status?.toLowerCase() === "concluido" ? "Concluído"
+                  : project.status?.toLowerCase() === "cancelado" ? "Cancelado"
+                  : project.status;
+                const statusClass = project.status?.toLowerCase() === "ativo"
+                  ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300"
+                  : project.status?.toLowerCase() === "inativo" || project.status?.toLowerCase() === "cancelado"
+                  ? "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                  : project.status?.toLowerCase() === "concluido"
+                  ? "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-300";
+
+                return (
+                  <Card key={project.id} className="shadow-sm hover:shadow-md transition-all duration-200">
+                    <CardContent className="p-0">
+                      {/* Collapsed header — always visible */}
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+                        onClick={() => toggleCard(project.id)}
+                      >
+                        <span className="text-muted-foreground shrink-0">
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </span>
+                        <h3 className="flex-1 font-semibold text-sm text-card-foreground truncate" data-testid={`text-project-name-${project.id}`}>
+                          {project.nome}
+                        </h3>
+                        <Badge variant="secondary" className={`${statusClass} shrink-0 text-xs`} data-testid={`badge-status-${project.id}`}>
+                          {statusLabel}
+                        </Badge>
+                        {/* Quick info when collapsed */}
+                        {!isExpanded && project.localizacao && (
+                          <span className="hidden sm:inline text-xs text-muted-foreground shrink-0 max-w-[200px] truncate">
+                            <MapPin className="inline h-3 w-3 mr-1" />{project.localizacao}
+                          </span>
+                        )}
+                        {/* Action buttons always visible */}
+                        <div className="flex gap-1 shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                          <Link href={`/empreendimentos/${project.id}`}>
+                            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" data-testid={`button-view-details-${project.id}`}>
+                              <Eye className="h-3 w-3 mr-1" />
+                              <span className="hidden sm:inline">Ver Detalhes</span>
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteClick(project)}
+                            data-testid={`button-delete-${project.id}`}
                           >
-                            {project.status?.toLowerCase() === "ativo" ? "Ativo" : 
-                             project.status?.toLowerCase() === "inativo" ? "Inativo" :
-                             project.status?.toLowerCase() === "em_planejamento" ? "Em Planejamento" :
-                             project.status?.toLowerCase() === "em_execucao" ? "Em Execução" :
-                             project.status?.toLowerCase() === "concluido" ? "Concluído" :
-                             project.status?.toLowerCase() === "cancelado" ? "Cancelado" : project.status}
-                          </Badge>
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            <span className="hidden sm:inline">Excluir</span>
+                          </Button>
                         </div>
-                        <div className="space-y-1">
+                      </div>
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-1 border-t bg-muted/20 space-y-1.5">
                           <p className="text-sm text-muted-foreground">
                             <User className="inline mr-2 h-4 w-4" />
-                            <span className="font-medium">Cliente:</span> 
+                            <span className="font-medium">Cliente:</span>
                             <span data-testid={`text-client-${project.id}`}> {project.cliente}</span>
                           </p>
                           <p className="text-sm text-muted-foreground">
                             <MapPin className="inline mr-2 h-4 w-4" />
-                            <span className="font-medium">Localização:</span> 
+                            <span className="font-medium">Localização:</span>
                             <span data-testid={`text-location-${project.id}`}> {project.localizacao}</span>
                           </p>
                           <p className="text-sm text-muted-foreground">
                             <Bus className="inline mr-2 h-4 w-4" />
-                            <span className="font-medium">Responsável:</span> 
+                            <span className="font-medium">Responsável:</span>
                             <span data-testid={`text-responsible-${project.id}`}> {project.responsavelInterno}</span>
                           </p>
                           {project.latitude && project.longitude && (
                             <p className="text-xs text-muted-foreground">
                               <MapPin className="inline mr-2 h-3 w-3" />
-                              <span className="font-medium">Coordenadas:</span> 
+                              <span className="font-medium">Coordenadas:</span>
                               <span data-testid={`text-coordinates-${project.id}`}>
                                 {parseFloat(project.latitude).toFixed(4)}, {parseFloat(project.longitude).toFixed(4)}
                               </span>
                             </p>
                           )}
                         </div>
-                      </div>
-                      <div className="ml-4 flex gap-2">
-                        <Link href={`/empreendimentos/${project.id}`}>
-                          <Button variant="outline" size="sm" data-testid={`button-view-details-${project.id}`}>
-                            <Eye className="mr-1 h-4 w-4" />
-                            Ver Detalhes
-                          </Button>
-                        </Link>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteClick(project)}
-                          data-testid={`button-delete-${project.id}`}
-                        >
-                          <Trash2 className="mr-1 h-4 w-4" />
-                          Excluir
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
           
