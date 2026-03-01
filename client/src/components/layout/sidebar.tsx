@@ -48,7 +48,9 @@ import {
   FileSearch,
   Newspaper,
   Cloud,
-  Globe
+  Globe,
+  Bot,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -193,6 +195,7 @@ export default function Sidebar() {
       label: "Sistema",
       icon: Settings,
       items: [
+        { href: "/ia", label: "EcoGestor AI", icon: Bot, testid: "nav-ia" },
         { href: "/conformidade-iso", label: "Conformidade ISO", icon: Shield, testid: "nav-conformidade-iso" },
         { href: "/processos-monitorados", label: "Processos SEIA", icon: FileSearch, testid: "nav-processos-monitorados" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
@@ -302,6 +305,27 @@ export default function Sidebar() {
           })}
         </div>
       </nav>
+
+      <div className={cn("px-2 py-2 border-t border-border", collapsed && "px-1")}>
+        <Link href="/ia">
+          <button
+            className={cn(
+              "w-full flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold transition-all",
+              "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md hover:shadow-lg",
+              collapsed && "justify-center px-1"
+            )}
+            data-testid="nav-ia-button"
+          >
+            <Bot className="h-4 w-4 shrink-0" />
+            {!collapsed && (
+              <span className="flex items-center gap-1">
+                EcoGestor AI
+                <Sparkles className="h-3 w-3 text-yellow-300" />
+              </span>
+            )}
+          </button>
+        </Link>
+      </div>
 
       <div className={cn("px-2 py-1.5 border-t border-border space-y-1", collapsed && "px-1")}>
         <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between")}>
