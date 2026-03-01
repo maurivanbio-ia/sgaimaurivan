@@ -84,26 +84,100 @@ function normalizePath(path: string): string {
 }
 
 const ROOT_FOLDER = "ECOBRASIL_CONSULTORIA_AMBIENTAL";
-const PROJECTS_FOLDER = "03_PROJETOS";
+const PROJECTS_FOLDER = "3. PROJETOS";
 
+// Espelha a mesma estrutura do Dropbox
 const ESTRUTURA_INSTITUCIONAL = [
-  { codigo: "01_ADMINISTRATIVO_E_JURIDICO", subpastas: ["Contratos", "Financeiro", "Recursos_Humanos", "Compliance_e_LGPD"] },
-  { codigo: "02_COMERCIAL_E_CLIENTES", subpastas: ["Propostas_Enviadas", "Propostas_Aprovadas", "Leads", "Relacionamento"] },
-  { codigo: "03_PROJETOS", subpastas: [] },
-  { codigo: "04_BASE_TECNICA_E_REFERENCIAS", subpastas: ["Legislacao", "Normas_Tecnicas", "Artigos_Cientificos", "Manuais_Metodologicos"] },
-  { codigo: "05_MODELOS_E_PADROES", subpastas: ["Templates_Relatorios", "Modelos_Planilhas", "Padroes_Graficos", "Termos_e_Formularios"] },
-  { codigo: "06_SISTEMAS_E_AUTOMACOES", subpastas: ["Workflows_n8n", "Scripts_R_Python", "Dashboards", "Backups_Sistemas"] },
-  { codigo: "07_ARQUIVO_MORTO", subpastas: ["Projetos_Encerrados", "Contratos_Finalizados", "Documentos_Historicos"] }
+  // Módulos: Contratos, Financeiro, RH, SST, Treinamentos, ISO/LGPD
+  {
+    codigo: "1. ADMINISTRATIVO_E_JURIDICO",
+    subpastas: [
+      "1.1. CONTRATOS",
+      "1.2. FINANCEIRO",
+      "1.3. RECURSOS_HUMANOS",
+      "1.4. SST",
+      "1.5. TREINAMENTOS_E_CAPACITACAO",
+      "1.6. COMPLIANCE_E_LGPD",
+    ]
+  },
+  // Módulos: Propostas Comerciais, Leads/CRM, Fornecedores
+  {
+    codigo: "2. COMERCIAL_E_CLIENTES",
+    subpastas: [
+      "2.1. PROPOSTAS_ENVIADAS",
+      "2.2. PROPOSTAS_APROVADAS",
+      "2.3. LEADS_E_CRM",
+      "2.4. RELACIONAMENTO_E_ATAS",
+      "2.5. FORNECEDORES",
+    ]
+  },
+  { codigo: "3. PROJETOS", subpastas: [] },
+  // Módulos: Frota, Equipamentos
+  {
+    codigo: "4. RECURSOS_E_PATRIMONIO",
+    subpastas: ["4.1. FROTA", "4.2. EQUIPAMENTOS"]
+  },
+  // Módulo: Base de Conhecimento
+  {
+    codigo: "5. BASE_TECNICA_E_REFERENCIAS",
+    subpastas: [
+      "5.1. LEGISLACAO",
+      "5.2. NORMAS_TECNICAS",
+      "5.3. ARTIGOS_CIENTIFICOS",
+      "5.4. MANUAIS_METODOLOGICOS",
+      "5.5. LINKS_E_REFERENCIAS",
+    ]
+  },
+  {
+    codigo: "6. MODELOS_E_PADROES",
+    subpastas: [
+      "6.1. TEMPLATES_RELATORIOS",
+      "6.2. MODELOS_PLANILHAS",
+      "6.3. PADROES_GRAFICOS",
+      "6.4. TERMOS_E_FORMULARIOS",
+    ]
+  },
+  // Módulos: N8N, Backups, ISO Conformidade, Newsletter
+  {
+    codigo: "7. SISTEMAS_E_AUTOMACOES",
+    subpastas: [
+      "7.1. WORKFLOWS_N8N",
+      "7.2. SCRIPTS_R_PYTHON",
+      "7.3. DASHBOARDS",
+      "7.4. BACKUPS_SISTEMAS",
+      "7.5. ISO_CONFORMIDADE",
+      "7.6. NEWSLETTER_E_BLOG",
+    ]
+  },
+  {
+    codigo: "8. ARQUIVO_MORTO",
+    subpastas: [
+      "8.1. PROJETOS_ENCERRADOS",
+      "8.2. CONTRATOS_FINALIZADOS",
+      "8.3. COLABORADORES_DESLIGADOS",
+      "8.4. DOCUMENTOS_HISTORICOS",
+    ]
+  }
 ];
 
+// Estrutura de cada projeto em /3. PROJETOS/{PROJETO}/
 const ESTRUTURA_PROJETO = [
-  { codigo: "01_GESTAO_E_CONTRATOS", subpastas: ["Contrato_Principal", "Aditivos"] },
-  { codigo: "02_PLANEJAMENTO_E_CRONOGRAMA", subpastas: ["Cronograma", "Planos_de_Trabalho"] },
-  { codigo: "03_BANCOS_DE_DADOS", subpastas: ["Campo", "Processados"] },
-  { codigo: "04_RELATORIOS_E_PARECERES", subpastas: ["Minutas", "Versoes_Finais"] },
-  { codigo: "05_MAPAS_E_GEOSPATIAL", subpastas: ["Shapefiles", "Mapas_Finais"] },
-  { codigo: "06_COMUNICACOES", subpastas: ["Oficios", "Emails_Relevantes"] },
-  { codigo: "07_ENTREGAS_E_PROTOCOLOS", subpastas: ["Enviados", "Protocolos"] }
+  // Módulos: Contratos, Aditivos, Autorizações
+  { codigo: "1. GESTAO_E_CONTRATOS", subpastas: ["1.1. CONTRATO_PRINCIPAL", "1.2. ADITIVOS", "1.3. AUTORIZACOES"] },
+  // Módulos: Cronograma, Atas de Reunião
+  { codigo: "2. PLANEJAMENTO_E_CRONOGRAMA", subpastas: ["2.1. CRONOGRAMA", "2.2. PLANOS_DE_TRABALHO", "2.3. ATAS_DE_REUNIAO"] },
+  // Módulo: Licenças, Condicionantes, Evidências
+  { codigo: "3. LICENCAS_E_CONDICIONANTES", subpastas: ["3.1. LICENCAS_ATIVAS", "3.2. CONDICIONANTES", "3.3. EVIDENCIAS_E_COMPROVANTES", "3.4. PROTOCOLOS"] },
+  // Módulo: Amostras, Monitoramento Ambiental
+  { codigo: "4. MONITORAMENTO_E_AMOSTRAS", subpastas: ["4.1. CAMPO", "4.2. PROCESSADOS", "4.3. LAUDOS_LABORATORIAIS"] },
+  // Módulo: Relatórios, Documentos Técnicos
+  { codigo: "5. RELATORIOS_E_PARECERES", subpastas: ["5.1. MINUTAS", "5.2. VERSOES_FINAIS", "5.3. PARECERES_TECNICOS"] },
+  // Módulo: Camadas Geoespaciais
+  { codigo: "6. MAPAS_E_GEOESPACIAL", subpastas: ["6.1. SHAPEFILES", "6.2. MAPAS_FINAIS", "6.3. KMZ_KML"] },
+  // Módulo: Comunicação Interna, Ofícios
+  { codigo: "7. COMUNICACOES", subpastas: ["7.1. OFICIOS", "7.2. EMAILS_RELEVANTES", "7.3. NOTIFICACOES_ORGAOS"] },
+  // Módulo: Entregas, Financeiro de Projeto, Recibos
+  { codigo: "8. ENTREGAS_E_FINANCEIRO", subpastas: ["8.1. ENVIADOS", "8.2. PROTOCOLOS_RECEBIDOS", "8.3. RECIBOS", "8.4. NOTAS_FISCAIS"] }
 ];
 
 export async function checkOneDriveConnection(): Promise<{ connected: boolean; user?: string; email?: string; error?: string }> {

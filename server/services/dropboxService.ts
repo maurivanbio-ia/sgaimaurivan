@@ -341,37 +341,53 @@ export async function createEmpreendimentoFolderStructure(
 
     // Estrutura hierárquica: 1. Pasta, 1.1. Subpasta, 1.1.1. Subsubpasta
     const estruturaProjeto = [
+      // ── 1. GESTÃO E CONTRATOS (Módulos: Contratos, Aditivos, Autorizações) ──
       '1. GESTAO_E_CONTRATOS',
       '1. GESTAO_E_CONTRATOS/1.1. CONTRATO_PRINCIPAL',
       '1. GESTAO_E_CONTRATOS/1.2. ADITIVOS',
       '1. GESTAO_E_CONTRATOS/1.3. AUTORIZACOES',
+      // ── 2. PLANEJAMENTO E CRONOGRAMA (Módulos: Cronograma, Demandas, Atas) ──
       '2. PLANEJAMENTO_E_CRONOGRAMA',
       '2. PLANEJAMENTO_E_CRONOGRAMA/2.1. CRONOGRAMA',
       '2. PLANEJAMENTO_E_CRONOGRAMA/2.2. PLANOS_DE_TRABALHO',
       '2. PLANEJAMENTO_E_CRONOGRAMA/2.3. ATAS_DE_REUNIAO',
-      '3. BANCOS_DE_DADOS',
-      '3. BANCOS_DE_DADOS/3.1. CAMPO',
-      '3. BANCOS_DE_DADOS/3.1. CAMPO/3.1.1. FORMULARIOS',
-      '3. BANCOS_DE_DADOS/3.1. CAMPO/3.1.2. FOTOS',
-      '3. BANCOS_DE_DADOS/3.2. PROCESSADOS',
-      '3. BANCOS_DE_DADOS/3.2. PROCESSADOS/3.2.1. PLANILHAS',
-      '3. BANCOS_DE_DADOS/3.2. PROCESSADOS/3.2.2. BANCO_FINAL',
-      '4. RELATORIOS_E_PARECERES',
-      '4. RELATORIOS_E_PARECERES/4.1. MINUTAS',
-      '4. RELATORIOS_E_PARECERES/4.2. VERSOES_FINAIS',
-      '4. RELATORIOS_E_PARECERES/4.3. PARECERES_TECNICOS',
-      '5. MAPAS_E_GEOESPACIAL',
-      '5. MAPAS_E_GEOESPACIAL/5.1. SHAPEFILES',
-      '5. MAPAS_E_GEOESPACIAL/5.2. MAPAS_FINAIS',
-      '5. MAPAS_E_GEOESPACIAL/5.3. KMZ_KML',
-      '6. COMUNICACOES',
-      '6. COMUNICACOES/6.1. OFICIOS',
-      '6. COMUNICACOES/6.2. EMAILS_RELEVANTES',
-      '6. COMUNICACOES/6.3. NOTIFICACOES_ORGAOS',
-      '7. ENTREGAS_E_PROTOCOLOS',
-      '7. ENTREGAS_E_PROTOCOLOS/7.1. ENVIADOS',
-      '7. ENTREGAS_E_PROTOCOLOS/7.2. PROTOCOLOS',
-      '7. ENTREGAS_E_PROTOCOLOS/7.3. RECIBOS',
+      // ── 3. LICENÇAS E CONDICIONANTES (Módulo: Licenças, Condicionantes, Evidências) ──
+      '3. LICENCAS_E_CONDICIONANTES',
+      '3. LICENCAS_E_CONDICIONANTES/3.1. LICENCAS_ATIVAS',
+      '3. LICENCAS_E_CONDICIONANTES/3.2. CONDICIONANTES',
+      '3. LICENCAS_E_CONDICIONANTES/3.3. EVIDENCIAS_E_COMPROVANTES',
+      '3. LICENCAS_E_CONDICIONANTES/3.4. PROTOCOLOS',
+      // ── 4. MONITORAMENTO E AMOSTRAS (Módulo: Amostras, Monitoramento Ambiental) ──
+      '4. MONITORAMENTO_E_AMOSTRAS',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.1. FORMULARIOS',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.2. FOTOS',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.3. AMOSTRAS',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.2. PROCESSADOS',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.2. PROCESSADOS/4.2.1. PLANILHAS',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.2. PROCESSADOS/4.2.2. BANCO_FINAL',
+      '4. MONITORAMENTO_E_AMOSTRAS/4.3. LAUDOS_LABORATORIAIS',
+      // ── 5. RELATÓRIOS E PARECERES (Módulo: Relatórios, Documentos Técnicos) ──
+      '5. RELATORIOS_E_PARECERES',
+      '5. RELATORIOS_E_PARECERES/5.1. MINUTAS',
+      '5. RELATORIOS_E_PARECERES/5.2. VERSOES_FINAIS',
+      '5. RELATORIOS_E_PARECERES/5.3. PARECERES_TECNICOS',
+      // ── 6. MAPAS E GEOESPACIAL (Módulo: Camadas Geoespaciais) ──
+      '6. MAPAS_E_GEOESPACIAL',
+      '6. MAPAS_E_GEOESPACIAL/6.1. SHAPEFILES',
+      '6. MAPAS_E_GEOESPACIAL/6.2. MAPAS_FINAIS',
+      '6. MAPAS_E_GEOESPACIAL/6.3. KMZ_KML',
+      // ── 7. COMUNICAÇÕES (Módulo: Comunicação Interna, Ofícios) ──
+      '7. COMUNICACOES',
+      '7. COMUNICACOES/7.1. OFICIOS',
+      '7. COMUNICACOES/7.2. EMAILS_RELEVANTES',
+      '7. COMUNICACOES/7.3. NOTIFICACOES_ORGAOS',
+      // ── 8. ENTREGAS, PROTOCOLOS E FINANCEIRO (Módulo: Financeiro, Recibos) ──
+      '8. ENTREGAS_E_FINANCEIRO',
+      '8. ENTREGAS_E_FINANCEIRO/8.1. ENVIADOS',
+      '8. ENTREGAS_E_FINANCEIRO/8.2. PROTOCOLOS_RECEBIDOS',
+      '8. ENTREGAS_E_FINANCEIRO/8.3. RECIBOS',
+      '8. ENTREGAS_E_FINANCEIRO/8.4. NOTAS_FISCAIS',
     ];
 
     let foldersCreated = 0;
@@ -409,36 +425,78 @@ export async function createInstitutionalFolderStructure(): Promise<{
     // Estrutura institucional com numeração hierárquica (1., 1.1., 1.1.1.)
     const estruturaInstitucional = [
       '',
+      // ── 1. ADMINISTRATIVO E JURÍDICO ──────────────────────────────────────
       '/1. ADMINISTRATIVO_E_JURIDICO',
-      '/1. ADMINISTRATIVO_E_JURIDICO/1.1. CONTRATOS',
-      '/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO',
-      '/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS',
-      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. COMPLIANCE_E_LGPD',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.1. CONTRATOS',                // Módulo: Contratos
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO',               // Módulo: Financeiro (Lançamentos, Recibos)
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO/1.2.1. LANCAMENTOS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO/1.2.2. RECIBOS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO/1.2.3. NOTAS_FISCAIS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS',         // Módulo: RH
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS/1.3.1. CONTRATOS_FUNCIONARIOS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS/1.3.2. DOCUMENTOS_PESSOAIS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS/1.3.3. FOLHA_PAGAMENTO',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST',                      // Módulo: Segurança do Trabalho
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.1. ASO_E_EXAMES',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.2. PCMSO_LTCAT_PGR',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.3. EPIS_E_EQUIPAMENTOS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.4. TREINAMENTOS_SST',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.5. TREINAMENTOS_E_CAPACITACAO', // Módulo: Cursos e Treinamentos
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.5. TREINAMENTOS_E_CAPACITACAO/1.5.1. CERTIFICADOS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.5. TREINAMENTOS_E_CAPACITACAO/1.5.2. MATERIAIS_DIDATICOS',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD',        // Conformidade ISO, LGPD
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.1. ISO_14001',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.2. ISO_9001',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.3. ISO_45001',
+      '/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.4. LGPD',
+      // ── 2. COMERCIAL E CLIENTES ───────────────────────────────────────────
       '/2. COMERCIAL_E_CLIENTES',
-      '/2. COMERCIAL_E_CLIENTES/2.1. PROPOSTAS_ENVIADAS',
+      '/2. COMERCIAL_E_CLIENTES/2.1. PROPOSTAS_ENVIADAS',            // Módulo: Propostas Comerciais
       '/2. COMERCIAL_E_CLIENTES/2.2. PROPOSTAS_APROVADAS',
-      '/2. COMERCIAL_E_CLIENTES/2.3. LEADS',
-      '/2. COMERCIAL_E_CLIENTES/2.4. RELACIONAMENTO',
+      '/2. COMERCIAL_E_CLIENTES/2.3. LEADS_E_CRM',                   // Módulo: Leads / CRM
+      '/2. COMERCIAL_E_CLIENTES/2.4. RELACIONAMENTO_E_ATAS',         // Módulo: Relacionamento
+      '/2. COMERCIAL_E_CLIENTES/2.5. FORNECEDORES',                  // Módulo: Fornecedores
+      '/2. COMERCIAL_E_CLIENTES/2.5. FORNECEDORES/2.5.1. CONTRATOS_FORNECEDORES',
+      '/2. COMERCIAL_E_CLIENTES/2.5. FORNECEDORES/2.5.2. COTACOES',
+      // ── 3. PROJETOS ──────────────────────────────────────────────────────
       '/3. PROJETOS',
-      '/4. BASE_TECNICA_E_REFERENCIAS',
-      '/4. BASE_TECNICA_E_REFERENCIAS/4.1. LEGISLACAO',
-      '/4. BASE_TECNICA_E_REFERENCIAS/4.2. NORMAS_TECNICAS',
-      '/4. BASE_TECNICA_E_REFERENCIAS/4.3. ARTIGOS_CIENTIFICOS',
-      '/4. BASE_TECNICA_E_REFERENCIAS/4.4. MANUAIS_METODOLOGICOS',
-      '/5. MODELOS_E_PADROES',
-      '/5. MODELOS_E_PADROES/5.1. TEMPLATES_RELATORIOS',
-      '/5. MODELOS_E_PADROES/5.2. MODELOS_PLANILHAS',
-      '/5. MODELOS_E_PADROES/5.3. PADROES_GRAFICOS',
-      '/5. MODELOS_E_PADROES/5.4. TERMOS_E_FORMULARIOS',
-      '/6. SISTEMAS_E_AUTOMACOES',
-      '/6. SISTEMAS_E_AUTOMACOES/6.1. WORKFLOWS_N8N',
-      '/6. SISTEMAS_E_AUTOMACOES/6.2. SCRIPTS_R_PYTHON',
-      '/6. SISTEMAS_E_AUTOMACOES/6.3. DASHBOARDS',
-      '/6. SISTEMAS_E_AUTOMACOES/6.4. BACKUPS_SISTEMAS',
-      '/7. ARQUIVO_MORTO',
-      '/7. ARQUIVO_MORTO/7.1. PROJETOS_ENCERRADOS',
-      '/7. ARQUIVO_MORTO/7.2. CONTRATOS_FINALIZADOS',
-      '/7. ARQUIVO_MORTO/7.3. DOCUMENTOS_HISTORICOS',
+      // ── 4. RECURSOS E PATRIMÔNIO ─────────────────────────────────────────
+      '/4. RECURSOS_E_PATRIMONIO',
+      '/4. RECURSOS_E_PATRIMONIO/4.1. FROTA',                        // Módulo: Frota (Veículos)
+      '/4. RECURSOS_E_PATRIMONIO/4.1. FROTA/4.1.1. DOCUMENTOS_VEICULOS',
+      '/4. RECURSOS_E_PATRIMONIO/4.1. FROTA/4.1.2. MANUTENCOES',
+      '/4. RECURSOS_E_PATRIMONIO/4.1. FROTA/4.1.3. SEGUROS',
+      '/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS',                  // Módulo: Equipamentos
+      '/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS/4.2.1. CERTIFICADOS_CALIBRACAO',
+      '/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS/4.2.2. MANUAIS',
+      '/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS/4.2.3. NOTAS_FISCAIS',
+      // ── 5. BASE TÉCNICA E REFERÊNCIAS ────────────────────────────────────
+      '/5. BASE_TECNICA_E_REFERENCIAS',
+      '/5. BASE_TECNICA_E_REFERENCIAS/5.1. LEGISLACAO',               // Módulo: Base de Conhecimento
+      '/5. BASE_TECNICA_E_REFERENCIAS/5.2. NORMAS_TECNICAS',
+      '/5. BASE_TECNICA_E_REFERENCIAS/5.3. ARTIGOS_CIENTIFICOS',
+      '/5. BASE_TECNICA_E_REFERENCIAS/5.4. MANUAIS_METODOLOGICOS',
+      '/5. BASE_TECNICA_E_REFERENCIAS/5.5. LINKS_E_REFERENCIAS',
+      // ── 6. MODELOS E PADRÕES ─────────────────────────────────────────────
+      '/6. MODELOS_E_PADROES',
+      '/6. MODELOS_E_PADROES/6.1. TEMPLATES_RELATORIOS',             // Módulo: Gestão de Dados (templates)
+      '/6. MODELOS_E_PADROES/6.2. MODELOS_PLANILHAS',
+      '/6. MODELOS_E_PADROES/6.3. PADROES_GRAFICOS',
+      '/6. MODELOS_E_PADROES/6.4. TERMOS_E_FORMULARIOS',
+      // ── 7. SISTEMAS E AUTOMAÇÕES ─────────────────────────────────────────
+      '/7. SISTEMAS_E_AUTOMACOES',
+      '/7. SISTEMAS_E_AUTOMACOES/7.1. WORKFLOWS_N8N',                // Módulo: Automação N8N
+      '/7. SISTEMAS_E_AUTOMACOES/7.2. SCRIPTS_R_PYTHON',
+      '/7. SISTEMAS_E_AUTOMACOES/7.3. DASHBOARDS',
+      '/7. SISTEMAS_E_AUTOMACOES/7.4. BACKUPS_SISTEMAS',             // Backup automático
+      '/7. SISTEMAS_E_AUTOMACOES/7.5. ISO_CONFORMIDADE',             // Módulo: Conformidade ISO
+      '/7. SISTEMAS_E_AUTOMACOES/7.6. NEWSLETTER_E_BLOG',            // Módulo: Newsletter / Blog
+      // ── 8. ARQUIVO MORTO ────────────────────────────────────────────────
+      '/8. ARQUIVO_MORTO',
+      '/8. ARQUIVO_MORTO/8.1. PROJETOS_ENCERRADOS',
+      '/8. ARQUIVO_MORTO/8.2. CONTRATOS_FINALIZADOS',
+      '/8. ARQUIVO_MORTO/8.3. COLABORADORES_DESLIGADOS',
+      '/8. ARQUIVO_MORTO/8.4. DOCUMENTOS_HISTORICOS',
     ];
 
     let foldersCreated = 0;
@@ -535,31 +593,103 @@ export async function uploadFileToEmpreendimento(
 
 // ── ABNT naming & module-aware sync ──────────────────────────────────────────
 
-// Maps module names to their project subfolder (using hierarchical numbering)
+// ── MODULE_FOLDER_MAP ──────────────────────────────────────────────────────
+// Maps every platform module to its Dropbox destination.
+// Two kinds of paths:
+//  - Relative (no DROPBOX_ROOT prefix): placed inside the project folder
+//    /3. PROJETOS/{PROJETO}/...
+//  - Absolute (with DROPBOX_ROOT prefix): placed in the institutional root
+
 const MODULE_FOLDER_MAP: Record<string, string> = {
-  licenca: '7. ENTREGAS_E_PROTOCOLOS/7.2. PROTOCOLOS',
-  condicionante: '7. ENTREGAS_E_PROTOCOLOS/7.2. PROTOCOLOS',
-  evidencia: '7. ENTREGAS_E_PROTOCOLOS/7.1. ENVIADOS',
-  relatorio: '4. RELATORIOS_E_PARECERES/4.2. VERSOES_FINAIS',
-  minuta: '4. RELATORIOS_E_PARECERES/4.1. MINUTAS',
-  mapa: '5. MAPAS_E_GEOESPACIAL/5.2. MAPAS_FINAIS',
-  shapefile: '5. MAPAS_E_GEOESPACIAL/5.1. SHAPEFILES',
-  camada: '5. MAPAS_E_GEOESPACIAL/5.3. KMZ_KML',
-  contrato: '1. GESTAO_E_CONTRATOS/1.1. CONTRATO_PRINCIPAL',
-  aditivo: '1. GESTAO_E_CONTRATOS/1.2. ADITIVOS',
-  banco_de_dados: '3. BANCOS_DE_DADOS/3.2. PROCESSADOS',
-  campo: '3. BANCOS_DE_DADOS/3.1. CAMPO',
-  oficio: '6. COMUNICACOES/6.1. OFICIOS',
-  comunicacao: '6. COMUNICACOES/6.2. EMAILS_RELEVANTES',
-  protocolo: '7. ENTREGAS_E_PROTOCOLOS/7.2. PROTOCOLOS',
-  entrega: '7. ENTREGAS_E_PROTOCOLOS/7.1. ENVIADOS',
-  monitoramento: '3. BANCOS_DE_DADOS/3.1. CAMPO',
-  amostra: '3. BANCOS_DE_DADOS/3.1. CAMPO',
-  documento: '4. RELATORIOS_E_PARECERES/4.2. VERSOES_FINAIS',
-  base_conhecimento: `${DROPBOX_ROOT}/4. BASE_TECNICA_E_REFERENCIAS`,
-  proposta: `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.1. PROPOSTAS_ENVIADAS`,
-  rh: `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS`,
-  financeiro: `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO`,
+  // ── DOCUMENTOS DE PROJETO (relativo à pasta do empreendimento) ──────────
+  // Módulo: Contratos
+  contrato:             '1. GESTAO_E_CONTRATOS/1.1. CONTRATO_PRINCIPAL',
+  aditivo:              '1. GESTAO_E_CONTRATOS/1.2. ADITIVOS',
+  autorizacao:          '1. GESTAO_E_CONTRATOS/1.3. AUTORIZACOES',
+  // Módulo: Planejamento e Cronograma
+  cronograma:           '2. PLANEJAMENTO_E_CRONOGRAMA/2.1. CRONOGRAMA',
+  plano_trabalho:       '2. PLANEJAMENTO_E_CRONOGRAMA/2.2. PLANOS_DE_TRABALHO',
+  ata:                  '2. PLANEJAMENTO_E_CRONOGRAMA/2.3. ATAS_DE_REUNIAO',
+  // Módulo: Licenças e Condicionantes
+  licenca:              '3. LICENCAS_E_CONDICIONANTES/3.1. LICENCAS_ATIVAS',
+  condicionante:        '3. LICENCAS_E_CONDICIONANTES/3.2. CONDICIONANTES',
+  evidencia:            '3. LICENCAS_E_CONDICIONANTES/3.3. EVIDENCIAS_E_COMPROVANTES',
+  protocolo:            '3. LICENCAS_E_CONDICIONANTES/3.4. PROTOCOLOS',
+  // Módulo: Amostras e Monitoramento Ambiental
+  campo:                '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO',
+  formulario:           '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.1. FORMULARIOS',
+  foto_campo:           '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.2. FOTOS',
+  amostra:              '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.3. AMOSTRAS',
+  monitoramento:        '4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.3. AMOSTRAS',
+  banco_de_dados:       '4. MONITORAMENTO_E_AMOSTRAS/4.2. PROCESSADOS',
+  laudo_laboratorial:   '4. MONITORAMENTO_E_AMOSTRAS/4.3. LAUDOS_LABORATORIAIS',
+  // Módulo: Relatórios e Documentos Técnicos
+  minuta:               '5. RELATORIOS_E_PARECERES/5.1. MINUTAS',
+  relatorio:            '5. RELATORIOS_E_PARECERES/5.2. VERSOES_FINAIS',
+  parecer:              '5. RELATORIOS_E_PARECERES/5.3. PARECERES_TECNICOS',
+  documento:            '5. RELATORIOS_E_PARECERES/5.2. VERSOES_FINAIS',
+  // Módulo: Mapas e Camadas Geoespaciais
+  shapefile:            '6. MAPAS_E_GEOESPACIAL/6.1. SHAPEFILES',
+  mapa:                 '6. MAPAS_E_GEOESPACIAL/6.2. MAPAS_FINAIS',
+  camada:               '6. MAPAS_E_GEOESPACIAL/6.3. KMZ_KML',
+  // Módulo: Comunicações
+  oficio:               '7. COMUNICACOES/7.1. OFICIOS',
+  comunicacao:          '7. COMUNICACOES/7.2. EMAILS_RELEVANTES',
+  notificacao_orgao:    '7. COMUNICACOES/7.3. NOTIFICACOES_ORGAOS',
+  // Módulo: Entregas e Financeiro de Projeto
+  entrega:              '8. ENTREGAS_E_FINANCEIRO/8.1. ENVIADOS',
+  recibo:               '8. ENTREGAS_E_FINANCEIRO/8.3. RECIBOS',
+  nota_fiscal_projeto:  '8. ENTREGAS_E_FINANCEIRO/8.4. NOTAS_FISCAIS',
+
+  // ── DOCUMENTOS INSTITUCIONAIS (absoluto — pasta raiz da empresa) ─────────
+  // Módulo: RH
+  rh:                   `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS`,
+  contrato_funcionario: `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS/1.3.1. CONTRATOS_FUNCIONARIOS`,
+  documento_pessoal:    `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.3. RECURSOS_HUMANOS/1.3.2. DOCUMENTOS_PESSOAIS`,
+  // Módulo: SST (Segurança do Trabalho)
+  sst:                  `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST`,
+  aso:                  `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.1. ASO_E_EXAMES`,
+  pcmso:                `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.2. PCMSO_LTCAT_PGR`,
+  epi:                  `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.4. SST/1.4.3. EPIS_E_EQUIPAMENTOS`,
+  // Módulo: Treinamentos e Capacitação
+  treinamento:          `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.5. TREINAMENTOS_E_CAPACITACAO`,
+  certificado:          `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.5. TREINAMENTOS_E_CAPACITACAO/1.5.1. CERTIFICADOS`,
+  material_didatico:    `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.5. TREINAMENTOS_E_CAPACITACAO/1.5.2. MATERIAIS_DIDATICOS`,
+  // Módulo: Conformidade ISO / LGPD
+  iso:                  `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD`,
+  iso_14001:            `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.1. ISO_14001`,
+  iso_9001:             `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.2. ISO_9001`,
+  iso_45001:            `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.6. COMPLIANCE_E_LGPD/1.6.3. ISO_45001`,
+  // Módulo: Financeiro Institucional
+  financeiro:           `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO`,
+  lancamento:           `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO/1.2.1. LANCAMENTOS`,
+  nota_fiscal:          `${DROPBOX_ROOT}/1. ADMINISTRATIVO_E_JURIDICO/1.2. FINANCEIRO/1.2.3. NOTAS_FISCAIS`,
+  // Módulo: Propostas Comerciais
+  proposta:             `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.1. PROPOSTAS_ENVIADAS`,
+  proposta_aprovada:    `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.2. PROPOSTAS_APROVADAS`,
+  lead:                 `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.3. LEADS_E_CRM`,
+  // Módulo: Fornecedores
+  fornecedor:           `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.5. FORNECEDORES`,
+  cotacao:              `${DROPBOX_ROOT}/2. COMERCIAL_E_CLIENTES/2.5. FORNECEDORES/2.5.2. COTACOES`,
+  // Módulo: Frota (Veículos)
+  frota:                `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.1. FROTA`,
+  veiculo:              `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.1. FROTA`,
+  documento_veiculo:    `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.1. FROTA/4.1.1. DOCUMENTOS_VEICULOS`,
+  manutencao:           `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.1. FROTA/4.1.2. MANUTENCOES`,
+  // Módulo: Equipamentos
+  equipamento:          `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS`,
+  calibracao:           `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS/4.2.1. CERTIFICADOS_CALIBRACAO`,
+  manual_equipamento:   `${DROPBOX_ROOT}/4. RECURSOS_E_PATRIMONIO/4.2. EQUIPAMENTOS/4.2.2. MANUAIS`,
+  // Módulo: Base de Conhecimento
+  base_conhecimento:    `${DROPBOX_ROOT}/5. BASE_TECNICA_E_REFERENCIAS`,
+  legislacao:           `${DROPBOX_ROOT}/5. BASE_TECNICA_E_REFERENCIAS/5.1. LEGISLACAO`,
+  norma_tecnica:        `${DROPBOX_ROOT}/5. BASE_TECNICA_E_REFERENCIAS/5.2. NORMAS_TECNICAS`,
+  artigo:               `${DROPBOX_ROOT}/5. BASE_TECNICA_E_REFERENCIAS/5.3. ARTIGOS_CIENTIFICOS`,
+  manual:               `${DROPBOX_ROOT}/5. BASE_TECNICA_E_REFERENCIAS/5.4. MANUAIS_METODOLOGICOS`,
+  // Módulo: Gestão de Dados (modelos e padrões)
+  template:             `${DROPBOX_ROOT}/6. MODELOS_E_PADROES/6.1. TEMPLATES_RELATORIOS`,
+  modelo_planilha:      `${DROPBOX_ROOT}/6. MODELOS_E_PADROES/6.2. MODELOS_PLANILHAS`,
+  formulario_padrao:    `${DROPBOX_ROOT}/6. MODELOS_E_PADROES/6.4. TERMOS_E_FORMULARIOS`,
 };
 
 /**
@@ -613,7 +743,7 @@ export async function syncFileToDropbox(params: {
       const nomeProjeto = `${codigoNorm}_${clienteNorm}_${ufNorm}`;
       const subpasta = subpastaRelativa && !subpastaRelativa.startsWith(DROPBOX_ROOT)
         ? subpastaRelativa
-        : '4. RELATORIOS_E_PARECERES/4.2. VERSOES_FINAIS';
+        : '5. RELATORIOS_E_PARECERES/5.2. VERSOES_FINAIS';
       targetPath = `${DROPBOX_ROOT}/3. PROJETOS/${nomeProjeto}/${subpasta}`;
     } else if (subpastaRelativa && subpastaRelativa.startsWith(DROPBOX_ROOT)) {
       targetPath = subpastaRelativa;

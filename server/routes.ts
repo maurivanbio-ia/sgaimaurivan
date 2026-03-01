@@ -3201,87 +3201,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== ESTRUTURA DE PASTAS E GESTÃO DOCUMENTAL ====
+  // Espelha exatamente a estrutura do Dropbox (/ECOBRASIL_CONSULTORIA_AMBIENTAL/)
 
   // Definição da estrutura macro institucional
   const ESTRUTURA_MACRO = [
-    { nome: "01_ADMINISTRATIVO", caminho: "/ECOBRASIL_GESTAO_DADOS/01_ADMINISTRATIVO" },
-    { nome: "02_PROJETOS", caminho: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS" },
-    { nome: "03_CLIENTES", caminho: "/ECOBRASIL_GESTAO_DADOS/03_CLIENTES" },
-    { nome: "04_BASE_TECNICA", caminho: "/ECOBRASIL_GESTAO_DADOS/04_BASE_TECNICA" },
-    { nome: "05_MODELOS_E_PADROES", caminho: "/ECOBRASIL_GESTAO_DADOS/05_MODELOS_E_PADROES" },
-    { nome: "06_SISTEMA_E_BACKUP", caminho: "/ECOBRASIL_GESTAO_DADOS/06_SISTEMA_E_BACKUP" },
-    { nome: "07_ARQUIVO_MORTO", caminho: "/ECOBRASIL_GESTAO_DADOS/07_ARQUIVO_MORTO" },
+    { nome: "1. ADMINISTRATIVO_E_JURIDICO",  caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/1. ADMINISTRATIVO_E_JURIDICO" },
+    { nome: "2. COMERCIAL_E_CLIENTES",        caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/2. COMERCIAL_E_CLIENTES" },
+    { nome: "3. PROJETOS",                    caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/3. PROJETOS" },
+    { nome: "4. RECURSOS_E_PATRIMONIO",       caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/4. RECURSOS_E_PATRIMONIO" },
+    { nome: "5. BASE_TECNICA_E_REFERENCIAS",  caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/5. BASE_TECNICA_E_REFERENCIAS" },
+    { nome: "6. MODELOS_E_PADROES",           caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/6. MODELOS_E_PADROES" },
+    { nome: "7. SISTEMAS_E_AUTOMACOES",       caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/7. SISTEMAS_E_AUTOMACOES" },
+    { nome: "8. ARQUIVO_MORTO",               caminho: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/8. ARQUIVO_MORTO" },
   ];
 
-  // Estrutura de subpastas por projeto
+  // Estrutura de subpastas por projeto (espelha /3. PROJETOS/{PROJETO}/)
   const ESTRUTURA_PROJETO = [
-    "01_GESTAO_E_CONTRATOS",
-    "02_PLANEJAMENTO_E_CRONOGRAMA",
-    "03_BANCOS_DE_DADOS",
-    "04_RELATORIOS_E_PARECERES",
-    "05_SIG_E_CARTOGRAFIA",
-    "06_IMAGENS_E_MIDIAS",
-    "07_SCRIPTS_E_ANALISES",
-    "08_COMUNICACAO_OFICIAL",
-    "09_AUDITORIA_E_COMPLIANCE",
-    "10_ENTREGAS_FINAIS",
+    "1. GESTAO_E_CONTRATOS",
+    "2. PLANEJAMENTO_E_CRONOGRAMA",
+    "3. LICENCAS_E_CONDICIONANTES",
+    "4. MONITORAMENTO_E_AMOSTRAS",
+    "5. RELATORIOS_E_PARECERES",
+    "6. MAPAS_E_GEOESPACIAL",
+    "7. COMUNICACOES",
+    "8. ENTREGAS_E_FINANCEIRO",
   ];
 
-  // Subpastas detalhadas
+  // Subpastas detalhadas por seção do projeto
   const SUBPASTAS_DETALHADAS: Record<string, string[]> = {
-    "03_BANCOS_DE_DADOS": [
-      "01_DADOS_BRUTOS/FAUNA",
-      "01_DADOS_BRUTOS/FLORA",
-      "01_DADOS_BRUTOS/FISICO_QUIMICA",
-      "01_DADOS_BRUTOS/SOCIOECONOMIA",
-      "01_DADOS_BRUTOS/OUTROS",
-      "02_DADOS_PROCESSADOS/FAUNA",
-      "02_DADOS_PROCESSADOS/FLORA",
-      "02_DADOS_PROCESSADOS/SIG",
-      "02_DADOS_PROCESSADOS/ESTATISTICA",
-      "03_DADOS_CONSOLIDADOS/BASE_OFICIAL_PROJETO",
-      "04_METADADOS_E_DICIONARIOS/DICIONARIO_DE_VARIAVEIS",
-      "04_METADADOS_E_DICIONARIOS/METODOLOGIAS",
+    "1. GESTAO_E_CONTRATOS": [
+      "1.1. CONTRATO_PRINCIPAL",
+      "1.2. ADITIVOS",
+      "1.3. AUTORIZACOES",
     ],
-    "04_RELATORIOS_E_PARECERES": [
-      "01_RASCUNHOS",
-      "02_PRELIMINARES",
-      "03_REVISOES",
-      "04_FINAIS",
-      "05_ASSINADOS_E_PROTOCOLADOS",
+    "2. PLANEJAMENTO_E_CRONOGRAMA": [
+      "2.1. CRONOGRAMA",
+      "2.2. PLANOS_DE_TRABALHO",
+      "2.3. ATAS_DE_REUNIAO",
     ],
-    "05_SIG_E_CARTOGRAFIA": [
-      "01_DADOS_VETORIAIS",
-      "02_DADOS_RASTER",
-      "03_PROJETOS_QGIS",
-      "04_LAYOUTS_E_MAPAS",
-      "05_METADADOS_SIG",
+    "3. LICENCAS_E_CONDICIONANTES": [
+      "3.1. LICENCAS_ATIVAS",
+      "3.2. CONDICIONANTES",
+      "3.3. EVIDENCIAS_E_COMPROVANTES",
+      "3.4. PROTOCOLOS",
     ],
-    "06_IMAGENS_E_MIDIAS": [
-      "01_FOTOS_CAMPO",
-      "02_DRONES_E_VIDEOS",
-      "03_MAPAS_E_FIGURAS",
-      "04_GRAFICOS_E_DIAGRAMAS",
-      "05_MEMORIAL_FOTOGRAFICO",
+    "4. MONITORAMENTO_E_AMOSTRAS": [
+      "4.1. CAMPO/4.1.1. FORMULARIOS",
+      "4.1. CAMPO/4.1.2. FOTOS",
+      "4.1. CAMPO/4.1.3. AMOSTRAS",
+      "4.2. PROCESSADOS/4.2.1. PLANILHAS",
+      "4.2. PROCESSADOS/4.2.2. BANCO_FINAL",
+      "4.3. LAUDOS_LABORATORIAIS",
     ],
-    "07_SCRIPTS_E_ANALISES": [
-      "01_R",
-      "02_PYTHON",
-      "03_SQL",
-      "04_NOTEBOOKS",
-      "05_LOGS_E_RESULTADOS",
+    "5. RELATORIOS_E_PARECERES": [
+      "5.1. MINUTAS",
+      "5.2. VERSOES_FINAIS",
+      "5.3. PARECERES_TECNICOS",
     ],
-    "08_COMUNICACAO_OFICIAL": [
-      "01_OFICIOS",
-      "02_EMAILS_PDF",
-      "03_RESPOSTAS_A_ORGAOS",
-      "04_PROTOCOLADOS",
+    "6. MAPAS_E_GEOESPACIAL": [
+      "6.1. SHAPEFILES",
+      "6.2. MAPAS_FINAIS",
+      "6.3. KMZ_KML",
     ],
-    "09_AUDITORIA_E_COMPLIANCE": [
-      "01_CHECKLISTS_ISO",
-      "02_RASTREABILIDADE",
-      "03_LGPD_E_CONFIDENCIALIDADE",
-      "04_REGISTROS_DE_MUDANCA",
+    "7. COMUNICACOES": [
+      "7.1. OFICIOS",
+      "7.2. EMAILS_RELEVANTES",
+      "7.3. NOTIFICACOES_ORGAOS",
+    ],
+    "8. ENTREGAS_E_FINANCEIRO": [
+      "8.1. ENVIADOS",
+      "8.2. PROTOCOLOS_RECEBIDOS",
+      "8.3. RECIBOS",
+      "8.4. NOTAS_FISCAIS",
     ],
   };
 
@@ -3348,70 +3339,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }): string {
     const { cliente, uf, projeto, tipoDocumento, status, extensao } = dados;
     
-    let basePath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS`;
+    // Nomenclatura: CÓDIGO_CLIENTE_UF (código primeiro, conforme gestão documental)
+    let basePath = `/ECOBRASIL_CONSULTORIA_AMBIENTAL/3. PROJETOS`;
     
     if (cliente && uf && projeto) {
-      basePath += `/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`;
+      basePath += `/${normalizarTexto(projeto)}_${normalizarTexto(cliente)}_${normalizarTexto(uf)}`;
     }
     
     const ext = extensao?.toLowerCase() || "";
     
-    // Roteamento por tipo de documento
+    // Roteamento por tipo de documento — mapeado para nova estrutura
     if (tipoDocumento === "DAT") {
-      return `${basePath}/03_BANCOS_DE_DADOS`;
+      return `${basePath}/4. MONITORAMENTO_E_AMOSTRAS/4.2. PROCESSADOS`;
     }
     
     if (tipoDocumento === "REL" || tipoDocumento === "NT") {
-      let subpasta = "01_RASCUNHOS";
-      if (status === "PRELIM") subpasta = "02_PRELIMINARES";
-      else if (status === "FINAL") subpasta = "04_FINAIS";
-      else if (status === "ASSIN" || status === "PROTOC") subpasta = "05_ASSINADOS_E_PROTOCOLADOS";
-      return `${basePath}/04_RELATORIOS_E_PARECERES/${subpasta}`;
+      let subpasta = "5.1. MINUTAS";
+      if (status === "PRELIM") subpasta = "5.1. MINUTAS";
+      else if (status === "FINAL") subpasta = "5.2. VERSOES_FINAIS";
+      else if (status === "ASSIN" || status === "PROTOC") subpasta = "5.2. VERSOES_FINAIS";
+      return `${basePath}/5. RELATORIOS_E_PARECERES/${subpasta}`;
+    }
+    
+    if (tipoDocumento === "PAR") {
+      return `${basePath}/5. RELATORIOS_E_PARECERES/5.3. PARECERES_TECNICOS`;
     }
     
     if (tipoDocumento === "OF") {
-      return `${basePath}/08_COMUNICACAO_OFICIAL/01_OFICIOS`;
+      return `${basePath}/7. COMUNICACOES/7.1. OFICIOS`;
+    }
+    
+    if (tipoDocumento === "LIC") {
+      return `${basePath}/3. LICENCAS_E_CONDICIONANTES/3.1. LICENCAS_ATIVAS`;
     }
     
     if (status === "PROTOC") {
-      return `${basePath}/08_COMUNICACAO_OFICIAL/04_PROTOCOLADOS`;
+      return `${basePath}/3. LICENCAS_E_CONDICIONANTES/3.4. PROTOCOLOS`;
     }
     
     // Roteamento por extensão
     if (["jpg", "jpeg", "png", "tif", "tiff", "webp", "gif"].includes(ext)) {
-      return `${basePath}/06_IMAGENS_E_MIDIAS/01_FOTOS_CAMPO`;
+      return `${basePath}/4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.2. FOTOS`;
     }
     
     if (["mp4", "avi", "mov", "mkv"].includes(ext)) {
-      return `${basePath}/06_IMAGENS_E_MIDIAS/02_DRONES_E_VIDEOS`;
+      return `${basePath}/4. MONITORAMENTO_E_AMOSTRAS/4.1. CAMPO/4.1.2. FOTOS`;
     }
     
-    if (["gpkg", "shp", "geojson"].includes(ext)) {
-      return `${basePath}/05_SIG_E_CARTOGRAFIA/01_DADOS_VETORIAIS`;
+    if (["gpkg", "shp", "geojson", "kml", "kmz"].includes(ext)) {
+      return `${basePath}/6. MAPAS_E_GEOESPACIAL/6.1. SHAPEFILES`;
     }
     
     if (ext === "qgz" || ext === "qgs") {
-      return `${basePath}/05_SIG_E_CARTOGRAFIA/03_PROJETOS_QGIS`;
+      return `${basePath}/6. MAPAS_E_GEOESPACIAL/6.2. MAPAS_FINAIS`;
     }
     
-    if (["r", "R"].includes(ext)) {
-      return `${basePath}/07_SCRIPTS_E_ANALISES/01_R`;
-    }
-    
-    if (ext === "py") {
-      return `${basePath}/07_SCRIPTS_E_ANALISES/02_PYTHON`;
-    }
-    
-    if (ext === "sql") {
-      return `${basePath}/07_SCRIPTS_E_ANALISES/03_SQL`;
-    }
-    
-    if (ext === "ipynb") {
-      return `${basePath}/07_SCRIPTS_E_ANALISES/04_NOTEBOOKS`;
+    if (["r", "R", "py", "sql", "ipynb"].includes(ext)) {
+      return `${basePath}/4. MONITORAMENTO_E_AMOSTRAS/4.2. PROCESSADOS`;
     }
     
     // Default
-    return `${basePath}/01_GESTAO_E_CONTRATOS`;
+    return `${basePath}/5. RELATORIOS_E_PARECERES/5.2. VERSOES_FINAIS`;
   }
 
   // Endpoint para garantir estrutura macro institucional (nova estrutura)
@@ -4002,13 +3990,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Cliente, UF e Projeto são obrigatórios' });
       }
       
-      const projetoPath = `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`;
+      // Nomenclatura: CÓDIGO_CLIENTE_UF (código primeiro, conforme gestão documental)
+      const projetoPath = `/ECOBRASIL_CONSULTORIA_AMBIENTAL/3. PROJETOS/${normalizarTexto(projeto)}_${normalizarTexto(cliente)}_${normalizarTexto(uf)}`;
       
       // Criar pasta do projeto
       await criarPastaSeNaoExistir(
-        `ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
+        `${normalizarTexto(projeto)}_${normalizarTexto(cliente)}_${normalizarTexto(uf)}`,
         projetoPath,
-        "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+        "/ECOBRASIL_CONSULTORIA_AMBIENTAL/3. PROJETOS",
         "projeto",
         projetoId || null
       );
@@ -4167,9 +4156,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Garantir estrutura do projeto
       if (cliente && uf && projeto) {
         await db.insert(datasetPastas).values({
-          nome: `ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
-          caminho: `/ECOBRASIL_GESTAO_DADOS/02_PROJETOS/ECOBRASIL_${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(projeto)}`,
-          pai: "/ECOBRASIL_GESTAO_DADOS/02_PROJETOS",
+          nome: `${normalizarTexto(projeto)}_${normalizarTexto(cliente)}_${normalizarTexto(uf)}`,
+          caminho: `/ECOBRASIL_CONSULTORIA_AMBIENTAL/3. PROJETOS/${normalizarTexto(projeto)}_${normalizarTexto(cliente)}_${normalizarTexto(uf)}`,
+          pai: "/ECOBRASIL_CONSULTORIA_AMBIENTAL/3. PROJETOS",
           tipo: "projeto",
         }).onConflictDoNothing();
       }
