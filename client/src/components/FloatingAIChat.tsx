@@ -63,20 +63,149 @@ function DocCard({ doc }: { doc: DocumentCard }) {
   );
 }
 
+function inlineMd(text: string): string {
+  return text
+    .replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+    .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-1 py-0.5 rounded text-[10px] font-mono">$1</code>');
+}
+
 function renderContent(content: string) {
-  return content.split("\n").map((line, i) => {
-    let html = line
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      .replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-0.5 rounded text-xs">$1</code>');
-    if (line.startsWith("- ") || line.startsWith("• "))
-      html = `<span class="flex gap-1"><span class="mt-0.5 flex-shrink-0">•</span><span>${html.replace(/^[-•]\s/, "")}</span></span>`;
-    if (/^\d+\.\s/.test(line))
-      html = `<span class="flex gap-1"><span class="mt-0.5 flex-shrink-0 font-semibold">${line.match(/^\d+\./)?.[0]}</span><span>${html.replace(/^\d+\.\s/, "")}</span></span>`;
-    if (line.startsWith("## ") || line.startsWith("# "))
-      html = `<p class="font-bold text-xs mt-1">${html.replace(/^#+\s/, "")}</p>`;
-    return <div key={i} dangerouslySetInnerHTML={{ __html: html || "&nbsp;" }} />;
-  });
+  const lines = content.split("\n");
+  const blocks: JSX.Element[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // ── Empty line ──────────────────────────────────────────────────────────
+    if (line.trim() === "") { i++; continue; }
+
+    // ── Table block ─────────────────────────────────────────────────────────
+    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      // Parse separator row (contains ---) and data rows
+      const rows = tableLines.filter(l => !/^\|[\s|:-]+\|$/.test(l) || l.replace(/[\s|:-]/g, "").length === 0 ? !l.replace(/[|\s-:]/g, "") : true);
+      const isSep = (l: string) => /^\|[\s|:-]+\|$/.test(l) && !l.replace(/[|\s:-]/g, "");
+      const dataRows = tableLines.filter(l => !isSep(l));
+
+      if (dataRows.length >= 1) {
+        const parseRow = (l: string) => l.split("|").slice(1, -1).map(c => c.trim());
+        const [header, ...body] = dataRows;
+        blocks.push(
+          <div key={`table-${i}`} className="overflow-x-auto my-2 rounded-lg border border-gray-200 dark:border-gray-600">
+            <table className="w-full text-[10px] border-collapse">
+              <thead className="bg-violet-50 dark:bg-violet-900/30">
+                <tr>
+                  {parseRow(header).map((cell, ci) => (
+                    <th key={ci} className="px-2 py-1.5 text-left font-semibold text-violet-800 dark:text-violet-300 border-b border-gray-200 dark:border-gray-600 whitespace-nowrap">
+                      {cell}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {body.map((row, ri) => (
+                  <tr key={ri} className={ri % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-gray-50 dark:bg-gray-800/60"}>
+                    {parseRow(row).map((cell, ci) => (
+                      <td key={ci} className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 align-top"
+                        dangerouslySetInnerHTML={{ __html: inlineMd(cell) }} />
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      continue;
+    }
+
+    // ── Heading ─────────────────────────────────────────────────────────────
+    if (/^#{1,3}\s/.test(line)) {
+      const level = line.match(/^(#{1,3})\s/)?.[1].length || 1;
+      const text = line.replace(/^#{1,3}\s/, "");
+      const cls = level === 1
+        ? "font-bold text-sm text-violet-800 dark:text-violet-300 mt-3 mb-1 pb-0.5 border-b border-violet-200 dark:border-violet-700"
+        : level === 2
+        ? "font-bold text-xs text-gray-800 dark:text-gray-200 mt-2 mb-1"
+        : "font-semibold text-xs text-gray-700 dark:text-gray-300 mt-1.5";
+      blocks.push(
+        <div key={`h-${i}`} className={cls} dangerouslySetInnerHTML={{ __html: inlineMd(text) }} />
+      );
+      i++; continue;
+    }
+
+    // ── Horizontal rule ─────────────────────────────────────────────────────
+    if (/^---+$/.test(line.trim()) || /^===+$/.test(line.trim())) {
+      blocks.push(<hr key={`hr-${i}`} className="border-gray-200 dark:border-gray-600 my-2" />);
+      i++; continue;
+    }
+
+    // ── Unordered list block ─────────────────────────────────────────────────
+    if (/^[-*•]\s/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*•]\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^[-*•]\s/, "").trim());
+        i++;
+      }
+      blocks.push(
+        <ul key={`ul-${i}`} className="space-y-0.5 my-1 pl-1">
+          {items.map((item, ii) => (
+            <li key={ii} className="flex gap-1.5 items-start">
+              <span className="text-violet-500 mt-0.5 flex-shrink-0 text-xs">•</span>
+              <span dangerouslySetInnerHTML={{ __html: inlineMd(item) }} />
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // ── Ordered list block ───────────────────────────────────────────────────
+    if (/^\d+[.)]\s/.test(line)) {
+      const items: string[] = [];
+      let num = 1;
+      while (i < lines.length && /^\d+[.)]\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+[.)]\s/, "").trim());
+        i++;
+      }
+      blocks.push(
+        <ol key={`ol-${i}`} className="space-y-0.5 my-1 pl-1">
+          {items.map((item, ii) => (
+            <li key={ii} className="flex gap-1.5 items-start">
+              <span className="text-violet-500 font-semibold flex-shrink-0 text-xs min-w-[14px]">{ii + 1}.</span>
+              <span dangerouslySetInnerHTML={{ __html: inlineMd(item) }} />
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // ── Blockquote ───────────────────────────────────────────────────────────
+    if (line.startsWith("> ")) {
+      blocks.push(
+        <div key={`bq-${i}`} className="border-l-2 border-violet-400 pl-2 my-1 text-gray-600 dark:text-gray-400 italic"
+          dangerouslySetInnerHTML={{ __html: inlineMd(line.replace(/^>\s/, "")) }} />
+      );
+      i++; continue;
+    }
+
+    // ── Regular paragraph ────────────────────────────────────────────────────
+    blocks.push(
+      <p key={`p-${i}`} className="leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: inlineMd(line) || "&nbsp;" }} />
+    );
+    i++;
+  }
+
+  return blocks;
 }
 
 const INITIAL_MESSAGES: Message[] = [
