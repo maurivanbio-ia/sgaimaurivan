@@ -12,68 +12,137 @@ function normalizarTexto(texto: string): string {
     .toUpperCase();
 }
 
+// Estrutura espelhando exatamente as pastas do Dropbox
 export const ESTRUTURA_INSTITUCIONAL = {
   raiz: "ECOBRASIL_CONSULTORIA_AMBIENTAL",
   nivel1: [
+    // Módulos: Contratos, Financeiro, RH, SST, Treinamentos, ISO/LGPD
     {
-      codigo: "01_ADMINISTRATIVO_E_JURIDICO",
-      subpastas: ["Contratos", "Financeiro", "Recursos_Humanos", "Compliance_e_LGPD"]
+      codigo: "1. ADMINISTRATIVO_E_JURIDICO",
+      subpastas: [
+        "1.1. CONTRATOS",
+        "1.2. FINANCEIRO",
+        "1.3. RECURSOS_HUMANOS",
+        "1.4. SST",
+        "1.5. TREINAMENTOS_E_CAPACITACAO",
+        "1.6. COMPLIANCE_E_LGPD",
+      ]
     },
+    // Módulos: Propostas Comerciais, Leads/CRM, Relacionamento, Fornecedores
     {
-      codigo: "02_COMERCIAL_E_CLIENTES",
-      subpastas: ["Propostas_Enviadas", "Propostas_Aprovadas", "Leads", "Relacionamento"]
+      codigo: "2. COMERCIAL_E_CLIENTES",
+      subpastas: [
+        "2.1. PROPOSTAS_ENVIADAS",
+        "2.2. PROPOSTAS_APROVADAS",
+        "2.3. LEADS_E_CRM",
+        "2.4. RELACIONAMENTO_E_ATAS",
+        "2.5. FORNECEDORES",
+      ]
     },
+    // Módulo: Empreendimentos / Projetos
     {
-      codigo: "03_PROJETOS",
+      codigo: "3. PROJETOS",
       subpastas: []
     },
+    // Módulos: Frota, Equipamentos
     {
-      codigo: "04_BASE_TECNICA_E_REFERENCIAS",
-      subpastas: ["Legislacao", "Normas_Tecnicas", "Artigos_Cientificos", "Manuais_Metodologicos"]
+      codigo: "4. RECURSOS_E_PATRIMONIO",
+      subpastas: [
+        "4.1. FROTA",
+        "4.2. EQUIPAMENTOS",
+      ]
+    },
+    // Módulo: Base de Conhecimento, Legislação, Normas
+    {
+      codigo: "5. BASE_TECNICA_E_REFERENCIAS",
+      subpastas: [
+        "5.1. LEGISLACAO",
+        "5.2. NORMAS_TECNICAS",
+        "5.3. ARTIGOS_CIENTIFICOS",
+        "5.4. MANUAIS_METODOLOGICOS",
+        "5.5. LINKS_E_REFERENCIAS",
+      ]
+    },
+    // Módulo: Gestão de Dados — templates e modelos
+    {
+      codigo: "6. MODELOS_E_PADROES",
+      subpastas: [
+        "6.1. TEMPLATES_RELATORIOS",
+        "6.2. MODELOS_PLANILHAS",
+        "6.3. PADROES_GRAFICOS",
+        "6.4. TERMOS_E_FORMULARIOS",
+      ]
+    },
+    // Módulos: N8N, Backups, ISO Conformidade, Newsletter
+    {
+      codigo: "7. SISTEMAS_E_AUTOMACOES",
+      subpastas: [
+        "7.1. WORKFLOWS_N8N",
+        "7.2. SCRIPTS_R_PYTHON",
+        "7.3. DASHBOARDS",
+        "7.4. BACKUPS_SISTEMAS",
+        "7.5. ISO_CONFORMIDADE",
+        "7.6. NEWSLETTER_E_BLOG",
+      ]
     },
     {
-      codigo: "05_MODELOS_E_PADROES",
-      subpastas: ["Templates_Relatorios", "Modelos_Planilhas", "Padroes_Graficos", "Termos_e_Formularios"]
-    },
-    {
-      codigo: "06_SISTEMAS_E_AUTOMACOES",
-      subpastas: ["Workflows_n8n", "Scripts_R_Python", "Dashboards", "Backups_Sistemas"]
-    },
-    {
-      codigo: "07_ARQUIVO_MORTO",
-      subpastas: ["Projetos_Encerrados", "Contratos_Finalizados", "Documentos_Historicos"]
+      codigo: "8. ARQUIVO_MORTO",
+      subpastas: [
+        "8.1. PROJETOS_ENCERRADOS",
+        "8.2. CONTRATOS_FINALIZADOS",
+        "8.3. COLABORADORES_DESLIGADOS",
+        "8.4. DOCUMENTOS_HISTORICOS",
+      ]
     }
   ]
 };
 
+// Estrutura de projeto espelhando as pastas do Dropbox em /3. PROJETOS/{PROJETO}/
 export const ESTRUTURA_PROJETO = [
+  // Módulos: Contratos, Aditivos, Autorizações
   {
-    codigo: "01_GESTAO_E_CONTRATOS",
-    subpastas: ["Contrato_Principal", "Aditivos"]
+    codigo: "1. GESTAO_E_CONTRATOS",
+    subpastas: ["1.1. CONTRATO_PRINCIPAL", "1.2. ADITIVOS", "1.3. AUTORIZACOES"]
   },
+  // Módulos: Cronograma, Demandas, Atas de Reunião
   {
-    codigo: "02_PLANEJAMENTO_E_CRONOGRAMA",
-    subpastas: ["Cronograma", "Planos_de_Trabalho"]
+    codigo: "2. PLANEJAMENTO_E_CRONOGRAMA",
+    subpastas: ["2.1. CRONOGRAMA", "2.2. PLANOS_DE_TRABALHO", "2.3. ATAS_DE_REUNIAO"]
   },
+  // Módulo: Licenças, Condicionantes, Evidências
   {
-    codigo: "03_BANCOS_DE_DADOS",
-    subpastas: ["Campo", "Processados"]
+    codigo: "3. LICENCAS_E_CONDICIONANTES",
+    subpastas: [
+      "3.1. LICENCAS_ATIVAS",
+      "3.2. CONDICIONANTES",
+      "3.3. EVIDENCIAS_E_COMPROVANTES",
+      "3.4. PROTOCOLOS",
+    ]
   },
+  // Módulo: Amostras, Monitoramento Ambiental
   {
-    codigo: "04_RELATORIOS_E_PARECERES",
-    subpastas: ["Minutas", "Versoes_Finais"]
+    codigo: "4. MONITORAMENTO_E_AMOSTRAS",
+    subpastas: ["4.1. CAMPO", "4.2. PROCESSADOS", "4.3. LAUDOS_LABORATORIAIS"]
   },
+  // Módulo: Relatórios, Documentos Técnicos
   {
-    codigo: "05_MAPAS_E_GEOSPATIAL",
-    subpastas: ["Shapefiles", "Mapas_Finais"]
+    codigo: "5. RELATORIOS_E_PARECERES",
+    subpastas: ["5.1. MINUTAS", "5.2. VERSOES_FINAIS", "5.3. PARECERES_TECNICOS"]
   },
+  // Módulo: Camadas Geoespaciais
   {
-    codigo: "06_COMUNICACOES",
-    subpastas: ["Oficios", "Emails_Relevantes"]
+    codigo: "6. MAPAS_E_GEOESPACIAL",
+    subpastas: ["6.1. SHAPEFILES", "6.2. MAPAS_FINAIS", "6.3. KMZ_KML"]
   },
+  // Módulo: Comunicação Interna, Ofícios
   {
-    codigo: "07_ENTREGAS_E_PROTOCOLOS",
-    subpastas: ["Enviados", "Protocolos"]
+    codigo: "7. COMUNICACOES",
+    subpastas: ["7.1. OFICIOS", "7.2. EMAILS_RELEVANTES", "7.3. NOTIFICACOES_ORGAOS"]
+  },
+  // Módulo: Financeiro de Projeto, Entregas, Recibos
+  {
+    codigo: "8. ENTREGAS_E_FINANCEIRO",
+    subpastas: ["8.1. ENVIADOS", "8.2. PROTOCOLOS_RECEBIDOS", "8.3. RECIBOS", "8.4. NOTAS_FISCAIS"]
   }
 ];
 
@@ -147,17 +216,22 @@ export async function criarEstruturaProjeto(
   projetoId?: number
 ): Promise<{ success: boolean; path: string; foldersCreated: number }> {
   try {
-    const nomeProjeto = `${normalizarTexto(cliente)}_${normalizarTexto(uf)}_${normalizarTexto(codigoProjeto)}`;
+    // Nomenclatura: CÓDIGO_CLIENTE_UF (código primeiro, conforme gestão documental)
+    const codigoNorm = normalizarTexto(codigoProjeto);
+    const clienteNorm = normalizarTexto(cliente);
+    const ufNorm = normalizarTexto(uf || 'BR');
+    const nomeProjeto = `${codigoNorm}_${clienteNorm}_${ufNorm}`;
     const raizPath = `/${ESTRUTURA_INSTITUCIONAL.raiz}`;
     
-    // Tentar encontrar pasta de projetos existente (pode ser 02_PROJETOS ou 03_PROJETOS)
+    // Pasta de projetos conforme estrutura atual
     const possiveisPastasProjetos = [
-      `${raizPath}/02_PROJETOS`,
+      `${raizPath}/3. PROJETOS`,
       `${raizPath}/03_PROJETOS`,
+      `${raizPath}/02_PROJETOS`,
       `${raizPath}/PROJETOS`
     ];
     
-    let projetosPath = `${raizPath}/03_PROJETOS`;
+    let projetosPath = `${raizPath}/3. PROJETOS`;
     let projetosPasta = null;
     
     for (const path of possiveisPastasProjetos) {
