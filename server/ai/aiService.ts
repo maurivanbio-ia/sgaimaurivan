@@ -443,6 +443,7 @@ async function executeTool(toolName: string, args: any, unidade: string, userId?
         dataEntrega: args.prazo || defaultPrazo,
         status: 'a_fazer',
         responsavelId: userId || 1,
+        criadoPor: userId || 1,
         empreendimentoId: args.empreendimentoId || null,
       } as any);
       return { success: true, result: { id: demanda.id, titulo: demanda.titulo }, message: `Demanda "${demanda.titulo}" criada com sucesso! ID: #${demanda.id}` };
