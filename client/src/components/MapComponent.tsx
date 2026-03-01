@@ -124,9 +124,9 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
                   data-testid={`map-card-empreendimento-${empreendimento.id}`}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3 min-w-0">
                       {/* Icon e tipo */}
-                      <div className="flex items-start gap-3 flex-1">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div 
                           className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
                           style={{ backgroundColor: `${tipoInfo.color}15` }}
@@ -136,39 +136,47 @@ export default function MapComponent({ empreendimentos, className }: MapComponen
                         
                         <div className="flex-1 min-w-0">
                           {/* Nome e Status */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-base truncate">{empreendimento.nome}</h4>
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs flex-shrink-0 ${getStatusColor(empreendimento.status)}`}
-                            >
-                              {formatStatus(empreendimento.status)}
-                            </Badge>
+                          <div className="flex items-center gap-2 mb-2 min-w-0">
+                            <h4 className="font-semibold text-sm flex-1 min-w-0 truncate" title={empreendimento.nome}>
+                              {empreendimento.nome}
+                            </h4>
+                            {empreendimento.status && (
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs flex-shrink-0 ${getStatusColor(empreendimento.status)}`}
+                              >
+                                {formatStatus(empreendimento.status)}
+                              </Badge>
+                            )}
                           </div>
 
                           {/* Informações */}
-                          <div className="space-y-1 text-sm">
-                            <div className="flex items-center gap-1.5 text-gray-600">
-                              <User className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span className="truncate">{empreendimento.cliente}</span>
-                            </div>
+                          <div className="space-y-1 text-xs">
+                            {empreendimento.cliente && (
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <User className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{empreendimento.cliente}</span>
+                              </div>
+                            )}
                             
-                            <div className="flex items-center gap-1.5 text-gray-600">
-                              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span className="truncate">{empreendimento.localizacao}</span>
-                            </div>
+                            {empreendimento.localizacao && (
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{empreendimento.localizacao}</span>
+                              </div>
+                            )}
 
                             {empreendimento.municipio && empreendimento.uf && (
-                              <div className="flex items-center gap-1.5 text-gray-600">
-                                <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
-                                <span className="truncate">{empreendimento.municipio}/{empreendimento.uf}</span>
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <Building2 className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{empreendimento.municipio}, {empreendimento.uf}</span>
                               </div>
                             )}
 
                             {/* Coordenadas */}
-                            <div className="flex items-center gap-1.5 text-gray-500 text-xs mt-2 pt-2 border-t">
+                            <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500 text-xs mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                               <Navigation className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate font-mono">
+                              <span className="truncate font-mono text-[10px]">
                                 {parseFloat(empreendimento.latitude!).toFixed(6)}, {parseFloat(empreendimento.longitude!).toFixed(6)}
                               </span>
                             </div>
