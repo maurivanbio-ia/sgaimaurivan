@@ -6877,34 +6877,39 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   // ── PDF UPLOAD FOR AI ANALYSIS ─────────────────────────────────────────────
-  app.post("/api/ai/upload-doc", requireAuth, async (req, res) => {
+  const multerAI = (await import('multer')).default;
+  const aiDocUpload = multerAI({ storage: multerAI.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+
+  app.post("/api/ai/upload-doc", requireAuth, aiDocUpload.single('file'), async (req, res) => {
     try {
-      const multer = (await import('multer')).default;
-      const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+      const file = (req as any).file;
+      if (!file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
 
-      upload.single('file')(req as any, res as any, async (err) => {
-        if (err) return res.status(400).json({ message: "Erro no upload: " + err.message });
-        const file = (req as any).file;
-        if (!file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      let text = '';
+      const mime = file.mimetype;
 
+      if (mime === 'application/pdf') {
         try {
-          let text = '';
-          if (file.mimetype === 'application/pdf') {
-            const pdfParse = (await import('pdf-parse')).default;
-            const data = await pdfParse(file.buffer);
-            text = data.text.substring(0, 8000);
-          } else if (file.mimetype === 'text/plain') {
-            text = file.buffer.toString('utf-8').substring(0, 8000);
-          } else {
-            return res.status(400).json({ message: "Apenas arquivos PDF ou TXT são suportados" });
-          }
-          res.json({ text, name: file.originalname, size: file.size });
-        } catch (parseErr: any) {
-          res.status(500).json({ message: "Erro ao extrair texto: " + parseErr.message });
+          const pdfParse = (await import('pdf-parse')).default;
+          const data = await pdfParse(file.buffer);
+          text = data.text.replace(/\s+/g, ' ').trim().substring(0, 8000);
+        } catch (pdfErr: any) {
+          return res.status(500).json({ message: "Erro ao ler o PDF: " + pdfErr.message });
         }
-      });
+      } else if (mime === 'text/plain' || mime === 'text/csv' || file.originalname?.endsWith('.txt')) {
+        text = file.buffer.toString('utf-8').substring(0, 8000);
+      } else {
+        return res.status(400).json({ message: "Formato não suportado. Envie um PDF ou arquivo .txt" });
+      }
+
+      if (!text.trim()) {
+        return res.status(422).json({ message: "O documento parece estar vazio ou não tem texto extraível." });
+      }
+
+      res.json({ text, name: file.originalname, size: file.size, chars: text.length });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      console.error('[AI Upload] Error:', error);
+      res.status(500).json({ message: "Erro ao processar documento: " + error.message });
     }
   });
 
