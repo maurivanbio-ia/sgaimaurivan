@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -365,6 +365,7 @@ function MessageBubble({ msg, isStreaming }: { msg: Message; isStreaming: boolea
 export default function FloatingAIChat() {
   const { unidadeSelecionada } = useUnidade();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
@@ -534,6 +535,18 @@ export default function FloatingAIChat() {
               ));
             } else if (eventType === "action") {
               actions.push(parsed);
+              if (parsed.success) {
+                const toolCacheMap: Record<string, string[]> = {
+                  criar_demanda: ["/api/demandas", "/api/demandas/dashboard/stats"],
+                  criar_empreendimento: ["/api/empreendimentos"],
+                  registrar_equipamento: ["/api/equipamentos"],
+                  registrar_veiculo: ["/api/frota", "/api/frota/stats"],
+                  registrar_lancamento: ["/api/financeiro/lancamentos"],
+                  atualizar_status_licenca: ["/api/licencas"],
+                };
+                const keysToInvalidate = toolCacheMap[parsed.tool] || [];
+                keysToInvalidate.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+              }
             } else if (eventType === "suggestions") {
               suggestions = Array.isArray(parsed) ? parsed : [];
             } else if (eventType === "documents") {
@@ -601,14 +614,22 @@ export default function FloatingAIChat() {
       toast({ title: "Formato não suportado", description: "Apenas PDF e TXT são aceitos.", variant: "destructive" });
       return;
     }
+    await uploadDocFile(file);
+  };
+
+  const uploadDocFile = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
     try {
       const res = await fetch("/api/ai/upload-doc", { method: "POST", credentials: "include", body: formData });
-      if (!res.ok) throw new Error("Falha no upload");
+      if (!res.ok) {
+        let errMsg = "Falha no upload";
+        try { const errData = await res.json(); errMsg = errData.message || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
       const data = await res.json();
       setPendingDoc({ name: file.name, text: data.text });
-      toast({ title: "Documento carregado!", description: `"${file.name}" pronto para análise.` });
+      toast({ title: "Documento carregado!", description: `"${file.name}" pronto para análise. Faça sua pergunta!` });
     } catch (err: any) {
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     }
@@ -622,17 +643,7 @@ export default function FloatingAIChat() {
     input.onchange = async (e: any) => {
       const file = e.target.files[0];
       if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        const res = await fetch("/api/ai/upload-doc", { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) throw new Error("Falha no upload");
-        const data = await res.json();
-        setPendingDoc({ name: file.name, text: data.text });
-        toast({ title: "Documento carregado!", description: `"${file.name}" pronto para análise.` });
-      } catch (err: any) {
-        toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
-      }
+      await uploadDocFile(file);
     };
     input.click();
   };
