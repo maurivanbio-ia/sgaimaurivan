@@ -6840,6 +6840,74 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
+  // ── AI STREAMING ENDPOINT ──────────────────────────────────────────────────
+  app.post("/api/ai/stream", requireAuth, async (req, res) => {
+    try {
+      const { message, empreendimentoId, history } = req.body;
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ message: "Unidade não definida" });
+      if (!message) return res.status(400).json({ message: "Mensagem é obrigatória" });
+
+      const { streamQuery } = await import("./ai/aiService");
+      await streamQuery({
+        unidade,
+        userId: req.session.userId!,
+        message,
+        empreendimentoId: empreendimentoId ? Number(empreendimentoId) : undefined,
+        history: Array.isArray(history) ? history.slice(-10) : [],
+      }, res);
+    } catch (error: any) {
+      console.error("AI stream error:", error);
+      if (!res.headersSent) res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── PROACTIVE ALERTS ───────────────────────────────────────────────────────
+  app.get("/api/ai/proactive-alerts", requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ message: "Unidade não definida" });
+      const { getProactiveAlerts } = await import("./ai/aiService");
+      const alerts = await getProactiveAlerts(unidade);
+      res.json(alerts);
+    } catch (error: any) {
+      console.error("Proactive alerts error:", error);
+      res.status(500).json({ message: "Erro ao buscar alertas" });
+    }
+  });
+
+  // ── PDF UPLOAD FOR AI ANALYSIS ─────────────────────────────────────────────
+  app.post("/api/ai/upload-doc", requireAuth, async (req, res) => {
+    try {
+      const multer = (await import('multer')).default;
+      const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+      upload.single('file')(req as any, res as any, async (err) => {
+        if (err) return res.status(400).json({ message: "Erro no upload: " + err.message });
+        const file = (req as any).file;
+        if (!file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+
+        try {
+          let text = '';
+          if (file.mimetype === 'application/pdf') {
+            const pdfParse = (await import('pdf-parse')).default;
+            const data = await pdfParse(file.buffer);
+            text = data.text.substring(0, 8000);
+          } else if (file.mimetype === 'text/plain') {
+            text = file.buffer.toString('utf-8').substring(0, 8000);
+          } else {
+            return res.status(400).json({ message: "Apenas arquivos PDF ou TXT são suportados" });
+          }
+          res.json({ text, name: file.originalname, size: file.size });
+        } catch (parseErr: any) {
+          res.status(500).json({ message: "Erro ao extrair texto: " + parseErr.message });
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // =============================================
   // CLIENT PORTAL AUTHENTICATION ROUTES
   // =============================================
