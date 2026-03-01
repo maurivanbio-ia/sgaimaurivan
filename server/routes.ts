@@ -6732,7 +6732,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
   // Query the AI agent
   app.post("/api/ai/query", requireAuth, async (req, res) => {
     try {
-      const { message, empreendimentoId } = req.body;
+      const { message, empreendimentoId, history } = req.body;
       // Use unidade from authenticated user (security - ignore client-provided value)
       const unidade = req.user?.unidade;
       
@@ -6750,6 +6750,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
         userId: req.session.userId!,
         message,
         empreendimentoId,
+        history: Array.isArray(history) ? history.slice(-10) : [],
       });
       
       res.json({ response: result.response, documents: result.documents });

@@ -9,11 +9,17 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface QueryOptions {
   unidade: string;
   userId: number;
   message: string;
   empreendimentoId?: number;
+  history?: ChatMessage[];
   context?: any;
 }
 
@@ -246,7 +252,7 @@ async function buildDatabaseContext(unidade: string, message: string, empreendim
 }
 
 export async function processQuery(options: QueryOptions): Promise<QueryResponse> {
-  const { unidade, userId, message, empreendimentoId, context = {} } = options;
+  const { unidade, userId, message, empreendimentoId, history = [], context = {} } = options;
 
   try {
     await db.insert(aiLogs).values({
@@ -276,33 +282,50 @@ export async function processQuery(options: QueryOptions): Promise<QueryResponse
         ).join('\n\n')
       : '';
 
-    const systemPrompt = `Você é o EcoGestor-AI, assistente inteligente da Ecobrasil Consultoria Ambiental especializado em gestão ambiental e licenciamento.
+    const systemPrompt = `Você é o EcoGestor-AI, assistente da Ecobrasil Consultoria Ambiental. Você é um colega experiente em gestão ambiental — inteligente, atento e humano.
 
-Você tem acesso **em tempo real** a TODOS os dados cadastrados na plataforma EcoGestor para a unidade "${unidade}". Os dados abaixo foram carregados diretamente do banco de dados agora mesmo — use-os para responder com precisão.
+## Sua personalidade
+- Converse de forma natural e acolhedora, como um colega de trabalho que conhece bem a empresa
+- Use português brasileiro informal-profissional: direto, simpático, sem ser robótico
+- Quando a pergunta for vaga, faça UMA pergunta de esclarecimento antes de responder
+- Mostre que você entendeu o que foi pedido antes de dar a resposta
+- Destaque proativamente informações importantes que o usuário pode não ter pedido mas precisa saber (ex: licença vencendo, demanda atrasada)
+- Quando tiver muitos dados, resuma primeiro e ofereça detalhar se precisar
+- Nunca despeje listas gigantes sem contexto — sempre introduza os dados
 
-REGRAS:
-- Responda sempre em português, de forma objetiva e profissional
-- Use os dados abaixo como fonte primária de verdade — não invente dados
-- Quando listar empreendimentos, licenças, etc., cite os nomes e IDs reais
-- Formate respostas com markdown (tabelas, listas, negrito)
-- Se a informação não estiver nos dados abaixo, diga claramente que não encontrou
-- Para documentos (arquivos), mencione os cartões de documento abaixo da resposta
+## Formatação
+- Use **negrito** para nomes, status e valores importantes
+- Use tabelas markdown (| col | col |) apenas quando tiver 3+ itens comparáveis
+- Use listas com - para enumerações simples
+- Separe seções com uma linha em branco
+- Respostas concisas — máximo 400 palavras salvo pedido explícito de lista completa
 
-═══════════════════════════════════════════════════════
-DADOS REAIS DA PLATAFORMA (unidade: ${unidade})
-═══════════════════════════════════════════════════════
+## Dados reais da plataforma (unidade: ${unidade})
+Os dados abaixo são reais, buscados agora do banco de dados. Use-os como base, mas interprete-os — não apenas liste-os.
+
 ${dbContext}
 
-${docsText}`;
+${docsText}
+
+## Regras absolutas
+- Nunca invente dados que não estejam acima
+- Se não encontrar a informação, diga claramente e sugira o que o usuário pode fazer
+- Mantenha o contexto da conversa — lembre do que foi dito antes neste chat`;
+
+    const historyMessages = (history || []).slice(-8).map(h => ({
+      role: h.role as 'user' | 'assistant',
+      content: h.content,
+    }));
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
+        ...historyMessages,
         { role: 'user', content: message },
       ],
-      temperature: 0.4,
-      max_tokens: 1500,
+      temperature: 0.7,
+      max_tokens: 800,
     });
 
     const response = completion.choices[0].message.content || 'Desculpe, não consegui processar sua pergunta.';
