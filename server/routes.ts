@@ -2986,6 +2986,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quick status update
+  app.patch('/api/frota/:id/status', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid veiculo ID' });
+      const { status } = req.body;
+      const validStatuses = ['disponivel', 'em_uso', 'manutencao', 'indisponivel'];
+      if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+      const veiculo = await storage.updateVeiculo(id, { status });
+      res.json(veiculo);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update status' });
+    }
+  });
+
   // Delete veículo
   app.delete('/api/frota/:id', requireAuth, async (req, res) => {
     try {
