@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Send, Bot, User, Sparkles, FileText, FolderOpen, ExternalLink,
-  Upload, Loader2, Trash2, Database, Search, X, Info
+  Upload, Loader2, Trash2, Database, Search, X, Info, Building, ChevronDown
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useUnidade } from "@/contexts/UnidadeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -89,15 +90,21 @@ export default function EcoAssistente() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Olá! Sou o **EcoGestor-AI**, seu assistente inteligente de gestão ambiental.\n\nPosso ajudar com:\n- 🔍 **Localizar documentos** na plataforma e no Dropbox\n- 📋 Consultar **licenças, contratos, demandas**\n- 🚗 Verificar **frota e equipamentos**\n- 📊 Analisar **prazos e compliance**\n\nAo perguntar sobre um documento, verei onde ele está e poderei exibi-lo aqui. Como posso ajudar?',
+      content: 'Olá! Sou o **EcoGestor-AI**, seu assistente com acesso completo à plataforma.\n\nTenho acesso em **tempo real** a:\n- 🏗️ **Todos os empreendimentos** cadastrados\n- 📄 **Licenças e condicionantes** com prazos\n- 📋 **Demandas e contratos** ativos\n- 💰 **Lançamentos financeiros**\n- 👥 **RH, frota, equipamentos, amostras** e muito mais\n\nPode me perguntar qualquer coisa sobre os dados da plataforma. Como posso ajudar?',
       timestamp: new Date(),
     }
   ]);
   const [input, setInput] = useState('');
+  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState<string>('todos');
   const [showIndexModal, setShowIndexModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const { data: empreendimentos = [] } = useQuery<any[]>({
+    queryKey: ['/api/empreendimentos'],
+    queryFn: () => fetch('/api/empreendimentos', { credentials: 'include' }).then(r => r.json()),
+  });
 
   const { data: indexedDocs = [], refetch: refetchDocs } = useQuery<any[]>({
     queryKey: ['/api/ai/documents'],
@@ -107,11 +114,12 @@ export default function EcoAssistente() {
 
   const queryMutation = useMutation({
     mutationFn: async (message: string) => {
+      const empId = selectedEmpreendimentoId !== 'todos' ? parseInt(selectedEmpreendimentoId) : undefined;
       const response = await fetch('/api/ai/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ unidade: unidadeSelecionada, message }),
+        body: JSON.stringify({ unidade: unidadeSelecionada, message, empreendimentoId: empId }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -154,12 +162,14 @@ export default function EcoAssistente() {
   }, [messages]);
 
   const sugestoes = [
-    "Onde está o contrato do projeto X?",
-    "Quais licenças vencem em 60 dias?",
-    "Mostre documentos sobre monitoramento ambiental",
-    "Quais equipamentos estão disponíveis?",
-    "Encontre relatórios técnicos indexados",
+    "Liste todos os empreendimentos cadastrados",
+    "Quais licenças vencem nos próximos 60 dias?",
     "Mostre as demandas pendentes",
+    "Quais funcionários estão ativos no RH?",
+    "Qual o status da frota de veículos?",
+    "Mostre os contratos ativos",
+    "Quais equipamentos estão disponíveis?",
+    "Mostre o resumo financeiro do mês",
   ];
 
   function renderMessageContent(content: string) {
@@ -187,7 +197,7 @@ export default function EcoAssistente() {
               </div>
               <div>
                 <h1 className="text-2xl md:text-4xl font-bold">EcoGestor-AI</h1>
-                <p className="text-white/90 text-sm md:text-lg mt-0.5">Assistente Inteligente de Gestão Ambiental · RAG Habilitado</p>
+                <p className="text-white/90 text-sm md:text-lg mt-0.5">Assistente com acesso completo à plataforma · Dados em tempo real</p>
               </div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
@@ -208,12 +218,26 @@ export default function EcoAssistente() {
         {/* Chat Container */}
         <Card className="shadow-2xl border-2">
           <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b py-3">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-base flex-wrap">
               <Bot className="h-5 w-5 text-green-600" />
               Conversa
-              <Badge variant="outline" className="ml-auto text-xs font-normal">
-                <Search className="h-3 w-3 mr-1" />RAG Ativo
-              </Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedEmpreendimentoId} onValueChange={setSelectedEmpreendimentoId}>
+                  <SelectTrigger className="h-7 text-xs w-48 border-dashed">
+                    <SelectValue placeholder="Todos os empreendimentos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os empreendimentos</SelectItem>
+                    {empreendimentos.map((e: any) => (
+                      <SelectItem key={e.id} value={String(e.id)}>{e.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Badge variant="outline" className="text-xs font-normal whitespace-nowrap">
+                  <Database className="h-3 w-3 mr-1" />Banco em Tempo Real
+                </Badge>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -278,7 +302,7 @@ export default function EcoAssistente() {
                     <div className="max-w-[78%] rounded-2xl px-4 py-3 bg-gray-100 dark:bg-gray-800">
                       <div className="flex gap-1 items-center text-sm text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Buscando documentos e processando...</span>
+                        <span>Consultando banco de dados e processando...</span>
                       </div>
                     </div>
                   </div>
@@ -291,7 +315,7 @@ export default function EcoAssistente() {
             {messages.length === 1 && (
               <div className="px-4 md:px-6 pb-4 border-t pt-4">
                 <p className="text-xs text-gray-500 mb-2">Sugestões de perguntas:</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {sugestoes.map((sug, idx) => (
                     <Button key={idx} variant="outline" size="sm"
                       className="text-left justify-start h-auto py-2 text-xs"
@@ -332,25 +356,25 @@ export default function EcoAssistente() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4">
-              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><Search className="h-4 w-4 text-green-600" />Busca Inteligente (RAG)</h3>
+              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><Database className="h-4 w-4 text-green-600" />Dados em Tempo Real</h3>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                Os documentos inseridos na plataforma são automaticamente indexados. A IA os encontra e mostra onde estão.
+                O agente consulta diretamente o banco de dados a cada pergunta — empreendimentos, licenças, contratos, RH, financeiro e mais. Sem indexação manual.
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><FolderOpen className="h-4 w-4 text-blue-600" />Localização no Dropbox</h3>
+              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><Building className="h-4 w-4 text-blue-600" />Filtro por Empreendimento</h3>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                A IA informa a pasta exata no Dropbox onde o documento está armazenado, com caminho hierárquico completo.
+                Selecione um empreendimento específico no topo da conversa para focar as respostas naquele projeto, ou deixe em "Todos" para uma visão geral.
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><FileText className="h-4 w-4 text-purple-600" />Cartões de Documento</h3>
+              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><FileText className="h-4 w-4 text-purple-600" />Documentos Indexados</h3>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                Documentos relevantes aparecem como cartões clicáveis na conversa, com link direto para download quando disponível.
+                Arquivos enviados para a plataforma continuam indexados e aparecem como cartões clicáveis na conversa, complementando os dados do banco.
               </p>
             </CardContent>
           </Card>
