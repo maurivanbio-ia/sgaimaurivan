@@ -38,7 +38,8 @@ import {
   X,
   Download,
   Shield,
-  FileCheck
+  FileCheck,
+  ChevronDown
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -872,12 +873,17 @@ function VehicleCard({ veiculo, onEdit, onView, onDelete, onStatusChange }: Vehi
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Badge className={`${statusConfig.color} text-white cursor-pointer hover:opacity-80 transition-opacity select-none`}>
-                <statusConfig.icon className="w-3 h-3 mr-1" />
+              <Badge
+                title="Clique para alterar o status"
+                className={`${statusConfig.color} text-white cursor-pointer hover:opacity-80 transition-opacity select-none flex items-center gap-1 pr-1.5`}
+              >
+                <statusConfig.icon className="w-3 h-3" />
                 {statusConfig.label}
+                <ChevronDown className="w-3 h-3 opacity-80" />
               </Badge>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" sideOffset={4}>
+              <p className="px-2 py-1 text-xs text-muted-foreground font-medium">Alterar status</p>
               {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                 <DropdownMenuItem
                   key={key}
@@ -886,6 +892,7 @@ function VehicleCard({ veiculo, onEdit, onView, onDelete, onStatusChange }: Vehi
                 >
                   <cfg.icon className="w-4 h-4 mr-2" />
                   {cfg.label}
+                  {veiculo.status === key && <span className="ml-auto text-xs text-muted-foreground">atual</span>}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -1037,9 +1044,14 @@ export default function FrotaPage() {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest("PATCH", `/api/frota/${id}/status`, { status }),
-    onSuccess: () => {
+    onSuccess: (_data, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/frota"] });
       queryClient.invalidateQueries({ queryKey: ["/api/frota/stats"] });
+      const label = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.label ?? status;
+      toast({ title: `Status atualizado para "${label}".` });
+    },
+    onError: () => {
+      toast({ title: "Falha ao atualizar status", variant: "destructive" });
     },
   });
 
