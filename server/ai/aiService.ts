@@ -384,12 +384,12 @@ const AI_TOOLS = [
         properties: {
           titulo: { type: "string", description: "Título da demanda" },
           descricao: { type: "string", description: "Descrição detalhada (opcional)" },
+          setor: { type: "string", description: "Setor responsável. Exemplos: Licenciamento, Fauna, Flora, RH, Engenharia, Meio Físico, Meio Biótico, Geral. Se não especificado pelo usuário, use 'Geral'." },
           prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Prioridade (padrão: media)" },
-          prazo: { type: "string", description: "Prazo em formato YYYY-MM-DD (opcional)" },
-          responsavel: { type: "string", description: "Nome do responsável (opcional)" },
+          prazo: { type: "string", description: "Data de entrega em formato YYYY-MM-DD. Se não informado, use 7 dias a partir de hoje." },
           empreendimentoId: { type: "number", description: "ID do empreendimento associado (opcional)" },
         },
-        required: ["titulo"],
+        required: ["titulo", "setor"],
       },
     },
   },
@@ -428,17 +428,21 @@ const AI_TOOLS = [
   },
 ];
 
-async function executeTool(toolName: string, args: any, unidade: string): Promise<{ success: boolean; result: any; message: string }> {
+async function executeTool(toolName: string, args: any, unidade: string, userId?: number): Promise<{ success: boolean; result: any; message: string }> {
   try {
     if (toolName === 'criar_demanda') {
+      const today = new Date();
+      const defaultPrazo = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
       const demanda = await storage.createDemanda({
         titulo: args.titulo,
         descricao: args.descricao || null,
+        setor: args.setor || 'Geral',
         prioridade: args.prioridade || 'media',
-        prazo: args.prazo || null,
-        responsavel: args.responsavel || null,
-        status: 'pendente',
-        unidade,
+        complexidade: 'media',
+        categoria: 'geral',
+        dataEntrega: args.prazo || defaultPrazo,
+        status: 'a_fazer',
+        responsavelId: userId || 1,
         empreendimentoId: args.empreendimentoId || null,
       } as any);
       return { success: true, result: { id: demanda.id, titulo: demanda.titulo }, message: `Demanda "${demanda.titulo}" criada com sucesso! ID: #${demanda.id}` };
@@ -597,7 +601,7 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
     for (const tc of toolCallsList) {
       let args: any = {};
       try { args = JSON.parse(tc.arguments || '{}'); } catch {}
-      const result = await executeTool(tc.name, args, unidade);
+      const result = await executeTool(tc.name, args, unidade, userId);
       sendEvent('action', { tool: tc.name, success: result.success, result: result.result, message: result.message });
       toolMessages.push({
         role: 'tool' as const,
