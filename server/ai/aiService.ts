@@ -703,9 +703,9 @@ export async function getProactiveAlerts(unidade: string): Promise<any[]> {
       const val = new Date(lic.validade);
       if (val <= in7 && val >= today) {
         const emp = empList.find((e: any) => e.id === lic.empreendimentoId);
-        alerts.push({ type: 'licenca_vencendo', severity: val <= new Date(today.getTime() + 2 * 86400000) ? 'critical' : 'warning', title: `Licença vence em breve`, message: `${lic.tipo || 'Licença'} #${lic.numero || lic.id} — ${emp?.nome || 'Empreendimento'}`, daysLeft: Math.ceil((val.getTime() - today.getTime()) / 86400000), link: `/licencas` });
+        alerts.push({ type: 'licenca_vencendo', severity: val <= new Date(today.getTime() + 2 * 86400000) ? 'critical' : 'warning', title: `Licença vence em breve`, message: `${lic.tipo || 'Licença'} #${lic.numero || lic.id} — ${emp?.nome || 'Empreendimento'}`, daysLeft: Math.ceil((val.getTime() - today.getTime()) / 86400000), link: `/licencas/vencer` });
       } else if (val < today && lic.status === 'ativa') {
-        alerts.push({ type: 'licenca_vencida', severity: 'critical', title: 'Licença vencida!', message: `${lic.tipo || 'Licença'} #${lic.numero || lic.id} — venceu em ${lic.validade}`, link: `/licencas` });
+        alerts.push({ type: 'licenca_vencida', severity: 'critical', title: 'Licença vencida!', message: `${lic.tipo || 'Licença'} #${lic.numero || lic.id} — venceu em ${lic.validade}`, link: `/licencas/vencidas` });
       }
     }
 
