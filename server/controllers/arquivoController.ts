@@ -105,6 +105,23 @@ export async function uploadArquivo(req: Request, res: Response) {
       } catch (dropboxErr: any) {
         console.warn('[Dropbox] Sync em background falhou:', dropboxErr.message);
       }
+
+      // Auto-index for RAG AI
+      try {
+        const { autoIndexDocument } = await import('../services/documentIndexService');
+        const unidade = (req as any).user?.unidade || (req.session as any)?.unidade || 'geral';
+        await autoIndexDocument({
+          unidade,
+          fileName: req.file!.originalname,
+          fileUrl: `/api/arquivos/${arquivo.id}/download`,
+          fileBuffer,
+          fileType: req.file!.mimetype,
+          module: origem || 'documento',
+          empreendimentoNome: empreendimentoNome || empreendimentoCliente || undefined,
+        });
+      } catch (idxErr: any) {
+        console.warn('[RAG] Auto-index em background falhou:', idxErr.message);
+      }
     });
   } catch (error: any) {
     console.error("Erro ao fazer upload:", error);

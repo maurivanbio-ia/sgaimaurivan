@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { aiDocuments } from '@shared/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { generateEmbedding, cosineSimilarity } from './embeddings';
 
 export interface SearchResult {
@@ -10,6 +10,11 @@ export interface SearchResult {
   sourceType: string;
   similarity: number;
   metadata: any;
+  fileUrl?: string;
+  module?: string;
+  moduleLabel?: string;
+  dropboxPath?: string;
+  empreendimentoNome?: string;
 }
 
 /**
@@ -23,40 +28,43 @@ export async function searchSimilarDocuments(
   empreendimentoId?: number
 ): Promise<SearchResult[]> {
   try {
-    // Gera embedding da query
     const queryEmbedding = await generateEmbedding(query);
-    
-    // Busca documentos filtrados por unidade (OBRIGATÓRIO)
+
     const whereConditions = [eq(aiDocuments.unidade, unidade)];
-    
+
     if (empreendimentoId) {
       whereConditions.push(eq(aiDocuments.empreendimentoId, empreendimentoId));
     }
-    
+
     const documents = await db.select()
       .from(aiDocuments)
       .where(and(...whereConditions))
       .execute();
-    
-    // Calcula similaridade para cada documento
+
     const results: SearchResult[] = documents
       .filter(doc => doc.embedding)
       .map(doc => {
         const docEmbedding = JSON.parse(doc.embedding!);
         const similarity = cosineSimilarity(queryEmbedding, docEmbedding);
-        
+        const meta = (doc.metadata as any) || {};
+
         return {
           id: doc.id,
           content: doc.content,
           source: doc.source,
           sourceType: doc.sourceType,
           similarity,
-          metadata: doc.metadata as any,
+          metadata: meta,
+          fileUrl: meta.fileUrl || null,
+          module: meta.module || null,
+          moduleLabel: meta.moduleLabel || null,
+          dropboxPath: meta.dropboxPath || null,
+          empreendimentoNome: meta.empreendimentoNome || null,
         };
       })
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
-    
+
     return results;
   } catch (error) {
     console.error('Error searching documents:', error);
@@ -66,7 +74,7 @@ export async function searchSimilarDocuments(
 
 /**
  * Indexa um documento no banco de dados
- * MULTI-TENANCY: Documenta indexado com unidade obrigatória
+ * MULTI-TENANCY: Documento indexado com unidade obrigatória
  */
 export async function indexDocument(
   unidade: string,
@@ -75,13 +83,11 @@ export async function indexDocument(
   sourceType: string,
   empreendimentoId?: number,
   metadata: any = {}
-): Promise<void> {
+): Promise<number> {
   try {
-    // Gera embedding do conteúdo
     const embedding = await generateEmbedding(content);
-    
-    // Salva no banco com unidade (ISOLAMENTO DE DADOS)
-    await db.insert(aiDocuments).values({
+
+    const [inserted] = await db.insert(aiDocuments).values({
       unidade,
       empreendimentoId,
       source,
@@ -89,11 +95,38 @@ export async function indexDocument(
       content,
       embedding: JSON.stringify(embedding),
       metadata,
-    });
-    
-    console.log(`Documento indexado (${unidade}): ${source}`);
+    }).returning({ id: aiDocuments.id });
+
+    console.log(`[RAG] Documento indexado (${unidade}): ${source} [id=${inserted.id}]`);
+    return inserted.id;
   } catch (error) {
     console.error('Error indexing document:', error);
     throw new Error('Falha ao indexar documento');
   }
+}
+
+/**
+ * Remove um documento indexado pelo ID
+ */
+export async function removeIndexedDocument(id: number): Promise<void> {
+  await db.delete(aiDocuments).where(eq(aiDocuments.id, id));
+}
+
+/**
+ * Lista todos os documentos indexados de uma unidade
+ */
+export async function listIndexedDocuments(unidade: string, empreendimentoId?: number) {
+  const conditions = [eq(aiDocuments.unidade, unidade)];
+  if (empreendimentoId) conditions.push(eq(aiDocuments.empreendimentoId, empreendimentoId));
+
+  return db.select({
+    id: aiDocuments.id,
+    source: aiDocuments.source,
+    sourceType: aiDocuments.sourceType,
+    metadata: aiDocuments.metadata,
+    criadoEm: aiDocuments.criadoEm,
+  })
+  .from(aiDocuments)
+  .where(and(...conditions))
+  .orderBy(aiDocuments.criadoEm);
 }
