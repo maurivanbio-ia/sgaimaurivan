@@ -89,9 +89,8 @@ function renderContent(content: string) {
         tableLines.push(lines[i].trim());
         i++;
       }
-      // Parse separator row (contains ---) and data rows
-      const rows = tableLines.filter(l => !/^\|[\s|:-]+\|$/.test(l) || l.replace(/[\s|:-]/g, "").length === 0 ? !l.replace(/[|\s-:]/g, "") : true);
-      const isSep = (l: string) => /^\|[\s|:-]+\|$/.test(l) && !l.replace(/[|\s:-]/g, "");
+      // Filter out separator rows (lines like |---|---|)
+      const isSep = (l: string) => /^\|[-|\s:]+\|$/.test(l);
       const dataRows = tableLines.filter(l => !isSep(l));
 
       if (dataRows.length >= 1) {
@@ -251,13 +250,17 @@ export default function FloatingAIChat() {
   });
 
   const queryMutation = useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async ({ message, currentMessages }: { message: string; currentMessages: Message[] }) => {
       const empId = selectedEmpId !== "todos" ? parseInt(selectedEmpId) : undefined;
+      const history = currentMessages
+        .filter(m => m.role !== "assistant" || currentMessages.indexOf(m) > 0)
+        .slice(-10)
+        .map(m => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/ai/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ unidade: unidadeSelecionada, message, empreendimentoId: empId }),
+        body: JSON.stringify({ unidade: unidadeSelecionada, message, empreendimentoId: empId, history }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -284,9 +287,11 @@ export default function FloatingAIChat() {
   const handleSend = () => {
     const text = input.trim();
     if (!text || queryMutation.isPending) return;
-    setMessages(prev => [...prev, { role: "user", content: text, timestamp: new Date() }]);
+    const newUserMsg: Message = { role: "user", content: text, timestamp: new Date() };
+    const updatedMessages = [...messages, newUserMsg];
+    setMessages(updatedMessages);
     setInput("");
-    queryMutation.mutate(text);
+    queryMutation.mutate({ message: text, currentMessages: updatedMessages });
   };
 
   const handleOpen = () => {
