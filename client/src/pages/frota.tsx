@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -852,9 +853,10 @@ interface VehicleCardProps {
   onEdit: (veiculo: Veiculo) => void;
   onView: (veiculo: Veiculo) => void;
   onDelete: (veiculo: Veiculo) => void;
+  onStatusChange: (veiculo: Veiculo, status: string) => void;
 }
 
-function VehicleCard({ veiculo, onEdit, onView, onDelete }: VehicleCardProps) {
+function VehicleCard({ veiculo, onEdit, onView, onDelete, onStatusChange }: VehicleCardProps) {
   const statusConfig = STATUS_CONFIG[veiculo.status];
   const tipoConfig = TIPO_CONFIG[veiculo.tipo as keyof typeof TIPO_CONFIG];
 
@@ -868,10 +870,26 @@ function VehicleCard({ veiculo, onEdit, onView, onDelete }: VehicleCardProps) {
               {veiculo.placa}
             </CardTitle>
           </div>
-          <Badge className={`${statusConfig.color} text-white`}>
-            <statusConfig.icon className="w-3 h-3 mr-1" />
-            {statusConfig.label}
-          </Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Badge className={`${statusConfig.color} text-white cursor-pointer hover:opacity-80 transition-opacity select-none`}>
+                <statusConfig.icon className="w-3 h-3 mr-1" />
+                {statusConfig.label}
+              </Badge>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => onStatusChange(veiculo, key)}
+                  className={veiculo.status === key ? "font-semibold bg-muted" : ""}
+                >
+                  <cfg.icon className="w-4 h-4 mr-2" />
+                  {cfg.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <p className="text-sm text-muted-foreground">
           {veiculo.marca} {veiculo.modelo} ({veiculo.ano})
@@ -1014,6 +1032,21 @@ export default function FrotaPage() {
 
   const handleDeleteVeiculo = (veiculo: Veiculo) => {
     setVeiculoToDelete(veiculo);
+  };
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/frota/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frota"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/frota/stats"] });
+    },
+  });
+
+  const handleStatusChange = (veiculo: Veiculo, status: string) => {
+    if (veiculo.status !== status) {
+      statusMutation.mutate({ id: veiculo.id, status });
+    }
   };
 
   const confirmDelete = () => {
@@ -1198,6 +1231,7 @@ export default function FrotaPage() {
               onEdit={handleEditVeiculo}
               onView={handleViewVeiculo}
               onDelete={handleDeleteVeiculo}
+              onStatusChange={handleStatusChange}
             />
           ))
         )}
