@@ -378,18 +378,86 @@ const AI_TOOLS = [
     type: "function" as const,
     function: {
       name: "criar_demanda",
-      description: "Cria uma nova demanda/tarefa no sistema EcoGestor",
+      description: "Cria uma nova demanda/tarefa no sistema. IMPORTANTE: antes de chamar, confirme com o usuário: título, setor e prazo. Se faltar algum campo obrigatório, PERGUNTE antes de executar.",
       parameters: {
         type: "object",
         properties: {
-          titulo: { type: "string", description: "Título da demanda" },
-          descricao: { type: "string", description: "Descrição detalhada (opcional)" },
-          setor: { type: "string", description: "Setor responsável. Exemplos: Licenciamento, Fauna, Flora, RH, Engenharia, Meio Físico, Meio Biótico, Geral. Se não especificado pelo usuário, use 'Geral'." },
-          prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Prioridade (padrão: media)" },
-          prazo: { type: "string", description: "Data de entrega em formato YYYY-MM-DD. Se não informado, use 7 dias a partir de hoje." },
-          empreendimentoId: { type: "number", description: "ID do empreendimento associado (opcional)" },
+          titulo: { type: "string", description: "Título claro da demanda" },
+          descricao: { type: "string", description: "Descrição detalhada da demanda (opcional)" },
+          setor: { type: "string", description: "Setor responsável. Valores aceitos: Licenciamento, Fauna, Flora, RH, Engenharia, Meio Físico, Meio Biótico, Financeiro, Administrativo, Geral. Use 'Geral' se o usuário não especificar." },
+          prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Prioridade da tarefa. Padrão: media" },
+          prazo: { type: "string", description: "Data de entrega YYYY-MM-DD. OBRIGATÓRIO — pergunte ao usuário se não informou." },
+          empreendimentoId: { type: "number", description: "ID do empreendimento associado. Use os dados do banco para encontrar pelo nome." },
         },
-        required: ["titulo", "setor"],
+        required: ["titulo", "setor", "prazo"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "criar_empreendimento",
+      description: "Cadastra um novo empreendimento/projeto no sistema. IMPORTANTE: confirme todos os campos obrigatórios com o usuário antes de executar.",
+      parameters: {
+        type: "object",
+        properties: {
+          nome: { type: "string", description: "Nome completo do empreendimento/projeto. OBRIGATÓRIO." },
+          cliente: { type: "string", description: "Nome do cliente/empresa contratante. OBRIGATÓRIO." },
+          localizacao: { type: "string", description: "Localização do empreendimento (município, estado). OBRIGATÓRIO." },
+          responsavelInterno: { type: "string", description: "Nome do responsável interno pela gestão. OBRIGATÓRIO." },
+          tipo: { type: "string", enum: ["hidreletrica", "parque_eolico", "usina_solar", "termoeletrica", "linha_transmissao", "mina", "pchs", "outro"], description: "Tipo do empreendimento. Padrão: outro." },
+          status: { type: "string", enum: ["ativo", "em_planejamento", "em_execucao", "concluido", "inativo"], description: "Status atual. Padrão: em_planejamento." },
+          descricao: { type: "string", description: "Descrição do empreendimento (opcional)" },
+          municipio: { type: "string", description: "Município onde fica o empreendimento (opcional)" },
+          uf: { type: "string", description: "UF do estado, ex: BA, SP (opcional)" },
+          dataInicio: { type: "string", description: "Data de início YYYY-MM-DD (opcional)" },
+          dataFimPrevista: { type: "string", description: "Data prevista de conclusão YYYY-MM-DD (opcional)" },
+        },
+        required: ["nome", "cliente", "localizacao", "responsavelInterno"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "registrar_equipamento",
+      description: "Cadastra um novo equipamento no sistema. IMPORTANTE: confirme nome, tipo e localização com o usuário antes de executar.",
+      parameters: {
+        type: "object",
+        properties: {
+          nome: { type: "string", description: "Nome/descrição do equipamento. OBRIGATÓRIO." },
+          tipo: { type: "string", description: "Tipo do equipamento. Ex: GPS, Drone, Armadilha Fotográfica, Estação Meteorológica, Amostrador, Medidor, Câmera, etc. OBRIGATÓRIO." },
+          localizacaoAtual: { type: "string", description: "Localização atual do equipamento. OBRIGATÓRIO." },
+          marca: { type: "string", description: "Marca do equipamento (opcional)" },
+          modelo: { type: "string", description: "Modelo do equipamento (opcional)" },
+          numeroPatrimonio: { type: "string", description: "Número de patrimônio/série (opcional)" },
+          empreendimentoId: { type: "number", description: "ID do empreendimento onde está alocado (opcional)" },
+        },
+        required: ["nome", "tipo", "localizacaoAtual"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "registrar_veiculo",
+      description: "Cadastra um novo veículo na frota. IMPORTANTE: confirme placa, modelo, tipo e combustível com o usuário antes de executar.",
+      parameters: {
+        type: "object",
+        properties: {
+          placa: { type: "string", description: "Placa do veículo (formato ABC-1234 ou ABC1D23). OBRIGATÓRIO." },
+          marca: { type: "string", description: "Marca do veículo (ex: Toyota, Ford). OBRIGATÓRIO." },
+          modelo: { type: "string", description: "Modelo do veículo (ex: Hilux, Ranger). OBRIGATÓRIO." },
+          ano: { type: "number", description: "Ano de fabricação (ex: 2022). OBRIGATÓRIO." },
+          tipo: { type: "string", enum: ["carro", "caminhonete", "caminhao", "van", "moto"], description: "Tipo do veículo. OBRIGATÓRIO." },
+          combustivel: { type: "string", enum: ["gasolina", "etanol", "diesel", "flex"], description: "Tipo de combustível. OBRIGATÓRIO." },
+          seguro: { type: "string", description: "Número da apólice de seguro ou 'sem seguro'. OBRIGATÓRIO." },
+          proximaRevisao: { type: "string", description: "Data da próxima revisão YYYY-MM-DD. OBRIGATÓRIO." },
+          cor: { type: "string", description: "Cor do veículo (opcional)" },
+          kmAtual: { type: "number", description: "Quilometragem atual. Padrão: 0." },
+          localizacaoAtual: { type: "string", description: "Localização atual do veículo (ex: 'Garagem Salvador'). OBRIGATÓRIO." },
+        },
+        required: ["placa", "marca", "modelo", "ano", "tipo", "combustivel", "seguro", "proximaRevisao", "localizacaoAtual"],
       },
     },
   },
@@ -397,12 +465,12 @@ const AI_TOOLS = [
     type: "function" as const,
     function: {
       name: "atualizar_status_licenca",
-      description: "Atualiza o status de uma licença ambiental existente",
+      description: "Atualiza o status de uma licença ambiental existente. Use o ID real dos dados do banco.",
       parameters: {
         type: "object",
         properties: {
-          licencaId: { type: "number", description: "ID numérico da licença a atualizar" },
-          novoStatus: { type: "string", enum: ["ativa", "vencida", "suspensa", "cancelada", "em_renovacao"], description: "Novo status da licença" },
+          licencaId: { type: "number", description: "ID numérico da licença a atualizar. Obtenha dos dados do banco." },
+          novoStatus: { type: "string", enum: ["ativa", "vencida", "suspensa", "cancelada", "em_renovacao"], description: "Novo status da licença." },
         },
         required: ["licencaId", "novoStatus"],
       },
@@ -412,15 +480,16 @@ const AI_TOOLS = [
     type: "function" as const,
     function: {
       name: "registrar_lancamento",
-      description: "Registra um novo lançamento financeiro (receita ou despesa) na plataforma",
+      description: "Registra um lançamento financeiro (receita ou despesa). IMPORTANTE: confirme descrição, tipo e valor com o usuário.",
       parameters: {
         type: "object",
         properties: {
-          descricao: { type: "string", description: "Descrição do lançamento" },
-          tipo: { type: "string", enum: ["receita", "despesa"], description: "Tipo do lançamento" },
-          valor: { type: "number", description: "Valor em reais (número positivo)" },
-          data: { type: "string", description: "Data do lançamento em formato YYYY-MM-DD (padrão: hoje)" },
+          descricao: { type: "string", description: "Descrição do lançamento. OBRIGATÓRIO." },
+          tipo: { type: "string", enum: ["receita", "despesa"], description: "Tipo do lançamento. OBRIGATÓRIO." },
+          valor: { type: "number", description: "Valor em reais (número positivo). OBRIGATÓRIO." },
+          data: { type: "string", description: "Data em formato YYYY-MM-DD. Padrão: hoje." },
           empreendimentoId: { type: "number", description: "ID do empreendimento (opcional)" },
+          categoria: { type: "string", description: "Categoria do lançamento (ex: Consultoria, Combustível, Salários). Opcional." },
         },
         required: ["descricao", "tipo", "valor"],
       },
@@ -429,10 +498,13 @@ const AI_TOOLS = [
 ];
 
 async function executeTool(toolName: string, args: any, unidade: string, userId?: number): Promise<{ success: boolean; result: any; message: string }> {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const in7days = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
+
   try {
+    // ── CRIAR DEMANDA ───────────────────────────────────────────────────────
     if (toolName === 'criar_demanda') {
-      const today = new Date();
-      const defaultPrazo = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
       const demanda = await storage.createDemanda({
         titulo: args.titulo,
         descricao: args.descricao || null,
@@ -440,31 +512,95 @@ async function executeTool(toolName: string, args: any, unidade: string, userId?
         prioridade: args.prioridade || 'media',
         complexidade: 'media',
         categoria: 'geral',
-        dataEntrega: args.prazo || defaultPrazo,
+        dataEntrega: args.prazo || in7days,
         status: 'a_fazer',
         responsavelId: userId || 1,
         criadoPor: userId || 1,
+        unidade,
+        empreendimentoId: args.empreendimentoId || null,
+        recorrente: false,
+      } as any);
+      return { success: true, result: { id: demanda.id, titulo: demanda.titulo }, message: `✅ Demanda "${demanda.titulo}" criada com sucesso! ID: #${demanda.id} — Já aparece no quadro de demandas.` };
+    }
+
+    // ── CRIAR EMPREENDIMENTO ────────────────────────────────────────────────
+    if (toolName === 'criar_empreendimento') {
+      const emp = await storage.createEmpreendimento({
+        nome: args.nome,
+        cliente: args.cliente,
+        localizacao: args.localizacao,
+        responsavelInterno: args.responsavelInterno,
+        tipo: args.tipo || 'outro',
+        status: args.status || 'em_planejamento',
+        descricao: args.descricao || null,
+        municipio: args.municipio || null,
+        uf: args.uf || null,
+        dataInicio: args.dataInicio || null,
+        dataFimPrevista: args.dataFimPrevista || null,
+        unidade,
+        visivel: true,
+        criadoPor: userId || 1,
+      } as any);
+      return { success: true, result: { id: emp.id, nome: emp.nome }, message: `✅ Empreendimento "${emp.nome}" cadastrado com sucesso! ID: #${emp.id}` };
+    }
+
+    // ── REGISTRAR EQUIPAMENTO ───────────────────────────────────────────────
+    if (toolName === 'registrar_equipamento') {
+      const equip = await storage.createEquipamento({
+        nome: args.nome,
+        tipo: args.tipo,
+        localizacaoAtual: args.localizacaoAtual,
+        marca: args.marca || null,
+        modelo: args.modelo || null,
+        numeroPatrimonio: args.numeroPatrimonio || null,
+        status: 'disponivel',
+        unidade,
+        criadoPor: userId || 1,
         empreendimentoId: args.empreendimentoId || null,
       } as any);
-      return { success: true, result: { id: demanda.id, titulo: demanda.titulo }, message: `Demanda "${demanda.titulo}" criada com sucesso! ID: #${demanda.id}` };
+      return { success: true, result: { id: equip.id, nome: equip.nome }, message: `✅ Equipamento "${equip.nome}" registrado com sucesso! ID: #${equip.id}` };
     }
 
+    // ── REGISTRAR VEÍCULO ────────────────────────────────────────────────────
+    if (toolName === 'registrar_veiculo') {
+      const veiculo = await storage.createVeiculo({
+        placa: args.placa,
+        marca: args.marca,
+        modelo: args.modelo,
+        ano: args.ano,
+        tipo: args.tipo,
+        combustivel: args.combustivel,
+        seguro: args.seguro,
+        proximaRevisao: args.proximaRevisao,
+        cor: args.cor || null,
+        kmAtual: args.kmAtual || 0,
+        localizacaoAtual: args.localizacaoAtual || 'A definir',
+        status: 'disponivel',
+        unidade,
+        criadoPor: userId || 1,
+      } as any);
+      return { success: true, result: { id: veiculo.id, placa: veiculo.placa }, message: `✅ Veículo ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa}) registrado com sucesso! ID: #${veiculo.id}` };
+    }
+
+    // ── ATUALIZAR STATUS LICENÇA ─────────────────────────────────────────────
     if (toolName === 'atualizar_status_licenca') {
       const licenca = await storage.updateLicenca(args.licencaId, { status: args.novoStatus });
-      return { success: true, result: { id: licenca.id }, message: `Status da licença #${licenca.id} atualizado para "${args.novoStatus}"` };
+      return { success: true, result: { id: licenca.id }, message: `✅ Status da licença #${licenca.id} atualizado para "${args.novoStatus}"` };
     }
 
+    // ── REGISTRAR LANÇAMENTO ─────────────────────────────────────────────────
     if (toolName === 'registrar_lancamento') {
       const lancamento = await storage.createLancamento({
         descricao: args.descricao,
         tipo: args.tipo,
         valor: String(args.valor),
-        data: args.data || new Date().toISOString().split('T')[0],
+        data: args.data || todayStr,
         status: 'pendente',
         unidade,
         empreendimentoId: args.empreendimentoId || null,
+        categoria: args.categoria || null,
       } as any);
-      return { success: true, result: { id: lancamento.id }, message: `Lançamento "${args.descricao}" (R$ ${Number(args.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) registrado! ID: #${lancamento.id}` };
+      return { success: true, result: { id: lancamento.id }, message: `✅ Lançamento "${args.descricao}" (R$ ${Number(args.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) registrado! ID: #${lancamento.id}` };
     }
 
     return { success: false, result: null, message: `Ferramenta desconhecida: ${toolName}` };
@@ -506,12 +642,18 @@ ${dbContext}
 
 ${docsText}
 
-## Ações disponíveis
-Você pode executar ações diretamente na plataforma quando o usuário pedir:
-- Criar demandas (use a ferramenta criar_demanda)
-- Atualizar status de licenças (use atualizar_status_licenca com o ID real)
-- Registrar lançamentos financeiros (use registrar_lancamento)
-Sempre confirme brevemente com o usuário antes de executar ações irreversíveis.
+## Ações disponíveis — REGRAS OBRIGATÓRIAS
+Você pode criar e atualizar registros diretamente na plataforma usando as ferramentas disponíveis:
+- **criar_demanda** — campos obrigatórios: título, setor, prazo (data de entrega)
+- **criar_empreendimento** — campos obrigatórios: nome, cliente, localização, responsável interno
+- **registrar_equipamento** — campos obrigatórios: nome, tipo, localização atual
+- **registrar_veiculo** — campos obrigatórios: placa, marca, modelo, ano, tipo, combustível, seguro, data da próxima revisão
+- **atualizar_status_licenca** — campos obrigatórios: ID da licença, novo status
+- **registrar_lancamento** — campos obrigatórios: descrição, tipo (receita/despesa), valor
+
+⚠️ REGRA CRÍTICA: NUNCA execute uma ferramenta sem ter TODOS os campos obrigatórios confirmados pelo usuário. Se faltar qualquer campo, PERGUNTE antes de agir. Liste claramente o que falta. Exemplo: "Para criar a demanda, preciso ainda: **prazo de entrega** e **setor** (Licenciamento, Fauna, RH, etc). Pode me informar?"
+
+Após executar com sucesso, confirme o que foi criado e mencione que já está disponível na plataforma.
 
 ## Regras absolutas
 - Nunca invente dados que não estejam acima
