@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -40,7 +40,10 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  Download
+  Download,
+  Link2,
+  FileCheck,
+  ExternalLink
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -867,7 +870,7 @@ function RecibosSection() {
 
   const { data: items = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/recibos"],
-    queryFn: () => fetch("/api/recibos").then(r => r.json()),
+    queryFn: () => fetch("/api/recibos", { credentials: "include" }).then(r => r.json()),
   });
 
   const saveMutation = useMutation({
@@ -905,14 +908,25 @@ function RecibosSection() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="border-b text-muted-foreground text-xs"><th className="text-left py-2 px-3">Nº</th><th className="text-left py-2 px-3">Descrição</th><th className="text-left py-2 px-3">Pagador</th><th className="text-left py-2 px-3">Recebedor</th><th className="text-left py-2 px-3">Data</th><th className="text-left py-2 px-3">Método</th><th className="text-right py-2 px-3">Valor</th><th className="py-2 px-3"></th></tr></thead>
+                <thead><tr className="border-b text-muted-foreground text-xs"><th className="text-left py-2 px-3">Nº</th><th className="text-left py-2 px-3">Descrição</th><th className="text-left py-2 px-3">Lançamento</th><th className="text-left py-2 px-3">Empreendimento</th><th className="text-left py-2 px-3">Pagador</th><th className="text-left py-2 px-3">Data</th><th className="text-left py-2 px-3">Método</th><th className="text-right py-2 px-3">Valor</th><th className="py-2 px-3"></th></tr></thead>
                 <tbody>
                   {items.map((item: any) => (
                     <tr key={item.id} className="border-b hover:bg-muted/30">
                       <td className="py-2 px-3 text-muted-foreground">{item.numero || "-"}</td>
-                      <td className="py-2 px-3 font-medium">{item.descricao}</td>
+                      <td className="py-2 px-3 font-medium max-w-[160px] truncate">{item.descricao}</td>
+                      <td className="py-2 px-3">
+                        {item.lancamentoId ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 py-0.5">
+                            <Link2 className="h-3 w-3" />
+                            #{item.lancamentoId}
+                            {item.lancamentoDescricao && <span className="hidden sm:inline text-muted-foreground ml-1 truncate max-w-[80px]">{item.lancamentoDescricao}</span>}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Avulso</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-xs text-muted-foreground">{item.empreendimentoNome || "-"}</td>
                       <td className="py-2 px-3">{item.pagador || "-"}</td>
-                      <td className="py-2 px-3">{item.recebedor || "-"}</td>
                       <td className="py-2 px-3">{item.dataPagamento || "-"}</td>
                       <td className="py-2 px-3"><span className="capitalize">{item.metodoPagamento}</span></td>
                       <td className="py-2 px-3 text-right font-medium text-green-700">R$ {parseFloat(item.valor || "0").toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
@@ -988,6 +1002,8 @@ export default function FinanceiroPage() {
   const [isReembolsoDetailOpen, setIsReembolsoDetailOpen] = useState(false);
   const [reembolsoObservacao, setReembolsoObservacao] = useState("");
   const [pagamentoInfo, setPagamentoInfo] = useState({ formaPagamento: "", dataPagamento: "" });
+  const [reciboDialogOpen, setReciboDialogOpen] = useState(false);
+  const [reciboForm, setReciboForm] = useState<any>({ lancamentoId: null, empreendimentoId: null, numero: "", descricao: "", valor: "", pagador: "", recebedor: "", dataPagamento: "", metodoPagamento: "pix", categoria: "", observacoes: "", unidade: "" });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -1143,6 +1159,45 @@ export default function FinanceiroPage() {
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
   });
+
+  const { data: recibosData = [] } = useQuery<any[]>({
+    queryKey: ["/api/recibos"],
+  });
+
+  const recibosLancamentoIds = new Set<number>(
+    recibosData.filter(r => r.lancamentoId).map(r => r.lancamentoId)
+  );
+
+  const createReciboMutation = useMutation({
+    mutationFn: async (data: any) => apiRequest("POST", "/api/recibos", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recibos"] });
+      toast({ title: "Recibo emitido", description: "Recibo gerado com sucesso!" });
+      setReciboDialogOpen(false);
+    },
+    onError: (e: any) => {
+      toast({ title: "Erro", description: e?.message ?? "Falha ao emitir recibo", variant: "destructive" });
+    },
+  });
+
+  const handleOpenReciboFromLancamento = (lancamento: FinanceiroLancamento) => {
+    const empNome = empreendimentos.find(e => e.id === lancamento.empreendimentoId)?.nome ?? "";
+    setReciboForm({
+      lancamentoId: lancamento.id,
+      empreendimentoId: lancamento.empreendimentoId,
+      numero: "",
+      descricao: lancamento.descricao ?? "",
+      valor: String(lancamento.valor),
+      pagador: empNome,
+      recebedor: "EcoBrasil Consultoria Ambiental",
+      dataPagamento: lancamento.dataPagamento ?? lancamento.data ?? "",
+      metodoPagamento: "pix",
+      categoria: lancamento.tipo === "receita" ? "Receita" : "Despesa",
+      observacoes: "",
+      unidade: lancamento.unidade ?? "",
+    });
+    setReciboDialogOpen(true);
+  };
 
   // Fetch pending reembolsos for finance/director approval
   const { data: reembolsosFinanceiro = [], isLoading: loadingReembolsosFinanceiro } = useQuery<any[]>({
@@ -1951,12 +2006,20 @@ export default function FinanceiroPage() {
                               </span>
                             </td>
                             <td className="p-4">
-                              <Badge 
-                                variant="outline" 
-                                className={`${statusConfig?.color} text-white border-transparent`}
-                              >
-                                {statusConfig?.label}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`${statusConfig?.color} text-white border-transparent w-fit`}
+                                >
+                                  {statusConfig?.label}
+                                </Badge>
+                                {recibosLancamentoIds.has(lancamento.id) && (
+                                  <Badge variant="outline" className="bg-violet-600 text-white border-transparent w-fit text-xs">
+                                    <FileCheck className="h-3 w-3 mr-1" />
+                                    Recibo
+                                  </Badge>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4">
                               <Badge variant="secondary" className="text-xs">
@@ -2002,6 +2065,13 @@ export default function FinanceiroPage() {
                                   >
                                     <DollarSign className="h-4 w-4 mr-2 text-blue-500" />
                                     Marcar como Pago
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenReciboFromLancamento(lancamento)}
+                                    disabled={recibosLancamentoIds.has(lancamento.id)}
+                                  >
+                                    <FileCheck className="h-4 w-4 mr-2 text-violet-500" />
+                                    {recibosLancamentoIds.has(lancamento.id) ? "Recibo Emitido ✓" : "Emitir Recibo"}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => updateStatusMutation.mutate({ id: lancamento.id, status: "cancelado" })}
@@ -2457,6 +2527,100 @@ export default function FinanceiroPage() {
               updateMutation={updateLancamentoMutation}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Emitir Recibo Dialog */}
+      <Dialog open={reciboDialogOpen} onOpenChange={setReciboDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-violet-600" />
+              Emitir Recibo
+            </DialogTitle>
+            <DialogDescription>
+              Gerar recibo vinculado ao lançamento financeiro selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {reciboForm.lancamentoId && (
+              <div className="bg-violet-50 border border-violet-200 rounded-md p-3 flex items-center gap-2 text-sm text-violet-800">
+                <Link2 className="h-4 w-4 shrink-0" />
+                <span>Vinculado ao lançamento #{reciboForm.lancamentoId}</span>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Número do Recibo</label>
+                <input className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Ex: REC-001" value={reciboForm.numero} onChange={e => setReciboForm((f: any) => ({ ...f, numero: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Valor (R$)</label>
+                <input className="w-full border rounded-md px-3 py-2 text-sm" type="number" step="0.01" value={reciboForm.valor} onChange={e => setReciboForm((f: any) => ({ ...f, valor: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Descrição</label>
+              <input className="w-full border rounded-md px-3 py-2 text-sm" value={reciboForm.descricao} onChange={e => setReciboForm((f: any) => ({ ...f, descricao: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Pagador</label>
+                <input className="w-full border rounded-md px-3 py-2 text-sm" value={reciboForm.pagador} onChange={e => setReciboForm((f: any) => ({ ...f, pagador: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Recebedor</label>
+                <input className="w-full border rounded-md px-3 py-2 text-sm" value={reciboForm.recebedor} onChange={e => setReciboForm((f: any) => ({ ...f, recebedor: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Data de Pagamento</label>
+                <input className="w-full border rounded-md px-3 py-2 text-sm" type="date" value={reciboForm.dataPagamento} onChange={e => setReciboForm((f: any) => ({ ...f, dataPagamento: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Método de Pagamento</label>
+                <select className="w-full border rounded-md px-3 py-2 text-sm" value={reciboForm.metodoPagamento} onChange={e => setReciboForm((f: any) => ({ ...f, metodoPagamento: e.target.value }))}>
+                  <option value="pix">PIX</option>
+                  <option value="transferencia">Transferência Bancária</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="cartao">Cartão</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Categoria</label>
+              <input className="w-full border rounded-md px-3 py-2 text-sm" value={reciboForm.categoria} onChange={e => setReciboForm((f: any) => ({ ...f, categoria: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Observações</label>
+              <textarea className="w-full border rounded-md px-3 py-2 text-sm" rows={2} value={reciboForm.observacoes} onChange={e => setReciboForm((f: any) => ({ ...f, observacoes: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setReciboDialogOpen(false)}>Cancelar</Button>
+              <Button
+                onClick={() => createReciboMutation.mutate({
+                  lancamentoId: reciboForm.lancamentoId,
+                  empreendimentoId: reciboForm.empreendimentoId,
+                  numero: reciboForm.numero,
+                  descricao: reciboForm.descricao,
+                  valor: reciboForm.valor,
+                  pagador: reciboForm.pagador,
+                  recebedor: reciboForm.recebedor,
+                  dataPagamento: reciboForm.dataPagamento,
+                  metodoPagamento: reciboForm.metodoPagamento,
+                  categoria: reciboForm.categoria,
+                  observacoes: reciboForm.observacoes,
+                  unidade: reciboForm.unidade,
+                })}
+                disabled={createReciboMutation.isPending || !reciboForm.descricao || !reciboForm.valor}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {createReciboMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Emitindo...</> : <><FileCheck className="mr-2 h-4 w-4" />Emitir Recibo</>}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
