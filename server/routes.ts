@@ -84,6 +84,7 @@ import { db } from "./db";
 import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcrypt";
 import { cronService } from "./cronService";
 import { exportService } from "./exportService";
@@ -200,8 +201,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.set('trust proxy', 1);
   }
 
-  // Session middleware
+  // Session middleware — PostgreSQL store for persistence across restarts
+  const PgSession = connectPgSimple(session);
   app.use(session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'session',
+      createTableIfMissing: true,
+      pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
+    }),
     secret: process.env.SESSION_SECRET || 'licenca-facil-secret-key',
     resave: false,
     saveUninitialized: false,
@@ -209,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     }
   }));
 

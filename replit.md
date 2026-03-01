@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 The system features a modern, mobile-first responsive UI with glassmorphism effects and gradient backgrounds. It includes custom branding for login pages and dashboards, unit indicators, role-specific navigation, and custom grid-based map visualizations.
 
 ## Technical Implementations
-The frontend uses React, TypeScript, Vite, Wouter for routing, TanStack Query for state management, styled with Shadcn/UI and Tailwind CSS. Forms are managed by React Hook Form with Zod validation. The backend uses Express.js with TypeScript, PostgreSQL via Drizzle ORM, and session-based authentication with `express-session` and `bcrypt`. File uploads are handled by Multer, and job scheduling by `node-cron`. The architecture emphasizes modular React components, end-to-end TypeScript with shared Zod schemas, centralized error handling, and performance optimizations.
+The frontend uses React, TypeScript, Vite, Wouter for routing, TanStack Query for state management, styled with Shadcn/UI and Tailwind CSS. Forms are managed by React Hook Form with Zod validation. The backend uses Express.js with TypeScript, PostgreSQL via Drizzle ORM, and session-based authentication with `express-session`, `connect-pg-simple` (PostgreSQL session store — persists across restarts), and `bcrypt`. File uploads are handled by Multer, and job scheduling by `node-cron`. The architecture emphasizes modular React components, end-to-end TypeScript with shared Zod schemas, centralized error handling, and performance optimizations.
 
 ## Feature Specifications
 ### Multi-Tenancy
@@ -22,7 +22,7 @@ Complete data isolation at the unit level across all modules, including financia
 An integrated AI conversational agent using OpenAI embeddings for document indexing and vector search, and GPT-4o-mini for responses. Provides context-aware, unit-isolated responses with document retrieval. The floating chat widget (FAB button, bottom-right) persists across navigation. Advanced features:
 - **Streaming responses** — SSE via `POST /api/ai/stream`, tokens appear progressively with blinking cursor
 - **Suggested follow-up questions** — 3 AI-generated chips after each response, clickable to fill input
-- **Direct actions (function calling)** — AI can create demandas, update license status, register financial entries using OpenAI tools
+- **Direct actions (function calling)** — AI can create/delete demandas, update license status, register financial entries and vehicles/equipment using OpenAI tools
 - **Proactive alerts** — `GET /api/ai/proactive-alerts` fetches urgent license/demanda deadlines, shown as banner on widget open
 - **Clickable entity cards** — `[LICENCA:id:name]`, `[DEMANDA:id:name]`, `[EMP:id:name]` markers in AI text render as linked cards
 - **Session memory** — localStorage key `ecogestor-ai-history-v2`, max 30 messages, persists across page reloads
