@@ -495,6 +495,21 @@ const AI_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "excluir_demanda",
+      description: "Exclui permanentemente uma demanda do sistema. OBRIGATÓRIO: confirme o ID da demanda antes de excluir. Só chame após o usuário confirmar explicitamente.",
+      parameters: {
+        type: "object",
+        properties: {
+          demandaId: { type: "number", description: "[OBRIGATÓRIO] ID numérico da demanda a ser excluída" },
+          confirmacao: { type: "string", description: "[OBRIGATÓRIO] Confirmação explícita do usuário. Passe exatamente: 'CONFIRMAR'" },
+        },
+        required: ["demandaId", "confirmacao"],
+      },
+    },
+  },
 ];
 
 async function executeTool(toolName: string, args: any, unidade: string, userId?: number): Promise<{ success: boolean; result: any; message: string }> {
@@ -605,6 +620,19 @@ async function executeTool(toolName: string, args: any, unidade: string, userId?
       return { success: true, result: { id: lancamento.id }, message: `✅ Lançamento "${args.descricao}" (R$ ${Number(args.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) registrado! ID: #${lancamento.id}` };
     }
 
+    // ── EXCLUIR DEMANDA ────────────────────────────────────────────────────
+    if (toolName === 'excluir_demanda') {
+      const demandaId = Number(args.demandaId);
+      if (!demandaId || isNaN(demandaId)) {
+        return { success: false, result: null, message: `❌ ID da demanda inválido: "${args.demandaId}"` };
+      }
+      const success = await storage.deleteDemanda(demandaId);
+      if (!success) {
+        return { success: false, result: null, message: `❌ Demanda #${demandaId} não encontrada ou já excluída.` };
+      }
+      return { success: true, result: { id: demandaId }, message: `✅ Demanda #${demandaId} excluída com sucesso.` };
+    }
+
     return { success: false, result: null, message: `Ferramenta desconhecida: ${toolName}` };
   } catch (err: any) {
     return { success: false, result: null, message: `Erro ao executar ${toolName}: ${err.message}` };
@@ -620,6 +648,10 @@ function detectActionIntent(message: string): boolean {
     /\bcadastre?\s+(um(a?)?\s+)?(demanda|tarefa|empreendimento|veiculo|equipamento|empreend)/i,
     /\binsira?\s+(um(a?)?\s+)?(demanda|tarefa)/i,
     /\batualize?\s+(o\s+)?(status)\s+(da\s+)?(licen[çc]a)/i,
+    /\bexclu(a|ir|i)\s+(a\s+)?(demanda|tarefa)/i,
+    /\bdelete?\s+(a\s+)?(demanda|tarefa)/i,
+    /\bremov(a|er|eu)\s+(a\s+)?(demanda|tarefa)/i,
+    /\bapague?\s+(a\s+)?(demanda|tarefa)/i,
   ];
   return actionPatterns.some(p => p.test(lower));
 }
@@ -661,6 +693,7 @@ ${docsText}
 
 Você tem acesso a ferramentas reais que executam ações no banco de dados:
 - **criar_demanda** — campos obrigatórios: título, setor, prazo (data YYYY-MM-DD)
+- **excluir_demanda** — campos obrigatórios: ID da demanda + confirmação do usuário
 - **criar_empreendimento** — campos obrigatórios: nome, cliente, localização, responsável interno
 - **registrar_equipamento** — campos obrigatórios: nome, tipo, localização atual
 - **registrar_veiculo** — campos obrigatórios: placa, marca, modelo, ano, tipo, combustível, seguro, próxima revisão
@@ -670,6 +703,7 @@ Você tem acesso a ferramentas reais que executam ações no banco de dados:
 ### REGRA 1 — Coleta (SOMENTE campos OBRIGATÓRIOS que faltam)
 Campos obrigatórios que precisam ser coletados antes de executar:
 - criar_demanda: **titulo**, **setor**, **prazo** (data)
+- excluir_demanda: **demandaId** (ID numérico) + confirmação explícita do usuário ("sim, excluir", "pode excluir", "confirmo", etc.)
 - criar_empreendimento: **nome**, **cliente**, **localizacao**, **responsavelInterno**
 - registrar_equipamento: **nome**, **tipo**, **localizacaoAtual**
 - registrar_veiculo: **placa**, **marca**, **modelo**, **ano**, **tipo**, **combustivel**, **seguro**, **proximaRevisao**
@@ -677,6 +711,8 @@ Campos obrigatórios que precisam ser coletados antes de executar:
 - registrar_lancamento: **descricao**, **tipo**, **valor**
 
 Se faltar algum campo OBRIGATÓRIO: escreva UMA pergunta listando o que falta. Campos opcionais (prioridade, descrição, etc.) → use o valor padrão SEM perguntar.
+
+⚠️ Para **excluir_demanda**: Sempre pergunte o ID da demanda se não souber, confirme com o usuário antes de excluir. Passe confirmacao="CONFIRMAR" ao chamar a ferramenta.
 
 ### REGRA 2 — Execução IMEDIATA (quando todos os obrigatórios estão presentes)
 Quando o usuário forneceu todos os campos obrigatórios (mesmo que em mensagens anteriores):
