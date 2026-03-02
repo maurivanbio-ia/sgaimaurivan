@@ -6317,15 +6317,54 @@ Retorne o texto extraído de forma estruturada e organizada.`
       if (isNaN(id)) {
         return res.status(400).json({ message: "ID inválido" });
       }
-      
+
       const [updated] = await db.update(cronogramaItens)
         .set({ ...req.body, atualizadoEm: new Date() })
         .where(eq(cronogramaItens.id, id))
         .returning();
-      
+
       if (!updated) {
         return res.status(404).json({ message: "Item não encontrado" });
       }
+
+      // Regenerate recurring children if recorrencia changed
+      await db.delete(cronogramaItens).where(eq(cronogramaItens.recorrenciaPaiId, id));
+      if (updated.recorrencia && updated.recorrencia !== 'nenhuma') {
+        const intervalMonths: Record<string, number> = {
+          mensal: 1, bimestral: 2, trimestral: 3, semestral: 6, anual: 12, bianual: 24
+        };
+        const months = intervalMonths[updated.recorrencia] || 0;
+        if (months > 0) {
+          const startDate = new Date(updated.dataInicio);
+          const endDate = new Date(updated.dataFim);
+          const duration = endDate.getTime() - startDate.getTime();
+          const limitDate = updated.recorrenciaFim
+            ? new Date(updated.recorrenciaFim)
+            : new Date(startDate.getFullYear() + 3, startDate.getMonth(), startDate.getDate());
+
+          const occurrences: any[] = [];
+          let occStart = new Date(startDate);
+          occStart.setMonth(occStart.getMonth() + months);
+          while (occStart <= limitDate) {
+            const occEnd = new Date(occStart.getTime() + duration);
+            const { id: _id, criadoEm: _c, atualizadoEm: _u, ...rest } = updated;
+            occurrences.push({
+              ...rest,
+              dataInicio: occStart.toISOString().split('T')[0],
+              dataFim: occEnd.toISOString().split('T')[0],
+              status: 'pendente',
+              concluido: false,
+              recorrenciaPaiId: id,
+            });
+            occStart = new Date(occStart);
+            occStart.setMonth(occStart.getMonth() + months);
+          }
+          if (occurrences.length > 0) {
+            await db.insert(cronogramaItens).values(occurrences);
+          }
+        }
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
