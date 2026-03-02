@@ -63,6 +63,9 @@ interface CronogramaItem {
   projetoId: number | null;
   responsavel: string | null;
   prioridade: string | null;
+  recorrencia: string | null;
+  recorrenciaFim: string | null;
+  recorrenciaPaiId: number | null;
 }
 
 interface Tarefa {
@@ -214,22 +217,48 @@ export default function Calendario() {
       }
     });
 
+    const RECORRENCIA_MONTHS: Record<string, number> = {
+      mensal: 1, bimestral: 2, trimestral: 3, semestral: 6, anual: 12, bianual: 24
+    };
+
     cronogramaItens.forEach(item => {
-      if (item.dataFim) {
-        const tipoLabel = item.tipo === "campanha" ? "Campanha" : 
-                          item.tipo === "relatorio" ? "Relatório" : 
-                          item.tipo === "marco" ? "Marco" : "Etapa";
-        allEvents.push({
-          id: `cron-${item.id}`,
-          title: `${tipoLabel}: ${item.titulo}`,
-          date: parseISO(item.dataFim),
-          type: "cronograma",
-          status: item.status,
-          link: `/cronograma`,
-          color: eventColors.cronograma,
-          prioridade: item.prioridade || undefined,
-          cronogramaTipo: item.tipo,
-        });
+      // Skip DB child items — parent expansion below handles recurrence dates
+      if (item.recorrenciaPaiId) return;
+
+      if (!item.dataFim) return;
+
+      const tipoLabel = item.tipo === "campanha" ? "Campanha" :
+                        item.tipo === "relatorio" ? "Relatório" :
+                        item.tipo === "marco" ? "Marco" : "Etapa";
+
+      const makeEvent = (date: Date, suffix: string): CalendarEvent => ({
+        id: `cron-${item.id}${suffix}`,
+        title: `${tipoLabel}: ${item.titulo}`,
+        date,
+        type: "cronograma",
+        status: item.status,
+        link: `/cronograma`,
+        color: eventColors.cronograma,
+        prioridade: item.prioridade || undefined,
+        cronogramaTipo: item.tipo,
+      });
+
+      // Always show the original item on its dataFim
+      allEvents.push(makeEvent(parseISO(item.dataFim), ""));
+
+      // Expand recurrence occurrences forward from the original dataFim
+      const months = item.recorrencia ? (RECORRENCIA_MONTHS[item.recorrencia] || 0) : 0;
+      if (months > 0) {
+        const limitDate = item.recorrenciaFim
+          ? parseISO(item.recorrenciaFim)
+          : addMonths(parseISO(item.dataFim), 36);
+        let occDate = addMonths(parseISO(item.dataFim), months);
+        let idx = 1;
+        while (occDate <= limitDate) {
+          allEvents.push(makeEvent(occDate, `-r${idx}`));
+          occDate = addMonths(occDate, months);
+          idx++;
+        }
       }
     });
 
