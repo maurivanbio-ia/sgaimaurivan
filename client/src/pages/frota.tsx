@@ -873,14 +873,15 @@ function VehicleCard({ veiculo, onEdit, onView, onDelete, onStatusChange }: Vehi
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Badge
+              <button
+                type="button"
                 title="Clique para alterar o status"
-                className={`${statusConfig.color} text-white cursor-pointer hover:opacity-80 transition-opacity select-none flex items-center gap-1 pr-1.5`}
+                className={`${statusConfig.color} text-white cursor-pointer hover:opacity-80 active:opacity-70 transition-opacity select-none inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border border-transparent`}
               >
                 <statusConfig.icon className="w-3 h-3" />
                 {statusConfig.label}
                 <ChevronDown className="w-3 h-3 opacity-80" />
-              </Badge>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4}>
               <p className="px-2 py-1 text-xs text-muted-foreground font-medium">Alterar status</p>
