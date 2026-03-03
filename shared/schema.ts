@@ -3395,3 +3395,101 @@ export const relacionamentosCliente = pgTable("relacionamentos_cliente", {
 export const insertRelacionamentoClienteSchema = createInsertSchema(relacionamentosCliente).omit({ id: true, criadoEm: true });
 export type InsertRelacionamentoCliente = z.infer<typeof insertRelacionamentoClienteSchema>;
 export type RelacionamentoCliente = typeof relacionamentosCliente.$inferSelect;
+
+// =============================================
+// MONITORAMENTO DE CAMPO MODULE
+// =============================================
+export const campoRegistros = pgTable("campo_registros", {
+  id: serial("id").primaryKey(),
+  // Identification
+  grupoTaxonomico: text("grupo_taxonomico").notNull(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  campanha: text("campanha"),
+  data: date("data").notNull(),
+  horario: text("horario"),
+  periodo: text("periodo"),
+  // Location
+  unidadeAmostral: text("unidade_amostral"),
+  zonaUtm: text("zona_utm"),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  // Taxonomy
+  filo: text("filo"),
+  classe: text("classe"),
+  ordem: text("ordem"),
+  familia: text("familia"),
+  nomeCientifico: text("nome_cientifico"),
+  nomeComum: text("nome_comum"),
+  // Biology
+  sexo: text("sexo"),
+  idade: text("idade"),
+  metodo: text("metodo"),
+  modoRegistro: text("modo_registro"),
+  numeracaoLista: text("numeracao_lista"),
+  pontoEscuta: text("ponto_escuta"),
+  descricaoEsforco: text("descricao_esforco"),
+  duracaoAmostragem: text("duracao_amostragem"),
+  distanciaPercorrida: text("distancia_percorrida"),
+  // Status & Environment
+  statusRegistro: text("status_registro"),
+  condicaoMeteorologica: text("condicao_meteorologica"),
+  ambientePreferencial: text("ambiente_preferencial"),
+  estagioReprodutivo: text("estagio_reprodutivo"),
+  // Conservation
+  distribuicao: text("distribuicao"),
+  raridade: text("raridade"),
+  dieta: text("dieta"),
+  habitat: text("habitat"),
+  fitofisionomia: text("fitofisionomia"),
+  iucn: text("iucn"),
+  ibamaMma: text("ibama_mma"),
+  cites: text("cites"),
+  listaEstadual: text("lista_estadual"),
+  pan: text("pan"),
+  usoHabitat: text("uso_habitat"),
+  sensibilidade: text("sensibilidade"),
+  locomocao: text("locomocao"),
+  migracao: text("migracao"),
+  bioindicador: text("bioindicador"),
+  endemismo: text("endemismo"),
+  // Collection
+  pesoG: text("peso_g"),
+  tipoMarcacao: text("tipo_marcacao"),
+  numeroMarcacao: text("numero_marcacao"),
+  numeroTombamento: text("numero_tombamento"),
+  instituicaoTombamento: text("instituicao_tombamento"),
+  nomeColetor: text("nome_coletor"),
+  observacoes: text("observacoes"),
+  // Biometrics
+  asaMm: text("asa_mm"),
+  tarsoDireitoMm: text("tarso_direito_mm"),
+  diametroTarsoMm: text("diametro_tarso_mm"),
+  alturaBicoMm: text("altura_bico_mm"),
+  comprimentoBicoMm: text("comprimento_bico_mm"),
+  comprimentoCaudaMm: text("comprimento_cauda_mm"),
+  larguraOlhoMm: text("largura_olho_mm"),
+  totalMm: text("total_mm"),
+  plumagem: text("plumagem"),
+  // System
+  unidade: text("unidade").notNull().default('goiania'),
+  sincronizado: boolean("sincronizado").notNull().default(true),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const campoFotos = pgTable("campo_fotos", {
+  id: serial("id").primaryKey(),
+  registroId: integer("registro_id").references(() => campoRegistros.id).notNull(),
+  url: text("url").notNull(),
+  nomeArquivo: text("nome_arquivo"),
+  tamanho: integer("tamanho"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
+export const insertCampoRegistroSchema = createInsertSchema(campoRegistros).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertCampoRegistro = z.infer<typeof insertCampoRegistroSchema>;
+export type CampoRegistro = typeof campoRegistros.$inferSelect;
+
+export const insertCampoFotoSchema = createInsertSchema(campoFotos).omit({ id: true, criadoEm: true });
+export type InsertCampoFoto = z.infer<typeof insertCampoFotoSchema>;
+export type CampoFoto = typeof campoFotos.$inferSelect;

@@ -65,6 +65,9 @@ Manages commercial proposals, tracking title, client info, values, profit margin
 ### Gestão de Amostras (Sample Management)
 Tracks environmental samples for monitoring campaigns, including sample types, collection data, laboratory tracking, status workflows, and analysis parameters.
 
+### Monitoramento de Campo (Field Monitoring)
+A comprehensive field data collection module for biological monitoring campaigns. Features: 60+ fields covering taxonomic identification (Filo, Classe, Ordem, Família, Nome Científico, Nome Comum), GPS coordinate capture via browser geolocation API, biometric measurements (asa, tarso, bico, cauda, etc.), conservation status fields (IUCN, IBAMA/MMA, CITES, Lista Estadual, PAN), photo upload to Object Storage, offline data storage in localStorage with automatic sync when connection is restored, and a dashboard showing stats by taxonomic group. Supports groups: Fauna Aves, Mamíferos, Herpetofauna, Ictiofauna, Invertebrados, Flora, Ruído, Solo, Qualidade da Água. Routes: GET/POST/PUT/DELETE /api/campo, POST /api/campo/sync (batch offline sync), GET /api/campo/stats/dashboard, POST /api/campo/:id/fotos.
+
 ### Banco de Fornecedores (Supplier Database)
 Manages supplier information, including types, contact details, a 1-5 star rating system, contract tracking, and status management.
 

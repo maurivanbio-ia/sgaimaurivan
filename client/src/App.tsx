@@ -33,6 +33,7 @@ import Financeiro from "./pages/financeiro";
 import Frota from "./pages/frota";
 import Equipamentos from "./pages/equipamentos";
 import Amostras from "./pages/amostras";
+import CampoMonitoramento from "./pages/campo";
 import Fornecedores from "./pages/fornecedores";
 import Rh from "./pages/rh";
 import Treinamentos from "./pages/treinamentos";
@@ -187,6 +188,7 @@ function Router() {
                     <Route path="/frota" component={Frota} />
                     <Route path="/equipamentos" component={Equipamentos} />
                     <Route path="/amostras" component={Amostras} />
+                    <Route path="/campo" component={CampoMonitoramento} />
                     <Route path="/fornecedores" component={Fornecedores} />
                     <Route path="/ramais-contatos" component={RamaisContatos} />
                     <Route path="/links-uteis" component={LinksUteis} />

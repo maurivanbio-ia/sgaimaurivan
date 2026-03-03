@@ -79,6 +79,8 @@ import {
   historicoDemandasMovimentacoes,
   newsletterDestaques,
   insertNewsletterDestaqueSchema,
+  campoRegistros,
+  campoFotos,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL } from "drizzle-orm";
@@ -13541,5 +13543,132 @@ Regras:
   // Initialize automatic backup service (daily at 00:00)
   initBackupService();
   
+  // =============================================
+  // MONITORAMENTO DE CAMPO ROUTES
+  // =============================================
+
+  // GET all campo registros
+  app.get('/api/campo', requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ message: "Unauthorized" });
+      const { campanha, grupo, empreendimentoId } = req.query;
+      const conditions = [eq(campoRegistros.unidade, user.unidade || 'goiania')];
+      if (campanha) conditions.push(eq(campoRegistros.campanha, campanha as string));
+      if (grupo) conditions.push(eq(campoRegistros.grupoTaxonomico, grupo as string));
+      if (empreendimentoId) conditions.push(eq(campoRegistros.empreendimentoId, parseInt(empreendimentoId as string)));
+      const result = await db.select().from(campoRegistros).where(and(...conditions)).orderBy(desc(campoRegistros.criadoEm));
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET campo registro by id with photos
+  app.get('/api/campo/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [registro] = await db.select().from(campoRegistros).where(eq(campoRegistros.id, id));
+      if (!registro) return res.status(404).json({ message: "Registro não encontrado" });
+      const fotos = await db.select().from(campoFotos).where(eq(campoFotos.registroId, id));
+      res.json({ ...registro, fotos });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST create campo registro
+  app.post('/api/campo', requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ message: "Unauthorized" });
+      const data = { ...req.body, unidade: user.unidade || 'goiania' };
+      const [registro] = await db.insert(campoRegistros).values(data).returning();
+      res.status(201).json(registro);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // POST batch sync (offline records)
+  app.post('/api/campo/sync', requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ message: "Unauthorized" });
+      const { registros } = req.body as { registros: any[] };
+      if (!Array.isArray(registros) || registros.length === 0) {
+        return res.json({ synced: 0 });
+      }
+      const withUnidade = registros.map((r: any) => ({ ...r, unidade: user.unidade || 'goiania', sincronizado: true }));
+      const inserted = await db.insert(campoRegistros).values(withUnidade).returning();
+      res.json({ synced: inserted.length, ids: inserted.map(r => r.id) });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // PUT update campo registro
+  app.put('/api/campo/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [updated] = await db.update(campoRegistros).set({ ...req.body, atualizadoEm: new Date() }).where(eq(campoRegistros.id, id)).returning();
+      if (!updated) return res.status(404).json({ message: "Registro não encontrado" });
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // DELETE campo registro
+  app.delete('/api/campo/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(campoFotos).where(eq(campoFotos.registroId, id));
+      await db.delete(campoRegistros).where(eq(campoRegistros.id, id));
+      res.json({ message: "Registro excluído" });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET dashboard stats
+  app.get('/api/campo/stats/dashboard', requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ message: "Unauthorized" });
+      const registros = await db.select().from(campoRegistros).where(eq(campoRegistros.unidade, user.unidade || 'goiania'));
+      const byGrupo: Record<string, number> = {};
+      const byStatus: Record<string, number> = {};
+      const campanhas = new Set<string>();
+      const especies = new Set<string>();
+      registros.forEach(r => {
+        byGrupo[r.grupoTaxonomico] = (byGrupo[r.grupoTaxonomico] || 0) + 1;
+        if (r.statusRegistro) byStatus[r.statusRegistro] = (byStatus[r.statusRegistro] || 0) + 1;
+        if (r.campanha) campanhas.add(r.campanha);
+        if (r.nomeCientifico) especies.add(r.nomeCientifico);
+      });
+      res.json({
+        total: registros.length,
+        totalCampanhas: campanhas.size,
+        totalEspecies: especies.size,
+        byGrupo,
+        byStatus,
+      });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST upload photo
+  const campoFotoUpload = (await import('multer')).default({ storage: (await import('multer')).memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  app.post('/api/campo/:id/fotos', requireAuth, campoFotoUpload.single('foto'), async (req, res) => {
+    try {
+      const registroId = parseInt(req.params.id);
+      if (!req.file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      const { Client } = await import('@replit/object-storage');
+      const client = new Client();
+      const key = `campo/${registroId}/${Date.now()}_${req.file.originalname}`;
+      await client.uploadFromBuffer(key, req.file.buffer, { contentType: req.file.mimetype });
+      const url = `https://object-storage.replit.app/${process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID}/${key}`;
+      const [foto] = await db.insert(campoFotos).values({ registroId, url, nomeArquivo: req.file.originalname, tamanho: req.file.size }).returning();
+      res.json(foto);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // DELETE photo
+  app.delete('/api/campo/fotos/:id', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(campoFotos).where(eq(campoFotos.id, id));
+      res.json({ message: "Foto excluída" });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return httpServer;
 }
