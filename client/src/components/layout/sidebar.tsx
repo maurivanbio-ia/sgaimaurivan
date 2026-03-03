@@ -50,7 +50,8 @@ import {
   Cloud,
   Globe,
   Bot,
-  Sparkles
+  Sparkles,
+  Microscope
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -162,10 +163,11 @@ export default function Sidebar() {
       ]
     },
     {
-      label: "Amostras",
+      label: "Amostras e Campo",
       icon: FlaskConical,
       items: [
         { href: "/amostras", label: "Gestão de Amostras", icon: FlaskConical, testid: "nav-amostras" },
+        { href: "/campo", label: "Monitoramento de Campo", icon: Microscope, testid: "nav-campo" },
       ]
     },
     {
