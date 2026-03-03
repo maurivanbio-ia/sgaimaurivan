@@ -13624,7 +13624,10 @@ Regras:
     try {
       const user = await storage.getUser(req.session.userId!);
       if (!user) return res.status(401).json({ message: "Unauthorized" });
-      const registros = await db.select().from(campoRegistros).where(eq(campoRegistros.unidade, user.unidade || 'goiania'));
+      const { empreendimentoId } = req.query;
+      const conditions: any[] = [eq(campoRegistros.unidade, user.unidade || 'goiania')];
+      if (empreendimentoId) conditions.push(eq(campoRegistros.empreendimentoId, parseInt(empreendimentoId as string)));
+      const registros = await db.select().from(campoRegistros).where(and(...conditions));
       const byGrupo: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
       const campanhas = new Set<string>();
