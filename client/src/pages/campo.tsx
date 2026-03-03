@@ -11,7 +11,7 @@ import { Chart, registerables } from "chart.js";
 import {
   RefreshCw, Search, Eye, Download, Activity, Bird, MapPin, Clock,
   BarChart3, Database, AlertTriangle, TrendingUp, Wifi, WifiOff,
-  Trash2, Building2, ChevronRight, Sigma, FlaskConical, Layers,
+  Trash2, Building2, ChevronRight, Sigma, FlaskConical, Layers, Leaf,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -535,24 +535,24 @@ export default function CampoMonitoramento() {
       {/* ══════════════════════════════════════════════════════════════════
           BLOCO DE ESTATÍSTICAS DE BIODIVERSIDADE
       ═══════════════════════════════════════════════════════════════════ */}
-      {hasDados && bioStats && (
-        <>
+      <>
           {/* ── Título da seção ── */}
           <div className="flex items-center gap-2 pt-2">
             <Sigma className="w-5 h-5 text-violet-600" />
             <h2 className="text-lg font-bold text-foreground">Estatísticas de Biodiversidade</h2>
             {filterCampanha !== "todas" && <Badge variant="outline" className="text-xs">{filterCampanha}</Badge>}
+            {!hasDados && <Badge variant="outline" className="text-xs text-muted-foreground">Aguardando dados do campo</Badge>}
           </div>
 
           {/* ── Índices de Diversidade ── */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: "Shannon (H')", value: bioStats.H.toFixed(3), desc: "Diversidade", color: "text-violet-600", bg: "bg-violet-50", tip: "H' > 3 = alta diversidade" },
-              { label: "Simpson (1-D)", value: bioStats.D.toFixed(3), desc: "Dominância inv.", color: "text-indigo-600", bg: "bg-indigo-50", tip: "0–1; próximo de 1 = diverso" },
-              { label: "Pielou (J')", value: bioStats.J.toFixed(3), desc: "Equitabilidade", color: "text-blue-600", bg: "bg-blue-50", tip: "0–1; próximo de 1 = uniforme" },
-              { label: "Sobs", value: bioStats.Sobs, desc: "Riqueza obs.", color: "text-emerald-600", bg: "bg-emerald-50", tip: "Espécies observadas" },
-              { label: "Jackknife 1", value: bioStats.jack1.toFixed(1), desc: "Riqueza est.", color: "text-teal-600", bg: "bg-teal-50", tip: "Estimador Jackknife de 1ª ordem" },
-              { label: "Bootstrap", value: bioStats.boot.toFixed(1), desc: "Riqueza est.", color: "text-cyan-600", bg: "bg-cyan-50", tip: "Estimador Bootstrap" },
+              { label: "Shannon (H')", value: bioStats ? bioStats.H.toFixed(3) : "—", desc: "Diversidade", color: "text-violet-600", bg: "bg-violet-50", tip: "H' > 3 = alta diversidade" },
+              { label: "Simpson (1-D)", value: bioStats ? bioStats.D.toFixed(3) : "—", desc: "Dominância inv.", color: "text-indigo-600", bg: "bg-indigo-50", tip: "0–1; próximo de 1 = diverso" },
+              { label: "Pielou (J')", value: bioStats ? bioStats.J.toFixed(3) : "—", desc: "Equitabilidade", color: "text-blue-600", bg: "bg-blue-50", tip: "0–1; próximo de 1 = uniforme" },
+              { label: "Sobs", value: bioStats ? bioStats.Sobs : "—", desc: "Riqueza obs.", color: "text-emerald-600", bg: "bg-emerald-50", tip: "Espécies observadas" },
+              { label: "Jackknife 1", value: bioStats ? bioStats.jack1.toFixed(1) : "—", desc: "Riqueza est.", color: "text-teal-600", bg: "bg-teal-50", tip: "Estimador Jackknife de 1ª ordem" },
+              { label: "Bootstrap", value: bioStats ? bioStats.boot.toFixed(1) : "—", desc: "Riqueza est.", color: "text-cyan-600", bg: "bg-cyan-50", tip: "Estimador Bootstrap" },
             ].map(({ label, value, desc, color, bg, tip }) => (
               <Card key={label} title={tip}>
                 <CardContent className="pt-3 pb-3">
@@ -566,6 +566,8 @@ export default function CampoMonitoramento() {
               </Card>
             ))}
           </div>
+
+          {bioStats ? (<>
 
           {/* ── Frequência Relativa (full width) ── */}
           <Card>
@@ -751,8 +753,14 @@ export default function CampoMonitoramento() {
               </CardContent>
             </Card>
           )}
+          </>) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-3 border-2 border-dashed border-muted rounded-xl">
+              <Leaf className="w-10 h-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-muted-foreground">Nenhum registro de campo recebido ainda</p>
+              <p className="text-xs text-muted-foreground/60 max-w-sm">Os gráficos e índices de biodiversidade aparecerão aqui assim que o aplicativo de campo enviar dados via API.</p>
+            </div>
+          )}
         </>
-      )}
 
       {/* ── Filtros da tabela de registros ── */}
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
