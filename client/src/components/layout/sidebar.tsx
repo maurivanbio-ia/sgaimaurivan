@@ -51,7 +51,8 @@ import {
   Globe,
   Bot,
   Sparkles,
-  Microscope
+  Microscope,
+  ScrollText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
@@ -183,6 +184,7 @@ export default function Sidebar() {
       items: [
         { href: "/gestao-dados", label: "Gestão de Dados", icon: Database, testid: "nav-gestao-dados" },
         { href: "/base-conhecimento", label: "Base de Conhecimento", icon: BookOpen, testid: "nav-base-conhecimento" },
+        { href: "/publicacoes", label: "Publicações Científicas", icon: ScrollText, testid: "nav-publicacoes" },
         { href: "/links-uteis", label: "Links Úteis", icon: Link2, testid: "nav-links-uteis" },
       ]
     },

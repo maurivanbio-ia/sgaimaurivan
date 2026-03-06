@@ -11259,6 +11259,81 @@ Regras:
     }
   });
 
+  // ==================== PUBLICAÇÕES CIENTÍFICAS ====================
+
+  app.get('/api/publicacoes', requireAuth, async (req, res) => {
+    try {
+      const { publicacoes, insertPublicacaoSchema: _s } = await import('@shared/schema');
+      const { eq, or, desc } = await import('drizzle-orm');
+      const userCargo = (req.user?.cargo || '').toLowerCase();
+      const isAdmin = userCargo === 'admin' || userCargo === 'diretor';
+      let query = db.select().from(publicacoes).orderBy(desc(publicacoes.anoPublicacao), desc(publicacoes.criadoEm));
+      if (!isAdmin) {
+        // @ts-ignore
+        query = query.where(eq(publicacoes.unidade, req.user.unidade));
+      }
+      const result = await query;
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error fetching publicacoes:', error);
+      res.status(500).json({ error: 'Erro ao buscar publicações' });
+    }
+  });
+
+  app.get('/api/publicacoes/:id', requireAuth, async (req, res) => {
+    try {
+      const { publicacoes } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      const [pub] = await db.select().from(publicacoes).where(eq(publicacoes.id, id));
+      if (!pub) return res.status(404).json({ error: 'Publicação não encontrada' });
+      res.json(pub);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Erro ao buscar publicação' });
+    }
+  });
+
+  app.post('/api/publicacoes', requireAuth, async (req, res) => {
+    try {
+      const { publicacoes, insertPublicacaoSchema } = await import('@shared/schema');
+      const data = insertPublicacaoSchema.parse({ ...req.body, unidade: req.user.unidade });
+      const [created] = await db.insert(publicacoes).values(data).returning();
+      res.status(201).json(created);
+    } catch (error: any) {
+      console.error('Error creating publicacao:', error);
+      res.status(400).json({ error: error.message || 'Erro ao criar publicação' });
+    }
+  });
+
+  app.put('/api/publicacoes/:id', requireAuth, async (req, res) => {
+    try {
+      const { publicacoes, insertPublicacaoSchema } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      const data = insertPublicacaoSchema.partial().parse(req.body);
+      const [updated] = await db.update(publicacoes).set({ ...data, atualizadoEm: new Date() }).where(eq(publicacoes.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: 'Publicação não encontrada' });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Erro ao atualizar publicação' });
+    }
+  });
+
+  app.delete('/api/publicacoes/:id', requireAuth, async (req, res) => {
+    try {
+      const { publicacoes } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      await db.delete(publicacoes).where(eq(publicacoes.id, id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Erro ao remover publicação' });
+    }
+  });
+
   // ==================== CAMADAS GEOESPACIAIS (KMZ/KML/GeoJSON) ====================
   
   app.get('/api/camadas-geoespaciais', requireAuth, async (req, res) => {

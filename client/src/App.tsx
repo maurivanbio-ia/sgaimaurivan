@@ -51,6 +51,7 @@ import PortalColaborador from "./pages/portal-colaborador";
 import MinhasTarefasSimples from "./pages/minhas-tarefas-simples";
 import PropostasComerciais from "./pages/propostas-comerciais";
 import BaseConhecimento from "./pages/base-conhecimento";
+import Publicacoes from "./pages/publicacoes";
 import Comunicacao from "./pages/comunicacao";
 import ConformidadeISO from "./pages/conformidade-iso";
 import RamaisContatos from "./pages/ramais-contatos";
@@ -204,6 +205,7 @@ function Router() {
                     <Route path="/minhas-tarefas" component={PortalColaborador} />
                     <Route path="/propostas-comerciais" component={PropostasComerciais} />
                     <Route path="/base-conhecimento" component={BaseConhecimento} />
+                    <Route path="/publicacoes" component={Publicacoes} />
                     <Route path="/comunicacao" component={Comunicacao} />
                     <Route path="/conformidade-iso" component={ConformidadeISO} />
                     <Route path="/processos-monitorados" component={ProcessosMonitorados} />
