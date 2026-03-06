@@ -3493,3 +3493,36 @@ export type CampoRegistro = typeof campoRegistros.$inferSelect;
 export const insertCampoFotoSchema = createInsertSchema(campoFotos).omit({ id: true, criadoEm: true });
 export type InsertCampoFoto = z.infer<typeof insertCampoFotoSchema>;
 export type CampoFoto = typeof campoFotos.$inferSelect;
+
+// ═══════════════════════════════════════════════════════
+// PUBLICAÇÕES CIENTÍFICAS
+// ═══════════════════════════════════════════════════════
+export const publicacoes = pgTable("publicacoes", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  autores: text("autores").notNull(),
+  revista: text("revista"),
+  anoPublicacao: integer("ano_publicacao"),
+  volume: text("volume"),
+  numero: text("numero"),
+  paginas: text("paginas"),
+  doi: text("doi"),
+  resumo: text("resumo"),
+  palavrasChave: text("palavras_chave"),
+  url: text("url"),
+  tipo: text("tipo").notNull().default("artigo"),
+  status: text("status").notNull().default("publicado"),
+  areaTematica: text("area_tematica"),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
+  arquivoUrl: text("arquivo_url"),
+  dataSubmissao: text("data_submissao"),
+  dataPublicacao: text("data_publicacao"),
+  unidade: text("unidade").notNull().default("goiania"),
+  criadoPor: text("criado_por"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertPublicacaoSchema = createInsertSchema(publicacoes).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertPublicacao = z.infer<typeof insertPublicacaoSchema>;
+export type Publicacao = typeof publicacoes.$inferSelect;

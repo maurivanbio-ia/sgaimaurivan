@@ -77,6 +77,9 @@ Manages training and certification, tracking training types, modalities, details
 ### Base de Conhecimento (Knowledge Base)
 A document and template library supporting various document types, categories, content, versioning, tags, visibility settings, and metrics.
 
+### Publicações Científicas (Scientific Publications)
+A registry of scientific articles, book chapters, technical reports, and conference papers with Ecobrasil affiliation. Features: title, authors (semicolon-separated), journal, year, volume, number, pages, DOI, abstract, keywords, URL, type (artigo/capitulo/livro/relatorio_tecnico/congresso/dissertacao/nota_tecnica), status (publicado/aceito/em_revisao/submetido/em_preparo), thematic area (18 categories), empreendimento link, submission/publication dates, and responsible user tracking. Includes full-text search, multi-filter system, KPI cards, detail modal, and direct DOI/URL access links. Route: `/publicacoes`, API: `/api/publicacoes` (GET/POST/PUT/DELETE).
+
 ### Conformidade ISO (ISO Conformity)
 An automatic ISO compliance monitoring system supporting standards like ISO 14001, 9001, and 45001, calculating compliance scores, generating alerts for non-conformities, and providing a visual dashboard.
 
