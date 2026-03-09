@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Building, Plus, User, MapPin, Bus, Eye, Map, Trash2, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ExportButton } from "@/components/ExportButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import MapComponent from "@/components/MapComponent";
@@ -85,6 +86,25 @@ export default function Projects() {
         variant: "destructive",
       });
     },
+  });
+
+  const STATUS_OPTS = [
+    { value: "ativo",           label: "Ativo",           cls: "bg-green-100 text-green-800" },
+    { value: "em_planejamento", label: "Em Planejamento", cls: "bg-blue-100 text-blue-800" },
+    { value: "em_execucao",     label: "Em Execução",     cls: "bg-yellow-100 text-yellow-800" },
+    { value: "concluido",       label: "Concluído",       cls: "bg-blue-100 text-blue-700" },
+    { value: "inativo",         label: "Inativo",         cls: "bg-red-100 text-red-700" },
+    { value: "cancelado",       label: "Cancelado",       cls: "bg-orange-100 text-orange-700" },
+  ];
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/empreendimentos/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      toast({ title: "Status atualizado" });
+    },
+    onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
   });
 
   const handleDeleteClick = (project: Empreendimento) => {
@@ -179,9 +199,30 @@ export default function Projects() {
                         <h3 className="flex-1 font-semibold text-sm text-card-foreground truncate" data-testid={`text-project-name-${project.id}`}>
                           {project.nome}
                         </h3>
-                        <Badge variant="secondary" className={`${statusClass} shrink-0 text-xs`} data-testid={`badge-status-${project.id}`}>
-                          {statusLabel}
-                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                            <Badge
+                              variant="secondary"
+                              className={`${statusClass} shrink-0 text-xs cursor-pointer hover:opacity-75 transition-opacity`}
+                              data-testid={`badge-status-${project.id}`}
+                              title="Clique para alterar o status"
+                            >
+                              {statusLabel}
+                            </Badge>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent onClick={e => e.stopPropagation()}>
+                            {STATUS_OPTS.map(opt => (
+                              <DropdownMenuItem
+                                key={opt.value}
+                                className={opt.value === project.status ? "font-semibold" : ""}
+                                onClick={() => statusMutation.mutate({ id: project.id, status: opt.value })}
+                              >
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${opt.cls.split(" ")[0]}`} />
+                                {opt.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         {/* Quick info when collapsed */}
                         {!isExpanded && project.localizacao && (
                           <span className="hidden sm:inline text-xs text-muted-foreground shrink-0 max-w-[200px] truncate">

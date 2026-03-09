@@ -697,6 +697,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quick status update for empreendimento
+  app.patch("/api/empreendimentos/:id/status", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ message: "Status obrigatório" });
+      const validStatuses = ["ativo", "em_planejamento", "em_execucao", "concluido", "inativo", "cancelado"];
+      if (!validStatuses.includes(status)) return res.status(400).json({ message: "Status inválido" });
+      const empreendimento = await storage.updateEmpreendimento(id, { status });
+      res.json(empreendimento);
+    } catch (error) {
+      console.error("Quick status update error:", error);
+      res.status(500).json({ message: "Erro ao atualizar status" });
+    }
+  });
+
   app.delete("/api/empreendimentos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

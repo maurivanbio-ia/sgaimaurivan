@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import StatusChart from "@/components/charts/status-chart";
 import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
@@ -28,13 +31,38 @@ interface DashboardStats {
   contratos?: { total: number; ativos: number; valorTotal: number };
 }
 
+const STATUS_OPTIONS = [
+  { value: "ativo",         label: "Ativo",          cls: "bg-green-100 text-green-800 border-green-200" },
+  { value: "em_planejamento", label: "Em Planejamento", cls: "bg-blue-100 text-blue-800 border-blue-200" },
+  { value: "em_execucao",   label: "Em Execução",     cls: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+  { value: "concluido",     label: "Concluído",       cls: "bg-gray-100 text-gray-800 border-gray-200" },
+  { value: "inativo",       label: "Inativo",         cls: "bg-red-100 text-red-800 border-red-200" },
+  { value: "cancelado",     label: "Cancelado",       cls: "bg-orange-100 text-orange-800 border-orange-200" },
+];
+
+function getStatusConfig(status: string) {
+  return STATUS_OPTIONS.find(s => s.value === status) ?? { value: status, label: "Inativo", cls: "bg-red-100 text-red-800 border-red-200" };
+}
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>("todos");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Buscar empreendimentos primeiro
   const { data: empreendimentos } = useQuery<Empreendimento[]>({
     queryKey: ["/api/empreendimentos"],
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/empreendimentos/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      toast({ title: "Status atualizado com sucesso" });
+    },
+    onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
   });
 
   // Use consolidated endpoint instead of multiple separate requests
@@ -645,21 +673,29 @@ export default function Dashboard() {
                              emp.tipo === 'mina' ? 'Mineração' :
                              emp.tipo === 'pchs' ? 'PCH' : 'Outro'}
                           </Badge>
-                          <Badge 
-                            variant="outline"
-                            className={`text-xs border ${
-                              emp.status === 'ativo' ? 'bg-green-100 text-green-800 border-green-200' :
-                              emp.status === 'em_planejamento' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                              emp.status === 'em_execucao' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                              emp.status === 'concluido' ? 'bg-gray-100 text-gray-800 border-gray-200' :
-                              'bg-red-100 text-red-800 border-red-200'
-                            }`}
-                          >
-                            {emp.status === 'ativo' ? 'Ativo' :
-                             emp.status === 'em_planejamento' ? 'Em Planejamento' :
-                             emp.status === 'em_execucao' ? 'Em Execução' :
-                             emp.status === 'concluido' ? 'Concluído' : 'Inativo'}
-                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs border cursor-pointer hover:opacity-80 transition-opacity ${getStatusConfig(emp.status).cls}`}
+                                title="Clique para alterar o status"
+                              >
+                                {getStatusConfig(emp.status).label}
+                              </Badge>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent onClick={e => e.stopPropagation()}>
+                              {STATUS_OPTIONS.map(opt => (
+                                <DropdownMenuItem
+                                  key={opt.value}
+                                  className={opt.value === emp.status ? "font-semibold" : ""}
+                                  onClick={() => statusMutation.mutate({ id: emp.id, status: opt.value })}
+                                >
+                                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${opt.cls.split(" ")[0]}`} />
+                                  {opt.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <div className="text-xs text-muted-foreground space-y-0.5">
                           <p><span className="font-medium">Cliente:</span> {emp.cliente}</p>
