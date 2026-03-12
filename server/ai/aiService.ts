@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { db } from '../db';
 import { aiConversations, aiLogs } from '@shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
@@ -8,6 +9,27 @@ import { storage } from '../storage';
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Gemini — usado para sugestões de follow-up (geração simples, sem function calling)
+const geminiClient = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
+
+async function generateSuggestionsWithGemini(message: string, response: string): Promise<string[]> {
+  const defaults = ['Há vencimentos esta semana?', 'Quais demandas estão atrasadas?', 'Mostrar resumo geral'];
+  if (!geminiClient) return defaults;
+  try {
+    const model = geminiClient.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+    const prompt = `Gere exatamente 3 perguntas curtas de acompanhamento em português brasileiro baseadas na conversa abaixo. Cada pergunta deve ter no máximo 8 palavras. Responda APENAS com um array JSON sem markdown: ["pergunta1", "pergunta2", "pergunta3"]\n\nPergunta: "${message.substring(0, 150)}"\nResposta: "${response.substring(0, 200)}"`;
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text().trim();
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
+  } catch (err: any) {
+    console.warn('[AI Suggestions] Gemini falhou, usando padrão:', err.message);
+  }
+  return defaults;
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -874,22 +896,8 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
       }
     }
 
-    // Generate 3 follow-up suggestions
-    let suggestions: string[] = ['Há vencimentos esta semana?', 'Quais demandas estão atrasadas?', 'Mostrar resumo geral'];
-    try {
-      const sugComp = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'Gere exatamente 3 perguntas curtas de acompanhamento em português brasileiro baseadas na conversa abaixo. Cada pergunta deve ter no máximo 8 palavras. Responda APENAS com um array JSON: ["pergunta1", "pergunta2", "pergunta3"]' },
-          { role: 'user', content: `Pergunta: "${message.substring(0, 150)}" | Resposta: "${fullContent.substring(0, 200)}"` },
-        ],
-        temperature: 0.9,
-        max_tokens: 120,
-      });
-      const raw = sugComp.choices[0].message.content || '[]';
-      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
-      if (Array.isArray(parsed) && parsed.length > 0) suggestions = parsed.slice(0, 3);
-    } catch {}
+    // Generate 3 follow-up suggestions via Gemini (falls back to defaults if unavailable)
+    const suggestions = await generateSuggestionsWithGemini(message, fullContent);
 
     const documentCards = goodDocs.map((doc: any) => ({
       id: doc.id,

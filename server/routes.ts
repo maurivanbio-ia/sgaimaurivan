@@ -6909,6 +6909,43 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
+  // Re-index all documents of the unit using Gemini embeddings (migration from OpenAI)
+  app.post("/api/ai/reindex", requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ message: "Unidade não definida" });
+
+      const { aiDocuments } = await import("@shared/schema");
+      const { generateDocumentEmbedding } = await import("./ai/embeddings");
+      const { eq } = await import("drizzle-orm");
+
+      const docs = await db.select().from(aiDocuments).where(eq(aiDocuments.unidade, unidade));
+      let updated = 0;
+      const errors: string[] = [];
+
+      for (const doc of docs) {
+        try {
+          const newEmbedding = await generateDocumentEmbedding(doc.content, doc.source);
+          await db.update(aiDocuments)
+            .set({ embedding: JSON.stringify(newEmbedding) })
+            .where(eq(aiDocuments.id, doc.id));
+          updated++;
+          console.log(`[RAG Reindex] ${updated}/${docs.length} — "${doc.source}" (dim=${newEmbedding.length})`);
+        } catch (err: any) {
+          errors.push(`[${doc.id}] ${doc.source}: ${err.message}`);
+        }
+      }
+
+      res.json({
+        message: `Re-indexação concluída: ${updated}/${docs.length} documentos atualizados`,
+        total: docs.length, updated, errors,
+      });
+    } catch (error: any) {
+      console.error("Reindex error:", error);
+      res.status(500).json({ message: "Erro na re-indexação" });
+    }
+  });
+
   // Get available actions
   app.get("/api/ai/actions", requireAuth, async (req, res) => {
     try {
