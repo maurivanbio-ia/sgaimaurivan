@@ -10,16 +10,30 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Gemini — usado para sugestões de follow-up (geração simples, sem function calling)
+// Gemini — modelo principal de geração e sugestões
 const geminiClient = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
+
+const GEMINI_CHAT_MODEL = 'gemini-2.0-flash';
+const GEMINI_SUGGESTION_MODEL = 'gemini-2.5-flash-preview-05-20';
+
+// Converte o formato de tools OpenAI para Gemini functionDeclarations
+function toGeminiFunctionDeclarations(tools: any[]) {
+  return [{
+    functionDeclarations: tools.map(t => ({
+      name: t.function.name,
+      description: t.function.description,
+      parameters: t.function.parameters,
+    })),
+  }];
+}
 
 async function generateSuggestionsWithGemini(message: string, response: string): Promise<string[]> {
   const defaults = ['Há vencimentos esta semana?', 'Quais demandas estão atrasadas?', 'Mostrar resumo geral'];
   if (!geminiClient) return defaults;
   try {
-    const model = geminiClient.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+    const model = geminiClient.getGenerativeModel({ model: GEMINI_SUGGESTION_MODEL });
     const prompt = `Gere exatamente 3 perguntas curtas de acompanhamento em português brasileiro baseadas na conversa abaixo. Cada pergunta deve ter no máximo 8 palavras. Responda APENAS com um array JSON sem markdown: ["pergunta1", "pergunta2", "pergunta3"]\n\nPergunta: "${message.substring(0, 150)}"\nResposta: "${response.substring(0, 200)}"`;
     const result = await model.generateContent(prompt);
     const raw = result.response.text().trim();
@@ -339,18 +353,49 @@ ${docsText}
       content: h.content,
     }));
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...historyMessages,
-        { role: 'user', content: message },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
-    });
+    let response = 'Desculpe, não consegui processar sua pergunta.';
 
-    const response = completion.choices[0].message.content || 'Desculpe, não consegui processar sua pergunta.';
+    // PRIMARY: Gemini
+    if (geminiClient) {
+      try {
+        const model = geminiClient.getGenerativeModel({
+          model: GEMINI_CHAT_MODEL,
+          systemInstruction: systemPrompt,
+        });
+        const geminiHistory = historyMessages.map(h => ({
+          role: h.role === 'assistant' ? 'model' : 'user' as 'user' | 'model',
+          parts: [{ text: h.content }],
+        }));
+        const chat = model.startChat({ history: geminiHistory });
+        const result = await chat.sendMessage(message);
+        response = result.response.text() || response;
+      } catch (geminiErr: any) {
+        console.warn('[AI Query] Gemini falhou, fallback para OpenAI:', geminiErr.message);
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...historyMessages,
+            { role: 'user', content: message },
+          ],
+          temperature: 0.7,
+          max_tokens: 800,
+        });
+        response = completion.choices[0].message.content || response;
+      }
+    } else {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...historyMessages,
+          { role: 'user', content: message },
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      });
+      response = completion.choices[0].message.content || response;
+    }
 
     await db.insert(aiConversations).values({
       unidade,
@@ -797,101 +842,178 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
 
     const isAction = detectActionIntent(message);
     if (isAction) {
-      console.log('[AI Stream] Action intent detected — using tool_choice: required');
+      console.log('[AI Stream] Action intent detected');
     }
-
-    const stream = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...historyMessages,
-        { role: 'user', content: message },
-      ],
-      tools: AI_TOOLS,
-      tool_choice: isAction ? 'required' : 'auto',
-      temperature: isAction ? 0.2 : 0.7,
-      max_tokens: 900,
-      stream: true,
-    });
 
     let fullContent = '';
-    const toolCallAccum: { [index: number]: { id: string; name: string; arguments: string } } = {};
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta;
+    // ── PRIMARY: GEMINI ───────────────────────────────────────────────────────
+    let usedGemini = false;
+    if (geminiClient) {
+      try {
+        console.log(`[AI Stream] Using Gemini (${GEMINI_CHAT_MODEL})`);
+        const geminiModel = geminiClient.getGenerativeModel({
+          model: GEMINI_CHAT_MODEL,
+          tools: toGeminiFunctionDeclarations(AI_TOOLS) as any,
+          systemInstruction: systemPrompt,
+        });
 
-      if (delta?.content) {
-        fullContent += delta.content;
-        sendEvent('token', { content: delta.content });
-      }
+        const geminiHistory = historyMessages.map(h => ({
+          role: h.role === 'assistant' ? 'model' : 'user' as 'user' | 'model',
+          parts: [{ text: h.content }],
+        }));
 
-      if (delta?.tool_calls) {
-        for (const tc of delta.tool_calls) {
-          if (!toolCallAccum[tc.index]) {
-            toolCallAccum[tc.index] = { id: '', name: '', arguments: '' };
+        const chat = geminiModel.startChat({ history: geminiHistory });
+
+        // First turn: may return text or functionCalls
+        const streamResult = await chat.sendMessageStream(message);
+
+        for await (const chunk of streamResult.stream) {
+          let text = '';
+          try { text = chunk.text(); } catch {}
+          if (text) {
+            fullContent += text;
+            sendEvent('token', { content: text });
           }
-          if (tc.id) toolCallAccum[tc.index].id += tc.id;
-          if (tc.function?.name) toolCallAccum[tc.index].name += tc.function.name;
-          if (tc.function?.arguments) toolCallAccum[tc.index].arguments += tc.function.arguments;
         }
+
+        // Check for function calls in the final aggregated response
+        const finalResp = await streamResult.response;
+        const fnCalls = finalResp.functionCalls?.() || [];
+
+        if (fnCalls.length > 0) {
+          const fnResponses: any[] = [];
+          for (const fc of fnCalls) {
+            const result = await executeTool(fc.name, fc.args as any, unidade, userId);
+            sendEvent('action', { tool: fc.name, success: result.success, result: result.result, message: result.message });
+            fnResponses.push({
+              functionResponse: {
+                name: fc.name,
+                response: { result: result.result, message: result.message, success: result.success },
+              },
+            });
+          }
+
+          // Follow-up streaming after tool execution
+          const followupStream = await chat.sendMessageStream(fnResponses as any);
+          for await (const chunk of followupStream.stream) {
+            let text = '';
+            try { text = chunk.text(); } catch {}
+            if (text) {
+              fullContent += text;
+              sendEvent('token', { content: text });
+            }
+          }
+        }
+
+        // Hallucination check (same as before)
+        if (fnCalls.length === 0 && fullContent) {
+          const actionKeywords = /criei|criei a demanda|cadastrei|registrei|criado com sucesso|id:\s*#\d+|foi criado|foi cadastrado|já aparece|salvo no sistema/i;
+          if (actionKeywords.test(fullContent)) {
+            console.warn('[AI Stream] ⚠️ Gemini HALLUCINATION DETECTED:', message.substring(0, 100));
+          }
+        }
+
+        usedGemini = true;
+      } catch (geminiErr: any) {
+        console.warn('[AI Stream] Gemini falhou, usando OpenAI como fallback:', geminiErr.message);
+        fullContent = '';
       }
     }
 
-    // Hallucination detection: AI wrote action text but called no tools
-    const toolCallsList = Object.values(toolCallAccum);
-    if (toolCallsList.length === 0 && fullContent) {
-      const actionKeywords = /criei|criei a demanda|cadastrei|registrei|criado com sucesso|id:\s*#\d+|foi criado|foi cadastrado|já aparece|salvo no sistema/i;
-      if (actionKeywords.test(fullContent)) {
-        console.warn('[AI Stream] ⚠️ HALLUCINATION DETECTED: AI described an action in text but called no tools. Message:', message.substring(0, 100));
-        console.warn('[AI Stream] AI response snippet:', fullContent.substring(0, 200));
-      }
-    }
-
-    const toolMessages: any[] = [];
-
-    for (const tc of toolCallsList) {
-      let args: any = {};
-      try { args = JSON.parse(tc.arguments || '{}'); } catch {}
-      const result = await executeTool(tc.name, args, unidade, userId);
-      sendEvent('action', { tool: tc.name, success: result.success, result: result.result, message: result.message });
-      toolMessages.push({
-        role: 'tool' as const,
-        tool_call_id: tc.id || 'tool_0',
-        content: JSON.stringify(result),
-      });
-    }
-
-    // Follow-up response after tool execution
-    if (toolMessages.length > 0) {
-      const followupMessages: any[] = [
-        { role: 'system', content: systemPrompt },
-        ...historyMessages,
-        { role: 'user', content: message },
-        {
-          role: 'assistant',
-          content: null,
-          tool_calls: toolCallsList.map((tc, i) => ({
-            id: tc.id || `tool_${i}`,
-            type: 'function' as const,
-            function: { name: tc.name, arguments: tc.arguments },
-          })),
-        },
-        ...toolMessages,
-      ];
-
-      const followup = await openai.chat.completions.create({
+    // ── FALLBACK: OPENAI ──────────────────────────────────────────────────────
+    if (!usedGemini) {
+      console.log('[AI Stream] Using OpenAI (gpt-4o-mini)');
+      const stream = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: followupMessages,
-        temperature: 0.7,
-        max_tokens: 400,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...historyMessages,
+          { role: 'user', content: message },
+        ],
+        tools: AI_TOOLS,
+        tool_choice: isAction ? 'required' : 'auto',
+        temperature: isAction ? 0.2 : 0.7,
+        max_tokens: 900,
         stream: true,
       });
 
-      for await (const chunk of followup) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          fullContent += content;
-          sendEvent('token', { content });
+      const toolCallAccum: { [index: number]: { id: string; name: string; arguments: string } } = {};
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta;
+
+        if (delta?.content) {
+          fullContent += delta.content;
+          sendEvent('token', { content: delta.content });
+        }
+
+        if (delta?.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            if (!toolCallAccum[tc.index]) {
+              toolCallAccum[tc.index] = { id: '', name: '', arguments: '' };
+            }
+            if (tc.id) toolCallAccum[tc.index].id += tc.id;
+            if (tc.function?.name) toolCallAccum[tc.index].name += tc.function.name;
+            if (tc.function?.arguments) toolCallAccum[tc.index].arguments += tc.function.arguments;
+          }
+        }
+      }
+
+      const toolCallsList = Object.values(toolCallAccum);
+
+      if (toolCallsList.length === 0 && fullContent) {
+        const actionKeywords = /criei|criei a demanda|cadastrei|registrei|criado com sucesso|id:\s*#\d+|foi criado|foi cadastrado|já aparece|salvo no sistema/i;
+        if (actionKeywords.test(fullContent)) {
+          console.warn('[AI Stream] ⚠️ OpenAI HALLUCINATION DETECTED:', message.substring(0, 100));
+        }
+      }
+
+      const toolMessages: any[] = [];
+
+      for (const tc of toolCallsList) {
+        let args: any = {};
+        try { args = JSON.parse(tc.arguments || '{}'); } catch {}
+        const result = await executeTool(tc.name, args, unidade, userId);
+        sendEvent('action', { tool: tc.name, success: result.success, result: result.result, message: result.message });
+        toolMessages.push({
+          role: 'tool' as const,
+          tool_call_id: tc.id || 'tool_0',
+          content: JSON.stringify(result),
+        });
+      }
+
+      if (toolMessages.length > 0) {
+        const followupMessages: any[] = [
+          { role: 'system', content: systemPrompt },
+          ...historyMessages,
+          { role: 'user', content: message },
+          {
+            role: 'assistant',
+            content: null,
+            tool_calls: toolCallsList.map((tc, i) => ({
+              id: tc.id || `tool_${i}`,
+              type: 'function' as const,
+              function: { name: tc.name, arguments: tc.arguments },
+            })),
+          },
+          ...toolMessages,
+        ];
+
+        const followup = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: followupMessages,
+          temperature: 0.7,
+          max_tokens: 400,
+          stream: true,
+        });
+
+        for await (const chunk of followup) {
+          const content = chunk.choices[0]?.delta?.content;
+          if (content) {
+            fullContent += content;
+            sendEvent('token', { content });
+          }
         }
       }
     }
