@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { aiDocuments } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
-import { generateEmbedding, cosineSimilarity } from './embeddings';
+import { generateDocumentEmbedding, generateQueryEmbedding, cosineSimilarity } from './embeddings';
 
 export interface SearchResult {
   id: number;
@@ -19,6 +19,8 @@ export interface SearchResult {
 
 /**
  * Busca documentos similares usando embeddings
+ * Usa RETRIEVAL_QUERY para otimizar a busca semântica.
+ * Documentos indexados com dimensão diferente da query são automaticamente ignorados.
  * MULTI-TENANCY: Filtra documentos apenas da unidade especificada
  */
 export async function searchSimilarDocuments(
@@ -28,10 +30,10 @@ export async function searchSimilarDocuments(
   empreendimentoId?: number
 ): Promise<SearchResult[]> {
   try {
-    const queryEmbedding = await generateEmbedding(query);
+    // RETRIEVAL_QUERY — embedding optimizado para a pergunta do usuário
+    const queryEmbedding = await generateQueryEmbedding(query);
 
     const whereConditions = [eq(aiDocuments.unidade, unidade)];
-
     if (empreendimentoId) {
       whereConditions.push(eq(aiDocuments.empreendimentoId, empreendimentoId));
     }
@@ -44,7 +46,8 @@ export async function searchSimilarDocuments(
     const results: SearchResult[] = documents
       .filter(doc => doc.embedding)
       .map(doc => {
-        const docEmbedding = JSON.parse(doc.embedding!);
+        const docEmbedding: number[] = JSON.parse(doc.embedding!);
+        // cosineSimilarity retorna 0 quando dimensões divergem (OpenAI vs Gemini)
         const similarity = cosineSimilarity(queryEmbedding, docEmbedding);
         const meta = (doc.metadata as any) || {};
 
@@ -74,6 +77,7 @@ export async function searchSimilarDocuments(
 
 /**
  * Indexa um documento no banco de dados
+ * Usa RETRIEVAL_DOCUMENT para gerar embeddings otimizados para armazenamento.
  * MULTI-TENANCY: Documento indexado com unidade obrigatória
  */
 export async function indexDocument(
@@ -85,7 +89,8 @@ export async function indexDocument(
   metadata: any = {}
 ): Promise<number> {
   try {
-    const embedding = await generateEmbedding(content);
+    // RETRIEVAL_DOCUMENT — embedding otimizado para o conteúdo do documento
+    const embedding = await generateDocumentEmbedding(content, source);
 
     const [inserted] = await db.insert(aiDocuments).values({
       unidade,
@@ -97,7 +102,7 @@ export async function indexDocument(
       metadata,
     }).returning({ id: aiDocuments.id });
 
-    console.log(`[RAG] Documento indexado (${unidade}): ${source} [id=${inserted.id}]`);
+    console.log(`[RAG] Documento indexado com Gemini (${unidade}): "${source}" [id=${inserted.id}, dim=${embedding.length}]`);
     return inserted.id;
   } catch (error) {
     console.error('Error indexing document:', error);

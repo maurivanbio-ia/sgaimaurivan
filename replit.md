@@ -19,7 +19,11 @@ The frontend uses React, TypeScript, Vite, Wouter for routing, TanStack Query fo
 Complete data isolation at the unit level across all modules, including financial data and AI functionalities. User access is strictly limited to data within their assigned unit.
 
 ### EcoGestor-AI (RAG Completo + Advanced)
-An integrated AI conversational agent using OpenAI embeddings for document indexing and vector search, and GPT-4o-mini for responses. Provides context-aware, unit-isolated responses with document retrieval. The floating chat widget (FAB button, bottom-right) persists across navigation. Advanced features:
+An integrated AI conversational agent using **Gemini embeddings** (`gemini-embedding-001`) for document indexing and vector search (with OpenAI fallback), GPT-4o-mini for streaming responses with function calling, and Gemini (`gemini-2.5-flash`) for follow-up suggestion chips. Provides context-aware, unit-isolated responses with document retrieval. The floating chat widget (FAB button, bottom-right) persists across navigation.
+
+**Embedding architecture**: `generateDocumentEmbedding()` uses `TaskType.RETRIEVAL_DOCUMENT` (3072-dim), `generateQueryEmbedding()` uses `TaskType.RETRIEVAL_QUERY` (3072-dim). Legacy OpenAI docs (1536-dim) are skipped automatically during search (cosine similarity returns 0 for mismatched dimensions). Migrate with `POST /api/ai/reindex`.
+
+Advanced features:
 - **Streaming responses** — SSE via `POST /api/ai/stream`, tokens appear progressively with blinking cursor
 - **Suggested follow-up questions** — 3 AI-generated chips after each response, clickable to fill input
 - **Direct actions (function calling)** — AI can create/delete demandas, update license status, register financial entries and vehicles/equipment using OpenAI tools
