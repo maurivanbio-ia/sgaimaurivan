@@ -21,7 +21,9 @@ Complete data isolation at the unit level across all modules, including financia
 ### EcoGestor-AI (RAG Completo + Advanced)
 An integrated AI conversational agent using **Gemini embeddings** (`gemini-embedding-001`) for document indexing and vector search (with OpenAI fallback), GPT-4o-mini for streaming responses with function calling, and Gemini (`gemini-2.5-flash`) for follow-up suggestion chips. Provides context-aware, unit-isolated responses with document retrieval. The floating chat widget (FAB button, bottom-right) persists across navigation.
 
-**Embedding architecture**: `generateDocumentEmbedding()` uses `TaskType.RETRIEVAL_DOCUMENT` (3072-dim), `generateQueryEmbedding()` uses `TaskType.RETRIEVAL_QUERY` (3072-dim). Legacy OpenAI docs (1536-dim) are skipped automatically during search (cosine similarity returns 0 for mismatched dimensions). Migrate with `POST /api/ai/reindex`.
+**Chat engine**: Primary = **DeepSeek** (`deepseek-chat`, via `DEEPSEEK_API_KEY`) — OpenAI-compatible API, supports streaming + function calling. Fallback = OpenAI GPT-4o-mini if DeepSeek key is absent. Suggestions use Gemini 2.5 Flash.
+
+**Embedding architecture**: `generateDocumentEmbedding()` uses `TaskType.RETRIEVAL_DOCUMENT` (3072-dim), `generateQueryEmbedding()` uses `TaskType.RETRIEVAL_QUERY` (3072-dim). Legacy OpenAI docs (1536-dim) are skipped automatically during search (cosine similarity returns 0 for mismatched dimensions). Migrate with `POST /api/ai/reindex`. Embeddings use only Gemini (no OpenAI fallback to avoid quota errors).
 
 Advanced features:
 - **Streaming responses** — SSE via `POST /api/ai/stream`, tokens appear progressively with blinking cursor
