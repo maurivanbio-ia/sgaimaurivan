@@ -136,6 +136,8 @@ import {
   catAcidentes,
   ddsRegistros,
   investigacoesIncidentes,
+  clienteDocumentos,
+  metasCustoProjeto,
   type ProgramaSst,
   type InsertProgramaSst,
   type AsoOcupacional,
@@ -796,6 +798,22 @@ export class DatabaseStorage implements IStorage {
       
       // Delete RH registros associados ao empreendimento
       await tx.delete(rhRegistros).where(eq(rhRegistros.empreendimentoId, id));
+
+      // Delete módulo SST associado ao empreendimento
+      await tx.delete(programasSst).where(eq(programasSst.empreendimentoId, id));
+      await tx.delete(asosOcupacionais).where(eq(asosOcupacionais.empreendimentoId, id));
+      await tx.delete(catAcidentes).where(eq(catAcidentes.empreendimentoId, id));
+      await tx.delete(ddsRegistros).where(eq(ddsRegistros.empreendimentoId, id));
+      await tx.delete(investigacoesIncidentes).where(eq(investigacoesIncidentes.empreendimentoId, id));
+
+      // Delete membros vinculados ao empreendimento
+      await tx.delete(membrosEmpreendimentos).where(eq(membrosEmpreendimentos.empreendimentoId, id));
+
+      // Delete documentos do portal do cliente vinculados ao empreendimento
+      await tx.delete(clienteDocumentos).where(eq(clienteDocumentos.empreendimentoId, id));
+
+      // Delete metas de custo do projeto (gamificação)
+      await tx.delete(metasCustoProjeto).where(eq(metasCustoProjeto.empreendimentoId, id));
       
       // Finalmente delete o empreendimento
       await tx.delete(empreendimentos).where(eq(empreendimentos.id, id));
