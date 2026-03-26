@@ -89,6 +89,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcrypt";
 import { cronService } from "./cronService";
+import { inicializarAutomacoes } from "./services/automacaoService";
 import { exportService } from "./exportService";
 import { alertService } from "./alertService";
 import { notificationService } from "./notificationService";
@@ -382,6 +383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize alert service
   console.log('Inicializando serviço de alertas automáticos...');
   cronService.start();
+  inicializarAutomacoes();
 
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
@@ -710,6 +712,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Quick status update error:", error);
       res.status(500).json({ message: "Erro ao atualizar status" });
+    }
+  });
+
+  // Toggle visibilidade do empreendimento (Pilar 5)
+  app.patch("/api/empreendimentos/:id/visivel", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { visivel } = req.body;
+      if (typeof visivel !== "boolean") return res.status(400).json({ message: "Campo 'visivel' deve ser boolean" });
+      const empreendimento = await storage.updateEmpreendimento(id, { visivel });
+      res.json(empreendimento);
+    } catch (error) {
+      console.error("Toggle visibilidade error:", error);
+      res.status(500).json({ message: "Erro ao atualizar visibilidade" });
     }
   });
 
@@ -2752,6 +2768,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting equipamento:', error);
       res.status(500).json({ error: 'Failed to delete equipamento' });
+    }
+  });
+
+  // ── Pilar 3: Retirada de equipamento para campo ──────────────────────────
+  app.post('/api/equipamentos/:id/retirar', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      const { retiradoPor, dataRetirada, dataDevolucaoPrevista, empreendimentoId, observacoes } = req.body;
+      if (!retiradoPor) return res.status(400).json({ error: 'retiradoPor é obrigatório' });
+      const updated = await storage.updateEquipamento(id, {
+        status: 'em_uso',
+        retiradoPor,
+        dataRetirada: dataRetirada || new Date().toISOString().split('T')[0],
+        dataDevolucaoPrevista: dataDevolucaoPrevista || null,
+        dataDevolucaoEfetiva: null,
+        condicaoDevolucao: null,
+        observacoesDevolucao: null,
+        empreendimentoId: empreendimentoId ? parseInt(empreendimentoId) : undefined,
+        localizacaoAtual: 'Em campo',
+        observacoes: observacoes || undefined,
+      });
+      if (!updated) return res.status(404).json({ error: 'Equipamento não encontrado' });
+      websocketService.broadcastInvalidate('equipamentos');
+      res.json(updated);
+    } catch (error) {
+      console.error('Error registering equipment withdrawal:', error);
+      res.status(500).json({ error: 'Falha ao registrar retirada' });
+    }
+  });
+
+  // ── Pilar 3: Devolução de equipamento do campo ────────────────────────────
+  app.post('/api/equipamentos/:id/devolver', requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+      const { condicaoDevolucao, observacoesDevolucao, dataDevolucaoEfetiva } = req.body;
+      if (!condicaoDevolucao) return res.status(400).json({ error: 'condicaoDevolucao é obrigatório' });
+      const novoStatus = condicaoDevolucao === 'funcionando' ? 'disponivel' : 'manutencao';
+      const updated = await storage.updateEquipamento(id, {
+        status: novoStatus,
+        dataDevolucaoEfetiva: dataDevolucaoEfetiva || new Date().toISOString().split('T')[0],
+        condicaoDevolucao,
+        observacoesDevolucao: observacoesDevolucao || null,
+        localizacaoAtual: novoStatus === 'manutencao' ? 'Em manutenção' : 'Escritório',
+      });
+      if (!updated) return res.status(404).json({ error: 'Equipamento não encontrado' });
+      websocketService.broadcastInvalidate('equipamentos');
+      res.json(updated);
+    } catch (error) {
+      console.error('Error registering equipment return:', error);
+      res.status(500).json({ error: 'Falha ao registrar devolução' });
     }
   });
 

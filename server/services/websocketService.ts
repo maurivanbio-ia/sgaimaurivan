@@ -182,6 +182,23 @@ class WebSocketService {
     });
   }
 
+  // ── Cache invalidation broadcast (Pilar 1 — Fim do F5) ──────────────────
+  // Emite um "sinal de fumaça" para que o TanStack Query invalide queries silenciosamente
+  broadcastInvalidate(entity: string, unidade?: string, extraKeys?: string[]) {
+    const payload = JSON.stringify({
+      type: 'invalidate',
+      entity,
+      unidade: unidade || null,
+      keys: extraKeys || [],
+      ts: Date.now(),
+    });
+    for (const [_, client] of this.clients) {
+      if (client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(payload);
+      }
+    }
+  }
+
   async markNotificationAsRead(notificationId: number) {
     try {
       await db.update(realTimeNotifications)

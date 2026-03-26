@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, Edit, Trash2, X, Wrench, Loader2, RefreshCw, Camera, Image, Upload, XCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Wrench, Loader2, RefreshCw, Camera, Image, Upload, XCircle, LogOut, LogIn, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,6 +129,13 @@ export default function EquipamentosPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageDescricao, setImageDescricao] = useState("");
 
+  // ── Estados para Retirada/Devolução (Pilar 3) ─────────────────────────────
+  const [retiradaDialogOpen, setRetiradaDialogOpen] = useState(false);
+  const [devolucaoDialogOpen, setDevolucaoDialogOpen] = useState(false);
+  const [equipamentoAcao, setEquipamentoAcao] = useState<any>(null);
+  const [retiradaForm, setRetiradaForm] = useState({ retiradoPor: "", dataDevolucaoPrevista: "", empreendimentoId: "", observacoes: "" });
+  const [devolucaoForm, setDevolucaoForm] = useState({ condicaoDevolucao: "", observacoesDevolucao: "" });
+
   // Filtros → query string
   const filters = useMemo(() => {
     const params: Record<string, string> = {};
@@ -218,6 +225,31 @@ export default function EquipamentosPage() {
         variant: "destructive",
       });
     },
+  });
+
+  // ── Mutações Retirada/Devolução (Pilar 3) ────────────────────────────────
+  const retiradaMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) =>
+      apiRequest("POST", `/api/equipamentos/${id}/retirar`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipamentos"] });
+      toast({ title: "Retirada registrada", description: "Equipamento marcado como Em Uso." });
+      setRetiradaDialogOpen(false);
+      setRetiradaForm({ retiradoPor: "", dataDevolucaoPrevista: "", empreendimentoId: "", observacoes: "" });
+    },
+    onError: () => toast({ title: "Erro", description: "Falha ao registrar retirada", variant: "destructive" }),
+  });
+
+  const devolucaoMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) =>
+      apiRequest("POST", `/api/equipamentos/${id}/devolver`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipamentos"] });
+      toast({ title: "Devolução registrada", description: "Equipamento devolvido com sucesso." });
+      setDevolucaoDialogOpen(false);
+      setDevolucaoForm({ condicaoDevolucao: "", observacoesDevolucao: "" });
+    },
+    onError: () => toast({ title: "Erro", description: "Falha ao registrar devolução", variant: "destructive" }),
   });
 
   // Query para imagens de dano
@@ -492,7 +524,29 @@ export default function EquipamentosPage() {
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1 flex-wrap">
+                          {/* Retirar — só aparece quando disponível */}
+                          {(e as any).status === 'disponivel' && (
+                            <Button
+                              aria-label="Registrar Retirada"
+                              variant="ghost" size="sm"
+                              title="Registrar retirada para campo"
+                              onClick={() => { setEquipamentoAcao(e); setRetiradaDialogOpen(true); }}
+                            >
+                              <LogOut className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          )}
+                          {/* Devolver — só aparece quando em uso */}
+                          {(e as any).status === 'em_uso' && (
+                            <Button
+                              aria-label="Registrar Devolução"
+                              variant="ghost" size="sm"
+                              title="Registrar devolução do campo"
+                              onClick={() => { setEquipamentoAcao(e); setDevolucaoDialogOpen(true); }}
+                            >
+                              <LogIn className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
                           <Button 
                             aria-label="Imagens de Dano" 
                             variant="ghost" 
@@ -762,6 +816,161 @@ export default function EquipamentosPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setImagensDialogOpen(false)}>
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal de Retirada (Pilar 3) ──────────────────────────────────── */}
+      <Dialog open={retiradaDialogOpen} onOpenChange={setRetiradaDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-blue-600" />
+              Registrar Retirada para Campo
+            </DialogTitle>
+            <DialogDescription>
+              {equipamentoAcao && (
+                <span>
+                  <strong>{equipamentoAcao.nome}</strong>
+                  {equipamentoAcao.numeroPatrimonio && ` — Patrimônio #${equipamentoAcao.numeroPatrimonio}`}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium block mb-1">Responsável pela retirada *</label>
+              <Input
+                value={retiradaForm.retiradoPor}
+                onChange={e => setRetiradaForm(f => ({ ...f, retiradoPor: e.target.value }))}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Data prevista de devolução</label>
+              <Input
+                type="date"
+                value={retiradaForm.dataDevolucaoPrevista}
+                onChange={e => setRetiradaForm(f => ({ ...f, dataDevolucaoPrevista: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Empreendimento (opcional)</label>
+              <Select
+                value={retiradaForm.empreendimentoId}
+                onValueChange={v => setRetiradaForm(f => ({ ...f, empreendimentoId: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {(empreendimentos as any[]).map((e: any) => (
+                    <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Observações</label>
+              <Input
+                value={retiradaForm.observacoes}
+                onChange={e => setRetiradaForm(f => ({ ...f, observacoes: e.target.value }))}
+                placeholder="Informações adicionais"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRetiradaDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (!retiradaForm.retiradoPor.trim()) {
+                  toast({ title: "Atenção", description: "Informe o responsável", variant: "destructive" });
+                  return;
+                }
+                retiradaMutation.mutate({ id: equipamentoAcao.id, data: retiradaForm });
+              }}
+              disabled={retiradaMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {retiradaMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar Retirada
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal de Devolução (Pilar 3) ──────────────────────────────────── */}
+      <Dialog open={devolucaoDialogOpen} onOpenChange={setDevolucaoDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogIn className="h-5 w-5 text-green-600" />
+              Registrar Devolução do Campo
+            </DialogTitle>
+            <DialogDescription>
+              {equipamentoAcao && (
+                <span>
+                  <strong>{equipamentoAcao.nome}</strong>
+                  {equipamentoAcao.retiradoPor && ` — Retirado por ${(equipamentoAcao as any).retiradoPor}`}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium block mb-2">Condição na devolução *</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: "funcionando", label: "Funcionando", icon: <CheckCircle2 className="h-4 w-4 text-green-600" />, cls: "border-green-500 bg-green-50 dark:bg-green-900/20" },
+                  { value: "com_defeito", label: "Com Defeito", icon: <AlertTriangle className="h-4 w-4 text-yellow-600" />, cls: "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" },
+                  { value: "avariado", label: "Avariado", icon: <XCircle className="h-4 w-4 text-orange-600" />, cls: "border-orange-500 bg-orange-50 dark:bg-orange-900/20" },
+                  { value: "perdido", label: "Perdido", icon: <Trash2 className="h-4 w-4 text-red-600" />, cls: "border-red-500 bg-red-50 dark:bg-red-900/20" },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setDevolucaoForm(f => ({ ...f, condicaoDevolucao: opt.value }))}
+                    className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                      devolucaoForm.condicaoDevolucao === opt.value ? opt.cls + ' border-current' : 'border-border'
+                    }`}
+                  >
+                    {opt.icon} {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Observações sobre a devolução</label>
+              <Input
+                value={devolucaoForm.observacoesDevolucao}
+                onChange={e => setDevolucaoForm(f => ({ ...f, observacoesDevolucao: e.target.value }))}
+                placeholder="Descreva defeitos, avarias ou ocorrências"
+              />
+            </div>
+            {devolucaoForm.condicaoDevolucao && devolucaoForm.condicaoDevolucao !== 'funcionando' && (
+              <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-300">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                  O equipamento será automaticamente encaminhado para <strong>Manutenção</strong>.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDevolucaoDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (!devolucaoForm.condicaoDevolucao) {
+                  toast({ title: "Atenção", description: "Selecione a condição na devolução", variant: "destructive" });
+                  return;
+                }
+                devolucaoMutation.mutate({ id: equipamentoAcao.id, data: devolucaoForm });
+              }}
+              disabled={devolucaoMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {devolucaoMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar Devolução
             </Button>
           </DialogFooter>
         </DialogContent>

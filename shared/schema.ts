@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, date, timestamp, serial, boolean, integer, decimal, json, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, date, timestamp, serial, boolean, integer, decimal, json, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -16,7 +16,7 @@ export const users = pgTable("users", {
 
 export const empreendimentos = pgTable("empreendimentos", {
   id: serial("id").primaryKey(),
-  codigo: text("codigo"), // Código único do projeto para estrutura de pastas (ex: PROJ001)
+  codigo: text("codigo"),
   nome: text("nome").notNull(),
   cliente: text("cliente").notNull(),
   clienteId: integer("cliente_id"),
@@ -49,13 +49,17 @@ export const empreendimentos = pgTable("empreendimentos", {
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
-});
+}, (table) => ({
+  emp_status_idx: index("empreendimentos_status_idx").on(table.status),
+  emp_unidade_idx: index("empreendimentos_unidade_idx").on(table.unidade),
+  emp_visivel_idx: index("empreendimentos_visivel_idx").on(table.visivel),
+}));
 
 export const licencasAmbientais = pgTable("licencas_ambientais", {
   id: serial("id").primaryKey(),
   numero: text("numero").notNull(),
   tipo: text("tipo").notNull(),
-  tipoOutorga: text("tipo_outorga"), // "superficial" | "subterranea" — apenas para Licença de Outorga
+  tipoOutorga: text("tipo_outorga"),
   orgaoEmissor: text("orgao_emissor").notNull(),
   dataEmissao: date("data_emissao").notNull(),
   validade: date("validade").notNull(),
@@ -63,7 +67,11 @@ export const licencasAmbientais = pgTable("licencas_ambientais", {
   arquivoPdf: text("arquivo_pdf"),
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
-});
+}, (table) => ({
+  lic_emp_idx: index("licencas_emp_idx").on(table.empreendimentoId),
+  lic_status_idx: index("licencas_status_idx").on(table.status),
+  lic_validade_idx: index("licencas_validade_idx").on(table.validade),
+}));
 
 export const condicionantes = pgTable("condicionantes", {
   id: serial("id").primaryKey(),
@@ -87,7 +95,11 @@ export const condicionantes = pgTable("condicionantes", {
   licencaId: integer("licenca_id").references(() => licencasAmbientais.id).notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
-});
+}, (table) => ({
+  cond_licenca_idx: index("condicionantes_licenca_idx").on(table.licencaId),
+  cond_status_idx: index("condicionantes_status_idx").on(table.status),
+  cond_prazo_idx: index("condicionantes_prazo_idx").on(table.prazo),
+}));
 
 // Evidências vinculadas a condicionantes
 export const condicionanteEvidencias = pgTable("condicionante_evidencias", {
@@ -452,11 +464,17 @@ export const demandas = pgTable("demandas", {
   recorrente: boolean("recorrente").notNull().default(false),
   recorrenciaCron: text("recorrencia_cron"), // expressão cron para repetição
   recorrenciaFim: date("recorrencia_fim"), // data final para parar de gerar instâncias
-  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
+  unidade: text("unidade").notNull().default('salvador'),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
-});
+}, (table) => ({
+  dem_status_idx: index("demandas_status_idx").on(table.status),
+  dem_unidade_idx: index("demandas_unidade_idx").on(table.unidade),
+  dem_emp_idx: index("demandas_emp_idx").on(table.empreendimentoId),
+  dem_entrega_idx: index("demandas_entrega_idx").on(table.dataEntrega),
+  dem_responsavel_idx: index("demandas_responsavel_idx").on(table.responsavelId),
+}));
 
 // Comentários das demandas
 export const comentariosDemandas = pgTable("comentarios_demandas", {
@@ -797,19 +815,32 @@ export const equipamentos = pgTable("equipamentos", {
   responsavel: text("responsavel"),
   ultimaManutencao: date("ultima_manutencao"),
   proximaManutencao: date("proxima_manutencao"),
+  certificadoCalibracao: date("certificado_calibracao"), // validade da calibração
   numeroPatrimonio: text("numero_patrimonio"),
   marca: text("marca"),
   modelo: text("modelo"),
+  numeroSerie: text("numero_serie"),
   valorAquisicao: decimal("valor_aquisicao", { precision: 12, scale: 2 }),
   dataAquisicao: date("data_aquisicao"),
   observacoes: text("observacoes"),
   imagensDanoJson: text("imagens_dano_json"), // JSON array de URLs de imagens de danos/avarias
   empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id),
-  unidade: text("unidade").notNull().default('salvador'), // unidade padrão
+  unidade: text("unidade").notNull().default('salvador'),
+  // ── Controle de retirada/devolução por patrimônio ────────────────────────
+  dataRetirada: date("data_retirada"),
+  dataDevolucaoPrevista: date("data_devolucao_prevista"),
+  dataDevolucaoEfetiva: date("data_devolucao_efetiva"),
+  retiradoPor: text("retirado_por"),              // nome do responsável pela retirada
+  condicaoDevolucao: text("condicao_devolucao"),  // funcionando, com_defeito, avariado, perdido
+  observacoesDevolucao: text("observacoes_devolucao"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   criadoPor: integer("criado_por").references(() => users.id).notNull(),
-});
+}, (table) => ({
+  equip_status_idx: index("equipamentos_status_idx").on(table.status),
+  equip_unidade_idx: index("equipamentos_unidade_idx").on(table.unidade),
+  equip_emp_idx: index("equipamentos_emp_idx").on(table.empreendimentoId),
+}));
 
 // Relations
 export const equipamentosRelations = relations(equipamentos, ({ one }) => ({

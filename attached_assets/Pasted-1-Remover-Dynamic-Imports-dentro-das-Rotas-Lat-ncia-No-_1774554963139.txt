@@ -1,0 +1,67 @@
+1. Remover Dynamic Imports dentro das Rotas (Latência)
+No seu arquivo server/routes.ts, existem dezenas de rotas que fazem importações dinâmicas dentro do handler da requisição. Por exemplo:
+
+typescript
+app.post('/api/sst/upload-documento', async (req, res) => {
+   const { ObjectStorageService } = await import('./replit_integrations/object_storage/objectStorage');
+   // ...
+});
+O Problema: Fazer await import() dentro da rota significa que o Node.js precisará resolver esse módulo (acessar o sistema de arquivos ou o cache de módulos) toda vez que um usuário fizer um upload. Isso adiciona uma latência desnecessária a cada requisição. A Solução: Mova todas essas importações (como multer, fs, crypto, XLSX, serviços de IA) para o topo do arquivo ou para um arquivo de configuração central. A memória usada por eles é irrisória perto do ganho de velocidade.
+
+2. O Perigo do multer.memoryStorage() em Alta Concorrência 🚨
+Você configurou limites generosos para uploads, o que é ótimo para o usuário final:
+
+typescript
+const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
+});
+O Problema: O memoryStorage joga o arquivo inteiro na memória RAM do Node.js antes de processar. Se 10 usuários subirem um arquivo de 20MB ao mesmo tempo (o que é comum no fim do mês para relatórios), seu servidor vai consumir 200MB instantaneamente só para segurar os buffers, podendo sofrer um erro de Out Of Memory e reiniciar, derrubando todos os usuários conectados. A Solução: Use multer.diskStorage() para salvar o arquivo temporariamente na pasta /tmp, envie para o Cloud/Object Storage lendo do disco via Stream, e depois delete o arquivo temporário.
+
+3. Problema de N+1 no Dashboard Executivo (Banco de Dados)
+Na rota /api/dashboard/executivo, o código faz um Promise.all mapeando as unidades. Dentro do loop de cada unidade, você faz 5 chamadas de banco separadas:
+
+typescript
+const [frota, equipamentos, rh, demandas, contratos] = await Promise.all([
+  storage.getFrotaStats(unidadeItem.id),
+  storage.getEquipamentosStats(unidadeItem.id),
+  // ...
+]);
+O Problema: Se você tiver 5 unidades, isso resulta em 25 consultas simultâneas ao banco de dados sempre que um diretor abre o Dashboard. Se o sistema escalar, o pool de conexões do PostgreSQL se esgotará rapidamente. A Solução: Crie uma View no PostgreSQL ou uma única Query Drizzle com GROUP BY unidade que retorne todas as estatísticas de uma só vez, eliminando o gargalo do banco de dados.
+
+4. Segurança: Rate Limiting Específico para as "Senhas Genéricas"
+O sistema possui endpoints como /api/painel/unlock e /api/auth/unlock-sensitive que utilizam senhas genéricas definidas em variáveis de ambiente. O Problema: Atualmente, essas rotas estão protegidas apenas pelo apiLimiter (300 requisições por minuto). Isso permite que um invasor tente 300 senhas diferentes por minuto para acessar o painel financeiro ou administrativo.
+
+Abaixo, forneço um diff para implementar uma camada extra de proteção contra ataques de força bruta nessas rotas no seu server/index.ts:
+
+index.ts
+-0
++14
+ Show full code block 
+  skip: (req) => req.path.startsWith('/ws'),
+});
+
+// Rate limiter estrito para tentativas de desbloqueio de módulos sensíveis
+const unlockLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Apenas 5 tentativas
+  message: { message: 'Muitas tentativas de desbloqueio. Segurança acionada. Aguarde 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/painel/unlock', unlockLimiter);
+app.use('/api/auth/unlock-module', unlockLimiter);
+app.use('/api/auth/unlock-sensitive', unlockLimiter);
+app.use('/api/auth/promote-admin', unlockLimiter);
+app.use('/api/blog/unlock', unlockLimiter);
+app.use('/api', apiLimiter);
+
+app.use((req, res, next) => {
+5. Padronização Absoluta do Schema de Resposta da API
+Atualmente, as rotas misturam formatos de resposta. Às vezes retornam o array puro res.json(data), às vezes retornam objetos { success: true, data: ... } e às vezes { message: ... }. A Melhoria: Isso dificulta a tipagem no frontend com o TypeScript e o tratamento global de erros. O ideal é criar uma interface única, exemplo (JSend):
+
+Sucesso: { "status": "success", "data": { "licencas": [...] } }
+Falha: { "status": "error", "message": "Senha incorreta", "code": "AUTH_001" } Isso permite que você tenha um único interceptador no Axios/Fetch no frontend que lida com todos os formatos de dados de forma previsível.

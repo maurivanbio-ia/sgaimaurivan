@@ -1,0 +1,181 @@
+Para melhorar significativamente o upload e o download de documentos PDF na sua plataforma, precisamos atuar em duas frentes: Backend (otimização de memória e streams) e Frontend (experiência do usuário e assincronicidade).
+
+Analisando o arquivo server/routes.ts que você forneceu, identifiquei um gargalo grave de performance nas rotas de download: os arquivos estão sendo inteiramente carregados na memória RAM do servidor Node.js antes de serem enviados ao usuário. Se 10 usuários baixarem um PDF de 50MB simultaneamente, o servidor consumirá 500MB instantaneamente, podendo travar ou reiniciar por falta de memória (OOM - Out of Memory).
+
+Aqui está a estratégia para resolver isso, seguida pelo código corrigido.
+
+1. Melhoria no Backend: Usar Streams para Download
+Em vez de usar await file.download() (que joga todo o arquivo numa variável fileBuffer), devemos usar Streams (file.createReadStream().pipe(res)). Isso faz com que o servidor repasse os "pedacinhos" do arquivo do storage direto para o cliente à medida que chegam, consumindo quase zero de RAM.
+
+Aqui estão as correções para as rotas de SST no seu arquivo server/routes.ts:
+
+routes.ts
+-10
++18
+ Show full code block 
+        return res.status(404).json({ error: 'Arquivo não encontrado' });
+      }
+      
+      const [fileBuffer] = await file.download();
+      const [metadata] = await file.getMetadata();
+      
+      console.log('[SST Download] Arquivo encontrado, tamanho:', fileBuffer.length, 'bytes');
+      console.log('[SST Download] Arquivo encontrado, tamanho:', metadata.size, 'bytes');
+      
+      // Determinar tipo MIME
+      const ext = path.default.extname(fileName).toLowerCase();
+      let mimeType = metadata.contentType || 'application/octet-stream';
+      if (!mimeType || mimeType === 'application/octet-stream') {
+        if (ext === '.pdf') mimeType = 'application/pdf';
+        else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.doc') mimeType = 'application/msword';
+        else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
+      
+      // Configurar headers para download (attachment em vez de inline)
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', fileBuffer.length);
+      if (metadata.size) res.setHeader('Content-Length', metadata.size);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      // Enviar arquivo
+      res.send(fileBuffer);
+      // Enviar arquivo usando Stream (Baixo consumo de RAM)
+      file.createReadStream()
+        .on('error', (err) => {
+          console.error('[SST Download] Erro no stream:', err);
+          if (!res.headersSent) res.status(500).json({ error: 'Erro ao transmitir arquivo' });
+        })
+        .pipe(res);
+    } catch (error: any) {
+      console.error('[SST Download] Erro:', error);
+      return res.status(500).json({ error: 'Erro ao baixar arquivo' });
+        return res.status(404).json({ error: 'Arquivo não encontrado' });
+      }
+      
+      const [fileBuffer] = await file.download();
+      const [metadata] = await file.getMetadata();
+      
+      console.log('[SST Download] Arquivo encontrado, tamanho:', fileBuffer.length, 'bytes');
+      console.log('[SST Download] Arquivo encontrado, tamanho:', metadata.size, 'bytes');
+      
+      // Determinar tipo MIME
+      const ext = path.default.extname(fileName).toLowerCase();
+      let mimeType = metadata.contentType || 'application/octet-stream';
+      if (!mimeType || mimeType === 'application/octet-stream') {
+        if (ext === '.pdf') mimeType = 'application/pdf';
+        else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.doc') mimeType = 'application/msword';
+        else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
+      
+      // Nome para exibição
+      const displayName = (documento as any).nomenclatura || documento.descricao || `documento-${id}`;
+      
+      // Configurar headers para download forçado
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', fileBuffer.length);
+      if (metadata.size) res.setHeader('Content-Length', metadata.size);
+      res.setHeader('Content-Disposition', `attachment; filename="${displayName}${ext}"`);
+      
+      // Enviar arquivo
+      res.send(fileBuffer);
+      // Enviar arquivo usando Stream
+      file.createReadStream()
+        .on('error', (err) => {
+          console.error('[SST Download] Erro no stream:', err);
+          if (!res.headersSent) res.status(500).json({ error: 'Erro ao transmitir arquivo' });
+        })
+        .pipe(res);
+    } catch (error: any) {
+      console.error('[SST Download] Erro:', error);
+2. Melhoria no Frontend: Upload Assíncrono com Progresso
+Para cumprir o objetivo do seu documento de resolver o "Upload ocorre, mas a interface não reflete imediatamente", você deve usar o recurso onUploadProgress do Axios junto com o React Query no frontend.
+
+Exemplo de como o componente React (Frontend) deve gerenciar o upload:
+
+tsx
+ Show full code block 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { useState } from 'react';
+
+export function DocumentUploadForm({ empreendimentoId }) {
+  const queryClient = useQueryClient();
+  const [progress, setProgress] = useState(0);
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('arquivo', file);
+      formData.append('empreendimentoId', empreendimentoId.toString());
+
+      const response = await axios.post('/api/sst/upload-documento', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          // Atualiza a barra de progresso em tempo real
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / (progressEvent.total || file.size)
+          );
+          setProgress(percentCompleted);
+        },
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      // INVALIDE O CACHE IMEDIATAMENTE: Isso recarrega a tabela sem precisar de F5
+      queryClient.invalidateQueries({ queryKey: ['documentos', empreendimentoId] });
+      setProgress(0);
+      // Aqui você dispara o Toast de Sucesso!
+    },
+  });
+
+  return (
+    <div>
+      <input 
+        type="file" 
+        accept="application/pdf" 
+        onChange={(e) => {
+          if (e.target.files?.[0]) {
+            uploadMutation.mutate(e.target.files[0]);
+          }
+        }} 
+      />
+      {uploadMutation.isPending && (
+        <div className="w-full bg-gray-200 rounded h-2 mt-2">
+          <div 
+            className="bg-blue-600 h-2 rounded transition-all duration-300" 
+            style={{ width: `${progress}%` }}
+          />
+          <p className="text-sm mt-1 text-gray-600">SALVANDO... {progress}%</p>
+        </div>
+      )}
+    </div>
+  );
+}
+3. Evitando travamentos ao calcular Hash (MD5) localmente
+Na sua rota /api/empreendimentos/:empreendimentoId/contratos/:contratoId/pdf e /api/contratos/upload, você está carregando o arquivo inteiro na memória para calcular o md5.
+
+typescript
+ Show full code block 
+// COMO ESTÁ:
+const fileBuffer = fs.readFileSync(req.file.path);
+const checksum = crypto.createHash("md5").update(fileBuffer).digest("hex");
+
+// COMO DEVE FICAR SE O PDF FOR MUITO GRANDE (+100MB):
+// Use streams para calcular o hash sem afetar a RAM
+const hash = crypto.createHash('md5');
+const stream = fs.createReadStream(req.file.path);
+stream.on('data', (data) => hash.update(data));
+stream.on('end', async () => {
+   const checksum = hash.digest('hex');
+   // Só salve no banco depois que o hash for calculado via stream
+});
+Para arquivos pequenos (<20MB) o seu código atual funciona bem, mas a correção de Stream para arquivos grandes é essencial.
+
+Resumo do que essas mudanças fazem:
+Fim dos Crashes no Backend: Múltiplos usuários podem baixar PDFs gigantes ao mesmo tempo porque os dados fluem diretamente para a rede, sem encher a RAM do servidor.
+Fim do F5: O React Query (invalidateQueries) garante que a listagem de documentos no front será buscada novamente do servidor de forma transparente assim que o upload for concluído.
+UX Transparente: O onUploadProgress fornece o feedback visual vital que os usuários esperam em sistemas corporativos ("Salvando... 45%").
