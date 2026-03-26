@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "iKM6BlfnueNdZmK5Iprk7"
+uri = "file://protocolo_siformaces.md"
+type = "text"
+title = "Protocolo de Coleta de Informações — SIFORMACES / EcoGestor"
