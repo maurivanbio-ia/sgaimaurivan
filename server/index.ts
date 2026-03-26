@@ -29,8 +29,22 @@ const apiLimiter = rateLimit({
   skip: (req) => req.path.startsWith('/ws'),
 });
 
+// Rate limiter estrito para tentativas de desbloqueio de módulos sensíveis
+const unlockLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Muitas tentativas de desbloqueio. Segurança acionada. Aguarde 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/painel/unlock', unlockLimiter);
+app.use('/api/auth/unlock-module', unlockLimiter);
+app.use('/api/auth/unlock-sensitive', unlockLimiter);
+app.use('/api/auth/promote-admin', unlockLimiter);
+app.use('/api/blog/unlock', unlockLimiter);
 app.use('/api', apiLimiter);
 
 app.use((req, res, next) => {
