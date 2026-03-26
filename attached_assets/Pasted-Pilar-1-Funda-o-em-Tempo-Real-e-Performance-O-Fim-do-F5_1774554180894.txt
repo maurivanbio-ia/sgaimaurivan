@@ -1,0 +1,52 @@
+Pilar 1: Fundação em Tempo Real e Performance (O Fim do "F5")
+O problema mais crítico relatado é a falta de sincronização e a lentidão. A prioridade zero é arrumar a "tubulação" de dados.
+
+Sincronização Híbrida (WebSocket + TanStack Query):
+Implementar um servidor Socket.IO leve no backend Express. Ele não enviará os dados pesados, apenas emitirá "sinais de fumaça" (ex: socket.emit("invalidate", { entity: "condicionantes", licenseId: 123 })).
+No frontend, o TanStack Query escuta esse sinal e dispara um queryClient.invalidateQueries(...) silencioso em background, atualizando a tela sem o usuário perceber.
+Garantir que todas as mutações no frontend usem Optimistic Updates (atualizar a UI antes mesmo do servidor responder) para sensação de instantaneidade.
+Otimização de Banco de Dados (Drizzle ORM):
+Aplicar Paginação Real (Server-side) em listagens pesadas (como histórico de RH e Contratos).
+Criar Índices Estratégicos no PostgreSQL para colunas muito buscadas: empreendimento_id, license_id, data_validade, data_prazo e status.
+Revisar as queries do Drizzle para usar joins adequados, eliminando o problema de consultas N+1.
+Melhoria nos Uploads de Arquivos:
+Tornar o upload assíncrono. O usuário clica em enviar, a interface exibe um Skeleton Loading ou barra de progresso ("SALVANDO..."), e o sistema atualiza a lista automaticamente ao finalizar, emitindo um Toast de sucesso.
+Pilar 2: Arquitetura Centrada no "Empreendimento"
+O Empreendimento passa a ser o coração do sistema. Todas as informações devem orbitar ao redor dele.
+
+Página de Detalhes do Empreendimento (/empreendimentos/:id):
+Implementar um layout de abas (Tabs do Shadcn) separando o contexto: Cronograma, Demandas (Kanban), SST, Gestão de Dados, Equipamentos, Frota, Contratos e RH.
+Usar Lazy Loading nessas abas para que o navegador não tente carregar todos os módulos de uma vez ao abrir o empreendimento.
+Dashboard Unificado (Aba Painel):
+Criar um seletor inteligente (Tabs/Toggle) para alternar as métricas entre Licenças, Equipamentos e Demandas.
+Implementar cards interativos (ex: "Licenças Vencidas") que, ao serem clicados, abrem tabelas dinâmicas pré-filtradas.
+Mapa Interativo (Leaflet) e Calendário Central:
+Mapa: Exibir todos os empreendimentos com ícones personalizados (barragem, eólica, torre, etc.) e popups ricos com ações rápidas.
+Calendário: Integrar o FullCalendar no painel central, unificando em um só lugar os vencimentos de licenças, devoluções de equipamentos, prazos de demandas e marcos contratuais, categorizados por cores.
+Pilar 3: Refatoração de Módulos Críticos (Licenças e Equipamentos)
+As regras de negócio destes módulos precisam refletir hierarquia e controle estrito.
+
+Módulo de Licenças e Condicionantes (Pai e Filha):
+Remover telas globais soltas de condicionantes. Elas só podem existir dentro da rota da Licença (/licencas/:licenseId/condicionantes).
+Painel de conformidade no topo da licença (Total, Cumpridas, Atrasadas e %).
+Qualquer evidência aprovada em uma condicionante deve ficar no contexto da licença.
+Aba de Equipamentos:
+O controle passa a ser unitário (por Número de Patrimônio).
+A disponibilidade geral é calculada dinamicamente: Total de patrimônios - Retiradas não devolvidas.
+Exigir informações de "Condição na devolução" (funcionando/com defeito) ao retornar um equipamento da área.
+Pilar 4: Automações e Background Jobs (Trabalho Invisível)
+A plataforma deve ser pró-ativa, avisando os gestores antes que os problemas aconteçam.
+
+Worker de Rotinas (Node-cron):
+Diariamente (06:00): Varrer banco procurando licenças a exatos 150 dias do vencimento. Se encontrar, registrar para não duplicar e disparar e-mail. Recalcular o status de "Atrasado" para pagamentos de contratos.
+Diariamente: Renovar automaticamente as demandas que possuem periodicidade configurada (recorrencia_cron), criando as novas instâncias no Kanban.
+Semanalmente (Segundas 08:00): Consolidar relatórios por empreendimento (demandas, licenças, SST a vencer, pagamentos) em PDF e disparar por e-mail para o gestor.
+Pilar 5: Experiência do Usuário (UX) e Segurança
+A plataforma precisa passar a sensação de ser instantânea, profissional e segura corporativamente.
+
+Padronização de Dados e Auditoria:
+Aplicar a regra de texto em MAIÚSCULO e sem acentos nos inputs de formulários (com exceções para e-mails e senhas) para uniformizar relatórios.
+Implementar logs de auditoria robustos: Quem alterou, o que alterou e quando alterou, especialmente em uploads de evidências e mudanças de status.
+Garantir o uso de Soft Delete (deleted_at) em dados sensíveis para evitar perda acidental de histórico.
+Ciclo de Vida do Contrato:
+Atrelar a visibilidade do empreendimento ao contrato. Quando a vigência de um contrato acabar (e não houver aditivo), o sistema deve sugerir a ocultação do empreendimento (marcando visivel=false), limpando o mapa e o dashboard atual, mas mantendo-o no histórico.
