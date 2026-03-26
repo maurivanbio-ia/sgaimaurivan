@@ -1,0 +1,63 @@
+Com base na análise profunda do código fornecido (especialmente o gigantesco arquivo server/routes.ts com quase 4.000 linhas e o server/storage.ts), o sistema está muito robusto em funcionalidades, mas acumulou uma dívida técnica arquitetural significativa.
+
+Para que a plataforma EcoBrasil Gestor seja escalável, fácil de manter e não sofra com timeouts ou travamentos no futuro, aqui estão as principais frentes de melhoria estrutural e de código:
+
+1. Modularização do Arquivo de Rotas (O fim do "Monólito de Rotas")
+O arquivo server/routes.ts faz de tudo: autenticação, IA, upload de arquivos, lógica financeira pesada (parse de Excel), rotas de RH e leitura de PDFs. Isso gera conflitos de merge, dificulta a leitura e sobrecarrega a memória na inicialização.
+
+A Melhoria: Dividir as rotas em pequenos módulos usando express.Router().
+
+Como fazer: Criar uma pasta server/routes/ e separar: financeiro.routes.ts, sst.routes.ts, auth.routes.ts, etc.
+Exemplo de estrutura ideal:
+typescript
+ Show full code block 
+// server/index.ts (ou routes.ts principal)
+import sstRoutes from './routes/sst.routes';
+import financeiroRoutes from './routes/financeiro.routes';
+// ...
+app.use('/api/sst', requireAuth, sstRoutes);
+app.use('/api/financeiro', requireAuth, financeiroRoutes);
+2. Processamento Assíncrono para Tarefas Pesadas (IA e Uploads) ⏳
+Na rota de upload e análise de listas de presença (/api/seg-documentos/:documentoId/lista-presenca/analisar), você está lendo um PDF, convertendo para imagem (pdf2pic), fazendo chamadas à API da OpenAI Vision e comparando arrays, tudo dentro da thread da requisição HTTP.
+
+O Risco: Se o PDF tiver muitas páginas ou a API da OpenAI demorar, a requisição HTTP vai dar Timeout (o navegador corta a conexão) e o usuário verá um erro genérico, mesmo que o servidor ainda esteja processando.
+A Solução: Usar um padrão de processamento assíncrono (Webhooks/Filas).
+A rota recebe o PDF, salva, cria o registro no banco com status processando e retorna HTTP 202 Accepted imediatamente para o front-end.
+O trabalho pesado vai para uma Fila (ex: BullMQ + Redis).
+Quando a IA terminar, o backend emite um sinal via WebSocket (já configurado no seu projeto) avisando o frontend: "Análise do documento finalizada!".
+3. Tratamento Centralizado de Erros (Remover Try/Catch repetitivos)
+O código tem centenas de blocos try { ... } catch (error) { res.status(500).json(...) } idênticos. Isso polui o código e esconde a real causa dos erros.
+
+A Solução: Usar uma função "wrapper" para rotas assíncronas e um Middleware de Erro Global. Isso reduz o tamanho das rotas em até 30% e melhora os logs.
+
+typescript
+ Show full code block 
+// Exemplo de como simplificar as rotas:
+const asyncHandler = (fn: any) => (req: Request, res: Response, next: NextFunction) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// Olha como fica limpo:
+app.get('/api/equipamentos/:id', requireAuth, asyncHandler(async (req, res) => {
+  const equipamento = await storage.getEquipamentoById(parseInt(req.params.id));
+  if (!equipamento) throw new AppError('Equipamento não encontrado', 404);
+  res.json(equipamento);
+}));
+4. Transações de Banco de Dados (db.transaction)
+Em diversas rotas, você insere um dado em uma tabela e, logo depois, insere um log ou atualiza outra tabela. Por exemplo, na criação avançada de Dataset (/api/datasets/upload-avancado): você cria o dataset, depois o datasetVersoes, e depois o datasetAuditTrail.
+
+O Risco: Se a criação da versão falhar (ex: queda do banco), o dataset já foi inserido, gerando um dado órfão ou corrompido no banco.
+A Melhoria: Tudo que envolver múltiplas tabelas dependentes deve ser encapsulado no Drizzle usando transações:
+typescript
+await db.transaction(async (tx) => {
+  const [dataset] = await tx.insert(datasets).values(...).returning();
+  await tx.insert(datasetVersoes).values({ datasetId: dataset.id, ... });
+  await tx.insert(datasetAuditTrail).values({ datasetId: dataset.id, ... });
+});
+5. Sanitização de Inputs e Fortalecimento de Tipos
+Existem muitos trechos com catch (error: any) ou const user = req.user as any.
+Em paginações ou IDs (ex: req.params.id), é feito parseInt(req.params.id). O parseInt pode gerar comportamentos estranhos em strings maliciosas.
+A Melhoria: Validar o req.query e req.params com o Zod, da mesma forma que já é feito para o req.body.
+typescript
+const idParamsSchema = z.object({ id: z.coerce.number().int().positive() });
+// Desta forma você garante que nunca chegará um "NaN" no banco.

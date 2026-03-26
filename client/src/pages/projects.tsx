@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building, Plus, User, MapPin, Bus, Eye, Map, Trash2, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { Building, Plus, User, MapPin, Bus, Eye, Map, Trash2, ChevronDown, ChevronRight, ChevronsUpDown, EyeOff, Filter } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ExportButton } from "@/components/ExportButton";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -31,6 +31,9 @@ export default function Projects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Empreendimento | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  const [showOcultos, setShowOcultos] = useState(false);
+  // Sugestão de ciclo de contrato (Pilar 5)
+  const [suggestHideDialog, setSuggestHideDialog] = useState<{ id: number; nome: string } | null>(null);
 
   const toggleCard = (id: number) => {
     setExpandedCards(prev => {
@@ -100,11 +103,29 @@ export default function Projects() {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest("PATCH", `/api/empreendimentos/${id}/status`, { status }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
       toast({ title: "Status atualizado" });
+      // Pilar 5 — sugerir ocultar empreendimento ao encerrar contrato
+      if (["concluido", "inativo", "cancelado"].includes(variables.status)) {
+        const p = projects?.find(p => p.id === variables.id);
+        if (p && p.visivel !== false) {
+          setSuggestHideDialog({ id: variables.id, nome: p.nome });
+        }
+      }
     },
     onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
+  });
+
+  // Toggle visibilidade (Pilar 5)
+  const visivelMutation = useMutation({
+    mutationFn: ({ id, visivel }: { id: number; visivel: boolean }) =>
+      apiRequest("PATCH", `/api/empreendimentos/${id}/visivel`, { visivel }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
+      toast({ title: vars.visivel ? "Empreendimento visível" : "Empreendimento ocultado", description: vars.visivel ? "Aparecerá na listagem padrão." : "Oculto da listagem padrão." });
+    },
+    onError: () => toast({ title: "Erro ao alterar visibilidade", variant: "destructive" }),
   });
 
   const handleDeleteClick = (project: Empreendimento) => {
@@ -159,16 +180,33 @@ export default function Projects() {
           </TabsList>
           
           <TabsContent value="list" className="mt-6">
-            <div className="flex justify-end mb-3 gap-2">
-              <Button variant="outline" size="sm" onClick={() => expandAll(projects?.map(p => p.id) ?? [])} className="text-xs gap-1">
-                <ChevronDown className="h-3 w-3" /> Expandir todos
-              </Button>
-              <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
-                <ChevronRight className="h-3 w-3" /> Recolher todos
-              </Button>
+            <div className="flex justify-between mb-3 gap-2 flex-wrap">
+              <div className="flex gap-2">
+                <Button
+                  variant={showOcultos ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowOcultos(v => !v)}
+                  className="text-xs gap-1"
+                  title={showOcultos ? "Ocultando inativos visíveis" : "Mostrar todos incluindo ocultos"}
+                >
+                  <Filter className="h-3 w-3" />
+                  {showOcultos ? "Todos" : "Apenas visíveis"}
+                  {!showOcultos && projects.some(p => p.visivel === false) && (
+                    <span className="ml-1 bg-orange-500 text-white rounded-full text-[10px] px-1.5">{projects.filter(p => p.visivel === false).length}</span>
+                  )}
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => expandAll(projects?.map(p => p.id) ?? [])} className="text-xs gap-1">
+                  <ChevronDown className="h-3 w-3" /> Expandir todos
+                </Button>
+                <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
+                  <ChevronRight className="h-3 w-3" /> Recolher todos
+                </Button>
+              </div>
             </div>
             <div className="grid gap-2">
-              {projects?.map((project) => {
+              {projects?.filter(p => showOcultos || p.visivel !== false).map((project) => {
                 const isExpanded = expandedCards.has(project.id);
                 const statusLabel = project.status?.toLowerCase() === "ativo" ? "Ativo"
                   : project.status?.toLowerCase() === "inativo" ? "Inativo"
@@ -231,6 +269,17 @@ export default function Projects() {
                         )}
                         {/* Action buttons always visible */}
                         <div className="flex gap-1 shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                          {/* Toggle visibilidade (Pilar 5) */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 px-2 ${project.visivel === false ? "text-orange-500" : "text-muted-foreground"}`}
+                            title={project.visivel === false ? "Oculto — clique para tornar visível" : "Visível — clique para ocultar"}
+                            onClick={() => visivelMutation.mutate({ id: project.id, visivel: project.visivel === false })}
+                            disabled={visivelMutation.isPending}
+                          >
+                            {project.visivel === false ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </Button>
                           <Link href={`/empreendimentos/${project.id}`}>
                             <Button variant="outline" size="sm" className="h-7 px-2 text-xs" data-testid={`button-view-details-${project.id}`}>
                               <Eye className="h-3 w-3 mr-1" />
@@ -317,6 +366,40 @@ export default function Projects() {
           </Link>
         </div>
       )}
+
+      {/* Sugestão de ocultar ao encerrar contrato (Pilar 5) */}
+      <AlertDialog open={!!suggestHideDialog} onOpenChange={() => setSuggestHideDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <EyeOff className="h-5 w-5 text-orange-500" />
+              Ocultar empreendimento?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{suggestHideDialog?.nome}</strong> foi marcado como encerrado/inativo.
+              Deseja ocultá-lo da listagem padrão? Ele permanecerá no sistema e poderá ser
+              reativado a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSuggestHideDialog(null)}>
+              Manter visível
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={() => {
+                if (suggestHideDialog) {
+                  visivelMutation.mutate({ id: suggestHideDialog.id, visivel: false });
+                }
+                setSuggestHideDialog(null);
+              }}
+            >
+              <EyeOff className="h-4 w-4 mr-2" />
+              Sim, ocultar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog de confirmação de exclusão */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -62,6 +62,28 @@ export function useNotifications() {
         if (data.type === 'pending_notifications') {
           setNotifications(prev => [...data.notifications, ...prev]);
         }
+
+        // ── Pilar 1: Cache invalidation silenciosa (Fim do F5) ─────────────
+        // O servidor emite este sinal após mutações. O TanStack Query atualiza
+        // a tela automaticamente sem o usuário precisar recarregar.
+        if (data.type === 'invalidate') {
+          const entityRoutes: Record<string, string[]> = {
+            licencas: ['/api/licencas', '/api/licencas-ambientais'],
+            condicionantes: ['/api/condicionantes'],
+            demandas: ['/api/demandas'],
+            equipamentos: ['/api/equipamentos'],
+            empreendimentos: ['/api/empreendimentos'],
+            contratos: ['/api/contratos'],
+            financeiro: ['/api/financeiro'],
+            frota: ['/api/veiculos'],
+            rh: ['/api/rh'],
+          };
+          const routes = entityRoutes[data.entity] || [`/api/${data.entity}`];
+          routes.forEach(r => queryClient.invalidateQueries({ queryKey: [r] }));
+          if (data.keys?.length) {
+            data.keys.forEach((k: string) => queryClient.invalidateQueries({ queryKey: [k] }));
+          }
+        }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
       }

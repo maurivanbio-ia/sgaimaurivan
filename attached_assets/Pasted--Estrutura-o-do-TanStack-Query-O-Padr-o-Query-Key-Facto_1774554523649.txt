@@ -1,0 +1,55 @@
+ Estruturação do TanStack Query: O Padrão "Query Key Factory" 🏭
+Como o sistema será focado no empreendimento_id e você fará invalidações constantes via WebSocket, gerenciar as chaves de cache (Query Keys) pode virar um pesadelo (ex: ['condicionantes', id], ['licencas', id]).
+
+Sugestão: Crie um arquivo centralizado de fábricas de chaves (Query Key Factory). Isso evita erros de digitação e garante que o cache seja limpo corretamente.
+
+typescript
+ Show full code block 
+// src/lib/queryKeys.ts
+export const empreendimentoKeys = {
+  all: ['empreendimentos'] as const,
+  lists: () => [...empreendimentoKeys.all, 'list'] as const,
+  detail: (id: number) => [...empreendimentoKeys.all, 'detail', id] as const,
+  
+  // Sub-módulos aninhados
+  licencas: (empId: number) => [...empreendimentoKeys.detail(empId), 'licencas'] as const,
+  equipamentos: (empId: number) => [...empreendimentoKeys.detail(empId), 'equipamentos'] as const,
+};
+
+// Uso no componente:
+useQuery({ queryKey: empreendimentoKeys.licencas(12), queryFn: ... })
+
+// Uso no WebSocket para invalidar TODAS as licenças de um empreendimento:
+queryClient.invalidateQueries({ queryKey: empreendimentoKeys.licencas(12) })
+2. Substituir node-cron por Filas Reais (Redis + BullMQ) 🐂
+Os documentos mencionam o uso de node-cron para verificar licenças vencendo em 150 dias e enviar relatórios semanais.
+
+O Problema: O node-cron roda na memória do servidor Node.js. Se o sistema crescer e você colocar o backend em 2 servidores (Load Balancer) para aguentar o tráfego, o cron rodará 2 vezes. Seus clientes receberão o mesmo e-mail de alerta duas vezes.
+A Solução: Utilize o BullMQ (com Redis). Ele garante que um job (tarefa) seja executado apenas uma vez, suporta retentativas automáticas caso o envio do e-mail falhe, e possui dashboards próprios para você monitorar quais e-mails saíram e quais falharam.
+3. Upload de Arquivos: Migrar de Disco (Multer) para Nuvem (S3) ☁️
+A documentação propõe armazenar PDFs de contratos e evidências.
+
+A Sugestão: Não salve arquivos diretamente na pasta do servidor (FILE_STORAGE_PATH). Além de encarecer o servidor e dificultar backups, se o servidor for reiniciado em ambientes como Heroku/Render/Docker, os arquivos podem ser perdidos.
+Implementação Ideal: Configure o Multer apenas para receber o arquivo na memória (multer.memoryStorage()) e faça o upload direto para um AWS S3 (ou Cloudflare R2, que é mais barato e compatível). Salve no banco de dados apenas a URL ou a chave do arquivo (file_key).
+4. Middleware de Permissões e Segurança (RBAC) 🛡️
+O escopo exige perfis de: Administrador, Gestor, Coordenador, RH e Financeiro.
+
+Sugestão: Crie um middleware robusto no Express que não apenas valide o JWT, mas também valide o nível de acesso àquela rota específica.
+typescript
+ Show full code block 
+// Exemplo de uso nas rotas:
+app.post(
+  '/api/empreendimentos/:id/contratos',
+  requireAuth, 
+  requireRole(['Administrador', 'Financeiro']), // Só esses podem criar contratos
+  contratosController.create
+);
+5. Melhoria no RAG do EcoAssistente (Inteligência Artificial) 🤖
+Analisando o código fornecido do ecoassistente.tsx, a ideia de ter um chat com contexto do banco de dados é brilhante.
+
+Sugestão de Performance: Quando o usuário seleciona um empreendimento no combo box (selectedEmpreendimentoId), certifique-se de que o backend use esse ID como um Filtro de Metadados (Metadata Filter) na sua busca vetorial (ex: Pinecone, PgVector).
+Isso impede que a IA alucine buscando contratos de outro empreendimento e torna a consulta infinitamente mais rápida e barata em consumo de tokens, pois o escopo da busca diminui drasticamente.
+6. Padrão "Repository" ou "Service" no Backend 🧱
+Como você está criando regras de negócio complexas (ex: "Ao devolver um equipamento, atualizar estoque, gerar histórico e disparar alerta se estiver com defeito"), não coloque tudo isso direto no Controller do Express.
+
+Sugestão: Faça como já foi feito no arquivo notificationService.ts. Crie um EquipmentService.ts. Isso permite que você chame a rotina de "devolver equipamento" tanto por uma rota da API quanto por um Job automático, sem duplicar código.
