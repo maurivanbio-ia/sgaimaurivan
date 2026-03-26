@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import NodeCache from "node-cache";
 import { storage } from "./storage";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { 
@@ -197,6 +198,9 @@ const SENSITIVE_MODULES = [
   "pastas",
   "documentos-institucionais"
 ];
+
+// Cache em memória para dashboards pesados (TTL = 5 minutos)
+const dashboardCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Trust proxy for secure cookies behind reverse proxy
@@ -1219,6 +1223,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard Executivo - Consolidated stats from all units
   app.get("/api/dashboard/executivo", requireAuth, async (req, res) => {
     try {
+      const cacheKey = "executivo_stats";
+      const cached = dashboardCache.get(cacheKey);
+      if (cached) {
+        res.setHeader("X-Cache", "HIT");
+        return res.json(cached);
+      }
+
       const unidades = [
         { id: 'goiania', nome: 'Goiânia' },
         { id: 'salvador', nome: 'Salvador' },
@@ -1255,6 +1266,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
+      dashboardCache.set(cacheKey, results);
+      res.setHeader("X-Cache", "MISS");
       res.json(results);
     } catch (error) {
       console.error("Error fetching executive dashboard stats:", error);
@@ -5067,10 +5080,9 @@ Não inclua explicações, apenas o JSON.`
         return res.status(404).json({ error: 'Arquivo não encontrado' });
       }
       
-      const [fileBuffer] = await file.download();
       const [metadata] = await file.getMetadata();
       
-      console.log('[SST Download] Arquivo encontrado, tamanho:', fileBuffer.length, 'bytes');
+      console.log('[SST Download] Arquivo encontrado, transmitindo via stream');
       
       // Determinar tipo MIME
       const ext = path.default.extname(fileName).toLowerCase();
@@ -5083,13 +5095,18 @@ Não inclua explicações, apenas o JSON.`
         else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
       }
       
-      // Configurar headers para download (attachment em vez de inline)
+      // Configurar headers — sem Content-Length pois é stream
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', fileBuffer.length);
+      if (metadata.size) res.setHeader('Content-Length', metadata.size);
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       
-      // Enviar arquivo
-      res.send(fileBuffer);
+      // Enviar via stream (zero RAM — repassa chunks diretamente ao cliente)
+      file.createReadStream()
+        .on('error', (err) => {
+          console.error('[SST Download] Erro no stream:', err);
+          if (!res.headersSent) res.status(500).json({ error: 'Erro ao transmitir arquivo' });
+        })
+        .pipe(res);
     } catch (error: any) {
       console.error('[SST Download] Erro:', error);
       return res.status(500).json({ error: 'Erro ao baixar arquivo' });
@@ -5157,10 +5174,9 @@ Não inclua explicações, apenas o JSON.`
         return res.status(404).json({ error: 'Arquivo não encontrado' });
       }
       
-      const [fileBuffer] = await file.download();
       const [metadata] = await file.getMetadata();
       
-      console.log('[SST Download] Arquivo encontrado, tamanho:', fileBuffer.length, 'bytes');
+      console.log('[SST Download] Arquivo encontrado, transmitindo via stream');
       
       // Determinar tipo MIME
       const ext = path.default.extname(fileName).toLowerCase();
@@ -5176,13 +5192,18 @@ Não inclua explicações, apenas o JSON.`
       // Nome para exibição
       const displayName = (documento as any).nomenclatura || documento.descricao || `documento-${id}`;
       
-      // Configurar headers para download forçado
+      // Configurar headers — stream não exige Content-Length
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', fileBuffer.length);
+      if (metadata.size) res.setHeader('Content-Length', metadata.size);
       res.setHeader('Content-Disposition', `attachment; filename="${displayName}${ext}"`);
       
-      // Enviar arquivo
-      res.send(fileBuffer);
+      // Enviar via stream (zero RAM)
+      file.createReadStream()
+        .on('error', (err) => {
+          console.error('[SST Download] Erro no stream:', err);
+          if (!res.headersSent) res.status(500).json({ error: 'Erro ao transmitir arquivo' });
+        })
+        .pipe(res);
     } catch (error: any) {
       console.error('[SST Download] Erro:', error);
       return res.status(500).json({ error: 'Erro ao baixar arquivo' });

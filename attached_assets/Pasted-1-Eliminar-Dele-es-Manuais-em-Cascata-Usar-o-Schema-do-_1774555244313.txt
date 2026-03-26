@@ -1,0 +1,107 @@
+1. Eliminar Deleções Manuais em Cascata (Usar o Schema do Banco) 🗑️
+No seu arquivo server/storage.ts, a função deleteEmpreendimento(id) abre uma transação gigantesca e deleta manualmente os dados de mais de 10 tabelas (licenças, equipamentos, contratos, RH, etc.).
+
+O Risco: Se amanhã você adicionar um novo módulo (ex: relatorios_ambientais vinculado ao empreendimento) e esquecer de incluí-lo nessa transação, a exclusão do empreendimento vai falhar por causa de erro de Foreign Key Constraint, ou pior, vai deixar dados "órfãos" no banco.
+A Solução Ideal: Configure o Cascade Delete diretamente no arquivo @shared/schema.ts do Drizzle. O próprio banco de dados (PostgreSQL) se encarregará de limpar os filhos automaticamente de forma muito mais rápida.
+Como fazer no Schema:
+
+typescript
+ Show full code block 
+// No arquivo schema.ts, ao definir a chave estrangeira, adicione { onDelete: "cascade" }
+export const licencasAmbientais = pgTable("licencas_ambientais", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id")
+    .references(() => empreendimentos.id, { onDelete: "cascade" }), // <--- ISSO AQUI
+  // ...
+});
+Com isso configurado em todas as tabelas filhas, o seu deleteEmpreendimento no storage.ts se resumirá a apenas uma linha:
+
+typescript
+async deleteEmpreendimento(id: number): Promise<void> {
+  // O PostgreSQL deleta todo o resto (licenças, contratos, frota) automaticamente!
+  await db.delete(empreendimentos).where(eq(empreendimentos.id, id));
+}
+2. Validação "Fail-Fast" de Variáveis de Ambiente (Envs) 🔑
+O sistema depende de muitas integrações (OpenAI, Evolution API para WhatsApp, SMTP para emails, Storage). Atualmente, o código acessa process.env.OPENAI_API_KEY diretamente no meio da rota de upload.
+
+O Risco: Se uma variável estiver faltando ou com o nome errado no painel de deploy, o sistema vai iniciar normalmente, mas vai quebrar (crash) e dar erro 500 no meio do uso do cliente.
+A Solução: Validar todas as variáveis de ambiente com o Zod antes do servidor ligar. Se faltar algo, o servidor não inicia e avisa o erro no terminal imediatamente.
+Como implementar: Crie um arquivo server/env.ts:
+
+typescript
+ Show full code block 
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  SESSION_SECRET: z.string().min(10),
+  OPENAI_API_KEY: z.string().startsWith("sk-").optional(),
+  SMTP_HOST: z.string().optional(),
+  // ... outras envs
+});
+
+export const env = envSchema.parse(process.env);
+// Uso: importe `env.OPENAI_API_KEY` ao invés de usar `process.env.OPENAI_API_KEY`.
+// O TypeScript vai inclusive fornecer autocompletar!
+3. Síndrome da "Rota Gorda" (Fat Controllers) nas integrações de IA 🤖
+Se olharmos para a rota POST /api/sst/upload-documento (linha 2280+ do routes.ts), vemos que ela faz:
+
+Recebe o arquivo via Multer
+Salva no Object Storage
+Tenta extrair texto com pdf-parse
+Se falhar, converte PDF para Imagem (pdf2pic)
+Envia imagem para a API da OpenAI Vision (OCR)
+Faz indexação RAG do documento
+O Problema: São quase 150 linhas de código dentro de uma rota HTTP. Isso é impossível de testar automatizadamente, difícil de debugar se a IA der timeout, e não dá para reutilizar o OCR em outro lugar.
+A Solução: Extrair a lógica pesada para a camada de Serviços (Pattern Service Layer).
+typescript
+ Show full code block 
+// server/services/ocrService.ts
+export async function extrairTextoDocumentoSST(fileBuffer: Buffer, mimeType: string, fileName: string) {
+    // Coloque a lógica do pdf-parse e da OpenAI Vision aqui
+    // Retorne apenas o texto limpo
+}
+
+// Sua rota ficaria super limpa:
+app.post('/api/sst/upload-documento', requireAuth, sstUpload.single('arquivo'), async (req, res) => {
+   const fileUrl = await storageService.uploadToCloud(req.file);
+   const textContent = await extrairTextoDocumentoSST(req.file.buffer, req.file.mimetype, req.file.originalname);
+   await ragIndexService.indexar(textContent);
+   
+   res.json({ success: true, url: fileUrl, textContent });
+});
+4. Cacheamento das Rotas de Dashboard 📊
+A rota /api/dashboard/executivo gera uma carga massiva no PostgreSQL, pois ela faz um .map nas unidades e usa Promise.all para executar 5 consultas pesadas de agregação para cada unidade.
+
+O Risco: Se 5 gerentes logarem às 08h00 e abrirem o dashboard, seu banco receberá dezenas de queries complexas simultâneas, consumindo a CPU e causando lentidão.
+A Solução: As estatísticas do dashboard não precisam ser precisas ao milissegundo. Você pode salvar a resposta em memória por 5 minutos usando uma variável simples ou o módulo node-cache.
+typescript
+ Show full code block 
+import NodeCache from "node-cache";
+const dashboardCache = new NodeCache({ stdTTL: 300 }); // 5 minutos (300 segundos)
+
+app.get("/api/dashboard/executivo", requireAuth, async (req, res) => {
+  const cacheKey = "executivo_stats";
+  const cachedData = dashboardCache.get(cacheKey);
+  
+  if (cachedData) {
+    return res.json(cachedData); // Resposta em 1ms sem tocar no banco!
+  }
+
+  // ... (faz as consultas pesadas de frota, rh, contratos, etc) ...
+
+  dashboardCache.set(cacheKey, results);
+  res.json(results);
+});
+5. Substituir Strings Soltas por "Enums" no TypeScript 🏷️
+No código de alertas e validações, existem muitas strings mágicas hardcoded: if (status === 'pendente_coordenador'), if (urgency === "🔴 URGENTE"), if (tipo === "licenca").
+
+O Problema: Se alguém digitar 'Pendente_coordenador' (com P maiúsculo) em algum lugar, o TypeScript não avisa do erro, e a funcionalidade silenciosamente falha em produção.
+A Melhoria: Definir dicionários constantes ou Enums para os status do sistema.
+typescript
+ Show full code block 
+export const StatusReembolso = {
+  PENDENTE_COORDENADOR: 'pendente_coordenador',
+  PENDENTE_FINANCEIRO: 'pendente_financeiro',
+  APROVADO: 'aprovado_diretor',
+  PAGO: 'pago'
