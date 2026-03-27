@@ -11328,24 +11328,31 @@ Regras:
       if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       
       const { extractTextFromBuffer } = await import('./services/documentAnalysisService');
-      const fs2 = await import('fs');
-      const path2 = await import('path');
       const crypto2 = await import('crypto');
-      
-      // Save file to disk
-      const uploadDir = path2.join(process.cwd(), 'uploads');
-      if (!fs2.existsSync(uploadDir)) fs2.mkdirSync(uploadDir, { recursive: true });
-      const uniqueName = `bc-${Date.now()}-${crypto2.randomBytes(4).toString('hex')}${path2.extname(req.file.originalname)}`;
-      const filePath = path2.join(uploadDir, uniqueName);
-      fs2.writeFileSync(filePath, req.file.buffer);
-      
+      const { ObjectStorageService: ObjSvc2, objectStorageClient: objClient2 } = await import('./replit_integrations/object_storage/objectStorage');
+
+      // Salvar no Object Storage (sem disco local)
+      const objSvc2 = new ObjSvc2();
+      const privateDir2 = objSvc2.getPrivateObjectDir();
+      const timestamp2 = Date.now();
+      const safeName2 = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName2 = `${timestamp2}_${safeName2}`;
+      const objectPath2 = `${privateDir2}/arquivos/${fileName2}`;
+      const parts2 = objectPath2.split('/').filter(p => p.length > 0);
+      const bucket2 = objClient2.bucket(parts2[0]);
+      await bucket2.file(parts2.slice(1).join('/')).save(req.file.buffer, {
+        contentType: req.file.mimetype,
+        metadata: { originalName: safeName2, uploadedAt: new Date().toISOString() },
+      });
+      const caminho2 = `object:arquivos/${fileName2}`;
+
       // Save to arquivos table
       const checksum = crypto2.createHash('md5').update(req.file.buffer).digest('hex');
       const [arquivo] = await db.insert(arquivos).values({
         nome: req.file.originalname,
         mime: req.file.mimetype,
         tamanho: req.file.size,
-        caminho: filePath,
+        caminho: caminho2,
         checksum,
         origem: 'base_conhecimento',
         uploaderId: req.session.userId!,
