@@ -47,7 +47,7 @@ import { Separator } from "@/components/ui/separator";
 import { 
   Upload, Download, Trash2, FileText, Database, XCircle, Eye, Edit, X, Loader2,
   ChevronDown, ChevronRight, BookOpen, Search, Shield, History, FolderOpen,
-  FolderPlus, Plus, File
+  FolderPlus, Plus, File, Building2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -207,6 +207,7 @@ export default function GestaoDados() {
   const [filterTipo, setFilterTipo] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isUploading, setIsUploading] = useState(false);
+  const [groupByEmp, setGroupByEmp] = useState(false);
   const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
   const [dictionarySearch, setDictionarySearch] = useState("");
   
@@ -1214,9 +1215,21 @@ export default function GestaoDados() {
 
           {/* Tabela de Documentos */}
           <Card>
-            <CardHeader>
-              <CardTitle>Documentos Cadastrados</CardTitle>
-              <CardDescription>{filteredDatasets.length} documento(s) encontrado(s)</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle>Documentos Cadastrados</CardTitle>
+                <CardDescription>{filteredDatasets.length} documento(s) encontrado(s)</CardDescription>
+              </div>
+              <Button
+                variant={groupByEmp ? "default" : "outline"}
+                size="sm"
+                onClick={() => setGroupByEmp(prev => !prev)}
+                className="gap-2 flex-shrink-0"
+                title="Agrupar por empreendimento"
+              >
+                <Building2 className="h-4 w-4" />
+                {groupByEmp ? "Agrupado" : "Por Empreendimento"}
+              </Button>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -1229,7 +1242,20 @@ export default function GestaoDados() {
                   <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   Nenhum documento encontrado.
                 </div>
+              ) : groupByEmp ? (
+                // ── Vista agrupada por empreendimento ──────────────────────
+                <DocumentosGrouped
+                  datasets={filteredDatasets}
+                  onPreview={handlePreview}
+                  onHistory={handleShowHistory}
+                  onEdit={handleEdit}
+                  onDownload={handleDownload}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  getStatusBadge={getStatusBadge}
+                  getClassBadge={getClassBadge}
+                />
               ) : (
+                // ── Vista plana (original) ─────────────────────────────────
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1443,5 +1469,131 @@ export default function GestaoDados() {
       </Dialog>
     </div>
     </SensitivePageWrapper>
+  );
+}
+
+// ─── Componente: vista agrupada por empreendimento ───────────────────────────
+type DatasetWithEmp = Dataset & { empreendimentoNome?: string };
+
+function DocumentosGrouped({
+  datasets,
+  onPreview,
+  onHistory,
+  onEdit,
+  onDownload,
+  onDelete,
+  getStatusBadge,
+  getClassBadge,
+}: {
+  datasets: DatasetWithEmp[];
+  onPreview: (d: DatasetWithEmp) => void;
+  onHistory: (d: DatasetWithEmp) => void;
+  onEdit: (d: DatasetWithEmp) => void;
+  onDownload: (d: DatasetWithEmp) => void;
+  onDelete: (id: number) => void;
+  getStatusBadge: (status?: string | null) => string;
+  getClassBadge: (cls?: string | null) => string;
+}) {
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  // Agrupar por empreendimento
+  const groups = datasets.reduce<Record<string, { name: string; docs: DatasetWithEmp[] }>>((acc, d) => {
+    const key = String(d.empreendimentoId ?? "sem-empreendimento");
+    const name = d.empreendimentoNome || `Empreendimento #${d.empreendimentoId}`;
+    if (!acc[key]) acc[key] = { name, docs: [] };
+    acc[key].docs.push(d);
+    return acc;
+  }, {});
+
+  const sortedGroups = Object.entries(groups).sort(([, a], [, b]) =>
+    a.name.localeCompare(b.name, "pt-BR")
+  );
+
+  const toggle = (key: string) =>
+    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const isOpen = (key: string) => key in openGroups ? openGroups[key] : true;
+
+  return (
+    <div className="space-y-3">
+      {sortedGroups.map(([key, group]) => (
+        <Collapsible key={key} open={isOpen(key)} onOpenChange={() => toggle(key)}>
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition cursor-pointer select-none">
+              <div className="flex items-center gap-2">
+                {isOpen(key)
+                  ? <ChevronDown className="h-4 w-4 text-primary" />
+                  : <ChevronRight className="h-4 w-4 text-primary" />}
+                <Building2 className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm text-left">{group.name}</span>
+              </div>
+              <Badge variant="secondary" className="font-bold">{group.docs.length} doc{group.docs.length !== 1 ? "s" : ""}</Badge>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-1 rounded-lg border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">Codigo/Nome</TableHead>
+                    <TableHead className="text-xs">Disciplina</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Classificacao</TableHead>
+                    <TableHead className="text-xs">Versao</TableHead>
+                    <TableHead className="text-xs">Tamanho</TableHead>
+                    <TableHead className="text-xs">Data</TableHead>
+                    <TableHead className="text-xs text-right">Acoes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {group.docs.map(d => (
+                    <TableRow key={d.id} className="hover:bg-muted/40">
+                      <TableCell className="max-w-[220px]">
+                        <div className="truncate font-mono text-xs" title={d.codigoArquivo || d.nome}>
+                          {d.codigoArquivo || d.nome}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {d.disciplina ? <Badge variant="outline" className="text-xs">{d.disciplina}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`text-xs ${getStatusBadge(d.status)}`}>{d.status || "N/A"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`text-xs ${getClassBadge(d.classificacao)}`}>{d.classificacao || "N/A"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{d.versao || "V0.1"}</TableCell>
+                      <TableCell className="text-xs">
+                        {d.tamanho ? (d.tamanho >= 1024 * 1024 ? `${(d.tamanho / (1024 * 1024)).toFixed(1)} MB` : `${(d.tamanho / 1024).toFixed(1)} KB`) : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs">{new Intl.DateTimeFormat("pt-BR").format(new Date(d.dataUpload))}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-0.5">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onPreview(d)} title="Visualizar">
+                            <Eye className="h-3.5 w-3.5 text-blue-600" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onHistory(d)} title="Historico">
+                            <History className="h-3.5 w-3.5 text-purple-600" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(d)} title="Editar">
+                            <Edit className="h-3.5 w-3.5 text-orange-600" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDownload(d)} title="Baixar">
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDelete(d.id)} title="Excluir">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      ))}
+    </div>
   );
 }
