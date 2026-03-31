@@ -1355,12 +1355,19 @@ export default function LicenseDetail() {
             </Button>
           </Link>
           {licenca.arquivoPdf && (
-            <a href={licenca.arquivoPdf} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-1">
-                <Download className="h-4 w-4" />
-                PDF
+            licenca.arquivoPdf.startsWith("/files/") ? (
+              <a href={licenca.arquivoPdf} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Download className="h-4 w-4" />
+                  PDF
+                </Button>
+              </a>
+            ) : (
+              <Button variant="outline" size="sm" className="gap-1 text-amber-600 border-amber-300 cursor-default" disabled title="Arquivo do sistema anterior. Edite a licença e faça o upload novamente.">
+                <AlertTriangle className="h-4 w-4" />
+                Re-upload necessário
               </Button>
-            </a>
+            )
           )}
         </div>
       </div>
@@ -1470,11 +1477,18 @@ export default function LicenseDetail() {
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Arquivo PDF:</span>
                   <div>
-                    <a href={licenca.arquivoPdf} target="_blank" rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1">
-                      <FileText className="h-4 w-4" />
-                      Visualizar PDF
-                    </a>
+                    {licenca.arquivoPdf.startsWith("/files/") ? (
+                      <a href={licenca.arquivoPdf} target="_blank" rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1">
+                        <FileText className="h-4 w-4" />
+                        Visualizar PDF
+                      </a>
+                    ) : (
+                      <span className="text-amber-600 flex items-center gap-2 text-sm">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        Arquivo do sistema anterior — edite a licença e faça o upload novamente
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
