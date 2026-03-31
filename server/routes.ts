@@ -894,7 +894,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`[PUT /api/licencas/${id}] body.arquivoPdf =`, req.body?.arquivoPdf);
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
+      console.log(`[PUT /api/licencas/${id}] parsed.arquivoPdf =`, data?.arquivoPdf);
       const licenca = await storage.updateLicenca(id, data);
       websocketService.broadcastInvalidate('licencas');
       res.json(licenca);
