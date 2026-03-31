@@ -5999,7 +5999,24 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   app.get('/api/empreendimentos/:empreendimentoId/contratos', requireAuth, contratoController.getContratosByEmpreendimento);
-  
+
+  // Criar contrato vinculado a um empreendimento
+  app.post('/api/empreendimentos/:empreendimentoId/contratos', requireAuth, async (req, res) => {
+    try {
+      const empreendimentoId = parseInt(req.params.empreendimentoId);
+      if (isNaN(empreendimentoId)) return res.status(400).json({ message: 'ID de empreendimento inválido' });
+      req.body.empreendimentoId = empreendimentoId;
+      return contratoController.createContrato(req, res);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Atualizar contrato via rota aninhada
+  app.patch('/api/empreendimentos/:empreendimentoId/contratos/:id', requireAuth, async (req, res) => {
+    return contratoController.updateContrato(req, res);
+  });
+
   // Upload de PDF para contrato específico
   app.post('/api/empreendimentos/:empreendimentoId/contratos/:contratoId/pdf', requireAuth, (req, res, next) => {
     arquivoController.upload.single('file')(req, res, (err: any) => {
@@ -6170,22 +6187,33 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
-  // Upload de documento para contrato (múltiplos)
+  // Upload de documento para contrato (múltiplos) — salva no Object Storage
   app.post('/api/contratos/:id/documentos', requireAuth, arquivoController.upload.single('file'), async (req, res) => {
     try {
       const contratoId = parseInt(req.params.id);
       if (isNaN(contratoId) || !req.file) {
         return res.status(400).json({ message: "Dados inválidos" });
       }
-      
+
+      const { ObjectStorageService: ObjSvcDoc, objectStorageClient: objClientDoc } = await import('./replit_integrations/object_storage/objectStorage');
+      const objSvcDoc = new ObjSvcDoc();
+      const privateDirDoc = objSvcDoc.getPrivateObjectDir();
+      const tsDoc = Date.now();
+      const safeNameDoc = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileNameDoc = `${tsDoc}_${safeNameDoc}`;
+      const objectPathDoc = `${privateDirDoc}/contratos/${fileNameDoc}`;
+      const partsDoc = objectPathDoc.split('/').filter(p => p.length > 0);
+      await objClientDoc.bucket(partsDoc[0]).file(partsDoc.slice(1).join('/')).save(req.file.buffer, {
+        contentType: req.file.mimetype,
+        metadata: { originalName: safeNameDoc, uploadedAt: new Date().toISOString() },
+      });
+      const objectPath = `object:contratos/${fileNameDoc}`;
+
       const userId = (req.session as any).userId;
       const tipo = req.body.tipo || 'contrato';
       const descricao = req.body.descricao || null;
       const aditivoId = req.body.aditivoId ? parseInt(req.body.aditivoId) : null;
-      
-      // Usar Object Storage se disponível, senão arquivo local
-      let objectPath = req.file.path;
-      
+
       const [doc] = await db.insert(contratoDocumentos).values({
         contratoId,
         aditivoId,
@@ -6197,7 +6225,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
         mime: req.file.mimetype,
         uploaderId: userId,
       }).returning();
-      
+
       res.json(doc);
     } catch (error: any) {
       console.error("Erro ao fazer upload de documento:", error);
@@ -6205,24 +6233,47 @@ Retorne o texto extraído de forma estruturada e organizada.`
     }
   });
 
-  // Download de documento específico
+  // Download de documento específico (Object Storage)
   app.get('/api/contrato-documentos/:id/download', requireAuth, async (req, res) => {
     try {
       const docId = parseInt(req.params.id);
       const [doc] = await db.select().from(contratoDocumentos).where(eq(contratoDocumentos.id, docId)).limit(1);
-      
+
       if (!doc) {
         return res.status(404).json({ message: "Documento não encontrado" });
       }
-      
-      const fs = await import("fs");
-      if (!fs.existsSync(doc.objectPath)) {
-        return res.status(404).json({ message: "Arquivo não existe no servidor" });
+
+      const { ObjectStorageService: ObjSvcDl, objectStorageClient: objClientDl } = await import('./replit_integrations/object_storage/objectStorage');
+      const objSvcDl = new ObjSvcDl();
+
+      if (doc.objectPath.startsWith('object:')) {
+        // Novo formato: Object Storage
+        const privateDir = objSvcDl.getPrivateObjectDir();
+        const relativePath = doc.objectPath.slice('object:'.length);
+        const fullPath = `${privateDir}/${relativePath}`;
+        const parts = fullPath.split('/').filter(p => p.length > 0);
+        const file = objClientDl.bucket(parts[0]).file(parts.slice(1).join('/'));
+        const [exists] = await file.exists();
+        if (!exists) {
+          return res.status(404).json({ message: "Arquivo não encontrado no armazenamento" });
+        }
+        const [metadata] = await file.getMetadata();
+        res.setHeader('Content-Type', doc.mime || metadata.contentType || 'application/octet-stream');
+        if (metadata.size) res.setHeader('Content-Length', metadata.size);
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.nome)}"`);
+        file.createReadStream().on('error', (err) => {
+          if (!res.headersSent) res.status(500).json({ message: 'Erro ao transmitir arquivo' });
+        }).pipe(res);
+      } else {
+        // Legado: disco local
+        const fs = await import("fs");
+        if (!fs.existsSync(doc.objectPath)) {
+          return res.status(404).json({ message: "Arquivo não encontrado. Por favor, faça o upload novamente." });
+        }
+        res.setHeader('Content-Type', doc.mime || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.nome}"`);
+        fs.createReadStream(doc.objectPath).pipe(res);
       }
-      
-      res.setHeader('Content-Type', doc.mime || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `inline; filename="${doc.nome}"`);
-      fs.createReadStream(doc.objectPath).pipe(res);
     } catch (error: any) {
       console.error("Erro ao baixar documento:", error);
       res.status(500).json({ message: error.message });
@@ -6239,12 +6290,26 @@ Retorne o texto extraído de forma estruturada e organizada.`
         return res.status(404).json({ message: "Documento não encontrado" });
       }
       
-      // Remover arquivo físico se existir
-      const fs = await import("fs");
-      if (fs.existsSync(doc.objectPath)) {
-        fs.unlinkSync(doc.objectPath);
+      // Remover arquivo do Object Storage ou disco local
+      if (doc.objectPath.startsWith('object:')) {
+        try {
+          const { ObjectStorageService: ObjSvcDel, objectStorageClient: objClientDel } = await import('./replit_integrations/object_storage/objectStorage');
+          const objSvcDel = new ObjSvcDel();
+          const privateDir = objSvcDel.getPrivateObjectDir();
+          const relativePath = doc.objectPath.slice('object:'.length);
+          const fullPath = `${privateDir}/${relativePath}`;
+          const parts = fullPath.split('/').filter(p => p.length > 0);
+          const file = objClientDel.bucket(parts[0]).file(parts.slice(1).join('/'));
+          const [exists] = await file.exists();
+          if (exists) await file.delete();
+        } catch (e: any) { console.warn('[ContratoDoc Delete] Object Storage error:', e.message); }
+      } else {
+        try {
+          const fs = await import("fs");
+          if (fs.existsSync(doc.objectPath)) fs.unlinkSync(doc.objectPath);
+        } catch (e: any) { console.warn('[ContratoDoc Delete] Filesystem error:', e.message); }
       }
-      
+
       // Remover do banco
       await db.delete(contratoDocumentos).where(eq(contratoDocumentos.id, docId));
       
