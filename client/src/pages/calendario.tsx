@@ -243,20 +243,29 @@ export default function Calendario() {
         cronogramaTipo: item.tipo,
       });
 
-      // Always show the original item on its dataFim
-      allEvents.push(makeEvent(parseISO(item.dataFim), ""));
+      // Show all days from dataInicio to dataFim (not just the end date)
+      const startDate = item.dataInicio ? parseISO(item.dataInicio) : parseISO(item.dataFim);
+      const endDate = parseISO(item.dataFim);
+      const rangeDays = eachDayOfInterval({ start: startDate, end: endDate });
+      rangeDays.forEach((day, i) => {
+        allEvents.push(makeEvent(day, i === 0 ? "" : `-d${i}`));
+      });
 
-      // Expand recurrence occurrences forward from the original dataFim
+      // Expand recurrence occurrences forward — shift the entire range per recurrence
       const months = item.recorrencia ? (RECORRENCIA_MONTHS[item.recorrencia] || 0) : 0;
       if (months > 0) {
         const limitDate = item.recorrenciaFim
           ? parseISO(item.recorrenciaFim)
-          : addMonths(parseISO(item.dataFim), 36);
-        let occDate = addMonths(parseISO(item.dataFim), months);
+          : addMonths(endDate, 36);
+        let occEnd = addMonths(endDate, months);
         let idx = 1;
-        while (occDate <= limitDate) {
-          allEvents.push(makeEvent(occDate, `-r${idx}`));
-          occDate = addMonths(occDate, months);
+        while (occEnd <= limitDate) {
+          const occStart = addMonths(startDate, months * idx);
+          const occDays = eachDayOfInterval({ start: occStart, end: occEnd });
+          occDays.forEach((day, i) => {
+            allEvents.push(makeEvent(day, `-r${idx}-d${i}`));
+          });
+          occEnd = addMonths(endDate, months * (idx + 1));
           idx++;
         }
       }
