@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2 } from "lucide-react";
+import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
 import type { LicencaAmbiental } from "@shared/schema";
 import { ExportButton } from "@/components/ExportButton";
@@ -503,15 +503,22 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                     </div>
                     {license.arquivoPdf && (
                       <div className="mt-2">
-                        <a 
-                          href={license.arquivoPdf} 
-                          className="text-primary hover:underline text-sm flex items-center gap-1"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Download className="h-3 w-3" />
-                          Baixar PDF
-                        </a>
+                        {license.arquivoPdf.startsWith("/files/") ? (
+                          <a 
+                            href={license.arquivoPdf} 
+                            className="text-primary hover:underline text-sm flex items-center gap-1"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Download className="h-3 w-3" />
+                            Baixar PDF
+                          </a>
+                        ) : (
+                          <span className="text-xs text-amber-600 flex items-center gap-1" title="Arquivo salvo no sistema anterior. Edite a licença e faça o upload novamente.">
+                            <AlertTriangle className="h-3 w-3" />
+                            Arquivo legado — faça o re-upload
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
