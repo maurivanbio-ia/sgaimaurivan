@@ -32,9 +32,9 @@ export function SstTab({ empreendimentoId }: SstTabProps) {
   const [activeTab, setActiveTab] = useState("resumo");
   
   const { data: colaboradores = [], isLoading: isLoadingColaboradores } = useQuery<Colaborador[]>({
-    queryKey: ["/api/colaboradores", { empreendimentoId }],
+    queryKey: ["/api/sst-colaboradores", { empreendimentoId }],
     queryFn: async () => {
-      const res = await fetch(`/api/colaboradores?empreendimentoId=${empreendimentoId}`, { credentials: 'include' });
+      const res = await fetch(`/api/sst-colaboradores?empreendimentoId=${empreendimentoId}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Erro ao carregar colaboradores");
       return res.json();
     },
