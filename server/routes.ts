@@ -1587,6 +1587,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Server-side PDF upload (multer → Object Storage) — used by licencas, autorizacoes, etc.
+  app.post("/api/upload/pdf/server", requireAuth, async (req, res) => {
+    try {
+      const { objectStorageClient, ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+      const multer = (await import('multer')).default;
+      const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+      await new Promise<void>((resolve, reject) => {
+        upload.single('file')(req as any, res as any, (err: any) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      const file = (req as any).file;
+      if (!file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+
+      const objStorage = new ObjectStorageService();
+      const privateDir = objStorage.getPrivateObjectDir();
+      if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
+
+      const { randomUUID } = await import('crypto');
+      const objectId = randomUUID();
+      const objectPath = `${privateDir}/pdfs/${objectId}.pdf`;
+      const pathParts = objectPath.split("/").filter((p) => p.length > 0);
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join("/");
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const gcsFile = bucket.file(objectName);
+      await gcsFile.save(file.buffer, { contentType: 'application/pdf' });
+
+      res.json({ filePath: `/files/pdfs/${objectId}.pdf` });
+    } catch (error) {
+      console.error("Server-side PDF upload error:", error);
+      res.status(500).json({ message: "Erro ao fazer upload do arquivo" });
+    }
+  });
+
 
   // Serve uploaded files
   app.get("/files/:filePath(*)", requireAuth, async (req, res) => {
