@@ -883,6 +883,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = insertLicencaAmbientalSchema.parse(req.body);
       const licenca = await storage.createLicenca(data);
+      websocketService.broadcastInvalidate('licencas');
       res.status(201).json(licenca);
     } catch (error) {
       console.error("Create licenca error:", error);
@@ -895,6 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
       const licenca = await storage.updateLicenca(id, data);
+      websocketService.broadcastInvalidate('licencas');
       res.json(licenca);
     } catch (error) {
       console.error("Update licenca error:", error);
@@ -906,6 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteLicenca(id);
+      websocketService.broadcastInvalidate('licencas');
       res.status(204).send();
     } catch (error) {
       console.error("Delete licenca error:", error);
@@ -965,6 +968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const licencaId = parseInt(req.params.licencaId);
       const data = insertCondicionanteSchema.parse({ ...req.body, licencaId });
       const condicionante = await storage.createCondicionante(data);
+      websocketService.broadcastInvalidate('condicionantes');
       res.status(201).json(condicionante);
     } catch (error) {
       console.error("Create condicionante for licenca error:", error);
@@ -976,6 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = insertCondicionanteSchema.parse(req.body);
       const condicionante = await storage.createCondicionante(data);
+      websocketService.broadcastInvalidate('condicionantes');
       res.status(201).json(condicionante);
     } catch (error) {
       console.error("Create condicionante error:", error);
@@ -988,6 +993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const data = insertCondicionanteSchema.partial().parse(req.body);
       const condicionante = await storage.updateCondicionante(id, data);
+      websocketService.broadcastInvalidate('condicionantes');
       res.json(condicionante);
     } catch (error) {
       console.error("Update condicionante error:", error);
@@ -999,6 +1005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCondicionante(id);
+      websocketService.broadcastInvalidate('condicionantes');
       res.status(204).send();
     } catch (error) {
       console.error("Delete condicionante error:", error);
@@ -1792,6 +1799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[DEBUG CREATE DEMANDA] Data to save:', JSON.stringify(demandaData));
       const demanda = await storage.createDemanda(demandaData);
       console.log('[DEBUG CREATE DEMANDA] Created:', JSON.stringify(demanda));
+      websocketService.broadcastInvalidate('demandas');
       res.status(201).json(demanda);
     } catch (error: any) {
       console.error('Error creating demanda:', error);
@@ -1888,6 +1896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      websocketService.broadcastInvalidate('demandas');
       res.json(demanda);
     } catch (error) {
       console.error('Error updating demanda:', error);
@@ -1911,6 +1920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`[DELETE DEMANDA] Demanda ${id} deleted successfully`);
+      websocketService.broadcastInvalidate('demandas');
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting demanda:', error);
