@@ -9,6 +9,7 @@ import {
   insertContratoPagamentoSchema,
 } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
+import { websocketService } from "../services/websocketService";
 
 // GET /api/empreendimentos/:empreendimentoId/contratos
 export async function getContratosByEmpreendimento(req: Request, res: Response) {
@@ -45,6 +46,7 @@ export async function createContrato(req: Request, res: Response) {
       .values(data)
       .returning();
 
+    websocketService.broadcastInvalidate('contratos');
     res.json(contrato);
   } catch (error: any) {
     console.error("Erro ao criar contrato:", error);
@@ -74,6 +76,7 @@ export async function updateContrato(req: Request, res: Response) {
       return res.status(404).json({ message: "Contrato não encontrado" });
     }
 
+    websocketService.broadcastInvalidate('contratos');
     res.json(contrato);
   } catch (error: any) {
     console.error("Erro ao atualizar contrato:", error);
@@ -99,6 +102,7 @@ export async function deleteContrato(req: Request, res: Response) {
       return res.status(404).json({ message: "Contrato não encontrado" });
     }
 
+    websocketService.broadcastInvalidate('contratos');
     res.json({ message: "Contrato deletado com sucesso" });
   } catch (error: any) {
     console.error("Erro ao deletar contrato:", error);
@@ -132,6 +136,7 @@ export async function createAditivo(req: Request, res: Response) {
         .where(eq(contratos.id, contratoId));
     }
 
+    websocketService.broadcastInvalidate('contratos');
     res.json(aditivo);
   } catch (error: any) {
     console.error("Erro ao criar aditivo:", error);
