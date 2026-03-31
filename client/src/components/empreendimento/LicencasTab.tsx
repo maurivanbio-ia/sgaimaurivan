@@ -56,6 +56,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<LicencaAmbiental | null>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
+  const [uploadedPdfPath, setUploadedPdfPath] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -121,6 +122,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       });
       setIsDialogOpen(false);
       setEditingLicense(null);
+      setUploadedPdfPath(null);
       form.reset();
     },
     onError: () => {
@@ -154,15 +156,18 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
   });
 
   const onSubmit = (data: LicenseFormData) => {
+    const finalData = uploadedPdfPath ? { ...data, arquivoPdf: uploadedPdfPath } : data;
+    console.log("[LicencasTab] onSubmit arquivoPdf:", finalData.arquivoPdf);
     if (editingLicense) {
-      updateLicense.mutate(data);
+      updateLicense.mutate(finalData);
     } else {
-      createLicense.mutate(data);
+      createLicense.mutate(finalData);
     }
   };
 
   const handleEdit = (license: LicencaAmbiental) => {
     setEditingLicense(license);
+    setUploadedPdfPath(null);
     form.reset({
       numero: license.numero || "",
       tipo: license.tipo,
@@ -378,9 +383,12 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                                       const formData = new FormData();
                                       formData.append("file", file);
                                       const response = await apiRequestFormData("POST", "/api/upload/pdf/server", formData);
-                                      const data = await response.json();
-                                      if (data.filePath) {
-                                        field.onChange(data.filePath);
+                                      const result = await response.json();
+                                      console.log("[LicencasTab] upload result:", result);
+                                      if (result.filePath) {
+                                        setUploadedPdfPath(result.filePath);
+                                        form.setValue("arquivoPdf", result.filePath, { shouldValidate: true, shouldDirty: true });
+                                        console.log("[LicencasTab] uploadedPdfPath set to:", result.filePath);
                                         toast({ title: "Upload realizado", description: "PDF enviado com sucesso!" });
                                       }
                                     } catch (err) {
@@ -397,18 +405,22 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                             <p className="text-xs text-muted-foreground">Apenas arquivos PDF até 20MB</p>
                           </div>
                         </div>
-                        {field.value && field.value.startsWith("/files/") && (
+                        {uploadedPdfPath ? (
                           <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
                             <CheckCircle className="h-3 w-3" />
-                            PDF pronto para salvar
+                            PDF pronto para salvar — clique em Salvar
                           </p>
-                        )}
-                        {field.value && !field.value.startsWith("/files/") && (
+                        ) : field.value && !field.value.startsWith("/files/") ? (
                           <p className="text-sm text-amber-600 flex items-center gap-1 mt-1">
                             <AlertTriangle className="h-3 w-3" />
                             Arquivo legado — faça o upload acima para substituir
                           </p>
-                        )}
+                        ) : field.value && field.value.startsWith("/files/") ? (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Arquivo atual vinculado. Faça upload para substituir.
+                          </p>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -418,16 +430,16 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                     <Button 
                       type="button" 
                       variant="outline" 
-                      onClick={() => setIsDialogOpen(false)}
+                      onClick={() => { setIsDialogOpen(false); setUploadedPdfPath(null); }}
                     >
                       Cancelar
                     </Button>
                     <Button 
                       type="submit" 
-                      disabled={createLicense.isPending || updateLicense.isPending}
+                      disabled={createLicense.isPending || updateLicense.isPending || pdfUploading}
                     >
                       <Save className="mr-2 h-4 w-4" />
-                      {createLicense.isPending || updateLicense.isPending ? "Salvando..." : "Salvar"}
+                      {createLicense.isPending || updateLicense.isPending ? "Salvando..." : pdfUploading ? "Aguardando upload..." : "Salvar"}
                     </Button>
                   </div>
                 </form>
