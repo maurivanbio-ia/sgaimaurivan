@@ -3249,6 +3249,7 @@ export const autorizacoes = pgTable("autorizacoes", {
   dataValidade: text("data_validade"),
   status: text("status").default("vigente"), // vigente | vencida | cancelada | em_renovacao
   arquivo: text("arquivo"),
+  documentos: json("documentos").$type<Array<{ nome: string; caminho: string; mimeType: string; tamanhoBytes: number; uploadedAt: string }>>().default([]),
   observacoes: text("observacoes"),
   unidade: text("unidade"),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),

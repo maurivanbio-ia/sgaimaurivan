@@ -13533,6 +13533,108 @@ Regras:
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  // ─── AUTORIZAÇÕES — Upload de documentos ─────────────────────────────────
+  app.post("/api/autorizacoes/:id/documentos", requireAuth, (req, res, next) => {
+    arquivoController.upload.single("file")(req, res, (err: any) => {
+      if (err) return res.status(400).json({ message: err.message || "Erro no upload" });
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      const id = parseInt(req.params.id);
+      const [autorizacao] = await db.select().from(autorizacoes).where(eq(autorizacoes.id, id));
+      if (!autorizacao) return res.status(404).json({ message: "Autorização não encontrada" });
+
+      const { ObjectStorageService, objectStorageClient } = await import("./replit_integrations/object_storage/objectStorage");
+      const objStorage = new ObjectStorageService();
+      const privateDir = objStorage.getPrivateObjectDir();
+      const timestamp = Date.now();
+      const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const fileName = `${timestamp}_${safeName}`;
+      const objectPath = `${privateDir}/autorizacoes/${fileName}`;
+      const pathParts = objectPath.split("/").filter((p: string) => p.length > 0);
+      const bucket = objectStorageClient.bucket(pathParts[0]);
+      const file = bucket.file(pathParts.slice(1).join("/"));
+      await file.save(req.file.buffer, { contentType: req.file.mimetype });
+
+      const caminho = `object:autorizacoes/${fileName}`;
+      const docsMeta = (autorizacao.documentos as any[] | null) || [];
+      const novoDoc = { nome: req.file.originalname, caminho, mimeType: req.file.mimetype, tamanhoBytes: req.file.size, uploadedAt: new Date().toISOString() };
+      const [updated] = await db.update(autorizacoes)
+        .set({ documentos: [...docsMeta, novoDoc] as any })
+        .where(eq(autorizacoes.id, id))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Download de documento de autorização
+  app.get("/api/autorizacoes/:id/documentos/:idx/download", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const idx = parseInt(req.params.idx);
+      const [autorizacao] = await db.select().from(autorizacoes).where(eq(autorizacoes.id, id));
+      if (!autorizacao) return res.status(404).json({ message: "Autorização não encontrada" });
+
+      const docs = (autorizacao.documentos as any[] | null) || [];
+      const doc = docs[idx];
+      if (!doc) return res.status(404).json({ message: "Documento não encontrado" });
+
+      if (!doc.caminho?.startsWith("object:")) {
+        return res.status(404).json({ message: "Arquivo não disponível. Faça o upload novamente." });
+      }
+
+      const { ObjectStorageService, objectStorageClient } = await import("./replit_integrations/object_storage/objectStorage");
+      const objStorage = new ObjectStorageService();
+      const privateDir = objStorage.getPrivateObjectDir();
+      const relativePath = doc.caminho.slice("object:".length);
+      const objectPath = `${privateDir}/${relativePath}`;
+      const pathParts = objectPath.split("/").filter((p: string) => p.length > 0);
+      const bucket = objectStorageClient.bucket(pathParts[0]);
+      const file = bucket.file(pathParts.slice(1).join("/"));
+      const [exists] = await file.exists();
+      if (!exists) return res.status(404).json({ message: "Arquivo não encontrado no storage" });
+
+      res.setHeader("Content-Type", doc.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(doc.nome)}"`);
+      file.createReadStream().pipe(res);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Deletar documento de autorização
+  app.delete("/api/autorizacoes/:id/documentos/:idx", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const idx = parseInt(req.params.idx);
+      const [autorizacao] = await db.select().from(autorizacoes).where(eq(autorizacoes.id, id));
+      if (!autorizacao) return res.status(404).json({ message: "Autorização não encontrada" });
+
+      const docs = [...((autorizacao.documentos as any[] | null) || [])];
+      if (idx < 0 || idx >= docs.length) return res.status(404).json({ message: "Documento não encontrado" });
+
+      const doc = docs[idx];
+      // Remover do Object Storage se possível
+      if (doc.caminho?.startsWith("object:")) {
+        try {
+          const { ObjectStorageService, objectStorageClient } = await import("./replit_integrations/object_storage/objectStorage");
+          const objStorage = new ObjectStorageService();
+          const privateDir = objStorage.getPrivateObjectDir();
+          const relativePath = doc.caminho.slice("object:".length);
+          const objectPath = `${privateDir}/${relativePath}`;
+          const pathParts = objectPath.split("/").filter((p: string) => p.length > 0);
+          const bucket = objectStorageClient.bucket(pathParts[0]);
+          const file = bucket.file(pathParts.slice(1).join("/"));
+          await file.delete().catch(() => {});
+        } catch {}
+      }
+
+      docs.splice(idx, 1);
+      const [updated] = await db.update(autorizacoes).set({ documentos: docs as any }).where(eq(autorizacoes.id, id)).returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ─── MINUTAS ─────────────────────────────────────────────────────────────
   app.get("/api/minutas", requireAuth, async (req, res) => {
     try {
