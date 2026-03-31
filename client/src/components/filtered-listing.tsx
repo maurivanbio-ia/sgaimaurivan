@@ -27,7 +27,8 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
     const hoje = new Date();
     
     if (type === 'licenca') {
-      const dataVencimento = new Date(item.validade);
+      hoje.setHours(0, 0, 0, 0);
+      const dataVencimento = new Date(item.validade + "T00:00:00");
       const diffDays = Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays < 0) {

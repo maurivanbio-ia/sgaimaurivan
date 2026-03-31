@@ -70,8 +70,8 @@ export function ExportPDF({ data, type, filename }: ExportPDFProps) {
             item.tipo || '',
             item.numero || '',
             item.orgaoEmissor || '',
-            item.status === 'ativo' ? 'Ativo' : 
-            item.status === 'a_vencer' ? 'A Vencer' : 'Vencido',
+            item.status === 'ativa' ? 'Ativa' : 
+            item.status === 'a_vencer' ? 'A Vencer' : 'Vencida',
             item.validade ? new Date(item.validade).toLocaleDateString('pt-BR') : ''
           ]);
           break;
@@ -138,9 +138,9 @@ export function ExportPDF({ data, type, filename }: ExportPDFProps) {
         if (type === 'licencas') {
           const stats = {
             total: data.length,
-            ativas: data.filter(item => item.status === 'ativo').length,
+            ativas: data.filter(item => item.status === 'ativa').length,
             aVencer: data.filter(item => item.status === 'a_vencer').length,
-            vencidas: data.filter(item => item.status === 'vencido').length,
+            vencidas: data.filter(item => item.status === 'vencida').length,
           };
           
           doc.setFontSize(12);

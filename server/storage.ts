@@ -1348,16 +1348,20 @@ export class DatabaseStorage implements IStorage {
 
   private calculateLicenseStatus(validade: string): string {
     const now = new Date();
-    const validadeDate = new Date(validade);
-    const ninetyDaysFromNow = new Date();
-    ninetyDaysFromNow.setDate(now.getDate() + 90);
+    // Comparar apenas datas (sem horas) para evitar falsos positivos por fuso horário
+    const todayStr = now.toISOString().slice(0, 10);
+    const validadeStr = validade.slice(0, 10);
+    const validadeDate = new Date(validadeStr + "T00:00:00");
+    const today = new Date(todayStr + "T00:00:00");
+    const ninetyDaysFromNow = new Date(today);
+    ninetyDaysFromNow.setDate(today.getDate() + 90);
 
-    if (validadeDate < now) {
-      return "vencido";
+    if (validadeDate < today) {
+      return "vencida";
     } else if (validadeDate <= ninetyDaysFromNow) {
       return "a_vencer";
     } else {
-      return "ativo";
+      return "ativa";
     }
   }
 
@@ -1478,11 +1482,14 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
         .orderBy(desc(licencasAmbientais.criadoEm));
       
+      const todayStr = hoje.toISOString().slice(0, 10);
+      const today = new Date(todayStr + "T00:00:00");
+
       return licencas.filter(licenca => {
         if (!licenca.validade) return false;
-        const dataVencimento = new Date(licenca.validade);
-        const diffTime = dataVencimento.getTime() - hoje.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const validadeStr = String(licenca.validade).slice(0, 10);
+        const dataVencimento = new Date(validadeStr + "T00:00:00");
+        const diffDays = Math.ceil((dataVencimento.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         
         if (status === 'expired') {
           return diffDays < 0;
