@@ -129,6 +129,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [docTipo, setDocTipo] = useState("contrato");
   const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
+  const [formPdfFile, setFormPdfFile] = useState<File | null>(null);
 
   const { data: contratos = [], isLoading } = useQuery<Contrato[]>({
     queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"],
@@ -201,9 +202,22 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", `/api/empreendimentos/${empreendimentoId}/contratos`, data);
+      const res = await apiRequest("POST", `/api/empreendimentos/${empreendimentoId}/contratos`, data);
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async (newContrato: any) => {
+      if (formPdfFile && newContrato?.id) {
+        try {
+          const fd = new FormData();
+          fd.append('file', formPdfFile);
+          const r = await fetch(`/api/empreendimentos/${empreendimentoId}/contratos/${newContrato.id}/pdf`, {
+            method: 'POST', body: fd, credentials: 'include',
+          });
+          if (!r.ok) throw new Error('Erro no upload do PDF');
+        } catch (e: any) {
+          toast({ title: "Contrato criado, mas falha no PDF", description: e.message, variant: "destructive" });
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
       toast({ title: "Contrato criado", description: "O contrato foi cadastrado com sucesso." });
       handleCloseDialog();
@@ -217,7 +231,19 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       return apiRequest("PATCH", `/api/empreendimentos/${empreendimentoId}/contratos/${id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: async (_: any, variables: any) => {
+      if (formPdfFile && variables.id) {
+        try {
+          const fd = new FormData();
+          fd.append('file', formPdfFile);
+          const r = await fetch(`/api/empreendimentos/${empreendimentoId}/contratos/${variables.id}/pdf`, {
+            method: 'POST', body: fd, credentials: 'include',
+          });
+          if (!r.ok) throw new Error('Erro no upload do PDF');
+        } catch (e: any) {
+          toast({ title: "Contrato atualizado, mas falha no PDF", description: e.message, variant: "destructive" });
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
       toast({ title: "Contrato atualizado", description: "O contrato foi atualizado com sucesso." });
       handleCloseDialog();
@@ -285,6 +311,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
     setDialogOpen(false);
     setEditingContrato(null);
     setForm(emptyForm);
+    setFormPdfFile(null);
   };
 
   const handleSubmit = () => {
@@ -862,6 +889,45 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                   placeholder="Observações adicionais"
                   rows={2}
                 />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="formPdfFile">Arquivo do Contrato (PDF)</Label>
+                <div className="mt-1">
+                  {formPdfFile ? (
+                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/40">
+                      <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                      <span className="text-sm truncate flex-1">{formPdfFile.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-red-600"
+                        onClick={() => setFormPdfFile(null)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="formPdfFile"
+                      className="flex items-center gap-2 p-3 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/30 transition-colors"
+                    >
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Clique para selecionar um arquivo PDF</span>
+                      <input
+                        id="formPdfFile"
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) setFormPdfFile(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
           </div>
