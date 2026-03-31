@@ -1,7 +1,18 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryCache, MutationCache, QueryFunction } from "@tanstack/react-query";
+
+function handle401() {
+  // Clear all cached data and redirect to login
+  queryClient.clear();
+  if (window.location.pathname !== "/login" && window.location.pathname !== "/portal/login") {
+    window.location.href = "/login";
+  }
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 401) {
+      handle401();
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -52,11 +63,29 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
+    if (res.status === 401 && unauthorizedBehavior !== "returnNull") {
+      handle401();
+    }
+
     await throwIfResNotOk(res);
     return await res.json();
   };
 
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: any) => {
+      if (error?.message?.startsWith("401:")) {
+        handle401();
+      }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: any) => {
+      if (error?.message?.startsWith("401:")) {
+        handle401();
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),

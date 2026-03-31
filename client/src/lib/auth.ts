@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "./queryClient";
+import { apiRequest, getQueryFn } from "./queryClient";
 import { queryClient } from "./queryClient";
 
 export interface User {
@@ -17,8 +17,10 @@ export interface LoginData {
 }
 
 export function useAuth() {
+  // Use returnNull for auth check — App.tsx routing handles redirect to login
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
   });
 
