@@ -26,10 +26,26 @@ const GEMINI_CHAT_MODEL = 'gemini-2.0-flash';
 const GEMINI_SUGGESTION_MODEL = 'gemini-2.0-flash';
 const DEEPSEEK_MODEL = 'deepseek-chat';
 
-// Retorna cliente OpenAI-compatible (DeepSeek → OpenAI)
+// Clientes em ordem de preferência para fallback em cascata
+function getCompatibleChatClients(): Array<{ client: OpenAI; model: string; name: string }> {
+  const clients: Array<{ client: OpenAI; model: string; name: string }> = [];
+  if (deepseek) clients.push({ client: deepseek, model: DEEPSEEK_MODEL, name: 'DeepSeek' });
+  if (process.env.OPENAI_API_KEY) clients.push({ client: openai, model: 'gpt-4o-mini', name: 'OpenAI' });
+  return clients;
+}
+
+// Retorna cliente OpenAI-compatible (DeepSeek → OpenAI) — compatibilidade retroativa
 function getCompatibleChatClient(): { client: OpenAI; model: string; name: string } {
   if (deepseek) return { client: deepseek, model: DEEPSEEK_MODEL, name: 'DeepSeek' };
   return { client: openai, model: 'gpt-4o-mini', name: 'OpenAI' };
+}
+
+// Verifica se o erro é de saldo/cota (deve tentar próximo motor)
+function isBalanceOrQuotaError(err: any): boolean {
+  const msg = String(err?.message || '').toLowerCase();
+  const status = err?.status || err?.statusCode || err?.response?.status;
+  return status === 402 || status === 429 || msg.includes('insufficient balance') ||
+    msg.includes('quota') || msg.includes('rate limit') || msg.includes('billing');
 }
 
 // Converte tools OpenAI → Gemini functionDeclarations
@@ -383,26 +399,47 @@ ${docsText}
         response = result.response.text() || response;
         console.log('[AI Query] ✓ Gemini OK');
       } catch (gErr: any) {
-        console.warn('[AI Query] Gemini falhou, fallback:', gErr.message);
-        // Motor 2/3: DeepSeek → OpenAI
-        const { client: chatClient, model: chatModel, name: chatName } = getCompatibleChatClient();
-        const completion = await chatClient.chat.completions.create({
-          model: chatModel,
-          messages: [{ role: 'system', content: systemPrompt }, ...historyMessages, { role: 'user', content: message }],
-          temperature: 0.7, max_tokens: 800,
-        });
-        response = completion.choices[0].message.content || response;
-        console.log(`[AI Query] ✓ ${chatName} OK`);
+        console.warn('[AI Query] Gemini falhou, tentando fallback em cascata:', gErr.message);
+        let usedFallback = false;
+        for (const { client: chatClient, model: chatModel, name: chatName } of getCompatibleChatClients()) {
+          try {
+            const completion = await chatClient.chat.completions.create({
+              model: chatModel,
+              messages: [{ role: 'system', content: systemPrompt }, ...historyMessages, { role: 'user', content: message }],
+              temperature: 0.7, max_tokens: 800,
+            });
+            response = completion.choices[0].message.content || response;
+            console.log(`[AI Query] ✓ ${chatName} OK (fallback)`);
+            usedFallback = true;
+            break;
+          } catch (fallbackErr: any) {
+            console.warn(`[AI Query] ${chatName} falhou: ${fallbackErr?.status || fallbackErr.message}`);
+          }
+        }
+        if (!usedFallback) {
+          throw new Error('Todos os motores de IA estão indisponíveis. Tente novamente mais tarde.');
+        }
       }
     } else {
-      const { client: chatClient, model: chatModel, name: chatName } = getCompatibleChatClient();
-      const completion = await chatClient.chat.completions.create({
-        model: chatModel,
-        messages: [{ role: 'system', content: systemPrompt }, ...historyMessages, { role: 'user', content: message }],
-        temperature: 0.7, max_tokens: 800,
-      });
-      response = completion.choices[0].message.content || response;
-      console.log(`[AI Query] ✓ ${chatName} OK`);
+      let usedClient = false;
+      for (const { client: chatClient, model: chatModel, name: chatName } of getCompatibleChatClients()) {
+        try {
+          const completion = await chatClient.chat.completions.create({
+            model: chatModel,
+            messages: [{ role: 'system', content: systemPrompt }, ...historyMessages, { role: 'user', content: message }],
+            temperature: 0.7, max_tokens: 800,
+          });
+          response = completion.choices[0].message.content || response;
+          console.log(`[AI Query] ✓ ${chatName} OK`);
+          usedClient = true;
+          break;
+        } catch (clientErr: any) {
+          console.warn(`[AI Query] ${chatName} falhou: ${clientErr?.status || clientErr.message}`);
+        }
+      }
+      if (!usedClient) {
+        throw new Error('Todos os motores de IA estão indisponíveis. Tente novamente mais tarde.');
+      }
     }
 
     await db.insert(aiConversations).values({
@@ -915,80 +952,118 @@ export async function streamQuery(options: QueryOptions, res: any): Promise<void
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // MOTOR 2 / 3: DeepSeek → OpenAI (OpenAI-compatible streaming)
+    // MOTOR 2 / 3: DeepSeek → OpenAI (OpenAI-compatible streaming, com fallback)
     // ────────────────────────────────────────────────────────────────────────
     if (!chatUsed) {
-      const { client: chatClient, model: chatModel, name: chatName } = getCompatibleChatClient();
-      console.log(`[AI Stream] Trying ${chatName} (${chatModel})`);
+      const compatClients = getCompatibleChatClients();
 
-      const stream = await chatClient.chat.completions.create({
-        model: chatModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...historyMessages,
-          { role: 'user', content: message },
-        ],
-        tools: AI_TOOLS,
-        tool_choice: isAction ? 'required' : 'auto',
-        temperature: isAction ? 0.2 : 0.7,
-        max_tokens: 900,
-        stream: true,
-      });
+      for (const { client: chatClient, model: chatModel, name: chatName } of compatClients) {
+        if (chatUsed) break;
+        try {
+          console.log(`[AI Stream] Trying ${chatName} (${chatModel})`);
 
-      const toolCallAccum: { [index: number]: { id: string; name: string; arguments: string } } = {};
+          const stream = await chatClient.chat.completions.create({
+            model: chatModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...historyMessages,
+              { role: 'user', content: message },
+            ],
+            tools: AI_TOOLS,
+            tool_choice: isAction ? 'required' : 'auto',
+            temperature: isAction ? 0.2 : 0.7,
+            max_tokens: 900,
+            stream: true,
+          });
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta;
-        if (delta?.content) {
-          fullContent += delta.content;
-          sendEvent('token', { content: delta.content });
-        }
-        if (delta?.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            if (!toolCallAccum[tc.index]) toolCallAccum[tc.index] = { id: '', name: '', arguments: '' };
-            if (tc.id) toolCallAccum[tc.index].id += tc.id;
-            if (tc.function?.name) toolCallAccum[tc.index].name += tc.function.name;
-            if (tc.function?.arguments) toolCallAccum[tc.index].arguments += tc.function.arguments;
+          const toolCallAccum: { [index: number]: { id: string; name: string; arguments: string } } = {};
+
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta;
+            if (delta?.content) {
+              fullContent += delta.content;
+              sendEvent('token', { content: delta.content });
+            }
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                if (!toolCallAccum[tc.index]) toolCallAccum[tc.index] = { id: '', name: '', arguments: '' };
+                if (tc.id) toolCallAccum[tc.index].id += tc.id;
+                if (tc.function?.name) toolCallAccum[tc.index].name += tc.function.name;
+                if (tc.function?.arguments) toolCallAccum[tc.index].arguments += tc.function.arguments;
+              }
+            }
           }
+
+          const toolCallsList = Object.values(toolCallAccum);
+          const toolMessages: any[] = [];
+
+          for (const tc of toolCallsList) {
+            let args: any = {};
+            try { args = JSON.parse(tc.arguments || '{}'); } catch {}
+            const result = await executeTool(tc.name, args, unidade, userId);
+            sendEvent('action', { tool: tc.name, success: result.success, result: result.result, message: result.message });
+            toolMessages.push({ role: 'tool' as const, tool_call_id: tc.id || 'tool_0', content: JSON.stringify(result) });
+          }
+
+          if (toolMessages.length > 0) {
+            const followup = await chatClient.chat.completions.create({
+              model: chatModel,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...historyMessages,
+                { role: 'user', content: message },
+                {
+                  role: 'assistant', content: null,
+                  tool_calls: toolCallsList.map((tc, i) => ({
+                    id: tc.id || `tool_${i}`, type: 'function' as const,
+                    function: { name: tc.name, arguments: tc.arguments },
+                  })),
+                },
+                ...toolMessages,
+              ],
+              temperature: 0.7, max_tokens: 400, stream: true,
+            });
+            for await (const chunk of followup) {
+              const content = chunk.choices[0]?.delta?.content;
+              if (content) { fullContent += content; sendEvent('token', { content }); }
+            }
+          }
+
+          chatUsed = chatName;
+          console.log(`[AI Stream] ✓ ${chatName} OK (${fullContent.length} chars)`);
+        } catch (clientErr: any) {
+          console.warn(`[AI Stream] ${chatName} falhou (${clientErr?.status || clientErr?.message}) — próximo motor...`);
+          fullContent = '';
         }
       }
 
-      const toolCallsList = Object.values(toolCallAccum);
-      const toolMessages: any[] = [];
-
-      for (const tc of toolCallsList) {
-        let args: any = {};
-        try { args = JSON.parse(tc.arguments || '{}'); } catch {}
-        const result = await executeTool(tc.name, args, unidade, userId);
-        sendEvent('action', { tool: tc.name, success: result.success, result: result.result, message: result.message });
-        toolMessages.push({ role: 'tool' as const, tool_call_id: tc.id || 'tool_0', content: JSON.stringify(result) });
-      }
-
-      if (toolMessages.length > 0) {
-        const followup = await chatClient.chat.completions.create({
-          model: chatModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...historyMessages,
-            { role: 'user', content: message },
-            {
-              role: 'assistant', content: null,
-              tool_calls: toolCallsList.map((tc, i) => ({
-                id: tc.id || `tool_${i}`, type: 'function' as const,
-                function: { name: tc.name, arguments: tc.arguments },
-              })),
-            },
-            ...toolMessages,
-          ],
-          temperature: 0.7, max_tokens: 400, stream: true,
-        });
-        for await (const chunk of followup) {
-          const content = chunk.choices[0]?.delta?.content;
-          if (content) { fullContent += content; sendEvent('token', { content }); }
+      // Último recurso: Gemini sem ferramentas (prompt simples)
+      if (!chatUsed && geminiClient) {
+        try {
+          console.log('[AI Stream] Último recurso: Gemini simples (sem tools)');
+          const gModelSimple = geminiClient.getGenerativeModel({ model: GEMINI_CHAT_MODEL, systemInstruction: systemPrompt });
+          const gHistSimple = historyMessages.map(h => ({
+            role: h.role === 'assistant' ? 'model' : 'user' as 'user' | 'model',
+            parts: [{ text: h.content }],
+          }));
+          const chatSimple = gModelSimple.startChat({ history: gHistSimple });
+          const streamSimple = await chatSimple.sendMessageStream(message);
+          for await (const chunk of streamSimple.stream) {
+            let text = '';
+            try { text = chunk.text(); } catch {}
+            if (text) { fullContent += text; sendEvent('token', { content: text }); }
+          }
+          chatUsed = 'Gemini-fallback';
+          console.log(`[AI Stream] ✓ Gemini fallback OK`);
+        } catch (gFinalErr: any) {
+          console.error('[AI Stream] Todos os motores falharam:', gFinalErr.message);
+          throw new Error('Serviço de IA temporariamente indisponível. Tente novamente em alguns minutos.');
         }
       }
 
-      chatUsed = chatName;
+      if (!chatUsed) {
+        throw new Error('Nenhum motor de IA disponível no momento. Verifique o saldo das APIs.');
+      }
     }
 
     // Generate 3 follow-up suggestions via Gemini (falls back to defaults if unavailable)
