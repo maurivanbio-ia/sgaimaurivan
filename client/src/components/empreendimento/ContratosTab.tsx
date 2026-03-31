@@ -15,6 +15,7 @@ import { FileText, DollarSign, Calendar, Plus, Edit, Trash2, CheckCircle, AlertC
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ContractValueLock } from "@/components/ContractValueLock";
 
 export interface ContratosTabProps {
   empreendimentoId: number;
@@ -479,7 +480,9 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
               <DollarSign className="h-4 w-4 text-emerald-500" />
               <div>
                 <p className="text-xs text-muted-foreground">Valor Total</p>
-                <p className="text-lg font-bold text-emerald-700">{formatCurrency(valorTotalContratos)}</p>
+                <p className="text-lg font-bold text-emerald-700">
+                  <ContractValueLock value={formatCurrency(valorTotalContratos)} />
+                </p>
               </div>
             </div>
           </CardContent>
@@ -574,7 +577,9 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                         <DollarSign className="h-3 w-3" />
                         Valor Total
                       </p>
-                      <p className="font-medium">{formatCurrency(contrato.valorTotal)}</p>
+                      <p className="font-medium">
+                        <ContractValueLock value={formatCurrency(contrato.valorTotal)} />
+                      </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground flex items-center gap-1">
@@ -598,7 +603,9 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor + Aditivos</p>
-                          <p className="text-xl font-bold text-emerald-700">{formatCurrency(valorTotalComAditivos)}</p>
+                          <p className="text-xl font-bold text-emerald-700">
+                            <ContractValueLock value={formatCurrency(valorTotalComAditivos)} />
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground uppercase tracking-wide">Total de Aditivos</p>
@@ -653,7 +660,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
                                     {aditivo.valorAdicional && (
                                       <span className="flex items-center gap-1">
                                         <DollarSign className="h-3 w-3" />
-                                        Valor Adicional: <span className="font-medium text-emerald-600">{formatCurrency(aditivo.valorAdicional)}</span>
+                                        Valor Adicional: <ContractValueLock value={formatCurrency(aditivo.valorAdicional)} className="font-medium text-emerald-600" />
                                       </span>
                                     )}
                                     {aditivo.vigenciaNovaFim && (
