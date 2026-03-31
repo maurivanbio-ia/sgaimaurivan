@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, apiRequestFormData } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,12 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload } from "lucide-react";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
 import type { LicencaAmbiental } from "@shared/schema";
 import { ExportButton } from "@/components/ExportButton";
 import { useToast } from "@/hooks/use-toast";
-import { ObjectUploader } from "@/components/ObjectUploader";
 
 interface LicencasTabProps {
   empreendimentoId: number;
@@ -56,6 +55,7 @@ const licenseTypes = [
 export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<LicencaAmbiental | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -355,26 +355,58 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Arquivo PDF da licença (opcional)</FormLabel>
-                        <ObjectUploader
-                          onGetUploadParameters={async () => {
-                            const response = await apiRequest("POST", "/api/upload/pdf");
-                            const data = await response.json();
-                            return { 
-                              method: data.method, 
-                              url: data.url, 
-                              filePath: data.filePath 
-                            };
-                          }}
-                          onComplete={(result) => {
-                            if (result.filePath) {
-                              field.onChange(result.filePath);
-                            }
-                          }}
-                          accept=".pdf"
-                        />
-                        {field.value && (
-                          <p className="text-sm text-muted-foreground">
-                            Arquivo carregado: {field.value}
+                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-border border-dashed rounded-md hover:border-primary/50 transition-colors">
+                          <div className="space-y-1 text-center">
+                            {pdfUploading ? (
+                              <Loader2 className="mx-auto h-8 w-8 text-muted-foreground animate-spin" />
+                            ) : (
+                              <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+                            )}
+                            <div className="flex text-sm text-muted-foreground justify-center">
+                              <label className="relative cursor-pointer bg-background rounded-md font-medium text-primary hover:text-primary/80">
+                                <span>{pdfUploading ? "Enviando..." : "Faça upload do arquivo"}</span>
+                                <input
+                                  type="file"
+                                  accept=".pdf"
+                                  className="sr-only"
+                                  disabled={pdfUploading}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setPdfUploading(true);
+                                    try {
+                                      const formData = new FormData();
+                                      formData.append("file", file);
+                                      const response = await apiRequestFormData("POST", "/api/upload/pdf/server", formData);
+                                      const data = await response.json();
+                                      if (data.filePath) {
+                                        field.onChange(data.filePath);
+                                        toast({ title: "Upload realizado", description: "PDF enviado com sucesso!" });
+                                      }
+                                    } catch (err) {
+                                      toast({ title: "Erro no upload", description: "Falha ao enviar o arquivo. Tente novamente.", variant: "destructive" });
+                                    } finally {
+                                      setPdfUploading(false);
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <p className="pl-1">ou arraste e solte</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Apenas arquivos PDF até 20MB</p>
+                          </div>
+                        </div>
+                        {field.value && field.value.startsWith("/files/") && (
+                          <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
+                            <CheckCircle className="h-3 w-3" />
+                            PDF pronto para salvar
+                          </p>
+                        )}
+                        {field.value && !field.value.startsWith("/files/") && (
+                          <p className="text-sm text-amber-600 flex items-center gap-1 mt-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Arquivo legado — faça o upload acima para substituir
                           </p>
                         )}
                         <FormMessage />
