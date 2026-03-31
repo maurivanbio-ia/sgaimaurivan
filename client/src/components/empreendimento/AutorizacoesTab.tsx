@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ShieldCheck, AlertTriangle, Calendar } from "lucide-react";
+import {
+  Plus, Pencil, Trash2, ShieldCheck, AlertTriangle, Calendar,
+  Upload, FileText, FileImage, Download, X, Paperclip, Loader2
+} from "lucide-react";
 import type { Autorizacao } from "@shared/schema";
 
 interface Props { empreendimentoId: number; }
+
+type DocMeta = { nome: string; caminho: string; mimeType: string; tamanhoBytes: number; uploadedAt: string };
 
 const STATUS_COLORS: Record<string, string> = {
   vigente: "bg-green-100 text-green-800",
@@ -34,10 +39,24 @@ function isExpired(dataValidade?: string | null): boolean {
   return new Date(dataValidade) < new Date();
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function FileIcon({ mimeType }: { mimeType: string }) {
+  if (mimeType.startsWith("image/")) return <FileImage className="h-4 w-4 text-blue-500" />;
+  return <FileText className="h-4 w-4 text-red-500" />;
+}
+
 export function AutorizacoesTab({ empreendimentoId }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Autorizacao | null>(null);
+  const [docsModal, setDocsModal] = useState<Autorizacao | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     tipo: "LP", numero: "", titulo: "", orgaoEmissor: "", descricao: "",
     dataEmissao: "", dataValidade: "", status: "vigente", observacoes: "",
@@ -67,6 +86,18 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
     },
   });
 
+  const deleteDocMutation = useMutation({
+    mutationFn: async ({ autorizacaoId, idx }: { autorizacaoId: number; idx: number }) => {
+      const res = await apiRequest("DELETE", `/api/autorizacoes/${autorizacaoId}/documentos/${idx}`);
+      return res.json() as Promise<Autorizacao>;
+    },
+    onSuccess: (data: Autorizacao) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
+      setDocsModal(data);
+      toast({ title: "Documento removido" });
+    },
+  });
+
   function openNew() {
     setEditing(null);
     setForm({ tipo: "LP", numero: "", titulo: "", orgaoEmissor: "", descricao: "", dataEmissao: "", dataValidade: "", status: "vigente", observacoes: "" });
@@ -82,6 +113,46 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
       status: item.status || "vigente", observacoes: item.observacoes || "",
     });
     setOpen(true);
+  }
+
+  async function handleUpload(autorizacaoId: number, file: File) {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/autorizacoes/${autorizacaoId}/documentos`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erro no upload");
+      }
+      const updated: Autorizacao = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
+      setDocsModal(updated);
+      toast({ title: "Documento enviado com sucesso" });
+    } catch (e: any) {
+      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file && docsModal) {
+      handleUpload(docsModal.id, file);
+    }
+    e.target.value = "";
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file && docsModal) {
+      handleUpload(docsModal.id, file);
+    }
   }
 
   const vigentes = items.filter(i => i.status === "vigente").length;
@@ -126,33 +197,46 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map(item => (
-            <div key={item.id} className={`border rounded-lg p-4 flex items-start justify-between gap-4 bg-card ${isExpiringSoon(item.dataValidade) ? 'border-yellow-400' : ''} ${isExpired(item.dataValidade) && item.status === 'vigente' ? 'border-red-400' : ''}`}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary">{item.tipo}</Badge>
-                  <span className="font-medium text-sm">{item.numero}</span>
-                  <Badge className={STATUS_COLORS[item.status || "vigente"]}>{item.status}</Badge>
-                  {isExpiringSoon(item.dataValidade) && (
-                    <Badge className="bg-yellow-100 text-yellow-800 gap-1"><AlertTriangle className="h-3 w-3" />A vencer</Badge>
+          {items.map(item => {
+            const docs: DocMeta[] = (item.documentos as any) || [];
+            return (
+              <div key={item.id} className={`border rounded-lg p-4 flex items-start justify-between gap-4 bg-card ${isExpiringSoon(item.dataValidade) ? 'border-yellow-400' : ''} ${isExpired(item.dataValidade) && item.status === 'vigente' ? 'border-red-400' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary">{item.tipo}</Badge>
+                    <span className="font-medium text-sm">{item.numero}</span>
+                    <Badge className={STATUS_COLORS[item.status || "vigente"]}>{item.status}</Badge>
+                    {isExpiringSoon(item.dataValidade) && (
+                      <Badge className="bg-yellow-100 text-yellow-800 gap-1"><AlertTriangle className="h-3 w-3" />A vencer</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium mt-1">{item.titulo}</p>
+                  {item.orgaoEmissor && <p className="text-xs text-muted-foreground">{item.orgaoEmissor}</p>}
+                  <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                    {item.dataEmissao && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Emissão: {item.dataEmissao}</span>}
+                    {item.dataValidade && <span className={`flex items-center gap-1 ${isExpired(item.dataValidade) ? 'text-red-600 font-medium' : ''}`}><Calendar className="h-3 w-3" />Validade: {item.dataValidade}</span>}
+                  </div>
+                  {docs.length > 0 && (
+                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                      <Paperclip className="h-3 w-3" />
+                      <span>{docs.length} documento{docs.length > 1 ? "s" : ""}</span>
+                    </div>
                   )}
                 </div>
-                <p className="text-sm font-medium mt-1">{item.titulo}</p>
-                {item.orgaoEmissor && <p className="text-xs text-muted-foreground">{item.orgaoEmissor}</p>}
-                <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                  {item.dataEmissao && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Emissão: {item.dataEmissao}</span>}
-                  {item.dataValidade && <span className={`flex items-center gap-1 ${isExpired(item.dataValidade) ? 'text-red-600 font-medium' : ''}`}><Calendar className="h-3 w-3" />Validade: {item.dataValidade}</span>}
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsModal(item)}>
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => { if (confirm("Remover autorização?")) deleteMutation.mutate(item.id); }}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
-              <div className="flex gap-1 flex-shrink-0">
-                <Button size="icon" variant="ghost" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => { if (confirm("Remover autorização?")) deleteMutation.mutate(item.id); }}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
+      {/* Modal Criar/Editar */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -216,6 +300,94 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
                 {saveMutation.isPending ? "Salvando..." : "Salvar"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Documentos */}
+      <Dialog open={!!docsModal} onOpenChange={(open) => !open && setDocsModal(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-5 w-5" />
+              Documentos — {docsModal?.numero}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Zona de upload */}
+            <div
+              className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              {uploading ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <p className="text-sm">Enviando arquivo...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Upload className="h-8 w-8" />
+                  <p className="text-sm font-medium">Clique ou arraste arquivos aqui</p>
+                  <p className="text-xs">PDF, DOC, DOCX, XLS, JPG, PNG — até 30 MB</p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.txt,.zip,.rar"
+                onChange={handleFileChange}
+              />
+            </div>
+
+            {/* Lista de documentos */}
+            {docsModal && ((docsModal.documentos as any) || []).length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Documentos anexados</p>
+                {((docsModal.documentos as any) as DocMeta[]).map((doc, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/20">
+                    <FileIcon mimeType={doc.mimeType} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{doc.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatBytes(doc.tamanhoBytes)} · {new Date(doc.uploadedAt).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Baixar"
+                        asChild
+                      >
+                        <a href={`/api/autorizacoes/${docsModal.id}/documentos/${idx}/download`} download={doc.nome} target="_blank" rel="noreferrer">
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive"
+                        title="Remover"
+                        disabled={deleteDocMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`Remover "${doc.nome}"?`)) {
+                            deleteDocMutation.mutate({ autorizacaoId: docsModal.id, idx });
+                          }
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-sm text-muted-foreground py-2">Nenhum documento anexado ainda.</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
