@@ -40,8 +40,9 @@ const STATUS_OPTIONS = [
   { value: "cancelado",     label: "Cancelado",       cls: "bg-orange-100 text-orange-800 border-orange-200" },
 ];
 
-function getStatusConfig(status: string) {
-  return STATUS_OPTIONS.find(s => s.value === status) ?? { value: status, label: "Inativo", cls: "bg-red-100 text-red-800 border-red-200" };
+function getStatusConfig(status: string | null | undefined) {
+  if (!status) return { value: "", label: "Sem status", cls: "bg-gray-100 text-gray-600 border-gray-200" };
+  return STATUS_OPTIONS.find(s => s.value === status.toLowerCase()) ?? { value: status, label: status, cls: "bg-gray-100 text-gray-600 border-gray-200" };
 }
 
 export default function Dashboard() {
@@ -648,7 +649,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {empreendimentos.slice(0, 5).map((emp) => (
+                {empreendimentos
+                  .filter(e => !["inativo", "concluido", "cancelado"].includes(e.status || ""))
+                  .slice(0, 5)
+                  .map((emp) => (
                   <div 
                     key={emp.id} 
                     className="border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
@@ -719,11 +723,11 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
-                {empreendimentos.length > 5 && (
+                {empreendimentos.filter(e => !["inativo", "concluido", "cancelado"].includes(e.status || "")).length > 5 && (
                   <div className="text-center pt-2">
                     <Link href="/empreendimentos">
                       <Button variant="outline" size="sm" className="w-full">
-                        Ver todos os {empreendimentos.length} empreendimentos
+                        Ver todos os {empreendimentos.filter(e => !["inativo", "concluido", "cancelado"].includes(e.status || "")).length} empreendimentos ativos
                       </Button>
                     </Link>
                   </div>
