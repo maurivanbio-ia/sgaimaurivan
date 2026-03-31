@@ -24,6 +24,15 @@ const STATUS_COLORS: Record<string, string> = {
   vencida: "bg-red-100 text-red-800",
   cancelada: "bg-gray-100 text-gray-800",
   em_renovacao: "bg-yellow-100 text-yellow-800",
+  a_vencer: "bg-orange-100 text-orange-800",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  vigente: "Vigente",
+  vencida: "Vencida",
+  cancelada: "Cancelada",
+  em_renovacao: "Em Renovação",
+  a_vencer: "A Vencer (30d)",
 };
 
 const TIPOS = ["LP", "LI", "LO", "ASV", "LAC", "AO", "Outorga", "Portaria", "Declaração", "Outro"];
@@ -37,6 +46,20 @@ function isExpiringSoon(dataValidade?: string | null): boolean {
 function isExpired(dataValidade?: string | null): boolean {
   if (!dataValidade) return false;
   return new Date(dataValidade) < new Date();
+}
+
+function getEffectiveStatus(item: Autorizacao): string {
+  if (item.status === "cancelada") return "cancelada";
+  if (item.status === "em_renovacao") return "em_renovacao";
+  if (!item.dataValidade) return item.status || "vigente";
+  if (isExpired(item.dataValidade)) return "vencida";
+  if (isExpiringSoon(item.dataValidade)) return "a_vencer";
+  return "vigente";
+}
+
+function diasRestantes(dataValidade?: string | null): number | null {
+  if (!dataValidade) return null;
+  return Math.ceil((new Date(dataValidade).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
 function formatBytes(bytes: number): string {
@@ -155,9 +178,9 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
     }
   }
 
-  const vigentes = items.filter(i => i.status === "vigente").length;
-  const vencidas = items.filter(i => i.status === "vencida" || isExpired(i.dataValidade)).length;
-  const aVencer = items.filter(i => isExpiringSoon(i.dataValidade)).length;
+  const vigentes = items.filter(i => getEffectiveStatus(i) === "vigente").length;
+  const vencidas = items.filter(i => getEffectiveStatus(i) === "vencida").length;
+  const aVencer = items.filter(i => getEffectiveStatus(i) === "a_vencer").length;
 
   return (
     <div className="space-y-4">
@@ -199,22 +222,35 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
         <div className="space-y-2">
           {items.map(item => {
             const docs: DocMeta[] = (item.documentos as any) || [];
+            const efectivo = getEffectiveStatus(item);
+            const dias = diasRestantes(item.dataValidade);
+            const borderClass = efectivo === "vencida" ? "border-red-300 bg-red-50/30" : efectivo === "a_vencer" ? "border-orange-300 bg-orange-50/30" : "";
             return (
-              <div key={item.id} className={`border rounded-lg p-4 flex items-start justify-between gap-4 bg-card ${isExpiringSoon(item.dataValidade) ? 'border-yellow-400' : ''} ${isExpired(item.dataValidade) && item.status === 'vigente' ? 'border-red-400' : ''}`}>
+              <div key={item.id} className={`border rounded-lg p-4 flex items-start justify-between gap-4 bg-card ${borderClass}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="secondary">{item.tipo}</Badge>
                     <span className="font-medium text-sm">{item.numero}</span>
-                    <Badge className={STATUS_COLORS[item.status || "vigente"]}>{item.status}</Badge>
-                    {isExpiringSoon(item.dataValidade) && (
-                      <Badge className="bg-yellow-100 text-yellow-800 gap-1"><AlertTriangle className="h-3 w-3" />A vencer</Badge>
+                    <Badge className={STATUS_COLORS[efectivo]}>
+                      {efectivo === "a_vencer" && <AlertTriangle className="h-3 w-3 mr-1" />}
+                      {STATUS_LABELS[efectivo] || efectivo}
+                    </Badge>
+                    {dias !== null && dias < 0 && (
+                      <span className="text-xs text-red-600 font-medium">Vencida há {Math.abs(dias)} dia{Math.abs(dias) !== 1 ? "s" : ""}</span>
+                    )}
+                    {dias !== null && dias >= 0 && dias <= 30 && (
+                      <span className="text-xs text-orange-600 font-medium">Vence em {dias} dia{dias !== 1 ? "s" : ""}</span>
                     )}
                   </div>
                   <p className="text-sm font-medium mt-1">{item.titulo}</p>
                   {item.orgaoEmissor && <p className="text-xs text-muted-foreground">{item.orgaoEmissor}</p>}
                   <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
                     {item.dataEmissao && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Emissão: {item.dataEmissao}</span>}
-                    {item.dataValidade && <span className={`flex items-center gap-1 ${isExpired(item.dataValidade) ? 'text-red-600 font-medium' : ''}`}><Calendar className="h-3 w-3" />Validade: {item.dataValidade}</span>}
+                    {item.dataValidade && (
+                      <span className={`flex items-center gap-1 ${dias !== null && dias < 0 ? "text-red-600 font-medium" : dias !== null && dias <= 30 ? "text-orange-600 font-medium" : ""}`}>
+                        <Calendar className="h-3 w-3" />Validade: {item.dataValidade}
+                      </span>
+                    )}
                   </div>
                   {docs.length > 0 && (
                     <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
