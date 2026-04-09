@@ -234,6 +234,13 @@ export default function Projects() {
                         <span className="text-muted-foreground shrink-0">
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </span>
+                        {(project as any).logoUrl ? (
+                          <img
+                            src={(project as any).logoUrl}
+                            alt="logo"
+                            className="w-7 h-7 rounded-full object-contain bg-muted border border-border shrink-0"
+                          />
+                        ) : null}
                         <h3 className="flex-1 font-semibold text-sm text-card-foreground truncate" data-testid={`text-project-name-${project.id}`}>
                           {project.nome}
                         </h3>
