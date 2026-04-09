@@ -2116,6 +2116,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WHATSAPP DEMANDA GROUP CONFIG ROUTES
   // =============================================
 
+  // GET diagnóstico da configuração Evolution API (sem expor secrets)
+  app.get('/api/whatsapp/diagnostico', requireAuth, async (req, res) => {
+    const instanceUrl = process.env.EVOLUTION_INSTANCE_URL || "";
+    const apiKey = process.env.EVOLUTION_API_KEY || "";
+    const hasInstances = instanceUrl.includes("/instances/");
+    const urlParts = instanceUrl.split("/instances/");
+    const baseUrl = urlParts[0] || "";
+    const match = instanceUrl.match(/instances\/([^\/]+)/);
+    const instanceName = match ? match[1] : "ecobrasil-prod (padrão)";
+    const endpoint = `${baseUrl}/message/sendText/${match ? match[1] : "ecobrasil-prod"}`;
+    res.json({
+      instanceUrlConfigured: !!instanceUrl,
+      apiKeyConfigured: !!apiKey,
+      instanceUrlLength: instanceUrl.length,
+      hasInstancesInUrl: hasInstances,
+      parsedBaseUrl: baseUrl || "(vazio - usando URL inteira como base)",
+      parsedInstanceName: instanceName,
+      endpointGerado: endpoint,
+      urlPreview: instanceUrl ? `${instanceUrl.substring(0, 30)}...` : "(não configurado)",
+    });
+  });
+
   // GET config do grupo para a unidade do usuário
   app.get('/api/whatsapp/demanda-config', requireAuth, async (req, res) => {
     try {
