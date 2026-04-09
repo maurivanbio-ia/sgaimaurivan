@@ -2193,7 +2193,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const demandasSemana = await db.select().from(demandasTable)
         .where(and(
           eq(demandasTable.unidade, unidade),
-          isNull(demandasTable.deletedAt),
           gte(demandasTable.criadoEm, inicioSemana),
         ));
       const { whatsappService } = await import("./services/whatsappService");
@@ -13631,7 +13630,6 @@ Regras:
         const demandas = await db.select().from(demandasTable)
           .where(and(
             eq(demandasTable.unidade, config.unidade),
-            isNull(demandasTable.deletedAt),
             gte(demandasTable.criadoEm, seteDiasAtras),
           ));
 
