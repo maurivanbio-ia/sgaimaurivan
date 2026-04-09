@@ -1006,7 +1006,7 @@ function CalendarioEcoBrasil({
                       <td
                         key={`${wi}-${di}`}
                         style={{
-                          height: "110px",
+                          minHeight: "100px",
                           verticalAlign: "top",
                           padding: "8px",
                           backgroundColor: isToday ? "#e0f2fe" : "#ffffff",
@@ -1042,7 +1042,7 @@ function CalendarioEcoBrasil({
                         </div>
 
                         <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                          {list.slice(0, 2).map((dem) => {
+                          {list.map((dem) => {
                             const resp = getResponsavelNome(dem, colaboradores);
                             const borderColor = dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a";
                             const bgColor = dem.prioridade === "alta" ? "#fef2f2" : dem.prioridade === "media" ? "#fefce8" : "#f0fdf4";
@@ -1062,32 +1062,22 @@ function CalendarioEcoBrasil({
                                   fontWeight: "600", 
                                   color: ECOBRASIL.azulEscuro,
                                   wordBreak: "break-word",
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
+                                  whiteSpace: "normal",
+                                  lineHeight: "1.35",
                                 }}>
                                   {dem.titulo}
                                 </div>
+                                {dem.dataEntrega && (
+                                  <div style={{ fontSize: "9px", color: "#6b7280", marginTop: "1px" }}>
+                                    📅 {new Date(dem.dataEntrega).toLocaleDateString("pt-BR")}
+                                  </div>
+                                )}
                                 <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", fontWeight: "500" }}>
                                   {resp}
                                 </div>
                               </div>
                             );
                           })}
-                          {list.length > 2 && (
-                            <div style={{ 
-                              fontSize: "10px", 
-                              color: ECOBRASIL.azulEscuro, 
-                              fontWeight: "600",
-                              textAlign: "center",
-                              padding: "2px",
-                              backgroundColor: "#f1f5f9",
-                              borderRadius: "4px",
-                            }}>
-                              +{list.length - 2} mais
-                            </div>
-                          )}
                         </div>
                       </td>
                     );
@@ -1245,12 +1235,18 @@ export default function DemandasPage() {
       if (!el) throw new Error("Calendário não encontrado para exportação.");
 
       const canvas = await html2canvas(el, {
-        scale: 2,
+        scale: 3,
         backgroundColor: "#ffffff",
         useCORS: true,
+        allowTaint: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
       });
 
-      const imgData = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL("image/png", 1.0);
       const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
       const pageW = pdf.internal.pageSize.getWidth();
@@ -1258,18 +1254,40 @@ export default function DemandasPage() {
 
       const imgW = canvas.width;
       const imgH = canvas.height;
-      const ratio = Math.min(pageW / imgW, pageH / imgH);
 
-      const drawW = imgW * ratio;
+      // Fit width to page, calculate proportional height
+      const ratio = pageW / imgW;
+      const drawW = pageW;
       const drawH = imgH * ratio;
 
-      const marginX = (pageW - drawW) / 2;
-      const marginY = (pageH - drawH) / 2;
-
-      pdf.addImage(imgData, "PNG", marginX, marginY, drawW, drawH, undefined, "FAST");
+      if (drawH <= pageH) {
+        // Fits in one page — center vertically
+        const marginY = (pageH - drawH) / 2;
+        pdf.addImage(imgData, "PNG", 0, marginY, drawW, drawH, undefined, "FAST");
+      } else {
+        // Needs multiple pages
+        let yOffset = 0;
+        while (yOffset < drawH) {
+          if (yOffset > 0) pdf.addPage();
+          // Clip the portion for this page
+          const srcY = Math.round((yOffset / drawH) * imgH);
+          const srcH = Math.round((pageH / drawH) * imgH);
+          const tempCanvas = document.createElement("canvas");
+          tempCanvas.width = imgW;
+          tempCanvas.height = Math.min(srcH, imgH - srcY);
+          const ctx = tempCanvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(canvas, 0, srcY, imgW, tempCanvas.height, 0, 0, imgW, tempCanvas.height);
+          }
+          const pageSlice = tempCanvas.toDataURL("image/png", 1.0);
+          const sliceH = (tempCanvas.height / imgH) * drawH;
+          pdf.addImage(pageSlice, "PNG", 0, 0, drawW, sliceH, undefined, "FAST");
+          yOffset += pageH;
+        }
+      }
 
       pdf.save(`ecobrasil_calendario_demandas_${formatDate(calendarMonth, "yyyy_MM")}.pdf`);
-      toast({ title: "PDF do calendário gerado." });
+      toast({ title: "PDF do calendário gerado com sucesso!" });
     } catch (e: any) {
       toast({
         title: "Falha ao gerar PDF",
