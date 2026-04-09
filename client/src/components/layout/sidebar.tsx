@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useLogout } from "@/lib/auth";
+import { useLogout, useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -76,6 +76,8 @@ export default function Sidebar() {
   const logout = useLogout();
   const { toast } = useToast();
   const { getNomeUnidade } = useUnidade();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -356,6 +358,23 @@ export default function Sidebar() {
           <NotificationsCenter />
           <ThemeToggle />
         </div>
+
+        {isAdmin && (
+          <Link href="/admin/usuarios">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "w-full h-7 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100",
+                collapsed && "px-1"
+              )}
+              data-testid="nav-admin-usuarios"
+            >
+              <UserCog className="h-4 w-4" />
+              {!collapsed && <span className="ml-1.5 text-xs">Gerenciar Usuários</span>}
+            </Button>
+          </Link>
+        )}
         
         <Button
           variant="ghost"
