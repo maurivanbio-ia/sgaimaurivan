@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { parseDateSafe, formatDateBR } from "@/lib/date-utils";
 import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -28,7 +29,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
     
     if (type === 'licenca') {
       hoje.setHours(0, 0, 0, 0);
-      const dataVencimento = new Date(item.validade + "T00:00:00");
+      const dataVencimento = parseDateSafe(item.validade);
       const diffDays = Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays < 0) {
@@ -51,7 +52,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
         };
       }
     } else if (type === 'condicionante') {
-      const dataPrazo = new Date(item.prazo);
+      const dataPrazo = parseDateSafe(item.prazo);
       const diffDays = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (item.status === 'cumprida') {
@@ -74,7 +75,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
         };
       }
     } else { // entrega
-      const dataPrazo = new Date(item.prazo);
+      const dataPrazo = parseDateSafe(item.prazo);
       const diffDays = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
       if (item.status === 'entregue') {
@@ -108,7 +109,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return formatDateBR(dateString);
   };
 
   if (isLoading) {

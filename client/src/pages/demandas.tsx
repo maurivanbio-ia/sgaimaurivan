@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef } from "react";
+import { formatDateBR } from "@/lib/date-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -1069,7 +1070,7 @@ function CalendarioEcoBrasil({
                                 </div>
                                 {dem.dataEntrega && (
                                   <div style={{ fontSize: "9px", color: "#6b7280", marginTop: "1px" }}>
-                                    📅 {new Date(dem.dataEntrega).toLocaleDateString("pt-BR")}
+                                    📅 {formatDateBR(dem.dataEntrega)}
                                   </div>
                                 )}
                                 <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", fontWeight: "500" }}>

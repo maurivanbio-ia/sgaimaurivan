@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { formatDateBR } from "@/lib/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -207,7 +208,7 @@ export function DemandasTab({ empreendimentoId }: DemandasTabProps) {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     <span className="font-medium">Entrega:</span>{" "}
-                    {new Date(demanda.dataEntrega).toLocaleDateString("pt-BR")}
+                    {formatDateBR(demanda.dataEntrega)}
                   </span>
                 </div>
 

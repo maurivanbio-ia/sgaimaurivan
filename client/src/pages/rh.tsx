@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { formatDateBR } from "@/lib/date-utils";
 import { z } from "zod";
 import { Plus, Search, Edit, Trash2, X, Users, Loader2, RefreshCw, Upload, FileText, Eye, EyeOff, Lock } from "lucide-react";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -948,11 +949,11 @@ export default function RhPage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">Data Início</p>
-                    <p>{viewingRegistro.dataInicio ? new Date(viewingRegistro.dataInicio).toLocaleDateString('pt-BR') : "-"}</p>
+                    <p>{viewingRegistro.dataInicio ? formatDateBR(viewingRegistro.dataInicio) : "-"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground">Data Fim</p>
-                    <p>{viewingRegistro.dataFim ? new Date(viewingRegistro.dataFim).toLocaleDateString('pt-BR') : "-"}</p>
+                    <p>{viewingRegistro.dataFim ? formatDateBR(viewingRegistro.dataFim) : "-"}</p>
                   </div>
                 </div>
               </div>
