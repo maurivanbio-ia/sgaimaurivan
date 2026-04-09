@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatDateBR } from "@/lib/date-utils";
 import { Search, Building2, FileText, CheckSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,7 @@ export function GlobalSearch() {
             id: cond.id,
             type: 'condicionante',
             title: cond.descricao.substring(0, 60) + (cond.descricao.length > 60 ? '...' : ''),
-            subtitle: `Prazo: ${new Date(cond.prazo).toLocaleDateString('pt-BR')}`,
+            subtitle: `Prazo: ${formatDateBR(cond.prazo)}`,
             status: cond.status,
           });
         }

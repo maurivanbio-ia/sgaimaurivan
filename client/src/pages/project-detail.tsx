@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation, Link } from "wouter";
+import { formatDateBR } from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -216,7 +217,7 @@ export default function ProjectDetail() {
                   <Calendar className="h-4 w-4" />
                   Data de Início
                 </p>
-                <p className="text-card-foreground">{new Date(project.dataInicio).toLocaleDateString('pt-BR')}</p>
+                <p className="text-card-foreground">{formatDateBR(project.dataInicio)}</p>
               </div>
             )}
             {project.dataFimPrevista && (
@@ -225,7 +226,7 @@ export default function ProjectDetail() {
                   <Calendar className="h-4 w-4" />
                   Data de Fim Prevista
                 </p>
-                <p className="text-card-foreground">{new Date(project.dataFimPrevista).toLocaleDateString('pt-BR')}</p>
+                <p className="text-card-foreground">{formatDateBR(project.dataFimPrevista)}</p>
               </div>
             )}
           </div>

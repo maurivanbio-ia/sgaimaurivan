@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { formatDateBR } from "@/lib/date-utils";
 import { z } from "zod";
 import { 
   Clock,
@@ -874,7 +875,7 @@ export default function PortalColaboradorPage() {
                       {demanda.dataEntrega && (
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4 mr-1" />
-                          Entrega: {new Date(demanda.dataEntrega).toLocaleDateString('pt-BR')}
+                          Entrega: {formatDateBR(demanda.dataEntrega)}
                         </div>
                       )}
                       {demanda.descricao && (

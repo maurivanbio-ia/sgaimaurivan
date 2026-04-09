@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateBR } from "@/lib/date-utils";
 import { FileDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,7 +73,7 @@ export function ExportPDF({ data, type, filename }: ExportPDFProps) {
             item.orgaoEmissor || '',
             item.status === 'ativa' ? 'Ativa' : 
             item.status === 'a_vencer' ? 'A Vencer' : 'Vencida',
-            item.validade ? new Date(item.validade).toLocaleDateString('pt-BR') : ''
+            item.validade ? formatDateBR(item.validade) : ''
           ]);
           break;
           
@@ -82,7 +83,7 @@ export function ExportPDF({ data, type, filename }: ExportPDFProps) {
             item.descricao ? (item.descricao.length > 50 ? 
               item.descricao.substring(0, 50) + '...' : item.descricao) : '',
             item.status === 'pendente' ? 'Pendente' : 'Vencida',
-            item.prazo ? new Date(item.prazo).toLocaleDateString('pt-BR') : ''
+            item.prazo ? formatDateBR(item.prazo) : ''
           ]);
           break;
       }

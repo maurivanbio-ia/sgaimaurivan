@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatDateBR } from "@/lib/date-utils";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -301,7 +302,7 @@ export default function LicenseCalendar() {
                                     )}
                                     {license.eventType === 'tarefa' && (
                                       <div className="font-medium text-purple-600">
-                                        Prazo: {new Date(license.validade).toLocaleDateString('pt-BR')}
+                                        Prazo: {formatDateBR(license.validade)}
                                       </div>
                                     )}
                                   </div>
