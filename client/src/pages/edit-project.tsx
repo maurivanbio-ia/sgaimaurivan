@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash, Camera, Building2 } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash, Camera, Building2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Empreendimento } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -79,6 +79,7 @@ export default function EditProject() {
   const [openCoordenador, setOpenCoordenador] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoZoom, setLogoZoom] = useState(1);
 
   const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
     queryKey: ['/api/colaboradores'],
@@ -214,7 +215,12 @@ export default function EditProject() {
                 <label className="relative cursor-pointer group" title="Clique para alterar logo">
                   <div className="w-24 h-24 rounded-full border-2 border-dashed border-muted-foreground/40 bg-muted flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/60">
                     {logoUrl ? (
-                      <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                      <img
+                        src={logoUrl}
+                        alt="Logo"
+                        className="w-full h-full object-contain transition-transform"
+                        style={{ transform: `scale(${logoZoom})` }}
+                      />
                     ) : (
                       <Building2 className="w-10 h-10 text-muted-foreground/50" />
                     )}
@@ -233,11 +239,36 @@ export default function EditProject() {
                     disabled={logoUploading}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleLogoUpload(file);
+                      if (file) { setLogoZoom(1); handleLogoUpload(file); }
                       e.target.value = "";
                     }}
                   />
                 </label>
+                {logoUrl && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setLogoZoom(z => Math.max(0.3, parseFloat((z - 0.1).toFixed(1))))}
+                      title="Diminuir zoom"
+                    >
+                      <ZoomOut className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(logoZoom * 100)}%</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setLogoZoom(z => Math.min(3, parseFloat((z + 0.1).toFixed(1))))}
+                      title="Aumentar zoom"
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">JPG, PNG ou WebP · máx. 5 MB</p>
               </div>
 
