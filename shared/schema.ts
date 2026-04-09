@@ -2229,6 +2229,30 @@ export type WhatsappContactGroup = typeof whatsappContactGroups.$inferSelect;
 export type InsertWhatsappContactGroupMember = z.infer<typeof insertWhatsappContactGroupMemberSchema>;
 export type WhatsappContactGroupMember = typeof whatsappContactGroupMembers.$inferSelect;
 
+// Configuração de grupo WhatsApp para notificações de demandas
+export const whatsappDemandaConfig = pgTable("whatsapp_demanda_config", {
+  id: serial("id").primaryKey(),
+  unidade: text("unidade").notNull().unique(),
+  groupJid: text("group_jid").notNull(), // ID do grupo WhatsApp, ex: 120363XXXXXXX@g.us
+  groupName: text("group_name"),         // Nome amigável do grupo (para exibição)
+  notifyNovaDemanda: boolean("notify_nova_demanda").notNull().default(true),
+  notifyResumeSemanal: boolean("notify_resumo_semanal").notNull().default(true),
+  diaResumoSemanal: integer("dia_resumo_semanal").notNull().default(1), // 1=Seg, 2=Ter ...
+  horaResumoSemanal: text("hora_resumo_semanal").notNull().default("08:00"),
+  enabled: boolean("enabled").notNull().default(true),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertWhatsappDemandaConfigSchema = createInsertSchema(whatsappDemandaConfig).omit({
+  id: true,
+  criadoEm: true,
+  atualizadoEm: true,
+});
+
+export type InsertWhatsappDemandaConfig = z.infer<typeof insertWhatsappDemandaConfigSchema>;
+export type WhatsappDemandaConfig = typeof whatsappDemandaConfig.$inferSelect;
+
 // ==================== GAMIFICAÇÃO ====================
 
 // Tabela de pontuações de gamificação

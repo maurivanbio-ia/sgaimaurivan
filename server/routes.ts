@@ -82,6 +82,8 @@ import {
   insertNewsletterDestaqueSchema,
   campoRegistros,
   campoFotos,
+  whatsappDemandaConfig,
+  insertWhatsappDemandaConfigSchema,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL } from "drizzle-orm";
@@ -1880,6 +1882,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const demanda = await storage.createDemanda(demandaData);
       console.log('[DEBUG CREATE DEMANDA] Created:', JSON.stringify(demanda));
       websocketService.broadcastInvalidate('demandas');
+
+      // Notificação WhatsApp para grupo configurado
+      try {
+        const unidade = req.user?.unidade;
+        if (unidade) {
+          const [groupConfig] = await db.select().from(whatsappDemandaConfig)
+            .where(and(eq(whatsappDemandaConfig.unidade, unidade), eq(whatsappDemandaConfig.enabled, true)));
+          if (groupConfig?.notifyNovaDemanda && groupConfig.groupJid) {
+            const { whatsappService } = await import("./services/whatsappService");
+            // Buscar nome do responsável e empreendimento para mensagem enriquecida
+            let responsavelNome: string | undefined;
+            let empNome: string | undefined;
+            if (demandaData.responsavelId) {
+              const [resp] = await db.select().from(storage.colaboradores ? {} as any : users).catch(() => []);
+              // simplificado: usa o email ou id
+            }
+            if (demandaData.empreendimentoId) {
+              const [emp] = await db.select({ nome: empreendimentos.nome })
+                .from(empreendimentos).where(eq(empreendimentos.id, demandaData.empreendimentoId));
+              empNome = emp?.nome;
+            }
+            const msg = whatsappService.buildNovaDemandaMessage({
+              titulo: demandaData.titulo,
+              setor: demandaData.setor || "outro",
+              prioridade: demandaData.prioridade || "media",
+              dataEntrega: demandaData.dataEntrega ? new Date(demandaData.dataEntrega).toLocaleDateString('pt-BR') : "—",
+              empreendimento: empNome,
+              descricao: demandaData.descricao,
+            });
+            whatsappService.sendGroupMessage(groupConfig.groupJid, msg).catch(e =>
+              console.error("[WhatsApp] Falha ao enviar nova demanda para grupo:", e)
+            );
+          }
+        }
+      } catch (wpErr) {
+        console.error("[WhatsApp] Erro ao verificar config de grupo:", wpErr);
+      }
+
       res.status(201).json(demanda);
     } catch (error: any) {
       console.error('Error creating demanda:', error);
@@ -2036,6 +2076,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==== END DEMANDAS ROUTES ====
+
+  // =============================================
+  // WHATSAPP DEMANDA GROUP CONFIG ROUTES
+  // =============================================
+
+  // GET config do grupo para a unidade do usuário
+  app.get('/api/whatsapp/demanda-config', requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ error: "Unidade não definida" });
+      const [config] = await db.select().from(whatsappDemandaConfig)
+        .where(eq(whatsappDemandaConfig.unidade, unidade));
+      res.json(config || null);
+    } catch (error) {
+      console.error("[WhatsApp Config] GET error:", error);
+      res.status(500).json({ error: "Erro ao buscar configuração" });
+    }
+  });
+
+  // POST criar config do grupo
+  app.post('/api/whatsapp/demanda-config', requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ error: "Unidade não definida" });
+      const data = insertWhatsappDemandaConfigSchema.parse({ ...req.body, unidade });
+      const [config] = await db.insert(whatsappDemandaConfig).values(data).returning();
+      res.status(201).json(config);
+    } catch (error) {
+      console.error("[WhatsApp Config] POST error:", error);
+      res.status(500).json({ error: "Erro ao criar configuração" });
+    }
+  });
+
+  // PUT atualizar config do grupo
+  app.put('/api/whatsapp/demanda-config', requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ error: "Unidade não definida" });
+      const { id: _id, criadoEm: _c, ...updateData } = req.body;
+      const [config] = await db.update(whatsappDemandaConfig)
+        .set({ ...updateData, atualizadoEm: new Date() })
+        .where(eq(whatsappDemandaConfig.unidade, unidade))
+        .returning();
+      res.json(config);
+    } catch (error) {
+      console.error("[WhatsApp Config] PUT error:", error);
+      res.status(500).json({ error: "Erro ao atualizar configuração" });
+    }
+  });
+
+  // DELETE remover config
+  app.delete('/api/whatsapp/demanda-config', requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ error: "Unidade não definida" });
+      await db.delete(whatsappDemandaConfig).where(eq(whatsappDemandaConfig.unidade, unidade));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[WhatsApp Config] DELETE error:", error);
+      res.status(500).json({ error: "Erro ao remover configuração" });
+    }
+  });
+
+  // POST enviar resumo manual agora
+  app.post('/api/whatsapp/demanda-config/enviar-resumo', requireAuth, async (req, res) => {
+    try {
+      const unidade = req.user?.unidade;
+      if (!unidade) return res.status(400).json({ error: "Unidade não definida" });
+      const [groupConfig] = await db.select().from(whatsappDemandaConfig)
+        .where(and(eq(whatsappDemandaConfig.unidade, unidade), eq(whatsappDemandaConfig.enabled, true)));
+      if (!groupConfig?.groupJid) {
+        return res.status(400).json({ error: "Grupo WhatsApp não configurado ou desativado" });
+      }
+      // Buscar demandas da semana atual
+      const hoje = new Date();
+      const inicioSemana = new Date(hoje);
+      inicioSemana.setDate(hoje.getDate() - hoje.getDay()); // domingo
+      inicioSemana.setHours(0, 0, 0, 0);
+      const { demandas: demandasTable } = await import("@shared/schema");
+      const demandasSemana = await db.select().from(demandasTable)
+        .where(and(
+          eq(demandasTable.unidade, unidade),
+          isNull(demandasTable.deletedAt),
+          gte(demandasTable.criadoEm, inicioSemana),
+        ));
+      const { whatsappService } = await import("./services/whatsappService");
+      const periodo = `${inicioSemana.toLocaleDateString('pt-BR')} a ${hoje.toLocaleDateString('pt-BR')}`;
+      const msg = whatsappService.buildResumoDemandas(
+        demandasSemana.map(d => ({
+          titulo: d.titulo,
+          setor: d.setor || "outro",
+          prioridade: d.prioridade || "media",
+          dataEntrega: d.dataEntrega ? new Date(d.dataEntrega).toLocaleDateString('pt-BR') : "—",
+          status: d.status || "a_fazer",
+        })),
+        periodo
+      );
+      const result = await whatsappService.sendGroupMessage(groupConfig.groupJid, msg);
+      if (result.error) {
+        return res.status(500).json({ error: result.error });
+      }
+      res.json({ success: true, message: "Resumo enviado com sucesso!" });
+    } catch (error) {
+      console.error("[WhatsApp Resumo] Erro ao enviar resumo manual:", error);
+      res.status(500).json({ error: "Erro ao enviar resumo" });
+    }
+  });
 
   // =============================================
   // FINANCIAL MODULE ROUTES
@@ -13418,6 +13565,65 @@ Regras:
 
   cron.schedule('0 1 * * *', cleanupHistoricoMovimentacoes); // Runs daily at 1 AM
   console.log('[CRON] Histórico de movimentações cleanup scheduled (daily at 1 AM, removes records older than 30 days)');
+
+  // =============================================
+  // RESUMO SEMANAL DE DEMANDAS VIA WHATSAPP
+  // =============================================
+  const enviarResumosSemanaisWhatsApp = async () => {
+    try {
+      console.log('[WhatsApp Cron] Verificando resumos semanais de demandas...');
+      const { demandas: demandasTable } = await import('@shared/schema');
+      const { whatsappService } = await import('./services/whatsappService');
+      
+      const agora = new Date();
+      const diaSemana = agora.getDay(); // 0=Dom, 1=Seg...
+
+      // Buscar todas as configs ativas
+      const configs = await db.select().from(whatsappDemandaConfig)
+        .where(and(eq(whatsappDemandaConfig.enabled, true), eq(whatsappDemandaConfig.notifyResumeSemanal, true)));
+
+      for (const config of configs) {
+        // Verificar se hoje é o dia configurado para o resumo
+        if (config.diaResumoSemanal !== diaSemana) continue;
+
+        // Buscar demandas da semana (criadas nos últimos 7 dias)
+        const seteDiasAtras = new Date(agora);
+        seteDiasAtras.setDate(agora.getDate() - 7);
+
+        const demandas = await db.select().from(demandasTable)
+          .where(and(
+            eq(demandasTable.unidade, config.unidade),
+            isNull(demandasTable.deletedAt),
+            gte(demandasTable.criadoEm, seteDiasAtras),
+          ));
+
+        const periodo = `${seteDiasAtras.toLocaleDateString('pt-BR')} a ${agora.toLocaleDateString('pt-BR')}`;
+        const msg = whatsappService.buildResumoDemandas(
+          demandas.map(d => ({
+            titulo: d.titulo,
+            setor: d.setor || 'outro',
+            prioridade: d.prioridade || 'media',
+            dataEntrega: d.dataEntrega ? new Date(d.dataEntrega).toLocaleDateString('pt-BR') : '—',
+            status: d.status || 'a_fazer',
+          })),
+          periodo
+        );
+
+        const result = await whatsappService.sendGroupMessage(config.groupJid, msg);
+        if (result.error) {
+          console.error(`[WhatsApp Cron] Erro ao enviar resumo para unidade ${config.unidade}:`, result.error);
+        } else {
+          console.log(`[WhatsApp Cron] Resumo semanal enviado para unidade ${config.unidade}`);
+        }
+      }
+    } catch (err) {
+      console.error('[WhatsApp Cron] Erro no cron de resumo semanal:', err);
+    }
+  };
+
+  // Executa todo dia às 08:00 (BRT) — filtra internamente pelo dia configurado
+  cron.schedule('0 8 * * *', enviarResumosSemanaisWhatsApp, { timezone: 'America/Bahia' });
+  console.log('[WhatsApp Cron] Resumo semanal de demandas agendado (verifica diariamente às 08:00 BRT)');
 
   // =============================================
   // PROCESSOS MONITORADOS CRON JOB
