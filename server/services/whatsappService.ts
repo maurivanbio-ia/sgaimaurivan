@@ -25,12 +25,18 @@ class WhatsAppService {
   private apiKey: string;
   private instanceName: string;
   private n8nWebhookUrl: string;
+  private zapiInstanceId: string;
+  private zapiToken: string;
+  private zapiClientToken: string;
 
   constructor() {
     this.instanceUrl = process.env.EVOLUTION_INSTANCE_URL || "";
     this.apiKey = process.env.EVOLUTION_API_KEY || "";
     this.instanceName = this.extractInstanceName();
     this.n8nWebhookUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL || "";
+    this.zapiInstanceId = process.env.ZAPI_INSTANCE_ID || "";
+    this.zapiToken = process.env.ZAPI_TOKEN || "";
+    this.zapiClientToken = process.env.ZAPI_CLIENT_TOKEN || "";
   }
 
   private extractInstanceName(): string {
@@ -41,6 +47,37 @@ class WhatsAppService {
   private getBaseUrl(): string {
     const urlParts = this.instanceUrl.split("/instances/");
     return urlParts[0] || "https://api.evolution.com";
+  }
+
+  // Normaliza número para Z-API (remove sufixo @g.us / @s.whatsapp.net)
+  private normalizePhoneForZapi(input: string): string {
+    return input.replace(/@g\.us$/, "").replace(/@s\.whatsapp\.net$/, "");
+  }
+
+  // Envia mensagem via Z-API (prioridade máxima quando configurado)
+  private async sendViaZApi(number: string, message: string): Promise<EvolutionResponse> {
+    const phone = this.normalizePhoneForZapi(number);
+    const url = `https://api.z-api.io/instances/${this.zapiInstanceId}/token/${this.zapiToken}/send-text`;
+    try {
+      console.log(`[WhatsApp→Z-API] Enviando para: ${phone}`);
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (this.zapiClientToken) headers["Client-Token"] = this.zapiClientToken;
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ phone, message }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error("[WhatsApp→Z-API] Erro:", JSON.stringify(data));
+        return { error: data.message || data.error || `Z-API erro HTTP ${response.status}` };
+      }
+      console.log(`[WhatsApp→Z-API] Mensagem enviada com sucesso para ${phone}`);
+      return { status: "SENT" };
+    } catch (error: any) {
+      console.error("[WhatsApp→Z-API] Erro de conexão:", error?.message);
+      return { error: `Erro Z-API: ${error?.message || "verifique as credenciais"}` };
+    }
   }
 
   // Envia mensagem via webhook do n8n (que repassa para a Evolution API local)
@@ -75,6 +112,9 @@ class WhatsAppService {
 
   async sendTextMessage(phone: string, message: string): Promise<EvolutionResponse> {
     const formattedNumber = this.formatPhoneNumber(phone);
+    if (this.zapiInstanceId && this.zapiToken) {
+      return this.sendViaZApi(formattedNumber, message);
+    }
     if (this.n8nWebhookUrl) {
       return this.sendViaN8nWebhook(formattedNumber, message);
     }
@@ -289,6 +329,9 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
   // Aceita: JID de grupo (XXXXXXXXXXX@g.us), JID individual (@s.whatsapp.net), ou número bruto ex: "62994285690"
   async sendGroupMessage(groupJid: string, message: string): Promise<EvolutionResponse> {
     const resolvedJid = this.normalizeJid(groupJid);
+    if (this.zapiInstanceId && this.zapiToken) {
+      return this.sendViaZApi(resolvedJid, message);
+    }
     if (this.n8nWebhookUrl) {
       return this.sendViaN8nWebhook(resolvedJid, message);
     }

@@ -2118,23 +2118,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET diagnóstico da configuração Evolution API (sem expor secrets)
   app.get('/api/whatsapp/diagnostico', requireAuth, async (req, res) => {
+    const zapiInstanceId = process.env.ZAPI_INSTANCE_ID || "";
+    const zapiToken = process.env.ZAPI_TOKEN || "";
+    const zapiClientToken = process.env.ZAPI_CLIENT_TOKEN || "";
     const instanceUrl = process.env.EVOLUTION_INSTANCE_URL || "";
     const apiKey = process.env.EVOLUTION_API_KEY || "";
+    const n8nWebhookUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL || "";
+    const zapiConfigured = !!(zapiInstanceId && zapiToken);
+    const zapiEndpoint = zapiConfigured
+      ? `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`
+      : "(não configurado)";
     const hasInstances = instanceUrl.includes("/instances/");
     const urlParts = instanceUrl.split("/instances/");
     const baseUrl = urlParts[0] || "";
     const match = instanceUrl.match(/instances\/([^\/]+)/);
     const instanceName = match ? match[1] : "ecobrasil-prod (padrão)";
     const endpoint = `${baseUrl}/message/sendText/${match ? match[1] : "ecobrasil-prod"}`;
+    const activeProvider = zapiConfigured ? "Z-API" : n8nWebhookUrl ? "n8n Webhook" : instanceUrl ? "Evolution API" : "Nenhum";
     res.json({
-      instanceUrlConfigured: !!instanceUrl,
-      apiKeyConfigured: !!apiKey,
-      instanceUrlLength: instanceUrl.length,
-      hasInstancesInUrl: hasInstances,
-      parsedBaseUrl: baseUrl || "(vazio - usando URL inteira como base)",
-      parsedInstanceName: instanceName,
-      endpointGerado: endpoint,
-      urlPreview: instanceUrl ? `${instanceUrl.substring(0, 30)}...` : "(não configurado)",
+      activeProvider,
+      zapi: {
+        configured: zapiConfigured,
+        instanceId: zapiInstanceId ? `${zapiInstanceId.substring(0, 8)}...` : "(não configurado)",
+        tokenConfigured: !!zapiToken,
+        clientTokenConfigured: !!zapiClientToken,
+        endpointGerado: zapiEndpoint,
+      },
+      n8n: {
+        configured: !!n8nWebhookUrl,
+        urlPreview: n8nWebhookUrl ? `${n8nWebhookUrl.substring(0, 40)}...` : "(não configurado)",
+      },
+      evolution: {
+        instanceUrlConfigured: !!instanceUrl,
+        apiKeyConfigured: !!apiKey,
+        hasInstancesInUrl: hasInstances,
+        parsedBaseUrl: baseUrl || "(vazio)",
+        parsedInstanceName: instanceName,
+        endpointGerado: endpoint,
+      },
     });
   });
 
