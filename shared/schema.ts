@@ -42,6 +42,7 @@ export const empreendimentos = pgTable("empreendimentos", {
   unidade: text("unidade").notNull().default('salvador'), // unidade padrão
   // Campos para gamificação e acompanhamento financeiro
   coordenadorId: integer("coordenador_id").references(() => users.id), // Coordenador responsável pelo projeto
+  logoUrl: text("logo_url"), // Logo/foto de perfil do empreendimento
   valorContratado: decimal("valor_contratado", { precision: 15, scale: 2 }).default("0"), // Valor hipotético (contrato)
   valorRecebido: decimal("valor_recebido", { precision: 15, scale: 2 }).default("0"), // Valor real (efetivamente recebido)
   orcamentoPrevisto: decimal("orcamento_previsto", { precision: 15, scale: 2 }).default("0"), // Orçamento de gastos previsto
