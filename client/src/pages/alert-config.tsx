@@ -134,14 +134,18 @@ export default function AlertConfigPage() {
     },
     onSuccess: (data) => {
       const lines = [
-        `URL configurada: ${data.instanceUrlConfigured ? "✅ Sim" : "❌ Não"}`,
-        `Chave API: ${data.apiKeyConfigured ? "✅ Sim" : "❌ Não"}`,
-        `Contém /instances/ na URL: ${data.hasInstancesInUrl ? "✅ Sim" : "⚠️ Não"}`,
-        `Base URL: ${data.parsedBaseUrl}`,
-        `Instance name: ${data.parsedInstanceName}`,
-        `Endpoint gerado: ${data.endpointGerado}`,
-      ];
-      toast({ title: "Diagnóstico Evolution API", description: lines.join("\n") });
+        `Provedor ativo: ${data.activeProvider}`,
+        ``,
+        `Z-API: ${data.zapi?.configured ? "✅ Configurado" : "❌ Não configurado"}`,
+        data.zapi?.configured ? `  Instance ID: ${data.zapi.instanceId}` : "",
+        data.zapi?.configured ? `  Token: ${data.zapi.tokenConfigured ? "✅" : "❌"}` : "",
+        data.zapi?.configured ? `  Client-Token: ${data.zapi.clientTokenConfigured ? "✅" : "❌"}` : "",
+        ``,
+        `n8n: ${data.n8n?.configured ? "✅ " + data.n8n.urlPreview : "❌ Não configurado"}`,
+        ``,
+        `Evolution API: ${data.evolution?.instanceUrlConfigured ? "✅ Configurada" : "❌ Não configurada"}`,
+      ].filter(l => l !== "");
+      toast({ title: "Diagnóstico WhatsApp", description: lines.join("\n") });
     },
     onError: () => toast({ title: "Erro ao verificar diagnóstico", variant: "destructive" }),
   });
