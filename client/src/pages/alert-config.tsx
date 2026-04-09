@@ -125,6 +125,27 @@ export default function AlertConfigPage() {
     onError: (err: any) => toast({ title: err.message || "Erro ao enviar resumo", variant: "destructive" }),
   });
 
+  const testarZapiDireto = useMutation({
+    mutationFn: async (phone: string) => {
+      const res = await fetch("/api/whatsapp/teste-zapi", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, message: "✅ Teste EcoGestor - se recebeu, Z-API está funcionando!" }),
+      });
+      const data = await res.json();
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: `Z-API Teste — HTTP ${data.status}`,
+        description: `Resposta: ${data.body}`,
+        variant: data.ok ? "default" : "destructive",
+      });
+    },
+    onError: (err: any) => toast({ title: "Erro no teste Z-API", description: err.message, variant: "destructive" }),
+  });
+
   const testarConexaoWp = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/whatsapp/diagnostico", { credentials: "include" });
@@ -480,10 +501,24 @@ export default function AlertConfigPage() {
                     className="text-blue-600 border-blue-200 hover:bg-blue-50"
                     disabled={testarConexaoWp.isPending}
                     onClick={() => testarConexaoWp.mutate()}
-                    title="Verificar configuração da Evolution API"
+                    title="Verificar configuração WhatsApp"
                   >
                     <Wifi className="h-3.5 w-3.5 mr-1.5" />
                     {testarConexaoWp.isPending ? "..." : "Diagnóstico"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                    disabled={testarZapiDireto.isPending}
+                    onClick={() => {
+                      const num = window.prompt("Digite seu número WhatsApp para teste (ex: 62994285690):", "62994285690");
+                      if (num) testarZapiDireto.mutate(num.trim());
+                    }}
+                    title="Envia mensagem de teste direto pelo Z-API"
+                  >
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                    {testarZapiDireto.isPending ? "Testando..." : "Testar Z-API"}
                   </Button>
                   {wpConfig?.id && (
                     <>

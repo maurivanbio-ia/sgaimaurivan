@@ -2160,6 +2160,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET config do grupo para a unidade do usuário
+  // POST teste direto Z-API: envia para número/grupo especificado e mostra resposta bruta
+  app.post('/api/whatsapp/teste-zapi', requireAuth, async (req, res) => {
+    const { phone, message } = req.body;
+    const zapiInstanceId = process.env.ZAPI_INSTANCE_ID || "";
+    const zapiToken = process.env.ZAPI_TOKEN || "";
+    const zapiClientToken = process.env.ZAPI_CLIENT_TOKEN || "";
+    if (!zapiInstanceId || !zapiToken) {
+      return res.status(400).json({ error: "ZAPI_INSTANCE_ID ou ZAPI_TOKEN não configurados" });
+    }
+    const url = `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`;
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (zapiClientToken) headers["Client-Token"] = zapiClientToken;
+      console.log(`[Z-API TESTE] Enviando para: ${phone} | URL: ${url}`);
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ phone, message: message || "Teste EcoGestor ✅" }),
+      });
+      const rawText = await response.text();
+      console.log(`[Z-API TESTE] HTTP ${response.status}: ${rawText}`);
+      res.json({ status: response.status, body: rawText, ok: response.ok });
+    } catch (err: any) {
+      console.error(`[Z-API TESTE] Erro:`, err?.message);
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // GET lista grupos Z-API
+  app.get('/api/whatsapp/grupos-zapi', requireAuth, async (req, res) => {
+    const zapiInstanceId = process.env.ZAPI_INSTANCE_ID || "";
+    const zapiToken = process.env.ZAPI_TOKEN || "";
+    const zapiClientToken = process.env.ZAPI_CLIENT_TOKEN || "";
+    if (!zapiInstanceId || !zapiToken) {
+      return res.status(400).json({ error: "Z-API não configurado" });
+    }
+    const url = `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/chats`;
+    try {
+      const headers: Record<string, string> = {};
+      if (zapiClientToken) headers["Client-Token"] = zapiClientToken;
+      const response = await fetch(url, { headers });
+      const data = await response.json().catch(() => ({}));
+      const grupos = Array.isArray(data) ? data.filter((c: any) => c.phone?.includes("@g.us") || c.id?.includes("@g.us")) : data;
+      res.json({ grupos, total: Array.isArray(grupos) ? grupos.length : 0, raw: data });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
   app.get('/api/whatsapp/demanda-config', requireAuth, async (req, res) => {
     try {
       const unidade = req.user?.unidade;
