@@ -272,33 +272,129 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
     }
   }
 
+  // ─── helpers ────────────────────────────────────────────────────────────────
+
+  private calcPrazoInfo(dataEntregaISO: string | null | undefined): { texto: string; linha: string } {
+    if (!dataEntregaISO) return { texto: "Sem prazo definido", linha: "📅 *Prazo:* _sem prazo definido_" };
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const prazo = new Date(dataEntregaISO);
+    prazo.setHours(0, 0, 0, 0);
+    const diff = Math.round((prazo.getTime() - hoje.getTime()) / 86_400_000);
+    const prazoFmt = prazo.toLocaleDateString("pt-BR");
+    let statusPrazo: string;
+    if (diff < 0) {
+      statusPrazo = `⚠️ *ATRASADO há ${Math.abs(diff)} dia(s)*`;
+    } else if (diff === 0) {
+      statusPrazo = `🔔 *Vence HOJE!*`;
+    } else if (diff <= 3) {
+      statusPrazo = `🟠 Faltam *${diff} dia(s)* — urgente`;
+    } else if (diff <= 7) {
+      statusPrazo = `🟡 Faltam *${diff} dia(s)*`;
+    } else {
+      statusPrazo = `🟢 Faltam *${diff} dia(s)*`;
+    }
+    return {
+      texto: prazoFmt,
+      linha: `📅 *Prazo:* ${prazoFmt}\n   ${statusPrazo}`,
+    };
+  }
+
+  private ecoBrandHeader(title: string): string[] {
+    return [
+      `🌿 *ECOBRASIL* | _Consultoria Ambiental_`,
+      `━━━━━━━━━━━━━━━━━━━━━━━`,
+      `*${title}*`,
+      ``,
+    ];
+  }
+
+  private ecoBrandFooter(): string[] {
+    return [
+      ``,
+      `━━━━━━━━━━━━━━━━━━━━━━━`,
+      `🌿 _EcoBrasil · EcoGestor® · Sistema de Gestão Ambiental_`,
+    ];
+  }
+
+  private setorLabel(setor: string): string {
+    const map: Record<string, string> = {
+      licenciamento: "Licenciamento", monitoramento: "Monitoramento",
+      compensacao: "Compensação Ambiental", juridico: "Jurídico",
+      administrativo: "Administrativo", financeiro: "Financeiro", outro: "Outro",
+    };
+    return map[setor] || setor;
+  }
+
+  private prioLabel(prioridade: string): string {
+    if (prioridade === "alta") return "🔴 Alta";
+    if (prioridade === "media") return "🟡 Média";
+    return "🟢 Baixa";
+  }
+
+  private statusLabel(status: string): string {
+    const map: Record<string, string> = {
+      a_fazer: "📌 A Fazer", em_andamento: "🔵 Em Andamento",
+      em_revisao: "🟠 Em Revisão", concluido: "✅ Concluído",
+      cancelado: "❌ Cancelado", pausado: "⏸️ Pausado",
+    };
+    return map[status] || status;
+  }
+
+  // ─── public message builders ─────────────────────────────────────────────
+
   buildNovaDemandaMessage(demanda: {
     titulo: string;
     setor: string;
     prioridade: string;
-    dataEntrega: string;
+    dataEntrega?: string | null;
+    dataEntregaISO?: string | null;
     responsavel?: string;
     empreendimento?: string;
     descricao?: string;
   }): string {
-    const prioIcon = demanda.prioridade === "alta" ? "🔴" : demanda.prioridade === "media" ? "🟡" : "🟢";
-    const setorMap: Record<string, string> = {
-      licenciamento: "Licenciamento", monitoramento: "Monitoramento",
-      compensacao: "Compensação", juridico: "Jurídico",
-      administrativo: "Administrativo", financeiro: "Financeiro", outro: "Outro",
-    };
+    const prazo = this.calcPrazoInfo(demanda.dataEntregaISO);
     const lines = [
-      `📋 *Nova Demanda Cadastrada*`,
-      ``,
-      `${prioIcon} *Prioridade:* ${demanda.prioridade.toUpperCase()}`,
+      ...this.ecoBrandHeader("📋 NOVA DEMANDA CADASTRADA"),
       `📝 *Título:* ${demanda.titulo}`,
-      `🏷️ *Setor:* ${setorMap[demanda.setor] || demanda.setor}`,
-      `📅 *Prazo:* ${demanda.dataEntrega}`,
+      `🏷️ *Setor:* ${this.setorLabel(demanda.setor)}`,
+      `⚡ *Prioridade:* ${this.prioLabel(demanda.prioridade)}`,
     ];
     if (demanda.responsavel) lines.push(`👤 *Responsável:* ${demanda.responsavel}`);
     if (demanda.empreendimento) lines.push(`🏢 *Empreendimento:* ${demanda.empreendimento}`);
-    if (demanda.descricao) lines.push(`📄 *Descrição:* ${demanda.descricao.slice(0, 200)}${demanda.descricao.length > 200 ? '...' : ''}`);
-    lines.push(``, `_EcoGestor - Sistema de Gestão Ambiental_`);
+    lines.push(prazo.linha);
+    if (demanda.descricao) lines.push(``, `📄 _${demanda.descricao.slice(0, 180)}${demanda.descricao.length > 180 ? '...' : ''}_`);
+    lines.push(...this.ecoBrandFooter());
+    return lines.join("\n");
+  }
+
+  buildMudancaStatusMessage(demanda: {
+    titulo: string;
+    setor: string;
+    prioridade: string;
+    statusAnterior: string;
+    statusNovo: string;
+    dataEntregaISO?: string | null;
+    responsavel?: string;
+    empreendimento?: string;
+  }): string {
+    const prazo = this.calcPrazoInfo(demanda.dataEntregaISO);
+    const lines = [
+      ...this.ecoBrandHeader("🔄 ATUALIZAÇÃO DE STATUS"),
+      `📝 *Demanda:* ${demanda.titulo}`,
+      `🏷️ *Setor:* ${this.setorLabel(demanda.setor)}`,
+      `⚡ *Prioridade:* ${this.prioLabel(demanda.prioridade)}`,
+    ];
+    if (demanda.responsavel) lines.push(`👤 *Responsável:* ${demanda.responsavel}`);
+    if (demanda.empreendimento) lines.push(`🏢 *Empreendimento:* ${demanda.empreendimento}`);
+    lines.push(
+      ``,
+      `📊 *Status atualizado:*`,
+      `   ~${this.statusLabel(demanda.statusAnterior)}~  →  *${this.statusLabel(demanda.statusNovo)}*`,
+      ``,
+      prazo.linha,
+    );
+    lines.push(...this.ecoBrandFooter());
     return lines.join("\n");
   }
 
@@ -307,25 +403,39 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
     setor: string;
     prioridade: string;
     dataEntrega: string;
+    dataEntregaISO?: string | null;
     status: string;
   }>, periodo: string): string {
-    const statusLabel: Record<string, string> = {
-      a_fazer: "A Fazer", em_andamento: "Em Andamento", concluido: "Concluído",
-      pausado: "Pausado", cancelado: "Cancelado",
-    };
-    const prioIcon = (p: string) => p === "alta" ? "🔴" : p === "media" ? "🟡" : "🟢";
-    const header = [`📊 *Resumo Semanal de Demandas*`, `📅 Período: ${periodo}`, `Total: *${demandas.length} demanda(s)*`, ``];
+    const atrasadas = demandas.filter(d => {
+      if (!d.dataEntregaISO) return false;
+      const prazo = new Date(d.dataEntregaISO);
+      prazo.setHours(0, 0, 0, 0);
+      return prazo < new Date(new Date().setHours(0, 0, 0, 0)) && d.status !== 'concluido' && d.status !== 'cancelado';
+    }).length;
+
+    const lines = [
+      ...this.ecoBrandHeader("📊 RESUMO SEMANAL DE DEMANDAS"),
+      `📅 *Período:* ${periodo}`,
+      `📦 *Total:* ${demandas.length} demanda(s)`,
+      atrasadas > 0 ? `⚠️ *Atrasadas:* ${atrasadas}` : `✅ Nenhuma demanda atrasada`,
+      ``,
+    ];
+
     if (demandas.length === 0) {
-      header.push("Nenhuma demanda para este período.");
+      lines.push("_Nenhuma demanda registrada para este período._");
     } else {
       demandas.slice(0, 15).forEach((d, i) => {
-        header.push(`${i + 1}. ${prioIcon(d.prioridade)} *${d.titulo}*`);
-        header.push(`   📅 Prazo: ${d.dataEntrega} | ${statusLabel[d.status] || d.status}`);
+        const prazo = this.calcPrazoInfo(d.dataEntregaISO || null);
+        lines.push(`*${i + 1}.* ${d.titulo}`);
+        lines.push(`   ${this.prioLabel(d.prioridade)} | ${this.statusLabel(d.status)}`);
+        lines.push(`   ${prazo.linha.split("\n")[0].replace("📅 *Prazo:* ", "📅 ")}`);
+        if (i < demandas.slice(0, 15).length - 1) lines.push(``);
       });
-      if (demandas.length > 15) header.push(`... e mais ${demandas.length - 15} demanda(s).`);
+      if (demandas.length > 15) lines.push(``, `_... e mais ${demandas.length - 15} demanda(s)._`);
     }
-    header.push(``, `_EcoGestor - Sistema de Gestão Ambiental_`);
-    return header.join("\n");
+
+    lines.push(...this.ecoBrandFooter());
+    return lines.join("\n");
   }
 
   async checkInstanceStatus(): Promise<{ connected: boolean; state?: string; error?: string }> {
