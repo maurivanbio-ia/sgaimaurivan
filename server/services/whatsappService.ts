@@ -49,9 +49,11 @@ class WhatsAppService {
     return urlParts[0] || "https://api.evolution.com";
   }
 
-  // Normaliza número para Z-API (remove sufixo @g.us / @s.whatsapp.net)
+  // Normaliza número para Z-API:
+  // - Grupos: mantém @g.us (Z-API exige para grupos)
+  // - Individuais: remove @s.whatsapp.net (Z-API usa só dígitos)
   private normalizePhoneForZapi(input: string): string {
-    return input.replace(/@g\.us$/, "").replace(/@s\.whatsapp\.net$/, "");
+    return input.replace(/@s\.whatsapp\.net$/, "");
   }
 
   // Envia mensagem via Z-API (prioridade máxima quando configurado)
@@ -67,10 +69,13 @@ class WhatsAppService {
         headers,
         body: JSON.stringify({ phone, message }),
       });
-      const data = await response.json().catch(() => ({}));
+      const rawText = await response.text();
+      let data: any = {};
+      try { data = JSON.parse(rawText); } catch {}
+      console.log(`[WhatsApp→Z-API] Resposta HTTP ${response.status}:`, rawText.substring(0, 300));
       if (!response.ok) {
         console.error("[WhatsApp→Z-API] Erro:", JSON.stringify(data));
-        return { error: data.message || data.error || `Z-API erro HTTP ${response.status}` };
+        return { error: data.message || data.error || `Z-API erro HTTP ${response.status}: ${rawText.substring(0, 200)}` };
       }
       console.log(`[WhatsApp→Z-API] Mensagem enviada com sucesso para ${phone}`);
       return { status: "SENT" };
