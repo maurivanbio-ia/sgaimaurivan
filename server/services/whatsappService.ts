@@ -24,11 +24,13 @@ class WhatsAppService {
   private instanceUrl: string;
   private apiKey: string;
   private instanceName: string;
+  private n8nWebhookUrl: string;
 
   constructor() {
     this.instanceUrl = process.env.EVOLUTION_INSTANCE_URL || "";
     this.apiKey = process.env.EVOLUTION_API_KEY || "";
     this.instanceName = this.extractInstanceName();
+    this.n8nWebhookUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL || "";
   }
 
   private extractInstanceName(): string {
@@ -41,6 +43,28 @@ class WhatsAppService {
     return urlParts[0] || "https://api.evolution.com";
   }
 
+  // Envia mensagem via webhook do n8n (que repassa para a Evolution API local)
+  private async sendViaN8nWebhook(number: string, message: string): Promise<EvolutionResponse> {
+    try {
+      console.log(`[WhatsApp→n8n] Enviando via webhook n8n para: ${number}`);
+      const response = await fetch(this.n8nWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number, message }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error("[WhatsApp→n8n] Webhook retornou erro:", JSON.stringify(data));
+        return { error: data.message || data.error || `Webhook n8n erro HTTP ${response.status}` };
+      }
+      console.log(`[WhatsApp→n8n] Mensagem enviada com sucesso via n8n para ${number}`);
+      return { status: "SENT" };
+    } catch (error: any) {
+      console.error("[WhatsApp→n8n] Erro de conexão com webhook n8n:", error?.message);
+      return { error: `Erro n8n: ${error?.message || "verifique a URL do webhook"}` };
+    }
+  }
+
   private formatPhoneNumber(phone: string): string {
     let cleaned = phone.replace(/\D/g, "");
     if (!cleaned.startsWith("55")) {
@@ -50,13 +74,16 @@ class WhatsAppService {
   }
 
   async sendTextMessage(phone: string, message: string): Promise<EvolutionResponse> {
+    const formattedNumber = this.formatPhoneNumber(phone);
+    if (this.n8nWebhookUrl) {
+      return this.sendViaN8nWebhook(formattedNumber, message);
+    }
     if (!this.instanceUrl || !this.apiKey) {
       console.error("[WhatsApp] Evolution API não configurada");
       return { error: "Evolution API não configurada" };
     }
 
     try {
-      const formattedNumber = this.formatPhoneNumber(phone);
       const baseUrl = this.getBaseUrl();
       
       const response = await fetch(`${baseUrl}/message/sendText/${this.instanceName}`, {
@@ -261,12 +288,15 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
   // Envia mensagem para um grupo ou número WhatsApp
   // Aceita: JID de grupo (XXXXXXXXXXX@g.us), JID individual (@s.whatsapp.net), ou número bruto ex: "62994285690"
   async sendGroupMessage(groupJid: string, message: string): Promise<EvolutionResponse> {
+    const resolvedJid = this.normalizeJid(groupJid);
+    if (this.n8nWebhookUrl) {
+      return this.sendViaN8nWebhook(resolvedJid, message);
+    }
     if (!this.instanceUrl || !this.apiKey) {
       console.error("[WhatsApp] Evolution API não configurada");
       return { error: "Evolution API não configurada" };
     }
     try {
-      const resolvedJid = this.normalizeJid(groupJid);
       const baseUrl = this.getBaseUrl();
       const endpoint = `${baseUrl}/message/sendText/${this.instanceName}`;
       console.log(`[WhatsApp] Enviando para: ${endpoint} | JID: ${resolvedJid}`);
