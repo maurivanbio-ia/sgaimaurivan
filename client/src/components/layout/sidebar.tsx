@@ -69,6 +69,7 @@ interface NavItem {
   label: string;
   icon: any;
   testid: string;
+  adminOnly?: boolean;
 }
 
 export default function Sidebar() {
@@ -210,6 +211,7 @@ export default function Sidebar() {
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
         { href: "/blog-admin", label: "Blog Institucional", icon: Globe, testid: "nav-blog-admin" },
         { href: "/onedrive-backups", label: "Backup & Dropbox", icon: Cloud, testid: "nav-onedrive-backups" },
+        { href: "/admin/usuarios", label: "Gerenciar Usuários", icon: UserCog, testid: "nav-admin-usuarios", adminOnly: true },
       ]
     },
   ];
@@ -282,7 +284,7 @@ export default function Sidebar() {
                 
                 {(isExpanded || collapsed) && (
                   <div className={cn("mt-0.5 space-y-0", !collapsed && "ml-3 border-l border-border pl-1.5")}>
-                    {category.items.map((item) => {
+                    {category.items.filter(item => !item.adminOnly || isAdmin).map((item) => {
                       const Icon = item.icon;
                       if (item.href === "/ia") {
                         return (
@@ -359,23 +361,6 @@ export default function Sidebar() {
           <ThemeToggle />
         </div>
 
-        {isAdmin && (
-          <Link href="/admin/usuarios">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "w-full h-7 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100",
-                collapsed && "px-1"
-              )}
-              data-testid="nav-admin-usuarios"
-            >
-              <UserCog className="h-4 w-4" />
-              {!collapsed && <span className="ml-1.5 text-xs">Gerenciar Usuários</span>}
-            </Button>
-          </Link>
-        )}
-        
         <Button
           variant="ghost"
           size="sm"
