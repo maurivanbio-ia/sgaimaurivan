@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Users, Trash2, Search, ShieldCheck, UserCog, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Users, Trash2, Search, ShieldCheck, UserCog, Loader2, AlertTriangle, Phone, Pencil, CheckCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface UserItem {
@@ -18,6 +19,7 @@ interface UserItem {
   cargo: string;
   unidade: string;
   criadoEm: string;
+  whatsapp?: string | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -43,6 +45,8 @@ export default function AdminUsuarios() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<UserItem | null>(null);
+  const [editWhatsapp, setEditWhatsapp] = useState<UserItem | null>(null);
+  const [whatsappInput, setWhatsappInput] = useState("");
 
   const { data: usersList = [], isLoading } = useQuery<UserItem[]>({
     queryKey: ["/api/users"],
@@ -69,12 +73,36 @@ export default function AdminUsuarios() {
     },
   });
 
+  const updateWhatsappMutation = useMutation({
+    mutationFn: async ({ id, whatsapp }: { id: number; whatsapp: string }) => {
+      const res = await apiRequest("PATCH", `/api/users/${id}`, { whatsapp });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao atualizar WhatsApp");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "WhatsApp salvo!", description: "Número atualizado com sucesso." });
+      qc.invalidateQueries({ queryKey: ["/api/users"] });
+      setEditWhatsapp(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
   const filtered = usersList.filter(
     (u) =>
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       u.cargo?.toLowerCase().includes(search.toLowerCase()) ||
       u.unidade?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const openEditWhatsapp = (u: UserItem) => {
+    setEditWhatsapp(u);
+    setWhatsappInput(u.whatsapp || "");
+  };
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
@@ -87,7 +115,7 @@ export default function AdminUsuarios() {
             <UserCog className="h-6 w-6 text-slate-600" />
             Gerenciar Usuários
           </h1>
-          <p className="text-muted-foreground text-sm">Administração de contas do sistema</p>
+          <p className="text-muted-foreground text-sm">Administração de contas e WhatsApp para notificações</p>
         </div>
       </div>
 
@@ -96,7 +124,7 @@ export default function AdminUsuarios() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Usuários cadastrados</CardTitle>
-              <CardDescription>{usersList.length} conta(s) no sistema</CardDescription>
+              <CardDescription>{usersList.length} conta(s) · Configure o WhatsApp de cada usuário para receber notificações de demandas</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -137,6 +165,17 @@ export default function AdminUsuarios() {
                       <p className="text-xs text-muted-foreground">
                         {CARGO_LABELS[u.cargo] || u.cargo} · {u.unidade || "Sem unidade"}
                       </p>
+                      {u.whatsapp ? (
+                        <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                          <CheckCircle className="h-3 w-3" />
+                          WhatsApp: {u.whatsapp}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-500 flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3" />
+                          Sem WhatsApp cadastrado
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -151,6 +190,15 @@ export default function AdminUsuarios() {
                       {u.role === "admin" && <ShieldCheck className="h-3 w-3 mr-1" />}
                       {ROLE_LABELS[u.role] || u.role}
                     </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-green-700 border-green-200 hover:bg-green-50 text-xs"
+                      onClick={() => openEditWhatsapp(u)}
+                    >
+                      <Phone className="h-3 w-3 mr-1" />
+                      WhatsApp
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -167,6 +215,68 @@ export default function AdminUsuarios() {
         </CardContent>
       </Card>
 
+      {/* Dialog editar WhatsApp */}
+      <Dialog open={!!editWhatsapp} onOpenChange={(open) => { if (!open) setEditWhatsapp(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <Phone className="h-5 w-5" />
+              WhatsApp de {editWhatsapp?.email}
+            </DialogTitle>
+            <DialogDescription>
+              Quando uma demanda for atribuída a este usuário, o sistema enviará uma notificação para este número.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <div className="space-y-1.5">
+              <Label>Número WhatsApp</Label>
+              <Input
+                placeholder="Ex: 5571982090828 (com código do país)"
+                value={whatsappInput}
+                onChange={(e) => setWhatsappInput(e.target.value.replace(/\D/g, ""))}
+                noNormalize
+              />
+              <p className="text-xs text-muted-foreground">
+                Digite apenas números com código do país: <strong>55</strong> + DDD + número.<br />
+                Ex: <code>5571982090828</code>
+              </p>
+            </div>
+            {whatsappInput && (
+              <div className="bg-green-50 border border-green-200 rounded p-2 text-xs text-green-700">
+                Número formatado: <strong>{whatsappInput}</strong>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditWhatsapp(null)}>
+              Cancelar
+            </Button>
+            {editWhatsapp?.whatsapp && (
+              <Button
+                variant="ghost"
+                className="text-red-500"
+                onClick={() => updateWhatsappMutation.mutate({ id: editWhatsapp!.id, whatsapp: "" })}
+                disabled={updateWhatsappMutation.isPending}
+              >
+                Remover
+              </Button>
+            )}
+            <Button
+              onClick={() => updateWhatsappMutation.mutate({ id: editWhatsapp!.id, whatsapp: whatsappInput })}
+              disabled={updateWhatsappMutation.isPending || !whatsappInput}
+              className="bg-green-700 hover:bg-green-800"
+            >
+              {updateWhatsappMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+              ) : (
+                <><CheckCircle className="h-4 w-4 mr-2" />Salvar</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog excluir usuário */}
       <Dialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

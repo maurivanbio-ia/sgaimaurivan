@@ -1883,41 +1883,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[DEBUG CREATE DEMANDA] Created:', JSON.stringify(demanda));
       websocketService.broadcastInvalidate('demandas');
 
-      // Notificação WhatsApp para grupo configurado
+      // Notificação WhatsApp ao responsável pessoalmente
       try {
+        const { whatsappService } = await import("./services/whatsappService");
+        let empNome: string | undefined;
+        let responsavelWhatsapp: string | undefined;
+        let responsavelEmail: string | undefined;
+
+        // Buscar WhatsApp e email do responsável
+        if (demandaData.responsavelId) {
+          const [resp] = await db.select({ whatsapp: users.whatsapp, email: users.email })
+            .from(users).where(eq(users.id, demandaData.responsavelId));
+          responsavelWhatsapp = resp?.whatsapp || undefined;
+          responsavelEmail = resp?.email || undefined;
+        }
+
+        // Buscar nome do empreendimento
+        if (demandaData.empreendimentoId) {
+          const [emp] = await db.select({ nome: empreendimentos.nome })
+            .from(empreendimentos).where(eq(empreendimentos.id, demandaData.empreendimentoId));
+          empNome = emp?.nome;
+        }
+
+        const msg = whatsappService.buildNovaDemandaMessage({
+          titulo: demandaData.titulo,
+          setor: demandaData.setor || "outro",
+          prioridade: demandaData.prioridade || "media",
+          dataEntregaISO: demandaData.dataEntrega ? String(demandaData.dataEntrega) : null,
+          empreendimento: empNome,
+          descricao: demandaData.descricao,
+        });
+
+        // Enviar para o WhatsApp pessoal do responsável
+        if (responsavelWhatsapp) {
+          console.log(`[WhatsApp] Enviando nova demanda para responsável ${responsavelEmail} → ${responsavelWhatsapp}`);
+          whatsappService.sendTextMessage(responsavelWhatsapp, msg).catch(e =>
+            console.error("[WhatsApp] Falha ao enviar para responsável:", e)
+          );
+        } else {
+          console.log(`[WhatsApp] Responsável (id=${demandaData.responsavelId}) não tem WhatsApp cadastrado — notificação pessoal ignorada`);
+        }
+
+        // Também enviar para grupo se configurado
         const unidade = req.user?.unidade;
         if (unidade) {
           const [groupConfig] = await db.select().from(whatsappDemandaConfig)
             .where(and(eq(whatsappDemandaConfig.unidade, unidade), eq(whatsappDemandaConfig.enabled, true)));
           if (groupConfig?.notifyNovaDemanda && groupConfig.groupJid) {
-            const { whatsappService } = await import("./services/whatsappService");
-            // Buscar nome do responsável e empreendimento para mensagem enriquecida
-            let responsavelNome: string | undefined;
-            let empNome: string | undefined;
-            if (demandaData.responsavelId) {
-              const [resp] = await db.select().from(storage.colaboradores ? {} as any : users).catch(() => []);
-              // simplificado: usa o email ou id
-            }
-            if (demandaData.empreendimentoId) {
-              const [emp] = await db.select({ nome: empreendimentos.nome })
-                .from(empreendimentos).where(eq(empreendimentos.id, demandaData.empreendimentoId));
-              empNome = emp?.nome;
-            }
-            const msg = whatsappService.buildNovaDemandaMessage({
-              titulo: demandaData.titulo,
-              setor: demandaData.setor || "outro",
-              prioridade: demandaData.prioridade || "media",
-              dataEntregaISO: demandaData.dataEntrega ? String(demandaData.dataEntrega) : null,
-              empreendimento: empNome,
-              descricao: demandaData.descricao,
-            });
             whatsappService.sendGroupMessage(groupConfig.groupJid, msg).catch(e =>
-              console.error("[WhatsApp] Falha ao enviar nova demanda para grupo:", e)
+              console.error("[WhatsApp] Falha ao enviar para grupo:", e)
             );
           }
         }
       } catch (wpErr) {
-        console.error("[WhatsApp] Erro ao verificar config de grupo:", wpErr);
+        console.error("[WhatsApp] Erro ao enviar notificação de nova demanda:", wpErr);
       }
 
       res.status(201).json(demanda);
@@ -13849,7 +13868,7 @@ Regras:
     try {
       const user = req.user;
       if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
-      const allUsers = await db.select({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade, criadoEm: users.createdAt }).from(users).orderBy(users.id);
+      const allUsers = await db.select({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade, criadoEm: users.createdAt, whatsapp: users.whatsapp }).from(users).orderBy(users.id);
       res.json(allUsers);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -13877,8 +13896,8 @@ Regras:
       if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
-      const { role, cargo, unidade } = req.body;
-      const [updated] = await db.update(users).set({ ...(role && { role }), ...(cargo && { cargo }), ...(unidade && { unidade }) }).where(eq(users.id, id)).returning({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade });
+      const { role, cargo, unidade, whatsapp } = req.body;
+      const [updated] = await db.update(users).set({ ...(role && { role }), ...(cargo && { cargo }), ...(unidade && { unidade }), whatsapp: whatsapp !== undefined ? (whatsapp || null) : undefined }).where(eq(users.id, id)).returning({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade, whatsapp: users.whatsapp });
       if (!updated) return res.status(404).json({ error: 'Usuário não encontrado' });
       res.json(updated);
     } catch (error: any) {
