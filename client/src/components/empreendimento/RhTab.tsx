@@ -53,7 +53,7 @@ export function RhTab({ empreendimentoId }: RhTabProps) {
   const { data: registros = [], isLoading } = useQuery<RhRegistro[]>({
     queryKey: ["/api/rh", { empreendimentoId }],
     queryFn: async () => {
-      const res = await fetch(`/api/rh?empreendimentoId=${empreendimentoId}`);
+      const res = await fetch(`/api/rh?empreendimento=${empreendimentoId}`);
       if (!res.ok) throw new Error("Erro ao carregar registros de RH");
       return res.json();
     },
