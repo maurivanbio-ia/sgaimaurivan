@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   cargo: text("cargo").notNull().default("colaborador"), // coordenador, diretor, rh, financeiro, colaborador
   unidade: text("unidade").notNull().default("salvador"), // unidade padrão
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  whatsapp: text("whatsapp"), // número WhatsApp para notificações (ex: 5571982090828)
 });
 
 export const empreendimentos = pgTable("empreendimentos", {
