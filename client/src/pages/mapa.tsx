@@ -89,6 +89,7 @@ interface Empreendimento {
   municipio: string | null;
   uf: string | null;
   responsavelInterno: string;
+  logoUrl: string | null;
 }
 
 interface CamadaGeoespacial {
@@ -195,23 +196,34 @@ export default function MapaEmpreendimentos() {
       const statusColor = statusColors[emp.status?.toLowerCase() || 'ativo'] || statusColors.ativo;
       const tipoInfo = getTipoInfo(emp.tipo);
       
+      const markerSize = emp.logoUrl ? 44 : 36;
+      const iconInner = emp.logoUrl
+        ? `<img src="${emp.logoUrl}" alt="logo" style="
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 50%;
+            display: block;
+          " />`
+        : `<span style="font-size: 18px; line-height: 1;">${tipoInfo.icon}</span>`;
+
       const icon = L.divIcon({
         className: "custom-marker",
         html: `<div style="
-          background-color: ${tipoInfo.color};
-          width: 36px;
-          height: 36px;
+          background-color: ${emp.logoUrl ? '#ffffff' : tipoInfo.color};
+          width: ${markerSize}px;
+          height: ${markerSize}px;
           border-radius: 50%;
           border: 3px solid ${statusColor};
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.35);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 18px;
-        ">${tipoInfo.icon}</div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-        popupAnchor: [0, -18],
+          overflow: hidden;
+        ">${iconInner}</div>`,
+        iconSize: [markerSize, markerSize],
+        iconAnchor: [markerSize / 2, markerSize / 2],
+        popupAnchor: [0, -(markerSize / 2)],
       });
 
       const marker = L.marker(
@@ -219,9 +231,16 @@ export default function MapaEmpreendimentos() {
         { icon }
       ).addTo(mapInstanceRef.current!);
 
+      const logoHeader = emp.logoUrl
+        ? `<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+             <img src="${emp.logoUrl}" alt="logo" style="width:40px; height:40px; object-fit:contain; border-radius:50%; border:2px solid #e5e7eb; background:#f9fafb; flex-shrink:0;" />
+             <h3 style="font-weight:bold; font-size:15px; margin:0;">${emp.nome}</h3>
+           </div>`
+        : `<h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${tipoInfo.icon} ${emp.nome}</h3>`;
+
       const popupContent = `
-        <div style="min-width: 200px;">
-          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${tipoInfo.icon} ${emp.nome}</h3>
+        <div style="min-width: 210px;">
+          ${logoHeader}
           <div style="font-size: 14px;">
             <p><strong>Tipo:</strong> ${tipoInfo.label}</p>
             <p><strong>Cliente:</strong> ${emp.cliente}</p>
