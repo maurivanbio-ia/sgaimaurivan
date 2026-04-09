@@ -1907,7 +1907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               titulo: demandaData.titulo,
               setor: demandaData.setor || "outro",
               prioridade: demandaData.prioridade || "media",
-              dataEntrega: demandaData.dataEntrega ? new Date(demandaData.dataEntrega).toLocaleDateString('pt-BR') : "—",
+              dataEntregaISO: demandaData.dataEntrega ? String(demandaData.dataEntrega) : null,
               empreendimento: empNome,
               descricao: demandaData.descricao,
             });
@@ -2012,6 +2012,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`[Gamificação] Demanda ${id} concluída - pontos registrados para usuário ${demanda.responsavelId}`);
           } catch (gamErr) {
             console.error('[Gamificação] Erro ao processar pontuação de demanda:', gamErr);
+          }
+        }
+
+        // WhatsApp: notificar mudança de status
+        if (req.body.status && req.body.status !== currentDemanda.status) {
+          try {
+            const unidade = req.user?.unidade;
+            if (unidade) {
+              const [groupConfig] = await db.select().from(whatsappDemandaConfig)
+                .where(and(eq(whatsappDemandaConfig.unidade, unidade), eq(whatsappDemandaConfig.enabled, true)));
+              if (groupConfig?.groupJid) {
+                const { whatsappService } = await import('./services/whatsappService');
+                let empNome: string | undefined;
+                if (demanda.empreendimentoId) {
+                  const [emp] = await db.select({ nome: empreendimentos.nome })
+                    .from(empreendimentos).where(eq(empreendimentos.id, demanda.empreendimentoId));
+                  empNome = emp?.nome;
+                }
+                const msg = whatsappService.buildMudancaStatusMessage({
+                  titulo: demanda.titulo,
+                  setor: demanda.setor || 'outro',
+                  prioridade: demanda.prioridade || 'media',
+                  statusAnterior: currentDemanda.status || 'a_fazer',
+                  statusNovo: req.body.status,
+                  dataEntregaISO: demanda.dataEntrega ? String(demanda.dataEntrega) : null,
+                  responsavel: demanda.responsavel || undefined,
+                  empreendimento: empNome,
+                });
+                whatsappService.sendGroupMessage(groupConfig.groupJid, msg).catch(e =>
+                  console.error('[WhatsApp] Falha ao enviar mudança de status para grupo:', e)
+                );
+              }
+            }
+          } catch (wpErr) {
+            console.error('[WhatsApp] Erro ao notificar mudança de status:', wpErr);
           }
         }
       }
@@ -2169,6 +2204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           setor: d.setor || "outro",
           prioridade: d.prioridade || "media",
           dataEntrega: d.dataEntrega ? new Date(d.dataEntrega).toLocaleDateString('pt-BR') : "—",
+          dataEntregaISO: d.dataEntrega ? String(d.dataEntrega) : null,
           status: d.status || "a_fazer",
         })),
         periodo
@@ -13604,6 +13640,7 @@ Regras:
             setor: d.setor || 'outro',
             prioridade: d.prioridade || 'media',
             dataEntrega: d.dataEntrega ? new Date(d.dataEntrega).toLocaleDateString('pt-BR') : '—',
+            dataEntregaISO: d.dataEntrega ? String(d.dataEntrega) : null,
             status: d.status || 'a_fazer',
           })),
           periodo
