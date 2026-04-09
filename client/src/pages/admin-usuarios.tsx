@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Users, Trash2, Search, ShieldCheck, UserCog, Loader2, AlertTriangle, Phone, Pencil, CheckCircle } from "lucide-react";
+import { ArrowLeft, Users, Trash2, Search, ShieldCheck, UserCog, Loader2, AlertTriangle, Phone, CheckCircle, Send, MessageCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface UserItem {
@@ -47,6 +46,7 @@ export default function AdminUsuarios() {
   const [confirmDelete, setConfirmDelete] = useState<UserItem | null>(null);
   const [editWhatsapp, setEditWhatsapp] = useState<UserItem | null>(null);
   const [whatsappInput, setWhatsappInput] = useState("");
+  const [testeResult, setTesteResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const { data: usersList = [], isLoading } = useQuery<UserItem[]>({
     queryKey: ["/api/users"],
@@ -85,10 +85,35 @@ export default function AdminUsuarios() {
     onSuccess: () => {
       toast({ title: "WhatsApp salvo!", description: "Número atualizado com sucesso." });
       qc.invalidateQueries({ queryKey: ["/api/users"] });
-      setEditWhatsapp(null);
+      setTesteResult(null);
     },
     onError: (error: any) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const testarEnvioMutation = useMutation({
+    mutationFn: async (phone: string) => {
+      const res = await apiRequest("POST", "/api/whatsapp/teste-zapi", {
+        phone,
+        message: "✅ *Teste EcoGestor*\n\nSe você recebeu esta mensagem, as notificações de demandas estão configuradas corretamente!\n\n_EcoBrasil · EcoGestor® · Sistema de Gestão Ambiental_",
+      });
+      const data = await res.json();
+      return { ok: res.ok, data };
+    },
+    onSuccess: ({ ok, data }) => {
+      if (ok) {
+        setTesteResult({ ok: true, msg: "Mensagem enviada! Verifique o WhatsApp." });
+        toast({ title: "Teste enviado!", description: "Verifique o WhatsApp do usuário." });
+      } else {
+        const errMsg = typeof data === "string" ? data : data?.error || data?.body || "Erro desconhecido";
+        setTesteResult({ ok: false, msg: errMsg });
+        toast({ title: "Falha no envio", description: errMsg, variant: "destructive" });
+      }
+    },
+    onError: (error: any) => {
+      setTesteResult({ ok: false, msg: error.message });
+      toast({ title: "Erro de conexão", description: error.message, variant: "destructive" });
     },
   });
 
@@ -102,7 +127,10 @@ export default function AdminUsuarios() {
   const openEditWhatsapp = (u: UserItem) => {
     setEditWhatsapp(u);
     setWhatsappInput(u.whatsapp || "");
+    setTesteResult(null);
   };
+
+  const semWhatsapp = usersList.filter(u => !u.whatsapp).length;
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
@@ -119,12 +147,28 @@ export default function AdminUsuarios() {
         </div>
       </div>
 
+      {semWhatsapp > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+          <MessageCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              {semWhatsapp} usuário(s) sem WhatsApp cadastrado
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Sem número registrado, o sistema não consegue enviar notificações de demandas para o responsável. Clique em "WhatsApp" em cada usuário para cadastrar.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card className="mb-4">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Usuários cadastrados</CardTitle>
-              <CardDescription>{usersList.length} conta(s) · O sistema busca o número automaticamente: usuários → equipe → RH. Cadastre aqui para ter prioridade máxima.</CardDescription>
+              <CardDescription>
+                {usersList.length} conta(s) · {usersList.filter(u => u.whatsapp).length} com WhatsApp · O sistema usa: usuários → equipe → RH em cascata.
+              </CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -173,7 +217,7 @@ export default function AdminUsuarios() {
                       ) : (
                         <p className="text-xs text-amber-500 flex items-center gap-1 mt-0.5">
                           <Phone className="h-3 w-3" />
-                          Sem WhatsApp cadastrado
+                          Sem WhatsApp — sem notificações de demanda
                         </p>
                       )}
                     </div>
@@ -193,11 +237,14 @@ export default function AdminUsuarios() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-green-700 border-green-200 hover:bg-green-50 text-xs"
+                      className={u.whatsapp
+                        ? "text-green-700 border-green-300 bg-green-50 hover:bg-green-100 text-xs"
+                        : "text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs"
+                      }
                       onClick={() => openEditWhatsapp(u)}
                     >
                       <Phone className="h-3 w-3 mr-1" />
-                      WhatsApp
+                      {u.whatsapp ? "Editar WhatsApp" : "Cadastrar WhatsApp"}
                     </Button>
                     <Button
                       variant="ghost"
@@ -216,15 +263,15 @@ export default function AdminUsuarios() {
       </Card>
 
       {/* Dialog editar WhatsApp */}
-      <Dialog open={!!editWhatsapp} onOpenChange={(open) => { if (!open) setEditWhatsapp(null); }}>
+      <Dialog open={!!editWhatsapp} onOpenChange={(open) => { if (!open) { setEditWhatsapp(null); setTesteResult(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-700">
               <Phone className="h-5 w-5" />
-              WhatsApp de {editWhatsapp?.email}
+              WhatsApp — {editWhatsapp?.email}
             </DialogTitle>
             <DialogDescription>
-              Este número terá prioridade máxima. Se deixar vazio, o sistema usará automaticamente o telefone do cadastro de equipe ou RH do usuário.
+              Este número terá prioridade máxima nas notificações. Se vazio, o sistema tentará o telefone do cadastro de equipe ou RH.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-3">
@@ -233,22 +280,44 @@ export default function AdminUsuarios() {
               <Input
                 placeholder="Ex: 5571982090828 (com código do país)"
                 value={whatsappInput}
-                onChange={(e) => setWhatsappInput(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => {
+                  setWhatsappInput(e.target.value.replace(/\D/g, ""));
+                  setTesteResult(null);
+                }}
                 noNormalize
               />
               <p className="text-xs text-muted-foreground">
                 Digite apenas números com código do país: <strong>55</strong> + DDD + número.<br />
-                Ex: <code>5571982090828</code>
+                Ex: <code>55</code> + <code>71</code> + <code>982090828</code> = <code>5571982090828</code>
               </p>
             </div>
-            {whatsappInput && (
-              <div className="bg-green-50 border border-green-200 rounded p-2 text-xs text-green-700">
-                Número formatado: <strong>{whatsappInput}</strong>
+
+            {whatsappInput && whatsappInput.length >= 10 && (
+              <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-2">
+                <p className="text-xs text-slate-600 font-medium">Número formatado: <strong>{whatsappInput}</strong></p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-green-700 border-green-300"
+                  onClick={() => testarEnvioMutation.mutate(whatsappInput)}
+                  disabled={testarEnvioMutation.isPending}
+                >
+                  {testarEnvioMutation.isPending ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Enviando teste...</>
+                  ) : (
+                    <><Send className="h-3.5 w-3.5 mr-2" />Testar envio de WhatsApp</>
+                  )}
+                </Button>
+                {testeResult && (
+                  <div className={`text-xs p-2 rounded ${testeResult.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                    {testeResult.ok ? "✅ " : "❌ "}{testeResult.msg}
+                  </div>
+                )}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditWhatsapp(null)}>
+            <Button variant="outline" onClick={() => { setEditWhatsapp(null); setTesteResult(null); }}>
               Cancelar
             </Button>
             {editWhatsapp?.whatsapp && (
@@ -269,7 +338,7 @@ export default function AdminUsuarios() {
               {updateWhatsappMutation.isPending ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
               ) : (
-                <><CheckCircle className="h-4 w-4 mr-2" />Salvar</>
+                <><CheckCircle className="h-4 w-4 mr-2" />Salvar número</>
               )}
             </Button>
           </DialogFooter>
