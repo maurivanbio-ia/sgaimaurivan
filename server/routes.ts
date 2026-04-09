@@ -1626,6 +1626,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // Server-side image upload (for empreendimento logos, etc.)
+  app.post("/api/upload/image/server", requireAuth, async (req, res) => {
+    try {
+      const { objectStorageClient, ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+      const multer = (await import('multer')).default;
+      const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+      await new Promise<void>((resolve, reject) => {
+        upload.single('file')(req as any, res as any, (err: any) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      const file = (req as any).file;
+      if (!file) return res.status(400).json({ message: "Nenhum arquivo enviado" });
+
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowed.includes(file.mimetype)) {
+        return res.status(400).json({ message: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
+      }
+
+      const objStorage = new ObjectStorageService();
+      const privateDir = objStorage.getPrivateObjectDir();
+      if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
+
+      const { randomUUID } = await import('crypto');
+      const objectId = randomUUID();
+      const ext = file.mimetype.split('/')[1].replace('jpeg', 'jpg');
+      const objectPath = `${privateDir}/logos/${objectId}.${ext}`;
+      const pathParts = objectPath.split("/").filter((p: string) => p.length > 0);
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join("/");
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const gcsFile = bucket.file(objectName);
+      await gcsFile.save(file.buffer, { contentType: file.mimetype });
+
+      res.json({ filePath: `/files/logos/${objectId}.${ext}` });
+    } catch (error) {
+      console.error("Server-side image upload error:", error);
+      res.status(500).json({ message: "Erro ao fazer upload da imagem" });
+    }
+  });
+
   // Serve uploaded files
   app.get("/files/:filePath(*)", requireAuth, async (req, res) => {
     try {

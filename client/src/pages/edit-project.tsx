@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash, Camera, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Empreendimento } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
@@ -77,6 +77,8 @@ export default function EditProject() {
   const { unidadeSelecionada } = useUnidade();
   const [openResponsavel, setOpenResponsavel] = useState(false);
   const [openCoordenador, setOpenCoordenador] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
     queryKey: ['/api/colaboradores'],
@@ -126,6 +128,7 @@ export default function EditProject() {
         tipo: project.tipo || "outro",
         status: project.status || "ativo",
       });
+      setLogoUrl((project as any).logoUrl || null);
     }
   }, [project, form]);
 
@@ -152,8 +155,29 @@ export default function EditProject() {
     },
   });
 
+  const handleLogoUpload = async (file: File) => {
+    setLogoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/upload/image/server", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const { filePath } = await response.json();
+      setLogoUrl(filePath);
+      toast({ title: "Logo enviada com sucesso!" });
+    } catch {
+      toast({ title: "Erro ao enviar logo", variant: "destructive" });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const onSubmit = (data: ProjectFormData) => {
-    updateProject.mutate(data);
+    updateProject.mutate({ ...data, logoUrl } as any);
   };
 
   if (isLoading) {
@@ -183,6 +207,40 @@ export default function EditProject() {
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+              {/* Logo do Empreendimento */}
+              <div className="flex flex-col items-center gap-2 pb-2">
+                <p className="text-sm font-medium text-muted-foreground">Logo do Empreendimento</p>
+                <label className="relative cursor-pointer group" title="Clique para alterar logo">
+                  <div className="w-24 h-24 rounded-full border-2 border-dashed border-muted-foreground/40 bg-muted flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/60">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <Building2 className="w-10 h-10 text-muted-foreground/50" />
+                    )}
+                    <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      {logoUploading ? (
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Camera className="w-7 h-7 text-white" />
+                      )}
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={logoUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleLogoUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <p className="text-xs text-muted-foreground">JPG, PNG ou WebP · máx. 5 MB</p>
+              </div>
+
               <FormField
                 control={form.control}
                 name="codigo"
