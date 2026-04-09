@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell, Send, Trash2 } from "lucide-react";
+import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell, Send, Trash2, Phone, Users } from "lucide-react";
 import type { AlertConfig } from "@shared/schema";
 
 interface WhatsappDemandaConfig {
@@ -23,6 +23,21 @@ interface WhatsappDemandaConfig {
   diaResumoSemanal: number;
   horaResumoSemanal: string;
   enabled: boolean;
+}
+
+// Converte número de telefone ou JID bruto para o formato WhatsApp
+function normalizeJidPreview(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("@")) return trimmed;
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+  return `${withCountry}@s.whatsapp.net`;
+}
+
+function isPhoneNumber(input: string): boolean {
+  return !input.trim().includes("@");
 }
 
 const DIAS_SEMANA = [
@@ -305,27 +320,67 @@ export default function AlertConfigPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="groupJid">ID do Grupo WhatsApp *</Label>
+                  <Label htmlFor="groupJid" className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" />
+                    Número ou ID do Grupo WhatsApp *
+                  </Label>
                   <Input
                     id="groupJid"
-                    placeholder="Ex: 120363XXXXXXXXXX@g.us"
+                    placeholder="Ex: (62) 99428-5690  ou  120363...@g.us"
                     value={wpForm.groupJid || ""}
                     onChange={e => setWpForm(f => ({ ...f, groupJid: e.target.value }))}
                   />
+                  {wpForm.groupJid && (
+                    <p className="text-xs font-mono bg-muted rounded px-2 py-1 text-muted-foreground">
+                      {isPhoneNumber(wpForm.groupJid)
+                        ? <>📱 Número individual → <span className="text-green-700 dark:text-green-400">{normalizeJidPreview(wpForm.groupJid)}</span></>
+                        : <>👥 Grupo → <span className="text-blue-700 dark:text-blue-400">{wpForm.groupJid}</span></>
+                      }
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    Obtenha o ID do grupo nas configurações do grupo no WhatsApp ou via Evolution API.
+                    Digite um número brasileiro (ex: 62994285690) <em>ou</em> o JID de grupo (<code>@g.us</code>).
                   </p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="groupName">Nome do Grupo (exibição)</Label>
+                  <Label htmlFor="groupName" className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    Nome do Destinatário (exibição)
+                  </Label>
                   <Input
                     id="groupName"
-                    placeholder="Ex: Equipe Demandas"
+                    placeholder="Ex: ECO/Escritório BA"
                     value={wpForm.groupName || ""}
                     onChange={e => setWpForm(f => ({ ...f, groupName: e.target.value }))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Nome usado apenas para identificação no sistema.
+                  </p>
                 </div>
               </div>
+
+              {/* Atalho rápido — ECO/Escritório BA */}
+              {!wpConfig?.id && (
+                <div className="flex items-center gap-2 p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+                  <MessageCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <div className="flex-1 text-sm">
+                    <span className="font-medium text-green-800 dark:text-green-200">Configuração rápida:</span>
+                    <span className="text-green-700 dark:text-green-300 ml-1">ECO/Escritório BA — (62) 99428-5690</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-green-300 text-green-700 hover:bg-green-100 flex-shrink-0"
+                    onClick={() => setWpForm(f => ({
+                      ...f,
+                      groupJid: "62994285690",
+                      groupName: "ECO/Escritório BA",
+                    }))}
+                  >
+                    Usar
+                  </Button>
+                </div>
+              )}
 
               <div className="flex flex-col gap-3 p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center justify-between">

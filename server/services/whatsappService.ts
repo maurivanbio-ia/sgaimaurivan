@@ -246,28 +246,42 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
     return this.sendTextMessage(phone, fullMessage);
   }
 
-  // Envia mensagem para um grupo WhatsApp (JID no formato XXXXXXXXXXX@g.us)
+  // Normaliza o destino: aceita número de telefone brasileiro OU JID completo (@g.us / @s.whatsapp.net)
+  normalizeJid(input: string): string {
+    const trimmed = input.trim();
+    // Já é um JID completo
+    if (trimmed.includes("@")) return trimmed;
+    // É um número de telefone — formata para JID individual brasileiro
+    const digits = trimmed.replace(/\D/g, "");
+    // Se não tem código de país, adiciona 55
+    const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+    return `${withCountry}@s.whatsapp.net`;
+  }
+
+  // Envia mensagem para um grupo ou número WhatsApp
+  // Aceita: JID de grupo (XXXXXXXXXXX@g.us), JID individual (@s.whatsapp.net), ou número bruto ex: "62994285690"
   async sendGroupMessage(groupJid: string, message: string): Promise<EvolutionResponse> {
     if (!this.instanceUrl || !this.apiKey) {
       console.error("[WhatsApp] Evolution API não configurada");
       return { error: "Evolution API não configurada" };
     }
     try {
+      const resolvedJid = this.normalizeJid(groupJid);
       const baseUrl = this.getBaseUrl();
       const response = await fetch(`${baseUrl}/message/sendText/${this.instanceName}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": this.apiKey },
-        body: JSON.stringify({ number: groupJid, text: message }),
+        body: JSON.stringify({ number: resolvedJid, text: message }),
       });
       const data = await response.json();
       if (!response.ok) {
-        console.error("[WhatsApp] Erro ao enviar para grupo:", data);
-        return { error: data.message || "Erro ao enviar para grupo" };
+        console.error("[WhatsApp] Erro ao enviar mensagem:", data);
+        return { error: data.message || "Erro ao enviar mensagem" };
       }
-      console.log("[WhatsApp] Mensagem enviada para grupo:", groupJid);
+      console.log(`[WhatsApp] Mensagem enviada para ${resolvedJid} (entrada: ${groupJid})`);
       return data;
     } catch (error) {
-      console.error("[WhatsApp] Erro de conexão (grupo):", error);
+      console.error("[WhatsApp] Erro de conexão:", error);
       return { error: "Erro de conexão com Evolution API" };
     }
   }
