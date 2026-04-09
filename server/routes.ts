@@ -585,6 +585,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Verify admin password (used to gate admin pages)
+  app.post("/api/admin/verify-password", requireAuth, async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password || password !== ADMIN_UNLOCK_PASSWORD) {
+        return res.status(401).json({ success: false, message: "Senha incorreta" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Erro interno" });
+    }
+  });
+
   // Promote current user to admin using admin password (self-service role fix)
   app.post("/api/auth/promote-admin", requireAuth, async (req, res) => {
     try {

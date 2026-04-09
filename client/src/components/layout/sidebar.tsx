@@ -211,7 +211,7 @@ export default function Sidebar() {
         { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
         { href: "/blog-admin", label: "Blog Institucional", icon: Globe, testid: "nav-blog-admin" },
         { href: "/onedrive-backups", label: "Backup & Dropbox", icon: Cloud, testid: "nav-onedrive-backups" },
-        { href: "/admin/usuarios", label: "Gerenciar Usuários", icon: UserCog, testid: "nav-admin-usuarios", adminOnly: true },
+        { href: "/admin/usuarios", label: "Gerenciar Usuários", icon: UserCog, testid: "nav-admin-usuarios" },
       ]
     },
   ];

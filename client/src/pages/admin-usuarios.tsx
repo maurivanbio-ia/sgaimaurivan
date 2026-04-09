@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Users, Trash2, Search, ShieldCheck, UserCog, Loader2, AlertTriangle, Phone, CheckCircle, Send, MessageCircle } from "lucide-react";
+import { ArrowLeft, Users, Trash2, Search, ShieldCheck, UserCog, Loader2, AlertTriangle, Phone, CheckCircle, Send, MessageCircle, Lock, KeyRound } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface UserItem {
@@ -38,7 +38,88 @@ const CARGO_LABELS: Record<string, string> = {
   rh: "RH",
 };
 
-export default function AdminUsuarios() {
+// ─── Portão de Senha ─────────────────────────────────────────────────────────
+function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
+  const { toast } = useToast();
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+
+  const verifyMutation = useMutation({
+    mutationFn: async (password: string) => {
+      const res = await apiRequest("POST", "/api/admin/verify-password", { password });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Senha incorreta");
+      return data;
+    },
+    onSuccess: () => {
+      onUnlock();
+    },
+    onError: (error: any) => {
+      setErro(error.message || "Senha incorreta");
+      setSenha("");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!senha.trim()) return;
+    setErro("");
+    verifyMutation.mutate(senha);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 p-4">
+      <Card className="w-full max-w-sm shadow-xl border-slate-200">
+        <CardHeader className="text-center pb-2">
+          <div className="flex justify-center mb-3">
+            <div className="w-14 h-14 rounded-full bg-slate-800 dark:bg-slate-700 flex items-center justify-center">
+              <Lock className="h-7 w-7 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-xl">Área Restrita</CardTitle>
+          <CardDescription>
+            Digite a senha de administrador para acessar o gerenciamento de usuários.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="senha-admin">Senha de Administrador</Label>
+              <Input
+                id="senha-admin"
+                type="password"
+                placeholder="••••••••"
+                value={senha}
+                onChange={(e) => { setSenha(e.target.value); setErro(""); }}
+                autoFocus
+                noNormalize
+              />
+              {erro && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> {erro}
+                </p>
+              )}
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-slate-800 hover:bg-slate-900"
+              disabled={verifyMutation.isPending || !senha}
+            >
+              {verifyMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verificando...</>
+              ) : (
+                <><KeyRound className="h-4 w-4 mr-2" />Entrar</>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Conteúdo principal ───────────────────────────────────────────────────────
+function AdminUsuariosContent() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [, setLocation] = useLocation();
@@ -358,17 +439,11 @@ export default function AdminUsuarios() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-sm">
-              Tem certeza que deseja excluir o usuário:
-            </p>
-            <p className="font-medium text-sm mt-1 p-2 bg-muted rounded">
-              {confirmDelete?.email}
-            </p>
+            <p className="text-sm">Tem certeza que deseja excluir o usuário:</p>
+            <p className="font-medium text-sm mt-1 p-2 bg-muted rounded">{confirmDelete?.email}</p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(null)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancelar</Button>
             <Button
               variant="destructive"
               onClick={() => confirmDelete && deleteMutation.mutate(confirmDelete.id)}
@@ -385,4 +460,15 @@ export default function AdminUsuarios() {
       </Dialog>
     </div>
   );
+}
+
+// ─── Página principal (com portão de senha) ──────────────────────────────────
+export default function AdminUsuarios() {
+  const [unlocked, setUnlocked] = useState(false);
+
+  if (!unlocked) {
+    return <PasswordGate onUnlock={() => setUnlocked(true)} />;
+  }
+
+  return <AdminUsuariosContent />;
 }
