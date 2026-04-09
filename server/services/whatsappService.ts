@@ -21,25 +21,14 @@ interface EvolutionResponse {
 }
 
 class WhatsAppService {
-  private instanceUrl: string;
-  private apiKey: string;
-  private instanceName: string;
-  private n8nWebhookUrl: string;
-  private zapiInstanceId: string;
-  private zapiToken: string;
-  private zapiClientToken: string;
-
-  constructor() {
-    this.instanceUrl = process.env.EVOLUTION_INSTANCE_URL || "";
-    this.apiKey = process.env.EVOLUTION_API_KEY || "";
-    this.instanceName = this.extractInstanceName();
-    this.n8nWebhookUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL || "";
-    this.zapiInstanceId = process.env.ZAPI_INSTANCE_ID || "";
-    this.zapiToken = process.env.ZAPI_TOKEN || "";
-    this.zapiClientToken = process.env.ZAPI_CLIENT_TOKEN || "";
-  }
-
-  private extractInstanceName(): string {
+  // Lê env vars dinamicamente (não no constructor) para evitar problema de singleton criado antes dos secrets
+  private get instanceUrl() { return process.env.EVOLUTION_INSTANCE_URL || ""; }
+  private get apiKey() { return process.env.EVOLUTION_API_KEY || ""; }
+  private get n8nWebhookUrl() { return process.env.N8N_WHATSAPP_WEBHOOK_URL || ""; }
+  private get zapiInstanceId() { return process.env.ZAPI_INSTANCE_ID || ""; }
+  private get zapiToken() { return process.env.ZAPI_TOKEN || ""; }
+  private get zapiClientToken() { return process.env.ZAPI_CLIENT_TOKEN || ""; }
+  private get instanceName() {
     const match = this.instanceUrl.match(/instances\/([^\/]+)/);
     return match ? match[1] : "ecobrasil-prod";
   }
