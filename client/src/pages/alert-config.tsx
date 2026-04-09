@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell, Send, Trash2, Phone, Users } from "lucide-react";
+import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell, Send, Trash2, Phone, Users, Wifi } from "lucide-react";
 import type { AlertConfig } from "@shared/schema";
 
 interface WhatsappDemandaConfig {
@@ -123,6 +123,27 @@ export default function AlertConfigPage() {
     },
     onSuccess: (data) => toast({ title: data.message || "Resumo enviado!" }),
     onError: (err: any) => toast({ title: err.message || "Erro ao enviar resumo", variant: "destructive" }),
+  });
+
+  const testarConexaoWp = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/whatsapp/diagnostico", { credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error("Falha ao verificar");
+      return data;
+    },
+    onSuccess: (data) => {
+      const lines = [
+        `URL configurada: ${data.instanceUrlConfigured ? "✅ Sim" : "❌ Não"}`,
+        `Chave API: ${data.apiKeyConfigured ? "✅ Sim" : "❌ Não"}`,
+        `Contém /instances/ na URL: ${data.hasInstancesInUrl ? "✅ Sim" : "⚠️ Não"}`,
+        `Base URL: ${data.parsedBaseUrl}`,
+        `Instance name: ${data.parsedInstanceName}`,
+        `Endpoint gerado: ${data.endpointGerado}`,
+      ];
+      toast({ title: "Diagnóstico Evolution API", description: lines.join("\n") });
+    },
+    onError: () => toast({ title: "Erro ao verificar diagnóstico", variant: "destructive" }),
   });
 
   const testAlerts = useMutation({
@@ -449,6 +470,17 @@ export default function AlertConfigPage() {
                   />
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    disabled={testarConexaoWp.isPending}
+                    onClick={() => testarConexaoWp.mutate()}
+                    title="Verificar configuração da Evolution API"
+                  >
+                    <Wifi className="h-3.5 w-3.5 mr-1.5" />
+                    {testarConexaoWp.isPending ? "..." : "Diagnóstico"}
+                  </Button>
                   {wpConfig?.id && (
                     <>
                       <Button

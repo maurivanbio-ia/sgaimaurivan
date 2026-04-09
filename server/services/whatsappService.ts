@@ -268,21 +268,23 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
     try {
       const resolvedJid = this.normalizeJid(groupJid);
       const baseUrl = this.getBaseUrl();
-      const response = await fetch(`${baseUrl}/message/sendText/${this.instanceName}`, {
+      const endpoint = `${baseUrl}/message/sendText/${this.instanceName}`;
+      console.log(`[WhatsApp] Enviando para: ${endpoint} | JID: ${resolvedJid}`);
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": this.apiKey },
         body: JSON.stringify({ number: resolvedJid, text: message }),
       });
       const data = await response.json();
       if (!response.ok) {
-        console.error("[WhatsApp] Erro ao enviar mensagem:", data);
-        return { error: data.message || "Erro ao enviar mensagem" };
+        console.error("[WhatsApp] Erro ao enviar mensagem:", JSON.stringify(data));
+        return { error: data.message || data.error || "Erro ao enviar mensagem" };
       }
       console.log(`[WhatsApp] Mensagem enviada para ${resolvedJid} (entrada: ${groupJid})`);
       return data;
-    } catch (error) {
-      console.error("[WhatsApp] Erro de conexão:", error);
-      return { error: "Erro de conexão com Evolution API" };
+    } catch (error: any) {
+      console.error("[WhatsApp] Erro de conexão com Evolution API:", error?.message || error);
+      return { error: `Erro de conexão: ${error?.message || "verifique a URL da Evolution API"}` };
     }
   }
 
