@@ -7022,6 +7022,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
         id: users.id,
         email: users.email,
         cargo: users.cargo,
+        whatsapp: users.whatsapp,
       }).from(users).where(userConditions.length > 0 ? and(...userConditions) : undefined);
       
       // Get RH collaborators to enhance user names
@@ -7046,7 +7047,7 @@ Retorne o texto extraído de forma estruturada e organizada.`
       }
       
       // Build combined list - prioritize system users (they have valid users.id for FK)
-      const combined: { id: number; nome: string; cargo: string | null; email: string | null; tipo: string; userId: number }[] = [];
+      const combined: { id: number; nome: string; cargo: string | null; email: string | null; tipo: string; userId: number; whatsapp?: string | null }[] = [];
       const seenEmails = new Set<string>();
       
       // Add system users - use RH name if available, otherwise extract from email
@@ -7062,7 +7063,8 @@ Retorne o texto extraído de forma estruturada e organizada.`
             cargo: rhInfo?.cargo || user.cargo || null, 
             email: user.email, 
             tipo: 'user',
-            userId: user.id  // Explicit userId for clarity
+            userId: user.id,  // Explicit userId for clarity
+            whatsapp: user.whatsapp || null,
           });
         }
       }

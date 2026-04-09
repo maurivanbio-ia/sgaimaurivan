@@ -76,6 +76,7 @@ interface Colaborador {
   cargo: string | null;
   email: string | null;
   tipo: "rh" | "user";
+  whatsapp?: string | null;
 }
 
 type Status = "a_fazer" | "em_andamento" | "em_revisao" | "concluido" | "cancelado";
@@ -523,6 +524,19 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
               </Command>
             </PopoverContent>
           </Popover>
+          {form.responsavelId && (() => {
+            const resp = colaboradores.find(c => c.id === form.responsavelId);
+            if (!resp) return null;
+            return resp.whatsapp ? (
+              <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                ✅ Receberá notificação por WhatsApp
+              </p>
+            ) : (
+              <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                ⚠️ Sem WhatsApp — cadastre em Sistema → Gerenciar Usuários
+              </p>
+            );
+          })()}
         </div>
 
         <div>
