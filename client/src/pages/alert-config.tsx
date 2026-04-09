@@ -5,18 +5,104 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell } from "lucide-react";
+import { Play, Settings, Mail, MessageCircle, Calendar, ChevronDown, ChevronRight, Bell, Send, Trash2 } from "lucide-react";
 import type { AlertConfig } from "@shared/schema";
+
+interface WhatsappDemandaConfig {
+  id?: number;
+  unidade: string;
+  groupJid: string;
+  groupName?: string;
+  notifyNovaDemanda: boolean;
+  notifyResumeSemanal: boolean;
+  diaResumoSemanal: number;
+  horaResumoSemanal: string;
+  enabled: boolean;
+}
+
+const DIAS_SEMANA = [
+  { value: "0", label: "Domingo" },
+  { value: "1", label: "Segunda-feira" },
+  { value: "2", label: "Terça-feira" },
+  { value: "3", label: "Quarta-feira" },
+  { value: "4", label: "Quinta-feira" },
+  { value: "5", label: "Sexta-feira" },
+  { value: "6", label: "Sábado" },
+];
 
 export default function AlertConfigPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
+  const [wpForm, setWpForm] = useState<Partial<WhatsappDemandaConfig>>({
+    groupJid: "", groupName: "", notifyNovaDemanda: true,
+    notifyResumeSemanal: true, diaResumoSemanal: 1, horaResumoSemanal: "08:00", enabled: true,
+  });
 
   const { data: configs = [], isLoading } = useQuery<AlertConfig[]>({
     queryKey: ["/api/alerts/configs"],
+  });
+
+  const { data: wpConfig, isLoading: wpLoading } = useQuery<WhatsappDemandaConfig | null>({
+    queryKey: ["/api/whatsapp/demanda-config"],
+    staleTime: 0,
+  });
+
+  // Sync form when config loads
+  const [wpFormSynced, setWpFormSynced] = useState(false);
+  if (wpConfig && !wpFormSynced) {
+    setWpFormSynced(true);
+    setWpForm({
+      groupJid: wpConfig.groupJid,
+      groupName: wpConfig.groupName || "",
+      notifyNovaDemanda: wpConfig.notifyNovaDemanda,
+      notifyResumeSemanal: wpConfig.notifyResumeSemanal,
+      diaResumoSemanal: wpConfig.diaResumoSemanal,
+      horaResumoSemanal: wpConfig.horaResumoSemanal,
+      enabled: wpConfig.enabled,
+    });
+  }
+
+  const saveWpConfig = useMutation({
+    mutationFn: async (data: Partial<WhatsappDemandaConfig>) => {
+      const method = wpConfig?.id ? "PUT" : "POST";
+      const res = await apiRequest(method, "/api/whatsapp/demanda-config", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/demanda-config"] });
+      setWpFormSynced(false);
+      toast({ title: "Configuração salva com sucesso!" });
+    },
+    onError: () => toast({ title: "Erro ao salvar configuração", variant: "destructive" }),
+  });
+
+  const deleteWpConfig = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/whatsapp/demanda-config");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/demanda-config"] });
+      setWpFormSynced(false);
+      setWpForm({ groupJid: "", groupName: "", notifyNovaDemanda: true, notifyResumeSemanal: true, diaResumoSemanal: 1, horaResumoSemanal: "08:00", enabled: true });
+      toast({ title: "Configuração removida" });
+    },
+    onError: () => toast({ title: "Erro ao remover configuração", variant: "destructive" }),
+  });
+
+  const enviarResumo = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/whatsapp/demanda-config/enviar-resumo");
+      return res.json();
+    },
+    onSuccess: (data) => toast({ title: data.message || "Resumo enviado!" }),
+    onError: (err: any) => toast({ title: "Erro ao enviar resumo", variant: "destructive" }),
   });
 
   const testAlerts = useMutation({
@@ -197,6 +283,149 @@ export default function AlertConfigPage() {
           {testeNotificacaoMutation.isPending ? "Criando..." : "Criar Notificação de Teste"}
         </Button>
       </div>
+
+      {/* WhatsApp Group Config */}
+      <Card className="mb-6 border-green-200 dark:border-green-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-200">
+            <MessageCircle className="h-5 w-5 text-green-600" />
+            Notificações de Demandas via WhatsApp
+            {wpConfig?.enabled && (
+              <Badge className="bg-green-100 text-green-700 border-green-300 ml-2">Ativo</Badge>
+            )}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Configure um grupo do WhatsApp para receber avisos automáticos de novas demandas e resumos semanais.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {wpLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando configuração...</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="groupJid">ID do Grupo WhatsApp *</Label>
+                  <Input
+                    id="groupJid"
+                    placeholder="Ex: 120363XXXXXXXXXX@g.us"
+                    value={wpForm.groupJid || ""}
+                    onChange={e => setWpForm(f => ({ ...f, groupJid: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Obtenha o ID do grupo nas configurações do grupo no WhatsApp ou via Evolution API.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="groupName">Nome do Grupo (exibição)</Label>
+                  <Input
+                    id="groupName"
+                    placeholder="Ex: Equipe Demandas"
+                    value={wpForm.groupName || ""}
+                    onChange={e => setWpForm(f => ({ ...f, groupName: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Notificar nova demanda</p>
+                    <p className="text-xs text-muted-foreground">Envia mensagem no grupo a cada demanda cadastrada</p>
+                  </div>
+                  <Switch
+                    checked={wpForm.notifyNovaDemanda ?? true}
+                    onCheckedChange={v => setWpForm(f => ({ ...f, notifyNovaDemanda: v }))}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Resumo semanal</p>
+                    <p className="text-xs text-muted-foreground">Envia um resumo das demandas da semana no dia/hora configurados</p>
+                  </div>
+                  <Switch
+                    checked={wpForm.notifyResumeSemanal ?? true}
+                    onCheckedChange={v => setWpForm(f => ({ ...f, notifyResumeSemanal: v }))}
+                  />
+                </div>
+              </div>
+
+              {wpForm.notifyResumeSemanal && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Dia do resumo</Label>
+                    <Select
+                      value={String(wpForm.diaResumoSemanal ?? 1)}
+                      onValueChange={v => setWpForm(f => ({ ...f, diaResumoSemanal: Number(v) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DIAS_SEMANA.map(d => (
+                          <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="hora">Horário (BRT)</Label>
+                    <Input
+                      id="hora"
+                      type="time"
+                      value={wpForm.horaResumoSemanal || "08:00"}
+                      onChange={e => setWpForm(f => ({ ...f, horaResumoSemanal: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Ativar integração</p>
+                  <Switch
+                    checked={wpForm.enabled ?? true}
+                    onCheckedChange={v => setWpForm(f => ({ ...f, enabled: v }))}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {wpConfig?.id && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-700 border-green-300 hover:bg-green-50"
+                        disabled={enviarResumo.isPending}
+                        onClick={() => enviarResumo.mutate()}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        {enviarResumo.isPending ? "Enviando..." : "Enviar resumo agora"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        disabled={deleteWpConfig.isPending}
+                        onClick={() => deleteWpConfig.mutate()}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={saveWpConfig.isPending || !wpForm.groupJid?.trim()}
+                    onClick={() => saveWpConfig.mutate(wpForm)}
+                  >
+                    {saveWpConfig.isPending ? "Salvando..." : wpConfig?.id ? "Atualizar" : "Salvar"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Alert Configurations */}
       <div className="space-y-4">

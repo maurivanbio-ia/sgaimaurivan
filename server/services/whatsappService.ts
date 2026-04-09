@@ -246,6 +246,88 @@ _EcoGestor - Sistema de Gestão Ambiental_`;
     return this.sendTextMessage(phone, fullMessage);
   }
 
+  // Envia mensagem para um grupo WhatsApp (JID no formato XXXXXXXXXXX@g.us)
+  async sendGroupMessage(groupJid: string, message: string): Promise<EvolutionResponse> {
+    if (!this.instanceUrl || !this.apiKey) {
+      console.error("[WhatsApp] Evolution API não configurada");
+      return { error: "Evolution API não configurada" };
+    }
+    try {
+      const baseUrl = this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/message/sendText/${this.instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": this.apiKey },
+        body: JSON.stringify({ number: groupJid, text: message }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("[WhatsApp] Erro ao enviar para grupo:", data);
+        return { error: data.message || "Erro ao enviar para grupo" };
+      }
+      console.log("[WhatsApp] Mensagem enviada para grupo:", groupJid);
+      return data;
+    } catch (error) {
+      console.error("[WhatsApp] Erro de conexão (grupo):", error);
+      return { error: "Erro de conexão com Evolution API" };
+    }
+  }
+
+  buildNovaDemandaMessage(demanda: {
+    titulo: string;
+    setor: string;
+    prioridade: string;
+    dataEntrega: string;
+    responsavel?: string;
+    empreendimento?: string;
+    descricao?: string;
+  }): string {
+    const prioIcon = demanda.prioridade === "alta" ? "🔴" : demanda.prioridade === "media" ? "🟡" : "🟢";
+    const setorMap: Record<string, string> = {
+      licenciamento: "Licenciamento", monitoramento: "Monitoramento",
+      compensacao: "Compensação", juridico: "Jurídico",
+      administrativo: "Administrativo", financeiro: "Financeiro", outro: "Outro",
+    };
+    const lines = [
+      `📋 *Nova Demanda Cadastrada*`,
+      ``,
+      `${prioIcon} *Prioridade:* ${demanda.prioridade.toUpperCase()}`,
+      `📝 *Título:* ${demanda.titulo}`,
+      `🏷️ *Setor:* ${setorMap[demanda.setor] || demanda.setor}`,
+      `📅 *Prazo:* ${demanda.dataEntrega}`,
+    ];
+    if (demanda.responsavel) lines.push(`👤 *Responsável:* ${demanda.responsavel}`);
+    if (demanda.empreendimento) lines.push(`🏢 *Empreendimento:* ${demanda.empreendimento}`);
+    if (demanda.descricao) lines.push(`📄 *Descrição:* ${demanda.descricao.slice(0, 200)}${demanda.descricao.length > 200 ? '...' : ''}`);
+    lines.push(``, `_EcoGestor - Sistema de Gestão Ambiental_`);
+    return lines.join("\n");
+  }
+
+  buildResumoDemandas(demandas: Array<{
+    titulo: string;
+    setor: string;
+    prioridade: string;
+    dataEntrega: string;
+    status: string;
+  }>, periodo: string): string {
+    const statusLabel: Record<string, string> = {
+      a_fazer: "A Fazer", em_andamento: "Em Andamento", concluido: "Concluído",
+      pausado: "Pausado", cancelado: "Cancelado",
+    };
+    const prioIcon = (p: string) => p === "alta" ? "🔴" : p === "media" ? "🟡" : "🟢";
+    const header = [`📊 *Resumo Semanal de Demandas*`, `📅 Período: ${periodo}`, `Total: *${demandas.length} demanda(s)*`, ``];
+    if (demandas.length === 0) {
+      header.push("Nenhuma demanda para este período.");
+    } else {
+      demandas.slice(0, 15).forEach((d, i) => {
+        header.push(`${i + 1}. ${prioIcon(d.prioridade)} *${d.titulo}*`);
+        header.push(`   📅 Prazo: ${d.dataEntrega} | ${statusLabel[d.status] || d.status}`);
+      });
+      if (demandas.length > 15) header.push(`... e mais ${demandas.length - 15} demanda(s).`);
+    }
+    header.push(``, `_EcoGestor - Sistema de Gestão Ambiental_`);
+    return header.join("\n");
+  }
+
   async checkInstanceStatus(): Promise<{ connected: boolean; state?: string; error?: string }> {
     if (!this.instanceUrl || !this.apiKey) {
       return { connected: false, error: "Evolution API não configurada" };
