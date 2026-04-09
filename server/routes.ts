@@ -1889,13 +1889,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let empNome: string | undefined;
         let responsavelWhatsapp: string | undefined;
         let responsavelEmail: string | undefined;
+        let whatsappFonte: string = "—";
 
-        // Buscar WhatsApp e email do responsável
+        // Helper: normaliza número para formato E.164 Brasil (5571982090828)
+        const normalizePhone = (raw: string | null | undefined): string | undefined => {
+          if (!raw) return undefined;
+          const digits = raw.replace(/\D/g, "");
+          if (!digits) return undefined;
+          // Se já tem 13 dígitos começando com 55, ok
+          if (digits.length === 13 && digits.startsWith("55")) return digits;
+          // Se tem 12 dígitos começando com 55 (sem o 9), tenta adicionar o 9
+          if (digits.length === 12 && digits.startsWith("55")) return digits;
+          // Se tem 11 dígitos (DDD + 9 + número), adiciona 55
+          if (digits.length === 11) return `55${digits}`;
+          // Se tem 10 dígitos (DDD + número sem 9), adiciona 55
+          if (digits.length === 10) return `55${digits}`;
+          // Se tem 9 dígitos (só número sem DDD), não consegue normalizar
+          return undefined;
+        };
+
+        // Buscar WhatsApp e email do responsável — cascata de fontes
         if (demandaData.responsavelId) {
           const [resp] = await db.select({ whatsapp: users.whatsapp, email: users.email })
             .from(users).where(eq(users.id, demandaData.responsavelId));
-          responsavelWhatsapp = resp?.whatsapp || undefined;
           responsavelEmail = resp?.email || undefined;
+
+          // 1ª prioridade: users.whatsapp (cadastrado em Gerenciar Usuários)
+          if (resp?.whatsapp) {
+            responsavelWhatsapp = normalizePhone(resp.whatsapp);
+            if (responsavelWhatsapp) whatsappFonte = "users.whatsapp";
+          }
+
+          // 2ª prioridade: membrosEquipe.telefone
+          if (!responsavelWhatsapp) {
+            const [membro] = await db.select({ telefone: membrosEquipe.telefone, rhRegistroId: membrosEquipe.rhRegistroId })
+              .from(membrosEquipe).where(eq(membrosEquipe.userId, demandaData.responsavelId));
+            if (membro?.telefone) {
+              responsavelWhatsapp = normalizePhone(membro.telefone);
+              if (responsavelWhatsapp) whatsappFonte = "membrosEquipe.telefone";
+            }
+
+            // 3ª prioridade: rhRegistros.contatoTelefone (via membrosEquipe.rhRegistroId)
+            if (!responsavelWhatsapp && membro?.rhRegistroId) {
+              const [rh] = await db.select({ telefone: rhRegistros.contatoTelefone })
+                .from(rhRegistros).where(eq(rhRegistros.id, membro.rhRegistroId));
+              if (rh?.telefone) {
+                responsavelWhatsapp = normalizePhone(rh.telefone);
+                if (responsavelWhatsapp) whatsappFonte = "rhRegistros.contatoTelefone";
+              }
+            }
+
+            // 4ª prioridade: rhRegistros.contatoTelefone (por email correspondente)
+            if (!responsavelWhatsapp && responsavelEmail) {
+              const [rh] = await db.select({ telefone: rhRegistros.contatoTelefone })
+                .from(rhRegistros).where(eq(rhRegistros.contatoEmail, responsavelEmail));
+              if (rh?.telefone) {
+                responsavelWhatsapp = normalizePhone(rh.telefone);
+                if (responsavelWhatsapp) whatsappFonte = "rhRegistros.contatoEmail";
+              }
+            }
+          }
         }
 
         // Buscar nome do empreendimento
@@ -1916,12 +1969,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Enviar para o WhatsApp pessoal do responsável
         if (responsavelWhatsapp) {
-          console.log(`[WhatsApp] Enviando nova demanda para responsável ${responsavelEmail} → ${responsavelWhatsapp}`);
+          console.log(`[WhatsApp] Enviando nova demanda para responsável ${responsavelEmail} → ${responsavelWhatsapp} (fonte: ${whatsappFonte})`);
           whatsappService.sendTextMessage(responsavelWhatsapp, msg).catch(e =>
             console.error("[WhatsApp] Falha ao enviar para responsável:", e)
           );
         } else {
-          console.log(`[WhatsApp] Responsável (id=${demandaData.responsavelId}) não tem WhatsApp cadastrado — notificação pessoal ignorada`);
+          console.log(`[WhatsApp] Responsável (id=${demandaData.responsavelId}, email=${responsavelEmail}) não tem telefone em nenhuma fonte — notificação ignorada`);
         }
 
         // Também enviar para grupo se configurado
