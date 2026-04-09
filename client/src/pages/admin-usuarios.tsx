@@ -124,7 +124,7 @@ export default function AdminUsuarios() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Usuários cadastrados</CardTitle>
-              <CardDescription>{usersList.length} conta(s) · Configure o WhatsApp de cada usuário para receber notificações de demandas</CardDescription>
+              <CardDescription>{usersList.length} conta(s) · O sistema busca o número automaticamente: usuários → equipe → RH. Cadastre aqui para ter prioridade máxima.</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -224,7 +224,7 @@ export default function AdminUsuarios() {
               WhatsApp de {editWhatsapp?.email}
             </DialogTitle>
             <DialogDescription>
-              Quando uma demanda for atribuída a este usuário, o sistema enviará uma notificação para este número.
+              Este número terá prioridade máxima. Se deixar vazio, o sistema usará automaticamente o telefone do cadastro de equipe ou RH do usuário.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-3">
