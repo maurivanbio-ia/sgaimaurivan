@@ -133,13 +133,15 @@ export default function AlertConfigPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, message: "✅ Teste EcoGestor - se recebeu, Z-API está funcionando!" }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any;
+      try { data = JSON.parse(text); } catch { data = { ok: false, body: text, status: res.status }; }
       return data;
     },
     onSuccess: (data) => {
       toast({
         title: `Z-API Teste — HTTP ${data.status}`,
-        description: `Resposta: ${data.body}`,
+        description: `Resposta: ${typeof data.body === "string" ? data.body.substring(0, 200) : JSON.stringify(data.body)}`,
         variant: data.ok ? "default" : "destructive",
       });
     },
