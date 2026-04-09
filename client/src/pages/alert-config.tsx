@@ -113,11 +113,16 @@ export default function AlertConfigPage() {
 
   const enviarResumo = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/whatsapp/demanda-config/enviar-resumo");
-      return res.json();
+      const res = await fetch("/api/whatsapp/demanda-config/enviar-resumo", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao enviar resumo");
+      return data;
     },
     onSuccess: (data) => toast({ title: data.message || "Resumo enviado!" }),
-    onError: (err: any) => toast({ title: "Erro ao enviar resumo", variant: "destructive" }),
+    onError: (err: any) => toast({ title: err.message || "Erro ao enviar resumo", variant: "destructive" }),
   });
 
   const testAlerts = useMutation({

@@ -2211,12 +2211,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       const result = await whatsappService.sendGroupMessage(groupConfig.groupJid, msg);
       if (result.error) {
+        console.error("[WhatsApp Resumo] Evolution API retornou erro:", result.error, "| groupJid:", groupConfig.groupJid);
         return res.status(500).json({ error: result.error });
       }
+      console.log("[WhatsApp Resumo] Enviado com sucesso para:", groupConfig.groupJid);
       res.json({ success: true, message: "Resumo enviado com sucesso!" });
-    } catch (error) {
-      console.error("[WhatsApp Resumo] Erro ao enviar resumo manual:", error);
-      res.status(500).json({ error: "Erro ao enviar resumo" });
+    } catch (error: any) {
+      console.error("[WhatsApp Resumo] Erro ao enviar resumo manual:", error?.message || error);
+      res.status(500).json({ error: error?.message || "Erro ao enviar resumo" });
     }
   });
 
