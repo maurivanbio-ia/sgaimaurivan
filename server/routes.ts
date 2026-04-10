@@ -592,6 +592,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!password || password !== ADMIN_UNLOCK_PASSWORD) {
         return res.status(401).json({ success: false, message: "Senha incorreta" });
       }
+      // Marca a sessão como desbloqueada para admin
+      (req.session as any).adminUnlocked = true;
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ success: false, message: "Erro interno" });
@@ -13934,8 +13936,8 @@ Regras:
   // ========================================
   app.get('/api/users', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+      const isAdmin = req.user?.role === 'admin' || req.user?.cargo === 'admin' || (req.session as any).adminUnlocked === true;
+      if (!isAdmin) return res.status(403).json({ error: 'Acesso negado' });
       const allUsers = await db.select({ id: users.id, email: users.email, role: users.role, cargo: users.cargo, unidade: users.unidade, criadoEm: users.createdAt, whatsapp: users.whatsapp }).from(users).orderBy(users.id);
       res.json(allUsers);
     } catch (error: any) {
@@ -13945,8 +13947,8 @@ Regras:
 
   app.delete('/api/users/:id', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+      const isAdmin = req.user?.role === 'admin' || req.user?.cargo === 'admin' || (req.session as any).adminUnlocked === true;
+      if (!isAdmin) return res.status(403).json({ error: 'Acesso negado' });
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
       if (id === req.session.userId) return res.status(400).json({ error: 'Você não pode excluir sua própria conta' });
@@ -13960,8 +13962,8 @@ Regras:
 
   app.patch('/api/users/:id', requireAuth, async (req: any, res) => {
     try {
-      const user = req.user;
-      if (user?.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+      const isAdmin = req.user?.role === 'admin' || req.user?.cargo === 'admin' || (req.session as any).adminUnlocked === true;
+      if (!isAdmin) return res.status(403).json({ error: 'Acesso negado' });
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
       const { role, cargo, unidade, whatsapp } = req.body;
