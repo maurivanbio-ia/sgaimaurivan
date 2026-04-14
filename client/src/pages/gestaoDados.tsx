@@ -589,8 +589,14 @@ export default function GestaoDados() {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json();
-        toast({ title: "Erro na análise IA", description: err.error || "Falha na análise.", variant: "destructive" });
+        let errMsg = "Falha na análise por IA.";
+        try {
+          const body = await res.json();
+          errMsg = body.error || errMsg;
+        } catch {
+          try { errMsg = (await res.text()).slice(0, 200) || errMsg; } catch { /* noop */ }
+        }
+        toast({ title: "Erro na análise IA", description: errMsg, variant: "destructive" });
         return;
       }
       const result = await res.json();
