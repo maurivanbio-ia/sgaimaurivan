@@ -2646,6 +2646,17 @@ export class DatabaseStorage implements IStorage {
         objectPath: datasets.objectPath,
         pastaId: datasets.pastaId,
         unidade: datasets.unidade,
+        // Campos de gestão documental estruturada
+        tipoDocumental: datasets.tipoDocumental,
+        numeroDocumento: datasets.numeroDocumento,
+        orgaoEmissor: datasets.orgaoEmissor,
+        prazoAtendimento: datasets.prazoAtendimento,
+        statusDocumental: datasets.statusDocumental,
+        documentoRelacionadoId: datasets.documentoRelacionadoId,
+        vinculoTipo: datasets.vinculoTipo,
+        exigencias: datasets.exigencias,
+        resumoIA: datasets.resumoIA,
+        dataEmissao: datasets.dataEmissao,
         empreendimentoNome: empreendimentos.nome,
       })
       .from(datasets)
