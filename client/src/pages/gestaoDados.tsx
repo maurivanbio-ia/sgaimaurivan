@@ -1874,17 +1874,27 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
     parecer: "🔍", art: "🔧", mapa: "🗺️", documento_legal: "⚖️", condicionante: "📌", outro: "📄",
   };
 
+  // Retorna a data a usar na timeline (com fallback para dataUpload em modo documento)
   const getDataDocumento = (d: any): Date | null => {
     const raw = modoVisualizacao === "documento"
-      ? (d.dataEmissao || (d as any).dataReferencia)
+      ? (d.dataEmissao || (d as any).dataReferencia || d.dataUpload) // fallback para upload
       : d.dataUpload;
     if (!raw) return null;
     const dt = new Date(raw);
     return isNaN(dt.getTime()) ? null : dt;
   };
 
+  // Indica se o documento não tem data de emissão/referência (usando fallback de upload)
+  const isDateFallback = (d: any): boolean =>
+    modoVisualizacao === "documento" && !d.dataEmissao && !(d as any).dataReferencia && !!d.dataUpload;
+
   const comData = datasets.filter(d => getDataDocumento(d) !== null);
-  const semData = modoVisualizacao === "documento" ? datasets.filter(d => !getDataDocumento(d)) : [];
+  const semData: DatasetExt[] = []; // Com fallback, todos têm data
+
+  // Contagem de documentos usando fallback (para banner informativo)
+  const fallbackCount = modoVisualizacao === "documento"
+    ? datasets.filter(d => isDateFallback(d)).length
+    : 0;
 
   if (datasets.length === 0) return (
     <div className="text-center py-12 text-muted-foreground">
@@ -1941,7 +1951,7 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
 
   // Posicionamento dos eventos (alterna acima/abaixo e resolve colisões por tier)
   const sortedEvs = [...comData].sort((a, b) => getDataDocumento(a)!.getTime() - getDataDocumento(b)!.getTime());
-  type EvSlot = { d: DatasetExt; x: number; above: boolean; tier: number; date: Date; color: string; icon: string };
+  type EvSlot = { d: DatasetExt; x: number; above: boolean; tier: number; date: Date; color: string; icon: string; fallback: boolean };
   const slots: EvSlot[] = [];
   const occupancy: Map<string, number[]> = new Map(); // key "above|below" → list of x positions per tier
 
@@ -1964,7 +1974,7 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
       if (!clash) { positions.push(x); break; }
       tier++;
     }
-    slots.push({ d, x, above, tier, date, color, icon });
+    slots.push({ d, x, above, tier, date, color, icon, fallback: isDateFallback(d) });
   });
 
   // Helper: calcular Y do topo do label
@@ -1998,11 +2008,14 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
         </div>
       )}
 
-      {/* Aviso docs sem data */}
-      {modoVisualizacao === "documento" && semData.length > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      {/* Banner: documentos sem data de emissão usando fallback */}
+      {fallbackCount > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span><strong>{semData.length} documento(s)</strong> sem data de emissão não aparecem na timeline. Edite-os para adicionar a data.</span>
+          <span>
+            <strong>{fallbackCount} documento(s)</strong> sem data de emissão — posicionados pela data de inserção (borda tracejada).
+            Edite-os para informar a data exata.
+          </span>
         </div>
       )}
 
@@ -2107,21 +2120,28 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
                     }}
                   >
                     {/* Data em destaque */}
-                    <p style={{ fontSize: 10, color: ev.color, fontWeight: 700, marginBottom: 2, lineHeight: 1.2 }}>{dataFmt}</p>
+                    <p style={{ fontSize: 10, color: ev.fallback ? "#9ca3af" : ev.color, fontWeight: 700, marginBottom: 2, lineHeight: 1.2 }}>
+                      {ev.fallback ? "📌 " : ""}{dataFmt}
+                    </p>
                     {/* Título */}
                     <div style={{
-                      background: "white", border: `1.5px solid ${ev.color}`, borderRadius: 8,
+                      background: ev.fallback ? "#f9fafb" : "white",
+                      border: ev.fallback ? `1.5px dashed #9ca3af` : `1.5px solid ${ev.color}`,
+                      borderRadius: 8,
                       padding: "4px 6px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                       transition: "box-shadow 0.15s",
                     }}
-                      onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 2px 8px ${ev.color}44`)}
+                      onMouseEnter={e => (e.currentTarget.style.boxShadow = ev.fallback ? "0 2px 8px rgba(0,0,0,0.12)" : `0 2px 8px ${ev.color}44`)}
                       onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)")}
                     >
-                      <p style={{ fontSize: 10, fontWeight: 600, color: "#111827", lineHeight: 1.3, marginBottom: 1 }}>
+                      <p style={{ fontSize: 10, fontWeight: 600, color: ev.fallback ? "#6b7280" : "#111827", lineHeight: 1.3, marginBottom: 1 }}>
                         {ev.icon} {titulo}
                       </p>
                       <p style={{ fontSize: 9, color: "#6b7280", lineHeight: 1.2 }}>{tipoLabel}</p>
-                      {ev.d.orgaoEmissor && (
+                      {ev.fallback && (
+                        <p style={{ fontSize: 8, color: "#9ca3af", lineHeight: 1.2, marginTop: 1, fontStyle: "italic" }}>data de inserção</p>
+                      )}
+                      {!ev.fallback && ev.d.orgaoEmissor && (
                         <p style={{ fontSize: 9, color: "#9ca3af", lineHeight: 1.2, marginTop: 1 }}>{ev.d.orgaoEmissor.slice(0, 20)}</p>
                       )}
                     </div>
@@ -2143,48 +2163,18 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
             <span>{getTipoDocumentalInfo(tipo)?.label || tipo}</span>
           </div>
         ))}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground ml-auto">
+          {fallbackCount > 0 && (
+            <div className="flex items-center gap-1">
+              <div style={{ width: 14, height: 10, border: "1.5px dashed #9ca3af", borderRadius: 2, background: "#f9fafb" }} />
+              <span>Sem data de emissão</span>
+            </div>
+          )}
           <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: ECO_BLUE, borderRadius: 2 }} /><span>Jan–Jun</span></div>
           <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: ECO_GREEN, borderRadius: 2 }} /><span>Jul–Dez</span></div>
         </div>
       </div>
 
-      {/* Seção de documentos sem data de emissão (no modo documento) */}
-      {modoVisualizacao === "documento" && semData.length > 0 && (
-        <div className="mt-2">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-px flex-1 bg-border" />
-            <div className="flex items-center gap-2 px-3 py-1 bg-muted border rounded-full">
-              <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase">Sem data de emissão registrada</span>
-              <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">{semData.length}</Badge>
-            </div>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {semData.map(d => {
-              const icon = TYPE_ICONS[d.tipoDocumental || "outro"] ?? "📄";
-              const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
-              return (
-                <div
-                  key={d.id}
-                  className="border rounded-lg p-3 hover:bg-muted/40 cursor-pointer flex items-start gap-3"
-                  onClick={() => onDetail(d)}
-                >
-                  <span className="text-xl flex-shrink-0">{icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{d.titulo || d.codigoArquivo || d.nome}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
-                      <span className="text-xs text-muted-foreground">Inserido em {formatDate(d.dataUpload)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
