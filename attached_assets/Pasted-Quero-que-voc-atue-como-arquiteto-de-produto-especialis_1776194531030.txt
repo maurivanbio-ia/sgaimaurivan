@@ -1,0 +1,150 @@
+Quero que você atue como arquiteto de produto, especialista em UX/UI, engenheiro de dados e consultor sênior em gestão ambiental corporativa para aprimorar a plataforma EcoBrasilGestor, com foco em transformar a aba já existente ‘Gestão de Dados’ em um módulo inteligente, automatizado e central na gestão operacional.
+
+A aba ‘Gestão de Dados’ já existe e NÃO deve ser recriada, mas sim profundamente aprimorada em termos de estrutura, automação, inteligência e integração com os demais módulos da plataforma.
+
+Desenvolva uma proposta completa considerando os seguintes pontos:
+
+REESTRUTURAÇÃO AVANÇADA DA ABA “GESTÃO DE DADOS”
+
+Aprimorar a aba existente para que funcione como núcleo inteligente do sistema:
+• Padronizar os tipos documentais:
+. licenças;
+. notificações;
+. ofícios;
+. relatórios;
+. pareceres;
+. ARTs;
+. mapas;
+. documentos legais;
+. condicionantes.
+• Criar campos obrigatórios estruturados:
+. tipo de documento;
+. número;
+. órgão emissor;
+. empreendimento;
+. data;
+. prazo;
+. responsável;
+. status;
+. vínculo com outros documentos.
+• Implementar sistema de versionamento.
+• Criar status padronizados:
+. recebido;
+. em análise;
+. em atendimento;
+. respondido;
+. concluído;
+. vencido.
+
+LEITURA AUTOMÁTICA DE DOCUMENTOS (IA)
+
+Implementar um agente de IA integrado à aba:
+• Ao subir um documento:
+. realizar OCR;
+. extrair automaticamente:
+. número;
+. órgão;
+. exigências;
+. prazos;
+. tipo documental.
+• Sugerir preenchimento automático dos campos.
+• Identificar relações como:
+. “Este documento é uma resposta”;
+. “Este documento gera obrigação”.
+
+Exemplo:
+Notificação 001 → IA identifica exigência de PRAD.
+Upload de PRAD → IA sugere vínculo automático com Notificação 001.
+
+SISTEMA DE VINCULAÇÃO E RASTREABILIDADE
+
+Criar lógica interna de relacionamento:
+• Campo “Documento relacionado”.
+• Sugestão automática de vínculos pela IA.
+• Visualização em:
+. lista encadeada;
+. fluxograma;
+. árvore hierárquica do processo.
+
+LINHA DO TEMPO AUTOMÁTICA
+
+A partir da aba Gestão de Dados, gerar automaticamente:
+• Timeline dinâmica por empreendimento.
+• Cada documento vira um evento.
+• A IA deve classificar:
+. início de processo;
+. exigência;
+. resposta;
+. complementação;
+. decisão do órgão.
+
+Interface:
+• timeline vertical interativa;
+• filtros por tipo, status, órgão e período.
+
+Ao clicar em um item:
+• abrir card com:
+. resumo técnico;
+. exigências;
+. prazo;
+. responsável;
+. documentos vinculados;
+. status atualizado.
+
+INTEGRAÇÃO COM DEMANDAS (KANBAN)
+
+Transformar documentos em ações:
+• Toda exigência identificada vira tarefa automaticamente.
+• Integração direta com o módulo de demandas.
+• Definir:
+. responsável;
+. prazo;
+. prioridade.
+
+Exemplo:
+Notificação → gera tarefas:
+. elaborar PRAD;
+. protocolar resposta;
+. anexar documentos.
+
+ALERTAS E INTELIGÊNCIA OPERACIONAL
+
+Criar sistema ativo de monitoramento:
+• Alertas automáticos:
+. prazos próximos;
+. documentos vencidos;
+. pendências sem responsável.
+• Painel de risco:
+. alto risco (prazo crítico);
+. médio;
+. baixo.
+
+DASHBOARD GERENCIAL INTEGRADO
+
+A aba deve alimentar automaticamente dashboards com:
+• número de documentos por tipo;
+• pendências;
+• prazos;
+• taxa de atendimento;
+• performance por colaborador.
+
+EXPERIÊNCIA DO USUÁRIO (UX/UI)
+
+Melhorar a usabilidade da aba:
+• layout em cards;
+• filtros rápidos;
+• busca inteligente;
+• cores por status;
+• visual limpo e responsivo.
+
+AGENTE DE IA CONSULTIVO
+
+Criar assistente interno conectado à aba:
+• responder perguntas como:
+. “Quais notificações estão sem resposta?”
+. “Quais prazos vencem esta semana?”
+. “Esse documento já foi atendido?”
+• sugerir:
+. ações;
+. prioridades;
+. riscos.

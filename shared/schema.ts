@@ -1214,18 +1214,18 @@ export const datasets = pgTable("datasets", {
   dataUpload: timestamp("data_upload").defaultNow().notNull(),
   url: text("url").notNull(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
-  // Novos campos para código padronizado
-  codigoArquivo: text("codigo_arquivo"), // Código gerado automaticamente ECOBRASIL-...
+  // Campos para código padronizado
+  codigoArquivo: text("codigo_arquivo"),
   cliente: text("cliente"),
   uf: text("uf"),
   projeto: text("projeto"),
   subprojeto: text("subprojeto"),
-  disciplina: text("disciplina"), // FAU, FLO, HID, QUI, GEO, SOC, SIG, ENG, JUR, ESG, GPR
+  disciplina: text("disciplina"),
   tipoDocumento: text("tipo_documento"), // REL, NT, OF, MEM, ATA, APR, MAP, DAT, MET, LAU
-  entrega: text("entrega"), // D0, D1, D2, REV, RES, PROT
+  entrega: text("entrega"),
   area: text("area"),
   periodo: text("periodo"),
-  dataReferencia: text("data_referencia"), // AAAAMMDD
+  dataReferencia: text("data_referencia"),
   responsavel: text("responsavel"),
   versao: text("versao").default("V0.1"),
   status: text("status").default("RASC"), // RASC, PRELIM, FINAL, ASSIN, PROTOC, ENVIADO, ARQ
@@ -1233,9 +1233,19 @@ export const datasets = pgTable("datasets", {
   titulo: text("titulo"),
   pastaDestino: text("pasta_destino"),
   hashSha256: text("hash_sha256"),
-  objectPath: text("object_path"), // Path to file in Object Storage
-  pastaId: integer("pasta_id"), // Reference to datasetPastas folder
-  unidade: text("unidade").notNull().default('salvador'), // Multi-tenant isolation
+  objectPath: text("object_path"),
+  pastaId: integer("pasta_id"),
+  unidade: text("unidade").notNull().default('salvador'),
+  // Novos campos estruturados de gestão documental
+  tipoDocumental: text("tipo_documental"), // licenca, notificacao, oficio, relatorio, parecer, art, mapa, documento_legal, condicionante
+  numeroDocumento: text("numero_documento"),
+  orgaoEmissor: text("orgao_emissor"),
+  prazoAtendimento: text("prazo_atendimento"), // data YYYY-MM-DD
+  statusDocumental: text("status_documental").default("recebido"), // recebido, em_analise, em_atendimento, respondido, concluido, vencido
+  documentoRelacionadoId: integer("documento_relacionado_id"), // FK para outro dataset
+  vinculoTipo: text("vinculo_tipo"), // resposta, complemento, exigencia, gerando_obrigacao
+  exigencias: text("exigencias"), // exigências extraídas pela IA
+  resumoIA: text("resumo_ia"), // resumo gerado pela IA
 });
 
 export const datasetsRelations = relations(datasets, ({ one, many }) => ({
