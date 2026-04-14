@@ -3739,10 +3739,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid dataset ID' });
       }
 
-      const { nome, descricao } = req.body;
-      const updateData: { nome?: string; descricao?: string } = {};
+      const {
+        nome, descricao, status, classificacao, versao,
+        tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
+        statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA,
+        responsavel, titulo
+      } = req.body;
+      const updateData: Record<string, any> = {};
       if (nome !== undefined) updateData.nome = nome;
       if (descricao !== undefined) updateData.descricao = descricao;
+      if (status !== undefined) updateData.status = status;
+      if (classificacao !== undefined) updateData.classificacao = classificacao;
+      if (versao !== undefined) updateData.versao = versao;
+      if (tipoDocumental !== undefined) updateData.tipoDocumental = tipoDocumental;
+      if (numeroDocumento !== undefined) updateData.numeroDocumento = numeroDocumento;
+      if (orgaoEmissor !== undefined) updateData.orgaoEmissor = orgaoEmissor;
+      if (prazoAtendimento !== undefined) updateData.prazoAtendimento = prazoAtendimento;
+      if (statusDocumental !== undefined) updateData.statusDocumental = statusDocumental;
+      if (documentoRelacionadoId !== undefined) updateData.documentoRelacionadoId = documentoRelacionadoId || null;
+      if (vinculoTipo !== undefined) updateData.vinculoTipo = vinculoTipo;
+      if (exigencias !== undefined) updateData.exigencias = exigencias;
+      if (resumoIA !== undefined) updateData.resumoIA = resumoIA;
+      if (responsavel !== undefined) updateData.responsavel = responsavel;
+      if (titulo !== undefined) updateData.titulo = titulo;
 
       const updated = await db.update(datasets).set(updateData).where(eq(datasets.id, id)).returning();
       if (updated.length === 0) {
@@ -3753,6 +3772,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating dataset:', error);
       res.status(500).json({ error: 'Failed to update dataset' });
+    }
+  });
+
+  // AI extraction endpoint - extract metadata from document text
+  app.post('/api/datasets/ai-extrair', requireAuth, async (req: any, res) => {
+    try {
+      const { texto, nomeArquivo } = req.body;
+      if (!texto) return res.status(400).json({ error: 'Texto do documento é obrigatório' });
+
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+      const prompt = `Você é um especialista em gestão documental ambiental. Analise o seguinte texto extraído de um documento e extraia as informações estruturadas.
+
+Documento: ${nomeArquivo || 'sem nome'}
+Texto (primeiros 3000 caracteres):
+${texto.slice(0, 3000)}
+
+Responda APENAS em JSON válido com a seguinte estrutura (use null para campos não encontrados):
+{
+  "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|null",
+  "numeroDocumento": "número do documento ou null",
+  "orgaoEmissor": "órgão emissor ou null",
+  "prazoAtendimento": "data no formato YYYY-MM-DD ou null",
+  "exigencias": "lista das principais exigências encontradas ou null",
+  "resumoIA": "resumo técnico em 2-3 frases",
+  "vinculoSugerido": "Este documento é uma resposta|Este documento gera obrigação|Documento relacionado identificado|null",
+  "confianca": "alta|media|baixa"
+}`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      
+      // Extract JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return res.json({ error: 'IA não retornou JSON válido', raw: text });
+      
+      const extracted = JSON.parse(jsonMatch[0]);
+      res.json(extracted);
+    } catch (error: any) {
+      console.error('Erro na extração IA:', error);
+      res.status(500).json({ error: 'Falha na extração por IA: ' + error.message });
+    }
+  });
+
+  // Alertas de documentos - prazos próximos e vencidos
+  app.get('/api/datasets/alertas', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user as any;
+      const unidade = user?.unidade || 'salvador';
+      
+      const today = new Date();
+      const in30Days = new Date(today);
+      in30Days.setDate(in30Days.getDate() + 30);
+
+      const allDocs = await db.select({
+        id: datasets.id,
+        nome: datasets.nome,
+        codigoArquivo: datasets.codigoArquivo,
+        titulo: datasets.titulo,
+        tipoDocumental: datasets.tipoDocumental,
+        numeroDocumento: datasets.numeroDocumento,
+        orgaoEmissor: datasets.orgaoEmissor,
+        prazoAtendimento: datasets.prazoAtendimento,
+        statusDocumental: datasets.statusDocumental,
+        responsavel: datasets.responsavel,
+        empreendimentoId: datasets.empreendimentoId,
+      }).from(datasets).where(
+        sql`${datasets.unidade} = ${unidade} AND ${datasets.prazoAtendimento} IS NOT NULL`
+      );
+
+      const alertas = allDocs.map(doc => {
+        if (!doc.prazoAtendimento) return null;
+        const prazo = new Date(doc.prazoAtendimento);
+        const diffDays = Math.ceil((prazo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        let risco: 'critico' | 'alto' | 'medio' | 'baixo' = 'baixo';
+        if (diffDays < 0) risco = 'critico';
+        else if (diffDays <= 7) risco = 'alto';
+        else if (diffDays <= 15) risco = 'medio';
+        else if (diffDays <= 30) risco = 'baixo';
+        else return null;
+
+        return { ...doc, diffDays, risco, vencido: diffDays < 0 };
+      }).filter(Boolean);
+
+      alertas.sort((a: any, b: any) => a.diffDays - b.diffDays);
+      res.json(alertas);
+    } catch (error: any) {
+      console.error('Erro ao buscar alertas:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -4739,6 +4850,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }).onConflictDoNothing();
       }
       
+      const {
+        tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
+        statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA,
+      } = req.body;
+
       // Criar dataset
       const [dataset] = await db.insert(datasets).values({
         empreendimentoId,
@@ -4766,6 +4882,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         titulo,
         pastaDestino,
         hashSha256,
+        tipoDocumental: tipoDocumental || null,
+        numeroDocumento: numeroDocumento || null,
+        orgaoEmissor: orgaoEmissor || null,
+        prazoAtendimento: prazoAtendimento || null,
+        statusDocumental: statusDocumental || "recebido",
+        documentoRelacionadoId: documentoRelacionadoId ? parseInt(documentoRelacionadoId) : null,
+        vinculoTipo: vinculoTipo || null,
+        exigencias: exigencias || null,
+        resumoIA: resumoIA || null,
       }).returning();
       
       // Criar registro de versão
