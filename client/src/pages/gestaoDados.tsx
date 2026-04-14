@@ -786,7 +786,8 @@ export default function GestaoDados() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full md:w-auto">
             <TabsTrigger value="documentos" className="gap-2"><FileText className="h-4 w-4" />Documentos</TabsTrigger>
-            <TabsTrigger value="timeline" className="gap-2"><CalendarDays className="h-4 w-4" />Timeline</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-2"><CalendarDays className="h-4 w-4" />Timeline do Documento</TabsTrigger>
+            <TabsTrigger value="insercao" className="gap-2"><Upload className="h-4 w-4" />Cronologia de Inserção</TabsTrigger>
             <TabsTrigger value="alertas" className="gap-2">
               <AlertCircle className="h-4 w-4" />Alertas & Risco
               {alertas.length > 0 && <Badge className="ml-1 bg-red-500 text-white text-xs px-1.5">{alertas.length}</Badge>}
@@ -895,11 +896,14 @@ export default function GestaoDados() {
             </Card>
           </TabsContent>
 
-          {/* ── TAB: Timeline ────────────────────────────────────────────────── */}
+          {/* ── TAB: Timeline (Data do Documento) ───────────────────────────── */}
           <TabsContent value="timeline" className="space-y-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Timeline de Documentos</CardTitle>
+                <div>
+                  <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Timeline — Data do Documento</CardTitle>
+                  <CardDescription className="mt-1">Escala temporal pela data de emissão/assinatura do próprio documento</CardDescription>
+                </div>
                 <Select value={timelineEmpFilter} onValueChange={setTimelineEmpFilter}>
                   <SelectTrigger className="w-[200px]"><SelectValue placeholder="Todos os empreendimentos" /></SelectTrigger>
                   <SelectContent><SelectItem value="all">Todos</SelectItem>{empreendimentos.map(e => <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>)}</SelectContent>
@@ -907,6 +911,31 @@ export default function GestaoDados() {
               </CardHeader>
               <CardContent>
                 <TimelineView
+                  modo="documento"
+                  datasets={datasets.filter(d => timelineEmpFilter === "all" || String(d.empreendimentoId) === timelineEmpFilter)}
+                  empreendimentos={empreendimentos}
+                  onDetail={d => { setDetailDataset(d); setIsDetailOpen(true); }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── TAB: Cronologia de Inserção ──────────────────────────────────── */}
+          <TabsContent value="insercao" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5 text-blue-600" />Cronologia de Inserção na Plataforma</CardTitle>
+                  <CardDescription className="mt-1">Escala temporal pela data em que cada arquivo foi cadastrado no sistema</CardDescription>
+                </div>
+                <Select value={timelineEmpFilter} onValueChange={setTimelineEmpFilter}>
+                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="Todos os empreendimentos" /></SelectTrigger>
+                  <SelectContent><SelectItem value="all">Todos</SelectItem>{empreendimentos.map(e => <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>)}</SelectContent>
+                </Select>
+              </CardHeader>
+              <CardContent>
+                <TimelineView
+                  modo="upload"
                   datasets={datasets.filter(d => timelineEmpFilter === "all" || String(d.empreendimentoId) === timelineEmpFilter)}
                   empreendimentos={empreendimentos}
                   onDetail={d => { setDetailDataset(d); setIsDetailOpen(true); }}
@@ -1777,8 +1806,9 @@ function DocumentosGrouped({ datasets, onPreview, onHistory, onEdit, onDownload,
 // Layout horizontal com eixo central colorido, eventos alternando acima e
 // abaixo do eixo, marcadores em diamante, escala baseada na DATA DO DOCUMENTO.
 
-function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: DatasetExt[]; empreendimentos: Empreendimento[]; onDetail: (d: DatasetExt) => void }) {
-  const [modoVisualizacao, setModoVisualizacao] = useState<"documento" | "upload">("documento");
+function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: { datasets: DatasetExt[]; empreendimentos: Empreendimento[]; onDetail: (d: DatasetExt) => void; modo?: "documento" | "upload" }) {
+  const [modoInterno, setModoInterno] = useState<"documento" | "upload">("documento");
+  const modoVisualizacao = modoProp ?? modoInterno;
 
   // Paleta de cores por tipo documental
   const TYPE_COLORS: Record<string, string> = {
@@ -1896,22 +1926,24 @@ function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: Datas
 
   return (
     <div className="space-y-4">
-      {/* Seletor de modo */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-          <Button size="sm" variant={modoVisualizacao === "documento" ? "default" : "ghost"}
-            onClick={() => setModoVisualizacao("documento")} className="gap-1.5 h-8">
-            <FileText className="h-3.5 w-3.5" />Data do Documento
-          </Button>
-          <Button size="sm" variant={modoVisualizacao === "upload" ? "default" : "ghost"}
-            onClick={() => setModoVisualizacao("upload")} className="gap-1.5 h-8">
-            <Upload className="h-3.5 w-3.5" />Data de Inserção
-          </Button>
+      {/* Seletor de modo — só aparece quando não há modo fixo passado por prop */}
+      {!modoProp && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Button size="sm" variant={modoVisualizacao === "documento" ? "default" : "ghost"}
+              onClick={() => setModoInterno("documento")} className="gap-1.5 h-8">
+              <FileText className="h-3.5 w-3.5" />Data do Documento
+            </Button>
+            <Button size="sm" variant={modoVisualizacao === "upload" ? "default" : "ghost"}
+              onClick={() => setModoInterno("upload")} className="gap-1.5 h-8">
+              <Upload className="h-3.5 w-3.5" />Data de Inserção
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {modoVisualizacao === "documento" ? "Escala temporal pela data de emissão/assinatura do documento" : "Escala temporal pela data de inserção na plataforma"}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {modoVisualizacao === "documento" ? "Escala temporal pela data de emissão/assinatura do documento" : "Escala temporal pela data de inserção na plataforma"}
-        </p>
-      </div>
+      )}
 
       {/* Aviso docs sem data */}
       {modoVisualizacao === "documento" && semData.length > 0 && (
