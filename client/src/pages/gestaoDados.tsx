@@ -1767,32 +1767,28 @@ function DocumentosGrouped({ datasets, onPreview, onHistory, onEdit, onDownload,
   );
 }
 
-// ─── Componente: Timeline ─────────────────────────────────────────────────────
-// A timeline usa a DATA DO DOCUMENTO (dataEmissao ou dataReferencia) como eixo
-// temporal — NÃO a data de upload na plataforma. Se o documento não tem data
-// de emissão registrada, ele aparece em um grupo separado "Sem data de emissão".
+// ─── Componente: Timeline Horizontal Butterfly ────────────────────────────────
+// Layout horizontal com eixo central colorido, eventos alternando acima e
+// abaixo do eixo, marcadores em diamante, escala baseada na DATA DO DOCUMENTO.
 
 function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: DatasetExt[]; empreendimentos: Empreendimento[]; onDetail: (d: DatasetExt) => void }) {
   const [modoVisualizacao, setModoVisualizacao] = useState<"documento" | "upload">("documento");
 
-  const EVENTO_TIPOS: Record<string, { cor: string; icone: string; borda: string }> = {
-    licenca: { cor: "bg-green-600", icone: "📋", borda: "border-green-400" },
-    notificacao: { cor: "bg-red-600", icone: "📢", borda: "border-red-400" },
-    oficio: { cor: "bg-blue-600", icone: "📨", borda: "border-blue-400" },
-    relatorio: { cor: "bg-purple-600", icone: "📊", borda: "border-purple-400" },
-    parecer: { cor: "bg-yellow-600", icone: "🔍", borda: "border-yellow-400" },
-    art: { cor: "bg-orange-600", icone: "🔧", borda: "border-orange-400" },
-    mapa: { cor: "bg-teal-600", icone: "🗺️", borda: "border-teal-400" },
-    documento_legal: { cor: "bg-gray-700", icone: "⚖️", borda: "border-gray-500" },
-    condicionante: { cor: "bg-pink-600", icone: "📌", borda: "border-pink-400" },
-    outro: { cor: "bg-slate-500", icone: "📄", borda: "border-slate-300" },
+  // Paleta de cores por tipo documental
+  const TYPE_COLORS: Record<string, string> = {
+    licenca: "#16a34a", notificacao: "#dc2626", oficio: "#2563eb",
+    relatorio: "#9333ea", parecer: "#ca8a04", art: "#ea580c",
+    mapa: "#0d9488", documento_legal: "#374151", condicionante: "#db2777", outro: "#6b7280",
+  };
+  const TYPE_ICONS: Record<string, string> = {
+    licenca: "📋", notificacao: "📢", oficio: "📨", relatorio: "📊",
+    parecer: "🔍", art: "🔧", mapa: "🗺️", documento_legal: "⚖️", condicionante: "📌", outro: "📄",
   };
 
-  // Para cada documento, determinar a data usada na timeline
   const getDataDocumento = (d: any): Date | null => {
     const raw = modoVisualizacao === "documento"
-      ? (d.dataEmissao || (d as any).dataReferencia)   // data interna do doc
-      : d.dataUpload;                                    // data de inserção na plataforma
+      ? (d.dataEmissao || (d as any).dataReferencia)
+      : d.dataUpload;
     if (!raw) return null;
     const dt = new Date(raw);
     return isNaN(dt.getTime()) ? null : dt;
@@ -1801,22 +1797,6 @@ function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: Datas
   const comData = datasets.filter(d => getDataDocumento(d) !== null);
   const semData = modoVisualizacao === "documento" ? datasets.filter(d => !getDataDocumento(d)) : [];
 
-  // Ordenar do mais recente para o mais antigo (pela data do documento)
-  const sorted = [...comData].sort((a, b) => {
-    const da = getDataDocumento(a)!.getTime();
-    const db2 = getDataDocumento(b)!.getTime();
-    return db2 - da;
-  });
-
-  // Agrupar por mês/ano da data do documento
-  const byMonth = sorted.reduce<Record<string, DatasetExt[]>>((acc, d) => {
-    const date = getDataDocumento(d)!;
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(d);
-    return acc;
-  }, {});
-
   if (datasets.length === 0) return (
     <div className="text-center py-12 text-muted-foreground">
       <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-40" />
@@ -1824,192 +1804,284 @@ function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: Datas
     </div>
   );
 
+  // ─── Calcular escala e posições ─────────────────────────────────────────────
+  const PAD_LEFT = 70;  // px de margem antes do primeiro mês
+  const PAD_RIGHT = 70; // px de margem depois do último mês
+  const AXIS_CENTER = 230; // px do topo até o centro da barra de meses
+  const AXIS_H = 28;       // altura da barra de meses
+  const AXIS_TOP = AXIS_CENTER - AXIS_H / 2;
+  const AXIS_BOTTOM = AXIS_CENTER + AXIS_H / 2;
+  const LABEL_W = 128;     // largura da caixa de label do evento
+  const LABEL_H = 72;      // altura da caixa de label do evento
+  const TIER_GAP = 90;     // espaçamento entre tiers (empilhamento vertical)
+  const MIN_TIERS = 2;     // tiers máximos (acima e abaixo têm 2 tiers cada)
+  const CONTAINER_H = AXIS_CENTER + AXIS_H / 2 + MIN_TIERS * TIER_GAP + LABEL_H + 30;
+
+  // Datas min/max
+  const dates = comData.map(d => getDataDocumento(d)!);
+  const minDateMs = dates.length ? Math.min(...dates.map(d => d.getTime())) : Date.now();
+  const maxDateMs = dates.length ? Math.max(...dates.map(d => d.getTime())) : Date.now();
+  const startDate = new Date(new Date(minDateMs).getFullYear(), new Date(minDateMs).getMonth(), 1);
+  const endDate   = new Date(new Date(maxDateMs).getFullYear(), new Date(maxDateMs).getMonth() + 1, 0);
+  const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000));
+
+  // Pixels por dia: escala dinâmica para caber bem
+  const targetInnerWidth = Math.max(900, window.innerWidth - 120);
+  const pxPerDay = Math.max(3, Math.min(16, targetInnerWidth / totalDays));
+  const innerWidth = Math.ceil(totalDays * pxPerDay);
+  const containerWidth = innerWidth + PAD_LEFT + PAD_RIGHT;
+
+  const dateToX = (d: Date) =>
+    PAD_LEFT + Math.floor((d.getTime() - startDate.getTime()) / 86400000) * pxPerDay;
+
+  // Segmentos de meses para a barra do eixo
+  const monthSegments: { label: string; x: number; w: number; h1: boolean }[] = [];
+  let cur = new Date(startDate);
+  while (cur <= endDate) {
+    const mStart = new Date(cur.getFullYear(), cur.getMonth(), 1);
+    const mEnd   = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+    const x0 = dateToX(mStart);
+    const x1 = dateToX(mEnd) + pxPerDay;
+    monthSegments.push({
+      label: mStart.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase(),
+      x: x0, w: x1 - x0,
+      h1: cur.getMonth() < 6, // Jan-Jun → laranja; Jul-Dez → verde
+    });
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+
+  // Posicionamento dos eventos (alterna acima/abaixo e resolve colisões por tier)
+  const sortedEvs = [...comData].sort((a, b) => getDataDocumento(a)!.getTime() - getDataDocumento(b)!.getTime());
+  type EvSlot = { d: DatasetExt; x: number; above: boolean; tier: number; date: Date; color: string; icon: string };
+  const slots: EvSlot[] = [];
+  const occupancy: Map<string, number[]> = new Map(); // key "above|below" → list of x positions per tier
+
+  sortedEvs.forEach((d, idx) => {
+    const date = getDataDocumento(d)!;
+    const x = dateToX(date);
+    const above = idx % 2 === 0;
+    const side = above ? "above" : "below";
+    const color = TYPE_COLORS[d.tipoDocumental || "outro"] ?? "#6b7280";
+    const icon  = TYPE_ICONS[d.tipoDocumental  || "outro"] ?? "📄";
+
+    if (!occupancy.has(`${side}0`)) occupancy.set(`${side}0`, []);
+    // Encontrar o primeiro tier livre (sem evento dentro de LABEL_W + 8 px)
+    let tier = 0;
+    while (true) {
+      const key = `${side}${tier}`;
+      if (!occupancy.has(key)) occupancy.set(key, []);
+      const positions = occupancy.get(key)!;
+      const clash = positions.some(ox => Math.abs(ox - x) < LABEL_W + 8);
+      if (!clash) { positions.push(x); break; }
+      tier++;
+    }
+    slots.push({ d, x, above, tier, date, color, icon });
+  });
+
+  // Helper: calcular Y do topo do label
+  const labelTopY = (above: boolean, tier: number) =>
+    above
+      ? AXIS_TOP - 20 - (tier + 1) * TIER_GAP - LABEL_H + TIER_GAP
+      : AXIS_BOTTOM + 20 + tier * TIER_GAP;
+
+  // Ponto da linha que toca o eixo (ponta superior/inferior do diamante)
+  const diamondR = 6;
+  const lineAxisY = (above: boolean) => above ? AXIS_TOP - diamondR : AXIS_BOTTOM + diamondR;
+
   return (
     <div className="space-y-4">
       {/* Seletor de modo */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-          <Button
-            size="sm"
-            variant={modoVisualizacao === "documento" ? "default" : "ghost"}
-            onClick={() => setModoVisualizacao("documento")}
-            className="gap-1.5 h-8"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Data do Documento
+          <Button size="sm" variant={modoVisualizacao === "documento" ? "default" : "ghost"}
+            onClick={() => setModoVisualizacao("documento")} className="gap-1.5 h-8">
+            <FileText className="h-3.5 w-3.5" />Data do Documento
           </Button>
-          <Button
-            size="sm"
-            variant={modoVisualizacao === "upload" ? "default" : "ghost"}
-            onClick={() => setModoVisualizacao("upload")}
-            className="gap-1.5 h-8"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Data de Inserção na Plataforma
+          <Button size="sm" variant={modoVisualizacao === "upload" ? "default" : "ghost"}
+            onClick={() => setModoVisualizacao("upload")} className="gap-1.5 h-8">
+            <Upload className="h-3.5 w-3.5" />Data de Inserção
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          {modoVisualizacao === "documento"
-            ? "Ordenado pela data de emissão/assinatura do próprio documento"
-            : "Ordenado pela data de upload na plataforma"}
+          {modoVisualizacao === "documento" ? "Escala temporal pela data de emissão/assinatura do documento" : "Escala temporal pela data de inserção na plataforma"}
         </p>
       </div>
 
-      {/* Aviso se há docs sem data de emissão (apenas no modo documento) */}
+      {/* Aviso docs sem data */}
       {modoVisualizacao === "documento" && semData.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>
-            <strong>{semData.length} documento(s)</strong> não possuem data de emissão registrada e não aparecem na timeline.
-            Edite-os para preencher o campo "Data do Documento".
-          </span>
+          <span><strong>{semData.length} documento(s)</strong> sem data de emissão não aparecem na timeline. Edite-os para adicionar a data.</span>
         </div>
       )}
 
-      {/* Timeline vertical */}
-      <div className="relative">
-        {Object.entries(byMonth).map(([monthKey, docs]) => {
-          const [year, month] = monthKey.split("-");
-          const monthLabel = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-          return (
-            <div key={monthKey} className="mb-8">
-              {/* Separador de mês */}
-              <div className="flex items-center gap-3 mb-4 sticky top-0 z-10 bg-background/95 py-1">
-                <div className="h-px flex-1 bg-border" />
-                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
-                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-bold text-primary uppercase tracking-wide">{monthLabel}</span>
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4">{docs.length}</Badge>
+      {/* ── TIMELINE HORIZONTAL BUTTERFLY ────────────────────────────────── */}
+      {comData.length > 0 && (
+        <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
+          <div style={{ position: "relative", width: containerWidth, height: CONTAINER_H, minHeight: 340 }}>
+
+            {/* Gridlines verticais por mês */}
+            {monthSegments.map((m, i) => (
+              <div key={i} style={{ position: "absolute", left: m.x, top: 0, width: 1, height: CONTAINER_H, background: "#e5e7eb", zIndex: 0 }} />
+            ))}
+
+            {/* Barra do eixo colorida (meses) */}
+            {monthSegments.map((m, i) => (
+              <div key={i} style={{
+                position: "absolute", left: m.x, top: AXIS_TOP, width: m.w, height: AXIS_H, zIndex: 1,
+                background: m.h1 ? "#FDBA74" : "#86EFAC",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderLeft: i === 0 ? "none" : "1px solid rgba(0,0,0,0.08)",
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#374151", letterSpacing: 0.5 }}>{m.label}</span>
+              </div>
+            ))}
+
+            {/* Rótulos de ano (quando há múltiplos anos) */}
+            {Array.from(new Set(monthSegments.map(m => {
+              const d = new Date(startDate.getFullYear(), startDate.getMonth() + monthSegments.indexOf(m), 1);
+              return d.getFullYear();
+            }))).map(year => {
+              const firstMonthOfYear = monthSegments.find((m, i) => {
+                const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+                return d.getFullYear() === year;
+              });
+              if (!firstMonthOfYear) return null;
+              return (
+                <div key={year} style={{
+                  position: "absolute", left: firstMonthOfYear.x + 4, top: AXIS_BOTTOM + 4,
+                  fontSize: 10, color: "#9ca3af", fontWeight: 600, zIndex: 2,
+                }}>
+                  {year}
                 </div>
-                <div className="h-px flex-1 bg-border" />
-              </div>
+              );
+            })}
 
-              <div className="relative ml-5 space-y-0">
-                {/* Linha vertical da timeline */}
-                <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+            {/* Eventos */}
+            {slots.map((ev, i) => {
+              const labelTop = labelTopY(ev.above, ev.tier);
+              const labelLeft = ev.x - LABEL_W / 2;
+              const lineTopY  = ev.above ? labelTop + LABEL_H : labelTop;
+              const lineBottomY = lineAxisY(ev.above);
+              const lineY = Math.min(lineTopY, lineBottomY);
+              const lineH = Math.abs(lineTopY - lineBottomY);
 
-                {docs.map((d, idx) => {
-                  const tipo = EVENTO_TIPOS[d.tipoDocumental || "outro"] || EVENTO_TIPOS["outro"];
-                  const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
-                  const dias = diasParaVencer(d.prazoAtendimento);
-                  const dataDoc = getDataDocumento(d);
-                  const dataUploadFormatted = formatDate(d.dataUpload);
-                  const dataDocFormatted = dataDoc ? dataDoc.toLocaleDateString("pt-BR") : "—";
-                  const emissaoEhDiferenteDoUpload = d.dataEmissao || (d as any).dataReferencia;
+              const tipoLabel = getTipoDocumentalInfo(ev.d.tipoDocumental)?.label || "Documento";
+              const titulo = (ev.d.titulo || ev.d.codigoArquivo || ev.d.nome || "").slice(0, 32);
+              const dataFmt = ev.date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 
-                  return (
-                    <div key={d.id} className="relative flex gap-4 pb-6 group">
-                      {/* Nó da timeline */}
-                      <div className="relative z-10 flex-shrink-0 mt-1">
-                        <div
-                          className={`w-9 h-9 rounded-full ${tipo.cor} border-2 border-white shadow-md flex items-center justify-center text-base group-hover:scale-110 transition-transform cursor-pointer select-none`}
-                          onClick={() => onDetail(d)}
-                          title={`${getTipoDocumentalInfo(d.tipoDocumental)?.label || "Documento"}`}
-                        >
-                          {tipo.icone}
-                        </div>
-                      </div>
+              return (
+                <div key={ev.d.id}>
+                  {/* Linha vertical ligando label ao eixo */}
+                  <div style={{
+                    position: "absolute", left: ev.x, top: lineY,
+                    width: 2, height: lineH, background: ev.color, zIndex: 2, opacity: 0.7,
+                  }} />
 
-                      {/* Card do documento */}
-                      <div
-                        className={`flex-1 bg-card border rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer group-hover:border-primary/40 ${tipo.borda} border-l-2`}
-                        onClick={() => onDetail(d)}
-                      >
-                        <div className="flex items-start justify-between gap-2 flex-wrap">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm leading-tight">
-                              {d.titulo || d.codigoArquivo || d.nome}
-                            </p>
-                            {d.numeroDocumento && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {d.orgaoEmissor && <span>{d.orgaoEmissor} · </span>}
-                                Nº {d.numeroDocumento}
-                              </p>
-                            )}
-                          </div>
-                          <Badge className={`text-xs flex-shrink-0 ${statusDoc.color}`}>{statusDoc.label}</Badge>
-                        </div>
-
-                        {/* Datas — mostra AMBAS quando há data de emissão */}
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                          {modoVisualizacao === "documento" && emissaoEhDiferenteDoUpload ? (
-                            <>
-                              <div className="flex items-center gap-1 text-xs">
-                                <FileText className="h-3 w-3 text-primary flex-shrink-0" />
-                                <span className="text-primary font-medium">Emitido em {dataDocFormatted}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Upload className="h-3 w-3 flex-shrink-0" />
-                                <span>Inserido na plataforma em {dataUploadFormatted}</span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Upload className="h-3 w-3 flex-shrink-0" />
-                              <span>Inserido em {dataUploadFormatted}</span>
-                            </div>
-                          )}
-
-                          {d.responsavel && (
-                            <span className="text-xs text-muted-foreground">· {d.responsavel}</span>
-                          )}
-
-                          {d.prazoAtendimento && dias !== null && (
-                            <span className={`text-xs font-medium ${dias < 0 ? "text-red-600" : dias <= 7 ? "text-orange-600" : "text-yellow-700"}`}>
-                              · Prazo: {dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Vence HOJE" : `${dias}d restantes`}
-                            </span>
-                          )}
-                        </div>
-
-                        {d.resumoIA && (
-                          <p className="text-xs text-muted-foreground mt-1.5 italic line-clamp-2 border-t pt-1.5">{d.resumoIA}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Seção de documentos sem data de emissão (no modo documento) */}
-        {modoVisualizacao === "documento" && semData.length > 0 && (
-          <div className="mt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-px flex-1 bg-border" />
-              <div className="flex items-center gap-2 px-3 py-1 bg-muted border rounded-full">
-                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Sem data de emissão registrada</span>
-                <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">{semData.length}</Badge>
-              </div>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 ml-5">
-              {semData.map(d => {
-                const tipo = EVENTO_TIPOS[d.tipoDocumental || "outro"] || EVENTO_TIPOS["outro"];
-                const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
-                return (
+                  {/* Marcador diamante no eixo */}
                   <div
-                    key={d.id}
-                    className="border rounded-lg p-3 hover:bg-muted/40 cursor-pointer flex items-start gap-3"
-                    onClick={() => onDetail(d)}
+                    onClick={() => onDetail(ev.d)}
+                    style={{
+                      position: "absolute",
+                      left: ev.x - diamondR, top: AXIS_CENTER - diamondR,
+                      width: diamondR * 2, height: diamondR * 2,
+                      background: ev.color, transform: "rotate(45deg)",
+                      cursor: "pointer", zIndex: 5,
+                      boxShadow: "0 0 0 2px white",
+                    }}
+                  />
+
+                  {/* Card do label */}
+                  <div
+                    onClick={() => onDetail(ev.d)}
+                    style={{
+                      position: "absolute",
+                      left: Math.max(4, Math.min(containerWidth - LABEL_W - 4, labelLeft)),
+                      top: labelTop,
+                      width: LABEL_W, zIndex: 4,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
                   >
-                    <span className="text-xl flex-shrink-0">{tipo.icone}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{d.titulo || d.codigoArquivo || d.nome}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
-                        <span className="text-xs text-muted-foreground">Inserido em {formatDate(d.dataUpload)}</span>
-                      </div>
+                    {/* Data em destaque */}
+                    <p style={{ fontSize: 10, color: ev.color, fontWeight: 700, marginBottom: 2, lineHeight: 1.2 }}>{dataFmt}</p>
+                    {/* Título */}
+                    <div style={{
+                      background: "white", border: `1.5px solid ${ev.color}`, borderRadius: 8,
+                      padding: "4px 6px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                      transition: "box-shadow 0.15s",
+                    }}
+                      onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 2px 8px ${ev.color}44`)}
+                      onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)")}
+                    >
+                      <p style={{ fontSize: 10, fontWeight: 600, color: "#111827", lineHeight: 1.3, marginBottom: 1 }}>
+                        {ev.icon} {titulo}
+                      </p>
+                      <p style={{ fontSize: 9, color: "#6b7280", lineHeight: 1.2 }}>{tipoLabel}</p>
+                      {ev.d.orgaoEmissor && (
+                        <p style={{ fontSize: 9, color: "#9ca3af", lineHeight: 1.2, marginTop: 1 }}>{ev.d.orgaoEmissor.slice(0, 20)}</p>
+                      )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Legenda de tipos */}
+      <div className="flex flex-wrap gap-3">
+        {Object.entries(TYPE_COLORS).filter(([tipo]) =>
+          datasets.some(d => (d.tipoDocumental || "outro") === tipo)
+        ).map(([tipo, cor]) => (
+          <div key={tipo} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div style={{ width: 10, height: 10, background: cor, transform: "rotate(45deg)", flexShrink: 0 }} />
+            <span>{getTipoDocumentalInfo(tipo)?.label || tipo}</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
+          <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: "#FDBA74", borderRadius: 2 }} /><span>Jan–Jun</span></div>
+          <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: "#86EFAC", borderRadius: 2 }} /><span>Jul–Dez</span></div>
+        </div>
       </div>
+
+      {/* Seção de documentos sem data de emissão (no modo documento) */}
+      {modoVisualizacao === "documento" && semData.length > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-px flex-1 bg-border" />
+            <div className="flex items-center gap-2 px-3 py-1 bg-muted border rounded-full">
+              <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase">Sem data de emissão registrada</span>
+              <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">{semData.length}</Badge>
+            </div>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {semData.map(d => {
+              const icon = TYPE_ICONS[d.tipoDocumental || "outro"] ?? "📄";
+              const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
+              return (
+                <div
+                  key={d.id}
+                  className="border rounded-lg p-3 hover:bg-muted/40 cursor-pointer flex items-start gap-3"
+                  onClick={() => onDetail(d)}
+                >
+                  <span className="text-xl flex-shrink-0">{icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{d.titulo || d.codigoArquivo || d.nome}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
+                      <span className="text-xs text-muted-foreground">Inserido em {formatDate(d.dataUpload)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
