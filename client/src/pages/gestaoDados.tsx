@@ -245,6 +245,7 @@ export default function GestaoDados() {
   const [vinculoTipo, setVinculoTipo] = useState("");
   const [exigencias, setExigencias] = useState("");
   const [resumoIA, setResumoIA] = useState("");
+  const [dataEmissao, setDataEmissao] = useState("");
   const [isExtractingIA, setIsExtractingIA] = useState(false);
 
   // Edit dialog
@@ -486,7 +487,7 @@ export default function GestaoDados() {
     setArea(""); setPeriodo(""); setStatus("RASC"); setClassificacao("INT");
     setTitulo(""); setCodigoPreview(""); setPastaDestino("");
     setTipoDocumental(""); setNumeroDocumento(""); setOrgaoEmissor("");
-    setPrazoAtendimento(""); setStatusDocumental("recebido");
+    setPrazoAtendimento(""); setStatusDocumental("recebido"); setDataEmissao("");
     setDocumentoRelacionadoId(""); setVinculoTipo(""); setExigencias(""); setResumoIA("");
   };
 
@@ -501,7 +502,7 @@ export default function GestaoDados() {
         empreendimentoId: parseInt(selectedEmpreendimento),
         descricao, tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
         statusDocumental, documentoRelacionadoId: documentoRelacionadoId || null,
-        vinculoTipo, exigencias, resumoIA,
+        vinculoTipo, exigencias, resumoIA, dataEmissao: dataEmissao || null,
       };
       if (useAdvancedForm) {
         uploadAdvancedMutation.mutate({
@@ -544,6 +545,7 @@ export default function GestaoDados() {
       if (extracted.tipoDocumental && extracted.tipoDocumental !== "null") setTipoDocumental(extracted.tipoDocumental);
       if (extracted.numeroDocumento && extracted.numeroDocumento !== "null") setNumeroDocumento(extracted.numeroDocumento);
       if (extracted.orgaoEmissor && extracted.orgaoEmissor !== "null") setOrgaoEmissor(extracted.orgaoEmissor);
+      if (extracted.dataEmissao && extracted.dataEmissao !== "null") setDataEmissao(extracted.dataEmissao);
       if (extracted.prazoAtendimento && extracted.prazoAtendimento !== "null") setPrazoAtendimento(extracted.prazoAtendimento);
       if (extracted.exigencias && extracted.exigencias !== "null") setExigencias(extracted.exigencias);
       if (extracted.resumoIA) setResumoIA(extracted.resumoIA);
@@ -561,6 +563,7 @@ export default function GestaoDados() {
       responsavel: d.responsavel || "",
       tipoDocumental: d.tipoDocumental || "", numeroDocumento: d.numeroDocumento || "",
       orgaoEmissor: d.orgaoEmissor || "", prazoAtendimento: d.prazoAtendimento || "",
+      dataEmissao: (d as any).dataEmissao || "",
       statusDocumental: d.statusDocumental || "recebido", vinculoTipo: d.vinculoTipo || "",
       exigencias: d.exigencias || "", resumoIA: d.resumoIA || "",
       documentoRelacionadoId: d.documentoRelacionadoId || undefined,
@@ -945,6 +948,13 @@ export default function GestaoDados() {
                     <Input className="h-8" value={orgaoEmissor} onChange={e => setOrgaoEmissor(e.target.value)} placeholder="Ex: INEMA, IBAMA, SEMA" />
                   </div>
                   <div>
+                    <Label className="text-xs flex items-center gap-1">
+                      Data do Documento
+                      <span className="text-muted-foreground font-normal">(emissão/assinatura)</span>
+                    </Label>
+                    <Input type="date" className="h-8" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)} />
+                  </div>
+                  <div>
                     <Label className="text-xs">Prazo de Atendimento</Label>
                     <Input type="date" className="h-8" value={prazoAtendimento} onChange={e => setPrazoAtendimento(e.target.value)} />
                   </div>
@@ -1106,6 +1116,10 @@ export default function GestaoDados() {
                   </div>
                   <div><Label className="text-xs">Número do Documento</Label><Input className="h-8" value={editFields.numeroDocumento || ""} onChange={e => setEditFields(p => ({ ...p, numeroDocumento: e.target.value }))} /></div>
                   <div><Label className="text-xs">Órgão Emissor</Label><Input className="h-8" value={editFields.orgaoEmissor || ""} onChange={e => setEditFields(p => ({ ...p, orgaoEmissor: e.target.value }))} /></div>
+                  <div>
+                    <Label className="text-xs flex items-center gap-1">Data do Documento <span className="text-muted-foreground font-normal">(emissão)</span></Label>
+                    <Input type="date" className="h-8" value={(editFields as any).dataEmissao || ""} onChange={e => setEditFields(p => ({ ...p, dataEmissao: e.target.value }))} />
+                  </div>
                   <div><Label className="text-xs">Prazo de Atendimento</Label><Input type="date" className="h-8" value={editFields.prazoAtendimento || ""} onChange={e => setEditFields(p => ({ ...p, prazoAtendimento: e.target.value }))} /></div>
                   <div>
                     <Label className="text-xs">Status Documental</Label>
@@ -1468,79 +1482,239 @@ function DocumentosGrouped({ datasets, onPreview, onHistory, onEdit, onDownload,
 }
 
 // ─── Componente: Timeline ─────────────────────────────────────────────────────
+// A timeline usa a DATA DO DOCUMENTO (dataEmissao ou dataReferencia) como eixo
+// temporal — NÃO a data de upload na plataforma. Se o documento não tem data
+// de emissão registrada, ele aparece em um grupo separado "Sem data de emissão".
 
 function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: DatasetExt[]; empreendimentos: Empreendimento[]; onDetail: (d: DatasetExt) => void }) {
-  const sorted = [...datasets].sort((a, b) => new Date(b.dataUpload).getTime() - new Date(a.dataUpload).getTime());
-  if (sorted.length === 0) return <div className="text-center py-12 text-muted-foreground"><CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-40" /><p>Nenhum documento para exibir na timeline.</p></div>;
+  const [modoVisualizacao, setModoVisualizacao] = useState<"documento" | "upload">("documento");
 
-  const EVENTO_TIPOS: Record<string, { cor: string; icone: string }> = {
-    licenca: { cor: "bg-green-500", icone: "📋" },
-    notificacao: { cor: "bg-red-500", icone: "📢" },
-    oficio: { cor: "bg-blue-500", icone: "📨" },
-    relatorio: { cor: "bg-purple-500", icone: "📊" },
-    parecer: { cor: "bg-yellow-500", icone: "🔍" },
-    art: { cor: "bg-orange-500", icone: "🔧" },
-    mapa: { cor: "bg-teal-500", icone: "🗺️" },
-    documento_legal: { cor: "bg-gray-600", icone: "⚖️" },
-    condicionante: { cor: "bg-pink-500", icone: "📌" },
-    outro: { cor: "bg-slate-400", icone: "📄" },
+  const EVENTO_TIPOS: Record<string, { cor: string; icone: string; borda: string }> = {
+    licenca: { cor: "bg-green-600", icone: "📋", borda: "border-green-400" },
+    notificacao: { cor: "bg-red-600", icone: "📢", borda: "border-red-400" },
+    oficio: { cor: "bg-blue-600", icone: "📨", borda: "border-blue-400" },
+    relatorio: { cor: "bg-purple-600", icone: "📊", borda: "border-purple-400" },
+    parecer: { cor: "bg-yellow-600", icone: "🔍", borda: "border-yellow-400" },
+    art: { cor: "bg-orange-600", icone: "🔧", borda: "border-orange-400" },
+    mapa: { cor: "bg-teal-600", icone: "🗺️", borda: "border-teal-400" },
+    documento_legal: { cor: "bg-gray-700", icone: "⚖️", borda: "border-gray-500" },
+    condicionante: { cor: "bg-pink-600", icone: "📌", borda: "border-pink-400" },
+    outro: { cor: "bg-slate-500", icone: "📄", borda: "border-slate-300" },
   };
 
-  // Group by month
+  // Para cada documento, determinar a data usada na timeline
+  const getDataDocumento = (d: any): Date | null => {
+    const raw = modoVisualizacao === "documento"
+      ? (d.dataEmissao || (d as any).dataReferencia)   // data interna do doc
+      : d.dataUpload;                                    // data de inserção na plataforma
+    if (!raw) return null;
+    const dt = new Date(raw);
+    return isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const comData = datasets.filter(d => getDataDocumento(d) !== null);
+  const semData = modoVisualizacao === "documento" ? datasets.filter(d => !getDataDocumento(d)) : [];
+
+  // Ordenar do mais recente para o mais antigo (pela data do documento)
+  const sorted = [...comData].sort((a, b) => {
+    const da = getDataDocumento(a)!.getTime();
+    const db2 = getDataDocumento(b)!.getTime();
+    return db2 - da;
+  });
+
+  // Agrupar por mês/ano da data do documento
   const byMonth = sorted.reduce<Record<string, DatasetExt[]>>((acc, d) => {
-    const date = new Date(d.dataUpload);
+    const date = getDataDocumento(d)!;
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(d);
     return acc;
   }, {});
 
+  if (datasets.length === 0) return (
+    <div className="text-center py-12 text-muted-foreground">
+      <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-40" />
+      <p>Nenhum documento para exibir na timeline.</p>
+    </div>
+  );
+
   return (
-    <div className="relative">
-      {Object.entries(byMonth).map(([monthKey, docs]) => {
-        const [year, month] = monthKey.split("-");
-        const monthLabel = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-        return (
-          <div key={monthKey} className="mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase px-3 py-1 bg-muted rounded-full">{monthLabel}</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <div className="space-y-3 ml-4">
-              {docs.map(d => {
-                const tipo = EVENTO_TIPOS[d.tipoDocumental || "outro"] || EVENTO_TIPOS["outro"];
-                const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
-                const dias = diasParaVencer(d.prazoAtendimento);
-                return (
-                  <div key={d.id} className="flex gap-3 items-start group" onClick={() => onDetail(d)}>
-                    <div className="flex flex-col items-center">
-                      <div className={`w-9 h-9 rounded-full ${tipo.cor} flex items-center justify-center text-white text-sm flex-shrink-0 shadow group-hover:scale-110 transition cursor-pointer`}>
-                        {tipo.icone}
-                      </div>
-                      <div className="w-px bg-border flex-1 mt-1 min-h-[20px]" />
-                    </div>
-                    <div className="flex-1 pb-3 cursor-pointer">
-                      <div className="bg-card border rounded-lg p-3 hover:shadow-md transition group-hover:border-primary/40">
-                        <div className="flex items-start justify-between gap-2 flex-wrap">
-                          <div>
-                            <p className="font-medium text-sm">{d.titulo || d.codigoArquivo || d.nome}</p>
-                            {d.numeroDocumento && <p className="text-xs text-muted-foreground">Nº {d.numeroDocumento} · {d.orgaoEmissor || "—"}</p>}
-                          </div>
-                          <div className="flex gap-1 flex-wrap">
-                            <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
-                          </div>
+    <div className="space-y-4">
+      {/* Seletor de modo */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          <Button
+            size="sm"
+            variant={modoVisualizacao === "documento" ? "default" : "ghost"}
+            onClick={() => setModoVisualizacao("documento")}
+            className="gap-1.5 h-8"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Data do Documento
+          </Button>
+          <Button
+            size="sm"
+            variant={modoVisualizacao === "upload" ? "default" : "ghost"}
+            onClick={() => setModoVisualizacao("upload")}
+            className="gap-1.5 h-8"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Data de Inserção na Plataforma
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {modoVisualizacao === "documento"
+            ? "Ordenado pela data de emissão/assinatura do próprio documento"
+            : "Ordenado pela data de upload na plataforma"}
+        </p>
+      </div>
+
+      {/* Aviso se há docs sem data de emissão (apenas no modo documento) */}
+      {modoVisualizacao === "documento" && semData.length > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>
+            <strong>{semData.length} documento(s)</strong> não possuem data de emissão registrada e não aparecem na timeline.
+            Edite-os para preencher o campo "Data do Documento".
+          </span>
+        </div>
+      )}
+
+      {/* Timeline vertical */}
+      <div className="relative">
+        {Object.entries(byMonth).map(([monthKey, docs]) => {
+          const [year, month] = monthKey.split("-");
+          const monthLabel = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+          return (
+            <div key={monthKey} className="mb-8">
+              {/* Separador de mês */}
+              <div className="flex items-center gap-3 mb-4 sticky top-0 z-10 bg-background/95 py-1">
+                <div className="h-px flex-1 bg-border" />
+                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-bold text-primary uppercase tracking-wide">{monthLabel}</span>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4">{docs.length}</Badge>
+                </div>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <div className="relative ml-5 space-y-0">
+                {/* Linha vertical da timeline */}
+                <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+
+                {docs.map((d, idx) => {
+                  const tipo = EVENTO_TIPOS[d.tipoDocumental || "outro"] || EVENTO_TIPOS["outro"];
+                  const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
+                  const dias = diasParaVencer(d.prazoAtendimento);
+                  const dataDoc = getDataDocumento(d);
+                  const dataUploadFormatted = formatDate(d.dataUpload);
+                  const dataDocFormatted = dataDoc ? dataDoc.toLocaleDateString("pt-BR") : "—";
+                  const emissaoEhDiferenteDoUpload = d.dataEmissao || (d as any).dataReferencia;
+
+                  return (
+                    <div key={d.id} className="relative flex gap-4 pb-6 group">
+                      {/* Nó da timeline */}
+                      <div className="relative z-10 flex-shrink-0 mt-1">
+                        <div
+                          className={`w-9 h-9 rounded-full ${tipo.cor} border-2 border-white shadow-md flex items-center justify-center text-base group-hover:scale-110 transition-transform cursor-pointer select-none`}
+                          onClick={() => onDetail(d)}
+                          title={`${getTipoDocumentalInfo(d.tipoDocumental)?.label || "Documento"}`}
+                        >
+                          {tipo.icone}
                         </div>
-                        <div className="flex items-center gap-3 mt-2 flex-wrap">
-                          <span className="text-xs text-muted-foreground">{formatDate(d.dataUpload)}</span>
-                          {d.responsavel && <span className="text-xs text-muted-foreground">· {d.responsavel}</span>}
+                      </div>
+
+                      {/* Card do documento */}
+                      <div
+                        className={`flex-1 bg-card border rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer group-hover:border-primary/40 ${tipo.borda} border-l-2`}
+                        onClick={() => onDetail(d)}
+                      >
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm leading-tight">
+                              {d.titulo || d.codigoArquivo || d.nome}
+                            </p>
+                            {d.numeroDocumento && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {d.orgaoEmissor && <span>{d.orgaoEmissor} · </span>}
+                                Nº {d.numeroDocumento}
+                              </p>
+                            )}
+                          </div>
+                          <Badge className={`text-xs flex-shrink-0 ${statusDoc.color}`}>{statusDoc.label}</Badge>
+                        </div>
+
+                        {/* Datas — mostra AMBAS quando há data de emissão */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                          {modoVisualizacao === "documento" && emissaoEhDiferenteDoUpload ? (
+                            <>
+                              <div className="flex items-center gap-1 text-xs">
+                                <FileText className="h-3 w-3 text-primary flex-shrink-0" />
+                                <span className="text-primary font-medium">Emitido em {dataDocFormatted}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Upload className="h-3 w-3 flex-shrink-0" />
+                                <span>Inserido na plataforma em {dataUploadFormatted}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Upload className="h-3 w-3 flex-shrink-0" />
+                              <span>Inserido em {dataUploadFormatted}</span>
+                            </div>
+                          )}
+
+                          {d.responsavel && (
+                            <span className="text-xs text-muted-foreground">· {d.responsavel}</span>
+                          )}
+
                           {d.prazoAtendimento && dias !== null && (
-                            <span className={`text-xs font-medium ${dias < 0 ? "text-red-600" : dias <= 7 ? "text-orange-600" : "text-muted-foreground"}`}>
-                              · Prazo: {dias < 0 ? `Vencido (${Math.abs(dias)}d)` : `${dias}d`}
+                            <span className={`text-xs font-medium ${dias < 0 ? "text-red-600" : dias <= 7 ? "text-orange-600" : "text-yellow-700"}`}>
+                              · Prazo: {dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Vence HOJE" : `${dias}d restantes`}
                             </span>
                           )}
                         </div>
-                        {d.resumoIA && <p className="text-xs text-muted-foreground mt-1 italic line-clamp-2">{d.resumoIA}</p>}
+
+                        {d.resumoIA && (
+                          <p className="text-xs text-muted-foreground mt-1.5 italic line-clamp-2 border-t pt-1.5">{d.resumoIA}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Seção de documentos sem data de emissão (no modo documento) */}
+        {modoVisualizacao === "documento" && semData.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-border" />
+              <div className="flex items-center gap-2 px-3 py-1 bg-muted border rounded-full">
+                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Sem data de emissão registrada</span>
+                <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">{semData.length}</Badge>
+              </div>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 ml-5">
+              {semData.map(d => {
+                const tipo = EVENTO_TIPOS[d.tipoDocumental || "outro"] || EVENTO_TIPOS["outro"];
+                const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
+                return (
+                  <div
+                    key={d.id}
+                    className="border rounded-lg p-3 hover:bg-muted/40 cursor-pointer flex items-start gap-3"
+                    onClick={() => onDetail(d)}
+                  >
+                    <span className="text-xl flex-shrink-0">{tipo.icone}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{d.titulo || d.codigoArquivo || d.nome}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
+                        <span className="text-xs text-muted-foreground">Inserido em {formatDate(d.dataUpload)}</span>
                       </div>
                     </div>
                   </div>
@@ -1548,8 +1722,8 @@ function TimelineView({ datasets, empreendimentos, onDetail }: { datasets: Datas
               })}
             </div>
           </div>
-        );
-      })}
+        )}
+      </div>
     </div>
   );
 }

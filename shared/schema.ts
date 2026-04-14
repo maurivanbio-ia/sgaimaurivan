@@ -1246,6 +1246,7 @@ export const datasets = pgTable("datasets", {
   vinculoTipo: text("vinculo_tipo"), // resposta, complemento, exigencia, gerando_obrigacao
   exigencias: text("exigencias"), // exigências extraídas pela IA
   resumoIA: text("resumo_ia"), // resumo gerado pela IA
+  dataEmissao: text("data_emissao"), // data de emissão do documento (YYYY-MM-DD) — distinta da data de upload
 });
 
 export const datasetsRelations = relations(datasets, ({ one, many }) => ({

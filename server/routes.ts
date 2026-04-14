@@ -3762,6 +3762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (resumoIA !== undefined) updateData.resumoIA = resumoIA;
       if (responsavel !== undefined) updateData.responsavel = responsavel;
       if (titulo !== undefined) updateData.titulo = titulo;
+      if (req.body.dataEmissao !== undefined) updateData.dataEmissao = req.body.dataEmissao || null;
 
       const updated = await db.update(datasets).set(updateData).where(eq(datasets.id, id)).returning();
       if (updated.length === 0) {
@@ -3796,7 +3797,8 @@ Responda APENAS em JSON válido com a seguinte estrutura (use null para campos n
   "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|null",
   "numeroDocumento": "número do documento ou null",
   "orgaoEmissor": "órgão emissor ou null",
-  "prazoAtendimento": "data no formato YYYY-MM-DD ou null",
+  "dataEmissao": "data de emissão/assinatura/publicação do documento no formato YYYY-MM-DD ou null (ATENÇÃO: esta é a data do próprio documento, não a data de hoje)",
+  "prazoAtendimento": "prazo final para atendimento/resposta no formato YYYY-MM-DD ou null",
   "exigencias": "lista das principais exigências encontradas ou null",
   "resumoIA": "resumo técnico em 2-3 frases",
   "vinculoSugerido": "Este documento é uma resposta|Este documento gera obrigação|Documento relacionado identificado|null",
@@ -4852,7 +4854,7 @@ Responda APENAS em JSON válido com a seguinte estrutura (use null para campos n
       
       const {
         tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
-        statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA,
+        statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA, dataEmissao,
       } = req.body;
 
       // Criar dataset
@@ -4891,6 +4893,7 @@ Responda APENAS em JSON válido com a seguinte estrutura (use null para campos n
         vinculoTipo: vinculoTipo || null,
         exigencias: exigencias || null,
         resumoIA: resumoIA || null,
+        dataEmissao: dataEmissao || null,
       }).returning();
       
       // Criar registro de versão

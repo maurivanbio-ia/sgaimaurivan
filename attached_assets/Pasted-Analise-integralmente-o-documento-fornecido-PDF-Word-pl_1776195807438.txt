@@ -1,0 +1,97 @@
+Analise integralmente o documento fornecido (PDF, Word, planilha, imagem ou relatório técnico) e realize uma extração estruturada, precisa e exaustiva de todas as informações relevantes. O objetivo é transformar o conteúdo em dados organizados, rastreáveis e utilizáveis para gestão técnica, jurídica, administrativa ou operacional.
+
+Siga rigorosamente as etapas abaixo:
+
+Identificação geral do documento
+. Tipo de documento (licença, ofício, notificação, parecer, relatório, contrato, ART, PRAD, estudo ambiental etc.)
+. Título completo
+. Número/código do documento
+. Órgão emissor / instituição responsável
+. Data de emissão
+. Data de protocolo / recebimento (se houver)
+. Responsável técnico / signatário
+. Empreendimento / projeto relacionado
+. Processo administrativo vinculado
+. Localidade / área de abrangência
+Resumo técnico objetivo
+. Elabore um resumo claro e técnico do conteúdo do documento em até 2 parágrafos
+. Identifique o objetivo principal do documento
+. Destaque o contexto e a finalidade prática
+Extração de exigências, obrigações e condicionantes
+. Liste todas as exigências, solicitações, pendências, recomendações, condicionantes ou obrigações presentes
+. Para cada item, informar:
+. descrição exata da exigência
+. trecho literal de origem no documento
+. prazo estabelecido
+. data limite estimada
+. responsável sugerido pela execução
+. nível de prioridade (alta, média, baixa)
+. risco associado em caso de não atendimento
+Identificação de documentos relacionados e vínculos
+. Identifique se o documento responde, complementa, substitui ou depende de outro documento
+. Relacione:
+. notificações anteriores
+. licenças vinculadas
+. ofícios de resposta
+. relatórios complementares
+. anexos técnicos
+. Explique a relação lógica entre eles
+Extração de dados técnicos específicos
+Identifique e organize todas as informações técnicas relevantes, como:
+. coordenadas geográficas
+. áreas (ha, m², km²)
+. volumes
+. datas de campanhas
+. parâmetros ambientais
+. espécies citadas
+. metodologias
+. cronogramas
+. responsáveis técnicos
+. valores financeiros
+. obrigações legais
+Base legal e normativa citada
+. Liste todas as leis, decretos, portarias, resoluções, normas técnicas e referências legais mencionadas
+. Informe:
+. nome completo da norma
+. número
+. ano
+. contexto de aplicação no documento
+Prazos e linha do tempo
+. Estruture cronologicamente todos os eventos, datas, prazos e marcos citados
+. Monte uma linha do tempo clara contendo:
+. data
+. evento
+. status (concluído, pendente, vencido, em andamento)
+. próximos passos
+Riscos, lacunas e inconsistências
+. Identifique:
+. documentos faltantes
+. informações ausentes
+. inconsistências técnicas
+. conflitos de data
+. fragilidades documentais
+. riscos regulatórios
+Proposta de plano de ação
+Com base na análise, proponha:
+. ações corretivas prioritárias
+. documentos que precisam ser elaborados
+. respostas necessárias
+. responsáveis recomendados
+. ordem lógica de execução
+Formato de saída obrigatório
+Organize a resposta nos seguintes blocos:
+. Ficha técnica do documento
+. Resumo executivo
+. Tabela de exigências e prazos
+. Documentos relacionados
+. Linha do tempo
+. Riscos e lacunas
+. Plano de ação
+
+Requisitos obrigatórios:
+. Não omitir nenhuma informação relevante
+. Manter linguagem técnica, objetiva e profissional
+. Destacar trechos críticos literalmente quando necessário
+. Sinalizar qualquer incerteza ou informação ambígua
+. Priorizar precisão documental e rastreabilidade
+. Se houver anexos, imagens ou tabelas, extrair também seus conteúdos essenciais.
