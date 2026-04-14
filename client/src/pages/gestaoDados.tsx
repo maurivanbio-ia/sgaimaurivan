@@ -253,6 +253,11 @@ export default function GestaoDados() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editFields, setEditFields] = useState<Partial<DatasetExt>>({});
 
+  // Análise completa IA
+  const [isAnalisandoIA, setIsAnalisandoIA] = useState(false);
+  const [analiseCompletaResult, setAnaliseCompletaResult] = useState<any | null>(null);
+  const [isAnaliseModalOpen, setIsAnaliseModalOpen] = useState(false);
+
   // Preview & History
   const [previewDataset, setPreviewDataset] = useState<DatasetExt | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -574,6 +579,44 @@ export default function GestaoDados() {
   const handleSaveEdit = () => {
     if (!editingDataset) return;
     editMutation.mutate({ id: editingDataset.id, data: editFields });
+  };
+
+  const handleAnalisarIACompleta = async () => {
+    if (!editingDataset) return;
+    setIsAnalisandoIA(true);
+    try {
+      const res = await fetch(`/api/datasets/${editingDataset.id}/ai-analise`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast({ title: "Erro na análise IA", description: err.error || "Falha na análise.", variant: "destructive" });
+        return;
+      }
+      const result = await res.json();
+      // Preencher automaticamente os campos do formulário de edição
+      setEditFields(prev => ({
+        ...prev,
+        tipoDocumental: result.tipoDocumental || prev.tipoDocumental,
+        titulo: result.titulo || prev.titulo,
+        numeroDocumento: result.numeroDocumento || prev.numeroDocumento,
+        orgaoEmissor: result.orgaoEmissor || prev.orgaoEmissor,
+        dataEmissao: result.dataEmissao || (prev as any).dataEmissao,
+        prazoAtendimento: result.prazoAtendimento || prev.prazoAtendimento,
+        exigencias: result.exigencias || prev.exigencias,
+        resumoIA: result.resumoIA || prev.resumoIA,
+      }));
+      setAnaliseCompletaResult(result.analiseCompleta || result);
+      setIsAnaliseModalOpen(true);
+      toast({
+        title: "Análise completa concluída!",
+        description: `Campos preenchidos automaticamente. Confiança: ${result.confianca || "—"}. Confira o relatório completo.`,
+      });
+    } catch (e: any) {
+      toast({ title: "Erro de conexão", description: e.message, variant: "destructive" });
+    } finally {
+      setIsAnalisandoIA(false);
+    }
   };
 
   const handleGerarDemanda = (d: DatasetExt) => {
@@ -1094,12 +1137,37 @@ export default function GestaoDados() {
 
         {/* ── Dialog Edit ────────────────────────────────────────────────────── */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[750px] max-h-[92vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" />Editar Documento</DialogTitle>
-              <DialogDescription>{editingDataset?.codigoArquivo || editingDataset?.nome}</DialogDescription>
+              <DialogDescription className="font-mono text-xs">{editingDataset?.codigoArquivo || editingDataset?.nome}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+
+              {/* Botão de Análise Completa com IA — destaque */}
+              <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-xl p-4 flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-violet-100 rounded-full p-2 flex-shrink-0">
+                    <BrainCircuit className="h-5 w-5 text-violet-700" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-violet-900 text-sm">Análise Completa com IA</p>
+                    <p className="text-xs text-violet-700 mt-0.5">
+                      Extrai automaticamente: tipo, número, órgão, datas, exigências, base legal, riscos e plano de ação do documento.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleAnalisarIACompleta}
+                  disabled={isAnalisandoIA}
+                  className="bg-violet-600 hover:bg-violet-700 text-white gap-2 flex-shrink-0"
+                >
+                  {isAnalisandoIA
+                    ? <><Loader2 className="h-4 w-4 animate-spin" />Analisando...</>
+                    : <><Sparkles className="h-4 w-4" />Analisar com IA</>
+                  }
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs">Nome</Label><Input className="h-8" value={editFields.nome || ""} onChange={e => setEditFields(p => ({ ...p, nome: e.target.value }))} /></div>
                 <div><Label className="text-xs">Título</Label><Input className="h-8" value={editFields.titulo || ""} onChange={e => setEditFields(p => ({ ...p, titulo: e.target.value }))} /></div>
@@ -1157,6 +1225,224 @@ export default function GestaoDados() {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Modal Análise Completa IA ──────────────────────────────────────── */}
+        <Dialog open={isAnaliseModalOpen} onOpenChange={setIsAnaliseModalOpen}>
+          <DialogContent className="sm:max-w-[900px] max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <BrainCircuit className="h-5 w-5 text-violet-600" />
+                Relatório de Análise Documental — IA
+              </DialogTitle>
+              <DialogDescription>
+                Análise completa e exaustiva realizada pelo Gemini. Campos do documento foram preenchidos automaticamente.
+              </DialogDescription>
+            </DialogHeader>
+            {analiseCompletaResult && (
+              <div className="space-y-5 text-sm">
+
+                {/* Ficha Técnica */}
+                {analiseCompletaResult.fichaTecnica && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-3 text-violet-800">
+                      <FileText className="h-4 w-4" />Ficha Técnica do Documento
+                    </h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 bg-violet-50 rounded-lg p-4 border border-violet-100">
+                      {Object.entries(analiseCompletaResult.fichaTecnica).map(([k, v]) => v && v !== "null" ? (
+                        <div key={k}>
+                          <span className="text-xs text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                          <p className="font-medium text-sm">{String(v)}</p>
+                        </div>
+                      ) : null)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Resumo Executivo */}
+                {analiseCompletaResult.resumoExecutivo && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-blue-800">
+                      <Info className="h-4 w-4" />Resumo Executivo
+                    </h3>
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{analiseCompletaResult.resumoExecutivo}</p>
+                    </div>
+                  </section>
+                )}
+
+                {/* Exigências */}
+                {analiseCompletaResult.exigencias?.length > 0 && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-3 text-orange-800">
+                      <AlertTriangle className="h-4 w-4" />Exigências, Obrigações e Condicionantes
+                      <Badge className="bg-orange-100 text-orange-800 border-orange-200">{analiseCompletaResult.exigencias.length}</Badge>
+                    </h3>
+                    <div className="space-y-3">
+                      {analiseCompletaResult.exigencias.map((ex: any, i: number) => (
+                        <div key={i} className={`border rounded-lg p-3 ${ex.prioridade === "alta" ? "border-red-200 bg-red-50" : ex.prioridade === "media" ? "border-orange-200 bg-orange-50" : "border-yellow-200 bg-yellow-50"}`}>
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="font-medium text-sm flex-1">{i + 1}. {ex.descricao}</p>
+                            <Badge className={`text-xs flex-shrink-0 ${ex.prioridade === "alta" ? "bg-red-100 text-red-800" : ex.prioridade === "media" ? "bg-orange-100 text-orange-800" : "bg-yellow-100 text-yellow-800"}`}>
+                              {ex.prioridade}
+                            </Badge>
+                          </div>
+                          {ex.trechoOriginal && <blockquote className="border-l-2 border-gray-300 pl-2 text-xs text-muted-foreground italic mt-1">{ex.trechoOriginal}</blockquote>}
+                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
+                            {ex.dataLimite && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Prazo: {ex.dataLimite}</span>}
+                            {ex.responsavelSugerido && <span>Resp: {ex.responsavelSugerido}</span>}
+                          </div>
+                          {ex.riscoNaoAtendimento && (
+                            <p className="text-xs text-red-700 mt-1 flex items-start gap-1">
+                              <AlertCircle className="h-3 w-3 flex-shrink-0 mt-0.5" />Risco: {ex.riscoNaoAtendimento}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Documentos Relacionados */}
+                {analiseCompletaResult.documentosRelacionados?.length > 0 && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-teal-800">
+                      <Link2 className="h-4 w-4" />Documentos Relacionados
+                    </h3>
+                    <div className="space-y-2">
+                      {analiseCompletaResult.documentosRelacionados.map((doc: any, i: number) => (
+                        <div key={i} className="border border-teal-200 bg-teal-50 rounded-lg p-3">
+                          <p className="font-medium text-sm">{doc.identificacao}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{doc.relacaoLogica}</p>
+                          <Badge variant="outline" className="text-xs mt-1">{doc.tipo?.replace(/_/g, " ")}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Linha do Tempo */}
+                {analiseCompletaResult.linhaDoTempo?.length > 0 && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-purple-800">
+                      <CalendarDays className="h-4 w-4" />Linha do Tempo
+                    </h3>
+                    <div className="space-y-1">
+                      {analiseCompletaResult.linhaDoTempo.map((ev: any, i: number) => (
+                        <div key={i} className="flex items-start gap-3 py-2 border-b last:border-0">
+                          <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${ev.status === "concluido" ? "bg-green-500" : ev.status === "vencido" ? "bg-red-500" : ev.status === "em_andamento" ? "bg-blue-500" : "bg-gray-400"}`} />
+                          <div className="flex-1">
+                            <span className="font-mono text-xs text-muted-foreground">{ev.data}</span>
+                            <p className="text-sm">{ev.evento}</p>
+                          </div>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">{ev.status?.replace(/_/g, " ")}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Base Legal */}
+                {analiseCompletaResult.baseLegal?.length > 0 && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-gray-800">
+                      <Shield className="h-4 w-4" />Base Legal e Normativa
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {analiseCompletaResult.baseLegal.map((norma: any, i: number) => (
+                        <div key={i} className="border rounded-lg p-2 bg-gray-50 text-xs">
+                          <p className="font-medium">{norma.nome} {norma.numero && `nº ${norma.numero}`}{norma.ano && `/${norma.ano}`}</p>
+                          {norma.contexto && <p className="text-muted-foreground mt-0.5">{norma.contexto}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Riscos */}
+                {analiseCompletaResult.riscos?.length > 0 && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-red-800">
+                      <AlertCircle className="h-4 w-4" />Riscos, Lacunas e Inconsistências
+                    </h3>
+                    <div className="space-y-2">
+                      {analiseCompletaResult.riscos.map((r: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded">
+                          <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <Badge className="text-xs bg-red-100 text-red-800 mb-1">{r.tipo?.replace(/_/g, " ")}</Badge>
+                            <p className="text-xs text-red-900">{r.descricao}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Plano de Ação */}
+                {analiseCompletaResult.planoDeAcao?.length > 0 && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-green-800">
+                      <Zap className="h-4 w-4" />Plano de Ação Proposto
+                    </h3>
+                    <div className="space-y-2">
+                      {[...analiseCompletaResult.planoDeAcao].sort((a: any, b: any) => (a.ordem || 0) - (b.ordem || 0)).map((acao: any, i: number) => (
+                        <div key={i} className="flex items-start gap-3 p-2 border rounded bg-green-50">
+                          <div className="w-6 h-6 rounded-full bg-green-600 text-white text-xs flex items-center justify-center flex-shrink-0 font-bold">{acao.ordem || i + 1}</div>
+                          <div className="flex-1">
+                            <p className="text-sm">{acao.acao}</p>
+                            <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                              {acao.responsavel && <span>Resp: {acao.responsavel}</span>}
+                              <Badge className={`text-xs ${acao.prioridade === "alta" ? "bg-red-100 text-red-800" : acao.prioridade === "media" ? "bg-orange-100 text-orange-800" : "bg-gray-100 text-gray-700"}`}>{acao.prioridade}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Dados Técnicos */}
+                {analiseCompletaResult.dadosTecnicos && Object.values(analiseCompletaResult.dadosTecnicos).some(v => v && v !== "null") && (
+                  <section>
+                    <h3 className="font-bold text-base flex items-center gap-2 mb-2 text-slate-800">
+                      <BarChart3 className="h-4 w-4" />Dados Técnicos Identificados
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      {Object.entries(analiseCompletaResult.dadosTecnicos).map(([k, v]) => v && v !== "null" ? (
+                        <div key={k}>
+                          <p className="text-xs text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                          <p className="text-sm">{String(v)}</p>
+                        </div>
+                      ) : null)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Observações Gerais */}
+                {analiseCompletaResult.observacoesGerais && (
+                  <section>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+                      <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-xs text-amber-800 mb-1">Observações Gerais</p>
+                        <p className="text-xs text-amber-900">{analiseCompletaResult.observacoesGerais}</p>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                <div className="flex justify-between items-center pt-3 border-t">
+                  <Button variant="outline" onClick={() => { setIsAnaliseModalOpen(false); setIsEditDialogOpen(true); }}>
+                    <Edit className="h-4 w-4 mr-2" />Voltar ao Formulário
+                  </Button>
+                  <Button onClick={() => { handleSaveEdit(); setIsAnaliseModalOpen(false); }} className="bg-violet-600 hover:bg-violet-700">
+                    <CheckCircle2 className="h-4 w-4 mr-2" />Salvar Campos Preenchidos
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

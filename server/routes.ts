@@ -3776,7 +3776,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI extraction endpoint - extract metadata from document text
+  // Prompt completo e exaustivo de análise documental
+  function buildPromptCompleto(nomeArquivo: string, texto: string) {
+    return `Analise integralmente o documento fornecido e realize uma extração estruturada, precisa e exaustiva de todas as informações relevantes. O objetivo é transformar o conteúdo em dados organizados, rastreáveis e utilizáveis para gestão técnica, jurídica, administrativa ou operacional.
+
+Documento: ${nomeArquivo || 'sem nome'}
+
+TEXTO DO DOCUMENTO:
+${texto.slice(0, 12000)}
+${texto.length > 12000 ? '\n[... documento truncado para análise - primeiros 12.000 caracteres ...]' : ''}
+
+---
+
+Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato JSON válido com a seguinte estrutura. Use null para campos não encontrados ou não aplicáveis:
+
+{
+  "fichaTecnica": {
+    "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|outro",
+    "titulo": "título completo do documento ou null",
+    "numeroDocumento": "número ou código do documento ou null",
+    "orgaoEmissor": "órgão emissor ou instituição responsável ou null",
+    "dataEmissao": "data de emissão/assinatura/publicação YYYY-MM-DD ou null",
+    "dataProtocolo": "data de protocolo ou recebimento YYYY-MM-DD ou null",
+    "responsavelTecnico": "nome do responsável técnico ou signatário ou null",
+    "empreendimento": "nome do empreendimento ou projeto relacionado ou null",
+    "processoAdministrativo": "número do processo administrativo vinculado ou null",
+    "localidade": "localidade ou área de abrangência ou null"
+  },
+  "resumoExecutivo": "resumo claro, técnico e objetivo em 2-3 parágrafos identificando o objetivo principal, contexto e finalidade prática do documento",
+  "exigencias": [
+    {
+      "descricao": "descrição precisa da exigência, obrigação ou condicionante",
+      "trechoOriginal": "trecho literal do documento de onde foi extraída",
+      "prazo": "prazo estabelecido em texto livre ou null",
+      "dataLimite": "data limite estimada YYYY-MM-DD ou null",
+      "responsavelSugerido": "responsável sugerido pela execução ou null",
+      "prioridade": "alta|media|baixa",
+      "riscoNaoAtendimento": "descrição do risco regulatório ou técnico em caso de não atendimento"
+    }
+  ],
+  "documentosRelacionados": [
+    {
+      "tipo": "notificacao_anterior|licenca_vinculada|oficio_resposta|relatorio_complementar|anexo_tecnico|outro",
+      "identificacao": "número, nome ou código do documento relacionado",
+      "relacaoLogica": "como este documento se relaciona logicamente com o documento analisado"
+    }
+  ],
+  "dadosTecnicos": {
+    "coordenadas": "coordenadas geográficas identificadas ou null",
+    "areas": "áreas em ha, m² ou km² identificadas ou null",
+    "especiesCitadas": "espécies identificadas ou null",
+    "parametrosAmbientais": "parâmetros ambientais mencionados ou null",
+    "metodologias": "metodologias citadas ou null",
+    "valoresFinanceiros": "valores financeiros identificados ou null",
+    "outrosDados": "outros dados técnicos relevantes ou null"
+  },
+  "baseLegal": [
+    {
+      "nome": "nome completo da norma, lei, decreto, resolução ou portaria",
+      "numero": "número da norma",
+      "ano": "ano de publicação",
+      "contexto": "como é aplicada no documento"
+    }
+  ],
+  "linhaDoTempo": [
+    {
+      "data": "YYYY-MM-DD ou descrição temporal",
+      "evento": "descrição do evento ou marco",
+      "status": "concluido|pendente|vencido|em_andamento"
+    }
+  ],
+  "riscos": [
+    {
+      "tipo": "documento_faltante|informacao_ausente|inconsistencia_tecnica|conflito_datas|fragilidade_documental|risco_regulatorio",
+      "descricao": "descrição precisa do risco, lacuna ou inconsistência identificada"
+    }
+  ],
+  "planoDeAcao": [
+    {
+      "acao": "descrição da ação corretiva ou preventiva",
+      "responsavel": "responsável recomendado",
+      "prioridade": "alta|media|baixa",
+      "ordem": 1
+    }
+  ],
+  "confianca": "alta|media|baixa",
+  "observacoesGerais": "quaisquer observações adicionais, incertezas ou informações ambíguas identificadas durante a análise"
+}`;
+  }
+
+  // AI extraction endpoint - extração rápida de metadados (formulário de upload)
   app.post('/api/datasets/ai-extrair', requireAuth, async (req: any, res) => {
     try {
       const { texto, nomeArquivo } = req.body;
@@ -3786,37 +3875,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-      const prompt = `Você é um especialista em gestão documental ambiental. Analise o seguinte texto extraído de um documento e extraia as informações estruturadas.
-
-Documento: ${nomeArquivo || 'sem nome'}
-Texto (primeiros 3000 caracteres):
-${texto.slice(0, 3000)}
-
-Responda APENAS em JSON válido com a seguinte estrutura (use null para campos não encontrados):
-{
-  "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|null",
-  "numeroDocumento": "número do documento ou null",
-  "orgaoEmissor": "órgão emissor ou null",
-  "dataEmissao": "data de emissão/assinatura/publicação do documento no formato YYYY-MM-DD ou null (ATENÇÃO: esta é a data do próprio documento, não a data de hoje)",
-  "prazoAtendimento": "prazo final para atendimento/resposta no formato YYYY-MM-DD ou null",
-  "exigencias": "lista das principais exigências encontradas ou null",
-  "resumoIA": "resumo técnico em 2-3 frases",
-  "vinculoSugerido": "Este documento é uma resposta|Este documento gera obrigação|Documento relacionado identificado|null",
-  "confianca": "alta|media|baixa"
-}`;
+      const prompt = buildPromptCompleto(nomeArquivo || 'sem nome', texto);
 
       const result = await model.generateContent(prompt);
-      const text = result.response.text();
+      const rawText = result.response.text();
       
       // Extract JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return res.json({ error: 'IA não retornou JSON válido', raw: text });
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return res.json({ error: 'IA não retornou JSON válido', raw: rawText });
       
-      const extracted = JSON.parse(jsonMatch[0]);
-      res.json(extracted);
+      const full = JSON.parse(jsonMatch[0]);
+
+      // Normaliza para o formato esperado pelo formulário de upload (campos planos)
+      res.json({
+        tipoDocumental: full.fichaTecnica?.tipoDocumental || null,
+        titulo: full.fichaTecnica?.titulo || null,
+        numeroDocumento: full.fichaTecnica?.numeroDocumento || null,
+        orgaoEmissor: full.fichaTecnica?.orgaoEmissor || null,
+        dataEmissao: full.fichaTecnica?.dataEmissao || null,
+        prazoAtendimento: full.linhaDoTempo?.find((e: any) => e.status === 'pendente')?.data || full.exigencias?.[0]?.dataLimite || null,
+        exigencias: full.exigencias?.map((e: any) => `• ${e.descricao}${e.dataLimite ? ` [prazo: ${e.dataLimite}]` : ''}${e.prioridade ? ` (${e.prioridade})` : ''}`).join('\n') || null,
+        resumoIA: full.resumoExecutivo || null,
+        vinculoSugerido: full.documentosRelacionados?.length > 0 ? 'Documento relacionado identificado' : null,
+        confianca: full.confianca || 'media',
+        // Dados completos para uso avançado
+        analiseCompleta: full,
+      });
     } catch (error: any) {
       console.error('Erro na extração IA:', error);
       res.status(500).json({ error: 'Falha na extração por IA: ' + error.message });
+    }
+  });
+
+  // AI análise completa de documento já cadastrado (pelo ID)
+  app.post('/api/datasets/:id/ai-analise', requireAuth, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+      const [dataset] = await db.select().from(datasets).where(eq(datasets.id, id));
+      if (!dataset) return res.status(404).json({ error: 'Documento não encontrado' });
+
+      let texto = '';
+      const nomeArquivo = dataset.nome || dataset.codigoArquivo || 'documento';
+
+      // Tentar extrair texto do documento
+      if (dataset.url && dataset.url.startsWith('data:')) {
+        // Base64 data URL → extrair via pdf-parse se for PDF
+        const base64 = dataset.url.split(',')[1];
+        if (base64 && dataset.url.includes('pdf')) {
+          try {
+            const { default: pdfParse } = await import('pdf-parse');
+            const buf = Buffer.from(base64, 'base64');
+            const parsed = await pdfParse(buf);
+            texto = parsed.text;
+          } catch (e) {
+            console.warn('Falha ao extrair PDF da data URL:', e);
+          }
+        } else if (dataset.url.includes('text/')) {
+          texto = Buffer.from(base64 || '', 'base64').toString('utf-8');
+        }
+      }
+
+      // Se não conseguiu texto do URL mas temos objectPath, tentar via Object Storage
+      if (!texto && dataset.objectPath) {
+        try {
+          const { getDefaultBucket } = await import('./services/objectStorageService');
+          const bucket = await getDefaultBucket();
+          const buf = await bucket.downloadFileAsBuffer(dataset.objectPath);
+          if (nomeArquivo.toLowerCase().endsWith('.pdf')) {
+            const { default: pdfParse } = await import('pdf-parse');
+            const parsed = await pdfParse(buf);
+            texto = parsed.text;
+          } else {
+            texto = buf.toString('utf-8');
+          }
+        } catch (e) {
+          console.warn('Falha ao acessar Object Storage:', e);
+        }
+      }
+
+      // Se ainda não temos texto, usar metadados disponíveis como contexto
+      if (!texto) {
+        texto = [
+          `Nome: ${dataset.nome}`,
+          `Código: ${dataset.codigoArquivo || ''}`,
+          `Título: ${dataset.titulo || ''}`,
+          `Número: ${dataset.numeroDocumento || ''}`,
+          `Órgão: ${dataset.orgaoEmissor || ''}`,
+          `Descrição: ${dataset.descricao || ''}`,
+          `Exigências conhecidas: ${dataset.exigencias || ''}`,
+          `Resumo anterior: ${dataset.resumoIA || ''}`,
+        ].filter(l => !l.endsWith(': ')).join('\n');
+
+        if (!texto.trim()) {
+          return res.status(400).json({ error: 'Não foi possível extrair o conteúdo do documento. O arquivo pode estar em formato não suportado para extração de texto. Faça o upload novamente ou insira o texto manualmente.' });
+        }
+      }
+
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+
+      const prompt = buildPromptCompleto(nomeArquivo, texto);
+      const result = await model.generateContent(prompt);
+      const rawText = result.response.text();
+
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return res.status(422).json({ error: 'IA não retornou JSON válido', raw: rawText.slice(0, 500) });
+
+      const full = JSON.parse(jsonMatch[0]);
+
+      // Resposta normalizada com campos planos + análise completa
+      res.json({
+        tipoDocumental: full.fichaTecnica?.tipoDocumental || null,
+        titulo: full.fichaTecnica?.titulo || null,
+        numeroDocumento: full.fichaTecnica?.numeroDocumento || null,
+        orgaoEmissor: full.fichaTecnica?.orgaoEmissor || null,
+        dataEmissao: full.fichaTecnica?.dataEmissao || null,
+        prazoAtendimento: full.exigencias?.find((e: any) => e.dataLimite)?.dataLimite || null,
+        exigencias: full.exigencias?.length > 0
+          ? full.exigencias.map((e: any, i: number) => `${i + 1}. ${e.descricao}${e.dataLimite ? ` [prazo: ${e.dataLimite}]` : ''}${e.prioridade ? ` — prioridade ${e.prioridade}` : ''}${e.riscoNaoAtendimento ? `\n   Risco: ${e.riscoNaoAtendimento}` : ''}`).join('\n\n')
+          : null,
+        resumoIA: full.resumoExecutivo || null,
+        confianca: full.confianca || 'media',
+        analiseCompleta: full,
+      });
+    } catch (error: any) {
+      console.error('Erro na análise completa IA:', error);
+      res.status(500).json({ error: 'Falha na análise por IA: ' + error.message });
     }
   });
 
