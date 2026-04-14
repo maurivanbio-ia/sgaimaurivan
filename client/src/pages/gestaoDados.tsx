@@ -786,7 +786,7 @@ export default function GestaoDados() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full md:w-auto">
             <TabsTrigger value="documentos" className="gap-2"><FileText className="h-4 w-4" />Documentos</TabsTrigger>
-            <TabsTrigger value="timeline" className="gap-2"><CalendarDays className="h-4 w-4" />Timeline do Documento</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-2"><CalendarDays className="h-4 w-4" />Cronologia do Documento</TabsTrigger>
             <TabsTrigger value="insercao" className="gap-2"><Upload className="h-4 w-4" />Cronologia de Inserção</TabsTrigger>
             <TabsTrigger value="alertas" className="gap-2">
               <AlertCircle className="h-4 w-4" />Alertas & Risco
