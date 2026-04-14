@@ -1508,6 +1508,16 @@ export default function GestaoDados() {
                   {detailDataset.classificacao && <Badge className={getClassBadge(detailDataset.classificacao)}>{detailDataset.classificacao}</Badge>}
                 </div>
 
+                {/* Descrição do documento */}
+                {detailDataset.descricao && (
+                  <div className="bg-muted/50 border rounded-lg p-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                      <FileText className="h-3 w-3" />Descrição
+                    </p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{detailDataset.descricao}</p>
+                  </div>
+                )}
+
                 {/* Prazo */}
                 {detailDataset.prazoAtendimento && (() => {
                   const dias = diasParaVencer(detailDataset.prazoAtendimento);
