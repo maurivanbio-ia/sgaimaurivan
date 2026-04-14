@@ -3694,6 +3694,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/datasets/pastas — DEVE ficar ANTES de /:id
+  app.get('/api/datasets/pastas', requireAuth, async (req, res) => {
+    try {
+      const { tipo, pai } = req.query;
+      let query = db.select().from(datasetPastas);
+      if (tipo) query = query.where(eq(datasetPastas.tipo, tipo as string)) as any;
+      if (pai)  query = query.where(eq(datasetPastas.pai,  pai  as string)) as any;
+      res.json(await query);
+    } catch (error) {
+      console.error('Error fetching pastas:', error);
+      res.status(500).json({ error: 'Failed to fetch pastas' });
+    }
+  });
+
+  // Alertas de documentos - prazos próximos e vencidos (DEVE ficar ANTES de /:id)
+  app.get('/api/datasets/alertas', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user as any;
+      const unidade = user?.unidade || 'salvador';
+      const today = new Date();
+      const allDocs = await db.select({
+        id: datasets.id, nome: datasets.nome, codigoArquivo: datasets.codigoArquivo,
+        titulo: datasets.titulo, tipoDocumental: datasets.tipoDocumental,
+        numeroDocumento: datasets.numeroDocumento, orgaoEmissor: datasets.orgaoEmissor,
+        prazoAtendimento: datasets.prazoAtendimento, statusDocumental: datasets.statusDocumental,
+        responsavel: datasets.responsavel, empreendimentoId: datasets.empreendimentoId,
+      }).from(datasets).where(
+        sql`${datasets.unidade} = ${unidade} AND ${datasets.prazoAtendimento} IS NOT NULL`
+      );
+      const alertas = allDocs.map(doc => {
+        if (!doc.prazoAtendimento) return null;
+        const prazo = new Date(doc.prazoAtendimento);
+        const diffDays = Math.ceil((prazo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        let risco: 'critico' | 'alto' | 'medio' | 'baixo' = 'baixo';
+        if (diffDays < 0) risco = 'critico';
+        else if (diffDays <= 7) risco = 'alto';
+        else if (diffDays <= 15) risco = 'medio';
+        else if (diffDays <= 30) risco = 'baixo';
+        else return null;
+        return { ...doc, diffDays, risco, vencido: diffDays < 0 };
+      }).filter(Boolean);
+      alertas.sort((a: any, b: any) => a.diffDays - b.diffDays);
+      res.json(alertas);
+    } catch (error: any) {
+      console.error('Erro ao buscar alertas:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get single dataset
   app.get('/api/datasets/:id', requireAuth, async (req, res) => {
     try {
@@ -3975,11 +4024,25 @@ Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato J
 
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
 
       const prompt = buildPromptCompleto(nomeArquivo, texto);
-      const result = await model.generateContent(prompt);
-      const rawText = result.response.text();
+
+      // Tenta gemini-2.5-flash primeiro; se falhar usa gemini-2.0-flash
+      let rawText = '';
+      const MODELS = ['gemini-2.5-flash-preview-04-17', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      let lastErr: any;
+      for (const modelName of MODELS) {
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          rawText = result.response.text();
+          break;
+        } catch (err: any) {
+          console.warn(`Modelo ${modelName} falhou:`, err?.message || err);
+          lastErr = err;
+        }
+      }
+      if (!rawText) throw lastErr || new Error('Todos os modelos Gemini falharam');
 
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return res.status(422).json({ error: 'IA não retornou JSON válido', raw: rawText.slice(0, 500) });
@@ -4004,55 +4067,6 @@ Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato J
     } catch (error: any) {
       console.error('Erro na análise completa IA:', error);
       res.status(500).json({ error: 'Falha na análise por IA: ' + error.message });
-    }
-  });
-
-  // Alertas de documentos - prazos próximos e vencidos
-  app.get('/api/datasets/alertas', requireAuth, async (req: any, res) => {
-    try {
-      const user = req.user as any;
-      const unidade = user?.unidade || 'salvador';
-      
-      const today = new Date();
-      const in30Days = new Date(today);
-      in30Days.setDate(in30Days.getDate() + 30);
-
-      const allDocs = await db.select({
-        id: datasets.id,
-        nome: datasets.nome,
-        codigoArquivo: datasets.codigoArquivo,
-        titulo: datasets.titulo,
-        tipoDocumental: datasets.tipoDocumental,
-        numeroDocumento: datasets.numeroDocumento,
-        orgaoEmissor: datasets.orgaoEmissor,
-        prazoAtendimento: datasets.prazoAtendimento,
-        statusDocumental: datasets.statusDocumental,
-        responsavel: datasets.responsavel,
-        empreendimentoId: datasets.empreendimentoId,
-      }).from(datasets).where(
-        sql`${datasets.unidade} = ${unidade} AND ${datasets.prazoAtendimento} IS NOT NULL`
-      );
-
-      const alertas = allDocs.map(doc => {
-        if (!doc.prazoAtendimento) return null;
-        const prazo = new Date(doc.prazoAtendimento);
-        const diffDays = Math.ceil((prazo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        
-        let risco: 'critico' | 'alto' | 'medio' | 'baixo' = 'baixo';
-        if (diffDays < 0) risco = 'critico';
-        else if (diffDays <= 7) risco = 'alto';
-        else if (diffDays <= 15) risco = 'medio';
-        else if (diffDays <= 30) risco = 'baixo';
-        else return null;
-
-        return { ...doc, diffDays, risco, vencido: diffDays < 0 };
-      }).filter(Boolean);
-
-      alertas.sort((a: any, b: any) => a.diffDays - b.diffDays);
-      res.json(alertas);
-    } catch (error: any) {
-      console.error('Erro ao buscar alertas:', error);
-      res.status(500).json({ error: error.message });
     }
   });
 
@@ -4922,28 +4936,6 @@ Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato J
     } catch (error) {
       console.error('Error creating project structure:', error);
       res.status(500).json({ error: 'Failed to create project structure' });
-    }
-  });
-
-  // Endpoint para listar pastas
-  app.get('/api/datasets/pastas', requireAuth, async (req, res) => {
-    try {
-      const { tipo, pai } = req.query;
-      
-      let query = db.select().from(datasetPastas);
-      
-      if (tipo) {
-        query = query.where(eq(datasetPastas.tipo, tipo as string)) as any;
-      }
-      if (pai) {
-        query = query.where(eq(datasetPastas.pai, pai as string)) as any;
-      }
-      
-      const pastas = await query;
-      res.json(pastas);
-    } catch (error) {
-      console.error('Error fetching pastas:', error);
-      res.status(500).json({ error: 'Failed to fetch pastas' });
     }
   });
 
