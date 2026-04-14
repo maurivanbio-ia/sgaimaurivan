@@ -1816,11 +1816,37 @@ function DocumentosGrouped({ datasets, onPreview, onHistory, onEdit, onDownload,
 // Layout horizontal com eixo central colorido, eventos alternando acima e
 // abaixo do eixo, marcadores em diamante, escala baseada na DATA DO DOCUMENTO.
 
+// Paleta de marca EcoBrasil
+const ECO_BLUE  = "#00599C"; // Azul principal
+const ECO_GREEN = "#1A7A45"; // Verde principal
+
 function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: { datasets: DatasetExt[]; empreendimentos: Empreendimento[]; onDetail: (d: DatasetExt) => void; modo?: "documento" | "upload" }) {
   const [modoInterno, setModoInterno] = useState<"documento" | "upload">("documento");
   const modoVisualizacao = modoProp ?? modoInterno;
+  const timelineRef = useRef<HTMLDivElement>(null);
 
-  // Paleta de cores por tipo documental
+  const handleDownloadTimeline = async (format: "jpeg" | "png") => {
+    if (!timelineRef.current) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(timelineRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
+      const url = canvas.toDataURL(mimeType, 0.95);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `timeline-ecobrasil.${format}`;
+      a.click();
+    } catch (err) {
+      console.error("Erro ao exportar timeline:", err);
+    }
+  };
+
+  // Paleta de cores por tipo documental (harmonizada com EcoBrasil)
   const TYPE_COLORS: Record<string, string> = {
     licenca: "#16a34a", notificacao: "#dc2626", oficio: "#2563eb",
     relatorio: "#9333ea", parecer: "#ca8a04", art: "#ea580c",
@@ -1963,9 +1989,21 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
         </div>
       )}
 
+      {/* Botões de download */}
+      {comData.length > 0 && (
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => handleDownloadTimeline("jpeg")}>
+            <Download className="h-3 w-3" />JPEG
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => handleDownloadTimeline("png")}>
+            <Download className="h-3 w-3" />PNG
+          </Button>
+        </div>
+      )}
+
       {/* ── TIMELINE HORIZONTAL BUTTERFLY ────────────────────────────────── */}
       {comData.length > 0 && (
-        <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
+        <div ref={timelineRef} className="border rounded-xl bg-white overflow-x-auto shadow-sm">
           <div style={{ position: "relative", width: containerWidth, height: CONTAINER_H, minHeight: 340 }}>
 
             {/* Gridlines verticais por mês */}
@@ -1977,11 +2015,11 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
             {monthSegments.map((m, i) => (
               <div key={i} style={{
                 position: "absolute", left: m.x, top: AXIS_TOP, width: m.w, height: AXIS_H, zIndex: 1,
-                background: m.h1 ? "#FDBA74" : "#86EFAC",
+                background: m.h1 ? ECO_BLUE : ECO_GREEN,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                borderLeft: i === 0 ? "none" : "1px solid rgba(0,0,0,0.08)",
+                borderLeft: i === 0 ? "none" : "1px solid rgba(255,255,255,0.18)",
               }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#374151", letterSpacing: 0.5 }}>{m.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#ffffff", letterSpacing: 0.5 }}>{m.label}</span>
               </div>
             ))}
 
@@ -2089,8 +2127,8 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
           </div>
         ))}
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
-          <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: "#FDBA74", borderRadius: 2 }} /><span>Jan–Jun</span></div>
-          <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: "#86EFAC", borderRadius: 2 }} /><span>Jul–Dez</span></div>
+          <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: ECO_BLUE, borderRadius: 2 }} /><span>Jan–Jun</span></div>
+          <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: ECO_GREEN, borderRadius: 2 }} /><span>Jul–Dez</span></div>
         </div>
       </div>
 
