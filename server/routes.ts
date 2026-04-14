@@ -3920,15 +3920,44 @@ Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato J
       const { texto, nomeArquivo } = req.body;
       if (!texto) return res.status(400).json({ error: 'Texto do documento é obrigatório' });
 
-      const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
       const prompt = buildPromptCompleto(nomeArquivo || 'sem nome', texto);
 
-      const result = await model.generateContent(prompt);
-      const rawText = result.response.text();
-      
+      let rawText = '';
+      let lastErrEx: any;
+
+      // 1) Gemini
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          for (const m of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
+            try {
+              const result = await genAI.getGenerativeModel({ model: m }).generateContent(prompt);
+              rawText = result.response.text();
+              break;
+            } catch (e: any) { lastErrEx = e; }
+          }
+        } catch (e: any) { lastErrEx = e; }
+      }
+      // 2) DeepSeek fallback
+      if (!rawText && process.env.DEEPSEEK_API_KEY) {
+        try {
+          const { default: OpenAI } = await import('openai');
+          const ds = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com/v1' });
+          const c = await ds.chat.completions.create({ model: 'deepseek-chat', messages: [{ role: 'user', content: prompt }], temperature: 0.2 });
+          rawText = c.choices[0]?.message?.content || '';
+        } catch (e: any) { lastErrEx = e; }
+      }
+      // 3) OpenAI fallback
+      if (!rawText && process.env.OPENAI_API_KEY) {
+        try {
+          const { default: OpenAI } = await import('openai');
+          const c = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.2 });
+          rawText = c.choices[0]?.message?.content || '';
+        } catch (e: any) { lastErrEx = e; }
+      }
+      if (!rawText) throw lastErrEx || new Error('Todos os provedores de IA falharam');
+
       // Extract JSON from response
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return res.json({ error: 'IA não retornou JSON válido', raw: rawText });
@@ -4022,27 +4051,74 @@ Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato J
         }
       }
 
-      const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
       const prompt = buildPromptCompleto(nomeArquivo, texto);
 
-      // Tenta gemini-2.5-flash primeiro; se falhar usa gemini-2.0-flash
       let rawText = '';
-      const MODELS = ['gemini-2.5-flash-preview-04-17', 'gemini-2.0-flash', 'gemini-1.5-flash'];
       let lastErr: any;
-      for (const modelName of MODELS) {
+
+      // ── 1) Cascade Gemini ────────────────────────────────────────────────
+      if (process.env.GEMINI_API_KEY) {
         try {
-          const model = genAI.getGenerativeModel({ model: modelName });
-          const result = await model.generateContent(prompt);
-          rawText = result.response.text();
-          break;
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const MODELS = ['gemini-2.5-flash-preview-04-17', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+          for (const modelName of MODELS) {
+            try {
+              const model = genAI.getGenerativeModel({ model: modelName });
+              const result = await model.generateContent(prompt);
+              rawText = result.response.text();
+              break;
+            } catch (err: any) {
+              console.warn(`Modelo Gemini ${modelName} falhou:`, err?.message || err);
+              lastErr = err;
+            }
+          }
         } catch (err: any) {
-          console.warn(`Modelo ${modelName} falhou:`, err?.message || err);
+          console.warn('Gemini indisponível:', err?.message);
           lastErr = err;
         }
       }
-      if (!rawText) throw lastErr || new Error('Todos os modelos Gemini falharam');
+
+      // ── 2) Fallback DeepSeek (OpenAI-compatible) ─────────────────────────
+      if (!rawText && process.env.DEEPSEEK_API_KEY) {
+        try {
+          const { default: OpenAI } = await import('openai');
+          const deepseek = new OpenAI({
+            apiKey: process.env.DEEPSEEK_API_KEY,
+            baseURL: 'https://api.deepseek.com/v1',
+          });
+          const chat = await deepseek.chat.completions.create({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.2,
+          });
+          rawText = chat.choices[0]?.message?.content || '';
+          console.log('[ai-analise] Usando DeepSeek como fallback');
+        } catch (err: any) {
+          console.warn('DeepSeek falhou:', err?.message);
+          lastErr = err;
+        }
+      }
+
+      // ── 3) Fallback OpenAI GPT-4o-mini ───────────────────────────────────
+      if (!rawText && process.env.OPENAI_API_KEY) {
+        try {
+          const { default: OpenAI } = await import('openai');
+          const oai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          const chat = await oai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.2,
+          });
+          rawText = chat.choices[0]?.message?.content || '';
+          console.log('[ai-analise] Usando OpenAI GPT-4o-mini como fallback');
+        } catch (err: any) {
+          console.warn('OpenAI falhou:', err?.message);
+          lastErr = err;
+        }
+      }
+
+      if (!rawText) throw lastErr || new Error('Todos os provedores de IA falharam');
 
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return res.status(422).json({ error: 'IA não retornou JSON válido', raw: rawText.slice(0, 500) });
