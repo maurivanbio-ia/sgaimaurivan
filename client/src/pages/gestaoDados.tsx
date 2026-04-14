@@ -901,8 +901,8 @@ export default function GestaoDados() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Timeline — Data do Documento</CardTitle>
-                  <CardDescription className="mt-1">Escala temporal pela data de emissão/assinatura do próprio documento</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Cronologia de Datas dos Documentos</CardTitle>
+                  <CardDescription className="mt-1">Escala temporal pela data exata de emissão/assinatura de cada documento</CardDescription>
                 </div>
                 <Select value={timelineEmpFilter} onValueChange={setTimelineEmpFilter}>
                   <SelectTrigger className="w-[200px]"><SelectValue placeholder="Todos os empreendimentos" /></SelectTrigger>
@@ -1829,12 +1829,29 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
     if (!timelineRef.current) return;
     try {
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(timelineRef.current, {
+
+      // Expõe todo o conteúdo horizontal antes de capturar
+      const el = timelineRef.current;
+      const prevOverflow = el.style.overflow;
+      const prevWidth    = el.style.width;
+      el.style.overflow = "visible";
+      el.style.width    = el.scrollWidth + "px";
+
+      const canvas = await html2canvas(el, {
         backgroundColor: "#ffffff",
         scale: 2,
         useCORS: true,
         logging: false,
+        width:  el.scrollWidth,
+        height: el.scrollHeight,
+        windowWidth:  el.scrollWidth,
+        windowHeight: el.scrollHeight,
       });
+
+      // Restaura
+      el.style.overflow = prevOverflow;
+      el.style.width    = prevWidth;
+
       const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
       const url = canvas.toDataURL(mimeType, 0.95);
       const a = document.createElement("a");
