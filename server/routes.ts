@@ -3827,18 +3827,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Prompt completo e exaustivo de análise documental
   function buildPromptCompleto(nomeArquivo: string, texto: string) {
-    const textoDisponivel = texto.trim().length > 50;
-    return `Você é um extrator de dados documentais especializado em licenciamento ambiental brasileiro. Seu trabalho é extrair informações **literalmente presentes no texto** — sem inventar, inferir ou generalizar.
+    const textoLen = texto.trim().length;
+    const qualidade = textoLen === 0 ? 'vazio' : textoLen < 300 ? 'muito_curto' : textoLen < 2000 ? 'parcial' : 'completo';
+    return `Você é um extrator de dados documentais especializado em licenciamento ambiental brasileiro. Seu trabalho é extrair o MÁXIMO possível de informações do texto fornecido — seja ele completo, parcial ou de baixa qualidade.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ARQUIVO: ${nomeArquivo || 'sem nome'}
+CARACTERES DISPONÍVEIS: ${textoLen} ${qualidade === 'completo' ? '(texto completo)' : qualidade === 'parcial' ? '(texto parcial — extraia o que puder)' : qualidade === 'muito_curto' ? '(texto muito curto — extraia o que puder)' : '(sem texto — use apenas o nome do arquivo)'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-TEXTO COMPLETO DO DOCUMENTO (analise cada linha):
+TEXTO DO DOCUMENTO:
 ${texto.slice(0, 18000)}
-${texto.length > 18000 ? '\n[DOCUMENTO TRUNCADO — apenas os primeiros 18.000 caracteres foram fornecidos]' : ''}
-
-${!textoDisponivel ? '⚠️ AVISO: Nenhum texto extraível foi fornecido. Informe isso no resumo e use null para todos os campos de conteúdo.' : ''}
+${texto.length > 18000 ? '\n[TEXTO TRUNCADO — primeiros 18.000 chars]' : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INSTRUÇÕES CRÍTICAS — LEIA ANTES DE ANALISAR:
@@ -3956,7 +3956,7 @@ RETORNE EXATAMENTE ESTE JSON (sem texto fora):
     "localidade": "município e estado extraídos literalmente do texto ou null",
     "atividadeLicenciada": "descrição da atividade extraída do texto ou null"
   },
-  "resumoExecutivo": "CONSTRUÍDO SOMENTE A PARTIR DOS DADOS EM dadosExtraidos ACIMA. Escreva 2-3 parágrafos usando apenas as informações que você já extraiu literalmente. Parágrafo 1: identifique o documento (quem emite, para quem, número, data, tipo). Parágrafo 2: o que o documento determina/constata/notifica (use os trechos de dadosExtraidos.trechosDeterminacoes). Parágrafo 3: prazos e consequências (de dadosExtraidos.trechosPrazos). SE o texto for ilegível, escaneado ou vazio, escreva: 'ATENÇÃO: O texto extraído do documento é de baixa qualidade ou ilegível — provavelmente PDF escaneado sem OCR. Não foi possível extrair informações específicas. Recomenda-se converter o PDF para texto antes de reanalisar. Dados disponíveis apenas pelo nome do arquivo: [descreva o que o nome do arquivo indica].'",
+  "resumoExecutivo": "Escreva 2-4 parágrafos baseados EXCLUSIVAMENTE no que está em dadosExtraidos. REGRAS ABSOLUTAS: (1) Use APENAS informações que aparecem nos campos de dadosExtraidos — nada inventado. (2) Se dadosExtraidos tem dados, use-os para construir frases específicas como: 'A [orgaoEmissor extraído] emitiu a [tipoDocumental] nº [numeroDocumento] em [dataEmissao], notificando [empreendimento/destinatário extraído] sobre [objeto extraído]. As principais determinações são: [trechosDeterminacoes]. O prazo para atendimento é: [trechosPrazos].' (3) Se o texto foi parcialmente extraído (texto muito curto ou incompleto), diga ao final: 'Nota: o texto extraído automaticamente é parcial. Parte das informações pode estar indisponível.' (4) Se dadosExtraidos está completamente vazio (todos os campos são null ou vazios), diga: 'Não foi possível extrair texto deste documento automaticamente. Use o botão Analisar com IA para uma nova tentativa com OCR aprimorado, ou edite manualmente os campos.' (5) JAMAIS gere frases genéricas como 'este documento visa apresentar informações sobre...' — use apenas dados concretos extraídos.",
   "exigencias": [
     {
       "descricao": "descrição da exigência baseada em dadosExtraidos.trechosDeterminacoes",
@@ -4018,7 +4018,12 @@ RETORNE EXATAMENTE ESTE JSON (sem texto fora):
   "observacoesGerais": "qualquer observação sobre a qualidade do texto, truncamento, ou ambiguidades encontradas"
 }
 
-REGRA FINAL ABSOLUTA: Retorne APENAS o JSON. Se dadosExtraidos.trechoObjeto for vazio ou ilegível, o resumoExecutivo DEVE começar com 'ATENÇÃO: texto ilegível' — nunca gere um resumo genérico para preencher o campo.`;
+REGRAS FINAIS:
+- Retorne APENAS o JSON, sem markdown, sem texto fora do JSON
+- Se o texto tem qualquer conteúdo aproveitável, extraia-o — não descarte informação
+- Use null SOMENTE para campos que de fato não aparecem no texto
+- O resumoExecutivo sempre descreve o que FOI possível extrair, nunca o que faltou
+- Confiança "alta" = texto rico e completo | "media" = texto parcial | "baixa" = texto muito curto ou apenas nome do arquivo`;
   }
 
   // AI extraction endpoint - extração rápida de metadados (formulário de upload)
@@ -4162,48 +4167,96 @@ REGRA FINAL ABSOLUTA: Retorne APENAS o JSON. Se dadosExtraidos.trechoObjeto for 
         }
       }
 
-      // ── OCR GEMINI VISION — PDF escaneado (texto muito curto) ─────────────
-      // Se o pdf-parse retornou pouco texto (< 300 chars), provavelmente é escaneado.
-      // Enviamos o PDF inteiro como base64 para o Gemini ler visualmente.
-      const textoMuitoCurto = texto.trim().length < 300;
+      // ── OCR GEMINI — fallback para PDFs escaneados ────────────────────────
+      // Ativado sempre que o texto extraído é curto (< 500 chars).
+      // Usa Gemini File API (upload de arquivo) + fallback inline base64.
+      const textoMuitoCurto = texto.trim().length < 500;
       const isPdf = nomeArquivo.toLowerCase().endsWith('.pdf');
       if (textoMuitoCurto && isPdf && pdfBuf && process.env.GEMINI_API_KEY) {
-        try {
-          console.log(`[OCR] Texto extraído muito curto (${texto.trim().length} chars). Tentando OCR via Gemini Vision...`);
-          const { GoogleGenerativeAI } = await import('@google/generative-ai');
-          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        console.log(`[OCR] pdf-parse retornou ${texto.trim().length} chars. Ativando OCR via Gemini...`);
+        let ocrOk = false;
+
+        const ocrPromptText = `Você é um sistema de OCR especializado em documentos oficiais brasileiros. Leia CADA PÁGINA deste PDF e transcreva TODO o texto visível, exatamente como aparece — sem resumir, sem interpretar.
+
+Inclua obrigatoriamente:
+1. Todo o texto do cabeçalho/timbre (nome do órgão, estado, brasão textual)
+2. Número e tipo do documento (ex: NOTIFICAÇÃO Nº 2023001004933)
+3. Destinatário completo (nome, CNPJ, endereço)
+4. Número do processo administrativo (ex: SEI, Processo nº)
+5. Corpo completo do documento — cada parágrafo, cada item
+6. Todas as condicionantes e exigências (numeradas ou não)
+7. Todos os prazos mencionados (ex: "30 dias", "até 15/03/2024")
+8. Bloco de assinatura (nome, cargo, data, CREA/CRBio)
+9. Rodapé, código de autenticação, carimbos
+
+Retorne APENAS o texto transcrito. Nada mais.`;
+
+        // ── Tentativa 1: Gemini File API (mais confiável para PDFs grandes) ──
+        if (!ocrOk) {
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const os = await import('os');
+            const tmpPath = path.join(os.tmpdir(), `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`);
+            fs.writeFileSync(tmpPath, pdfBuf);
+            try {
+              const { GoogleAIFileManager } = await import('@google/generative-ai/server');
+              const { GoogleGenerativeAI } = await import('@google/generative-ai');
+              const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+              const upload = await fileManager.uploadFile(tmpPath, {
+                mimeType: 'application/pdf',
+                displayName: nomeArquivo,
+              });
+              const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+              const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0 } });
+              const result = await model.generateContent([
+                { fileData: { mimeType: upload.file.mimeType, fileUri: upload.file.uri } },
+                { text: ocrPromptText },
+              ]);
+              const ocrText = result.response.text();
+              if (ocrText && ocrText.trim().length > 100) {
+                texto = ocrText;
+                ocrOk = true;
+                console.log(`[OCR] Gemini File API OK — ${texto.length} chars extraídos`);
+              }
+              // limpar arquivo do Gemini
+              try { await fileManager.deleteFile(upload.file.name); } catch (_) {}
+            } finally {
+              try { fs.unlinkSync(tmpPath); } catch (_) {}
+            }
+          } catch (fileApiErr: any) {
+            console.warn('[OCR] Gemini File API falhou:', fileApiErr?.message);
+          }
+        }
+
+        // ── Tentativa 2: Inline base64 (fallback para PDFs menores) ──────────
+        if (!ocrOk && pdfBuf.length < 15 * 1024 * 1024) { // < 15 MB
           const visionModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
           for (const vModel of visionModels) {
             try {
-              const model = genAI.getGenerativeModel({
-                model: vModel,
-                generationConfig: { temperature: 0 },
-              });
+              const { GoogleGenerativeAI } = await import('@google/generative-ai');
+              const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+              const model = genAI.getGenerativeModel({ model: vModel, generationConfig: { temperature: 0 } });
               const pdfBase64 = pdfBuf.toString('base64');
-              // Gemini suporta PDFs inline como application/pdf
               const result = await model.generateContent([
-                {
-                  inlineData: {
-                    mimeType: 'application/pdf',
-                    data: pdfBase64,
-                  },
-                },
-                {
-                  text: `Este é um documento PDF que pode estar escaneado. Extraia TODO o texto visível neste documento, incluindo:\n- Cabeçalho e timbre do órgão\n- Número e tipo do documento\n- Destinatário e CNPJ\n- Corpo completo do texto\n- Condicionantes e exigências numeradas\n- Datas, prazos e valores\n- Assinaturas, cargos e registros profissionais\n- Rodapé e código de verificação\n\nRetorne apenas o texto extraído, sem comentários ou formatação adicional.`,
-                },
+                { inlineData: { mimeType: 'application/pdf', data: pdfBase64 } },
+                { text: ocrPromptText },
               ]);
               const ocrText = result.response.text();
-              if (ocrText && ocrText.trim().length > 200) {
+              if (ocrText && ocrText.trim().length > 100) {
                 texto = ocrText;
-                console.log(`[OCR] Gemini Vision (${vModel}) extraiu ${texto.length} caracteres do PDF escaneado`);
+                ocrOk = true;
+                console.log(`[OCR] Inline Gemini (${vModel}) OK — ${texto.length} chars`);
                 break;
               }
-            } catch (vErr: any) {
-              console.warn(`[OCR] Gemini Vision (${vModel}) falhou:`, vErr?.message);
+            } catch (inlineErr: any) {
+              console.warn(`[OCR] Inline Gemini (${vModel}) falhou:`, inlineErr?.message);
             }
           }
-        } catch (ocrErr: any) {
-          console.warn('[OCR] Fallback Gemini Vision falhou:', ocrErr?.message);
+        }
+
+        if (!ocrOk) {
+          console.warn(`[OCR] Todos os métodos OCR falharam. Usando ${texto.trim().length} chars do pdf-parse.`);
         }
       }
 
