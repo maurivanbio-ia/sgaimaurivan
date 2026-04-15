@@ -482,10 +482,11 @@ function AdicionarCronogramaDialog({
 
 // ─── Tab: Condicionantes ──────────────────────────────────────────────────────
 
-function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
+function CondicionantesTab({ licencaId, licenca, empreendimentoId, empreendimento }: {
   licencaId: number;
   licenca: LicencaAmbiental;
   empreendimentoId: number;
+  empreendimento?: any;
 }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCond, setEditingCond] = useState<Condicionante | null>(null);
@@ -493,8 +494,13 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterCategoria, setFilterCategoria] = useState("todas");
   const [selectedCond, setSelectedCond] = useState<Condicionante | null>(null);
+  const [tipoResponsavel, setTipoResponsavel] = useState<"" | "empreendedor" | "ecobrasil">("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: colaboradores = [] } = useQuery<any[]>({
+    queryKey: ["/api/colaboradores"],
+  });
 
   const { data: condicionantes = [], isLoading } = useQuery<Condicionante[]>({
     queryKey: ["/api/licencas", licencaId, "condicionantes"],
@@ -581,6 +587,9 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
 
   const handleEdit = (cond: Condicionante) => {
     setEditingCond(cond);
+    const respNome = (cond as any).responsavelNome || "";
+    const isEmpreendedor = empreendimento?.cliente && respNome === empreendimento.cliente;
+    setTipoResponsavel(isEmpreendedor ? "empreendedor" : respNome ? "ecobrasil" : "");
     form.reset({
       item: (cond as any).item || "",
       codigo: (cond as any).codigo || "",
@@ -588,7 +597,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
       descricao: cond.descricao,
       categoria: (cond as any).categoria || "",
       tipoCondicionante: (cond as any).tipoCondicionante || "",
-      responsavelNome: (cond as any).responsavelNome || "",
+      responsavelNome: respNome,
       prazo: cond.prazo,
       periodicidade: (cond as any).periodicidade || "",
       status: cond.status,
@@ -600,6 +609,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
 
   const handleNew = () => {
     setEditingCond(null);
+    setTipoResponsavel("");
     form.reset({
       item: "", codigo: "", titulo: "", descricao: "", categoria: "",
       tipoCondicionante: "", responsavelNome: "", prazo: "", periodicidade: "",
@@ -769,13 +779,83 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                         </Select>
                       </FormItem>
                     )} />
-                    <FormField control={form.control} name="responsavelNome" render={({ field }) => (
+                    <div /> {/* spacer para manter grid alinhado */}
+                  </div>
+                  <FormField control={form.control} name="responsavelNome" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Responsável</FormLabel>
-                        <FormControl><Input {...field} placeholder="Nome do responsável" /></FormControl>
+                        <div className="space-y-2">
+                          {/* Seletor de tipo */}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTipoResponsavel("empreendedor");
+                                const nome = empreendimento?.cliente || empreendimento?.nome || "";
+                                field.onChange(nome);
+                              }}
+                              className={`flex-1 text-xs py-2 px-3 rounded-md border font-medium transition-all ${
+                                tipoResponsavel === "empreendedor"
+                                  ? "bg-[#00599C] text-white border-[#00599C]"
+                                  : "bg-background text-muted-foreground border-border hover:border-[#00599C] hover:text-[#00599C]"
+                              }`}
+                            >
+                              🏢 Empreendedor
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTipoResponsavel("ecobrasil");
+                                field.onChange("");
+                              }}
+                              className={`flex-1 text-xs py-2 px-3 rounded-md border font-medium transition-all ${
+                                tipoResponsavel === "ecobrasil"
+                                  ? "bg-[#1A7A45] text-white border-[#1A7A45]"
+                                  : "bg-background text-muted-foreground border-border hover:border-[#1A7A45] hover:text-[#1A7A45]"
+                              }`}
+                            >
+                              🌿 Ecobrasil
+                            </button>
+                          </div>
+
+                          {/* Empreendedor: mostra nome auto-preenchido */}
+                          {tipoResponsavel === "empreendedor" && (
+                            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-3 py-2 text-sm">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                {field.value || "(sem nome de cliente cadastrado)"}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Ecobrasil: mostra select de usuários */}
+                          {tipoResponsavel === "ecobrasil" && (
+                            <Select
+                              onValueChange={(val) => field.onChange(val)}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o colaborador Ecobrasil" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {colaboradores.map((col: any) => (
+                                  <SelectItem key={col.id} value={col.nome || col.email}>
+                                    <span className="flex flex-col">
+                                      <span>{col.nome || col.email}</span>
+                                      {col.cargo && <span className="text-xs text-muted-foreground">{col.cargo}</span>}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          {/* Nenhum selecionado: campo livre */}
+                          {tipoResponsavel === "" && (
+                            <Input {...field} placeholder="Selecione acima ou digite o nome" />
+                          )}
+                        </div>
                       </FormItem>
                     )} />
-                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <FormField control={form.control} name="prazo" render={({ field }) => (
                       <FormItem>
@@ -1650,6 +1730,7 @@ export default function LicenseDetail() {
             licencaId={licencaId}
             licenca={licenca}
             empreendimentoId={licenca.empreendimentoId}
+            empreendimento={empreendimento}
           />
         </TabsContent>
 
