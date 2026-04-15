@@ -873,23 +873,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Condicionante operations
+  // Status manual (em_andamento, cumprida, cancelada) é sempre preservado.
+  // Só recalcula se status armazenado for pendente/vencida (automático).
+  private resolveCondicionanteStatus(condicionante: Condicionante): string {
+    const manualStatuses = ['em_andamento', 'cumprida', 'cancelada'];
+    if (manualStatuses.includes(condicionante.status)) return condicionante.status;
+    return this.calculateCondicionanteStatus(condicionante.prazo);
+  }
+
   async getCondicionantes(): Promise<Condicionante[]> {
     const condicionantesData = await db.select().from(condicionantes).orderBy(desc(condicionantes.criadoEm));
-    // Recalcula status baseado na data atual
-    return condicionantesData.map(condicionante => ({
-      ...condicionante,
-      status: this.calculateCondicionanteStatus(condicionante.prazo)
-    }));
+    return condicionantesData.map(c => ({ ...c, status: this.resolveCondicionanteStatus(c) }));
   }
 
   async getCondicionante(id: number): Promise<Condicionante | undefined> {
     const [condicionante] = await db.select().from(condicionantes).where(eq(condicionantes.id, id));
     if (!condicionante) return undefined;
-    // Recalcula status baseado na data atual
-    return {
-      ...condicionante,
-      status: this.calculateCondicionanteStatus(condicionante.prazo)
-    };
+    return { ...condicionante, status: this.resolveCondicionanteStatus(condicionante) };
   }
 
   async getCondicionantesByLicenca(licencaId: number): Promise<Condicionante[]> {
@@ -898,15 +898,15 @@ export class DatabaseStorage implements IStorage {
       .from(condicionantes)
       .where(eq(condicionantes.licencaId, licencaId))
       .orderBy(asc(condicionantes.prazo));
-    // Recalcula status baseado na data atual
-    return condicionantesData.map(condicionante => ({
-      ...condicionante,
-      status: this.calculateCondicionanteStatus(condicionante.prazo)
-    }));
+    return condicionantesData.map(c => ({ ...c, status: this.resolveCondicionanteStatus(c) }));
   }
 
   async createCondicionante(condicionante: InsertCondicionante): Promise<Condicionante> {
-    const status = this.calculateCondicionanteStatus(condicionante.prazo);
+    // Respeita status manual (em_andamento, cumprida, cancelada); auto-calcula só para pendente/vencida
+    const manualStatuses = ['em_andamento', 'cumprida', 'cancelada'];
+    const status = (condicionante.status && manualStatuses.includes(condicionante.status))
+      ? condicionante.status
+      : this.calculateCondicionanteStatus(condicionante.prazo);
     const [created] = await db
       .insert(condicionantes)
       .values({ ...condicionante, status })
@@ -916,7 +916,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateCondicionante(id: number, condicionante: Partial<InsertCondicionante>): Promise<Condicionante> {
     const updateData: any = { ...condicionante, atualizadoEm: new Date() };
-    if (condicionante.prazo) {
+    // Se o usuário escolheu um status manual, usa ele. Só recalcula se mudou prazo sem status explícito
+    const manualStatuses = ['em_andamento', 'cumprida', 'cancelada'];
+    const hasManualStatus = condicionante.status && manualStatuses.includes(condicionante.status);
+    if (!hasManualStatus && condicionante.prazo) {
       updateData.status = this.calculateCondicionanteStatus(condicionante.prazo);
     }
     
