@@ -28,6 +28,10 @@ import {
   isSameMonth,
   isSameDay,
   eachDayOfInterval,
+  differenceInDays,
+  startOfDay,
+  min as minDate,
+  max as maxDate,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -62,6 +66,10 @@ import {
   FileText,
   Download,
   FileDown,
+  LayoutList,
+  GitBranch,
+  Kanban,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -1137,8 +1145,409 @@ function CalendarioEcoBrasil({
 }
 
 // ===================================================
-// Página Principal
+// Timeline View
 // ===================================================
+
+const PRIORIDADE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  alta:  { bg: "#fee2e2", text: "#991b1b", border: "#ef4444" },
+  media: { bg: "#fef9c3", text: "#854d0e", border: "#eab308" },
+  baixa: { bg: "#dcfce7", text: "#166534", border: "#22c55e" },
+};
+
+const STATUS_ICON_COLOR: Record<string, string> = {
+  a_fazer: "#94a3b8",
+  em_andamento: "#3b82f6",
+  em_revisao: "#f59e0b",
+  concluido: "#22c55e",
+  cancelado: "#ef4444",
+};
+
+function TimelineView({ demandas, colaboradores }: { demandas: Demanda[]; colaboradores: Colaborador[] }) {
+  const sorted = useMemo(() => {
+    return [...demandas].sort((a, b) => {
+      const da = normalizeDateYmd(a.dataEntrega) ?? "9999";
+      const db = normalizeDateYmd(b.dataEntrega) ?? "9999";
+      return da.localeCompare(db);
+    });
+  }, [demandas]);
+
+  const todayStr = formatDate(new Date(), "yyyy-MM-dd");
+
+  if (sorted.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-16 text-center text-muted-foreground">
+          <LayoutList className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p>Nenhuma demanda encontrada.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="relative space-y-1 pl-8 pt-2 pb-8">
+      {/* vertical line */}
+      <div className="absolute left-[19px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-300 via-gray-200 to-gray-100 rounded-full" />
+
+      {sorted.map((d, idx) => {
+        const prazo = normalizeDateYmd(d.dataEntrega) ?? "";
+        const inicio = normalizeDateYmd(d.dataInicio ?? "") ?? prazo;
+        const isOverdue = prazo && prazo < todayStr && d.status !== "concluido" && d.status !== "cancelado";
+        const isToday = prazo === todayStr;
+        const isConcluido = d.status === "concluido";
+        const isCancelado = d.status === "cancelado";
+        const respNome = getResponsavelNome(d, colaboradores);
+        const pc = PRIORIDADE_COLORS[d.prioridade] ?? PRIORIDADE_COLORS.baixa;
+        const dotColor = isConcluido ? "#22c55e" : isCancelado ? "#94a3b8" : isOverdue ? "#ef4444" : isToday ? "#f59e0b" : "#3b82f6";
+
+        return (
+          <div key={d.id} className={cn("relative flex gap-4 group pb-6", idx === sorted.length - 1 ? "pb-0" : "")}>
+            {/* dot */}
+            <div
+              className="absolute -left-[21px] top-1.5 h-4 w-4 rounded-full border-2 border-white shadow-sm flex-shrink-0 z-10"
+              style={{ backgroundColor: dotColor }}
+            />
+
+            <div className={cn(
+              "flex-1 rounded-xl border shadow-sm p-4 transition-all hover:shadow-md",
+              isConcluido ? "opacity-70" : "",
+              isOverdue ? "border-l-4 border-l-red-400" : isToday ? "border-l-4 border-l-amber-400" : "border-l-4",
+            )} style={{ borderLeftColor: isOverdue ? "#ef4444" : isToday ? "#f59e0b" : pc.border }}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <Badge
+                      className="text-xs font-medium"
+                      style={{ backgroundColor: pc.bg, color: pc.text, border: `1px solid ${pc.border}` }}
+                    >
+                      {d.prioridade.charAt(0).toUpperCase() + d.prioridade.slice(1)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">{STATUS_LABEL[d.status]}</Badge>
+                    {d.categoria && <Badge variant="secondary" className="text-xs">{d.categoria}</Badge>}
+                    {isOverdue && <Badge className="text-xs bg-red-100 text-red-700 border-red-300">Atrasada</Badge>}
+                    {isToday && <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-300">Vence hoje</Badge>}
+                  </div>
+                  <h3 className={cn("font-semibold text-base leading-tight", isConcluido ? "line-through text-muted-foreground" : "")}>
+                    {d.titulo}
+                  </h3>
+                  {d.descricao && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.descricao}</p>}
+                </div>
+
+                <div className="text-right text-xs text-muted-foreground space-y-1 flex-shrink-0">
+                  <div className="flex items-center gap-1 justify-end">
+                    <CalendarDays className="h-3 w-3" />
+                    {inicio !== prazo ? (
+                      <span>{formatDateBR(inicio)} → {formatDateBR(prazo)}</span>
+                    ) : (
+                      <span>{formatDateBR(prazo)}</span>
+                    )}
+                  </div>
+                  {respNome && (
+                    <div className="flex items-center gap-1 justify-end">
+                      <User className="h-3 w-3" />
+                      <span>{respNome}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ===================================================
+// Gantt View com Milestones
+// ===================================================
+
+const GANTT_ROW_H = 40;
+const GANTT_LABEL_W = 260;
+const GANTT_MIN_DAYS = 30;
+
+function isMilestone(d: Demanda): boolean {
+  const inicio = normalizeDateYmd(d.dataInicio ?? "");
+  const fim = normalizeDateYmd(d.dataEntrega);
+  if (!inicio || !fim) return false;
+  return inicio === fim;
+}
+
+function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaboradores: Colaborador[] }) {
+  const today = startOfDay(new Date());
+  const todayStr = formatDate(today, "yyyy-MM-dd");
+
+  const validDemandas = useMemo(() =>
+    demandas.filter(d => normalizeDateYmd(d.dataEntrega)),
+  [demandas]);
+
+  const { rangeStart, rangeEnd, totalDays } = useMemo(() => {
+    if (validDemandas.length === 0) {
+      const rs = startOfDay(addDays(today, -7));
+      const re = startOfDay(addDays(today, GANTT_MIN_DAYS));
+      return { rangeStart: rs, rangeEnd: re, totalDays: differenceInDays(re, rs) + 1 };
+    }
+    const dates: Date[] = [];
+    validDemandas.forEach(d => {
+      const fim = normalizeDateYmd(d.dataEntrega);
+      if (fim) dates.push(parseISO(fim));
+      const ini = normalizeDateYmd(d.dataInicio ?? "");
+      if (ini) dates.push(parseISO(ini));
+    });
+    const minD = startOfDay(addDays(minDate(dates), -3));
+    const maxD = startOfDay(addDays(maxDate(dates), 5));
+    const days = Math.max(differenceInDays(maxD, minD) + 1, GANTT_MIN_DAYS);
+    return { rangeStart: minD, rangeEnd: addDays(minD, days - 1), totalDays: days };
+  }, [validDemandas, today]);
+
+  const sorted = useMemo(() =>
+    [...validDemandas].sort((a, b) => {
+      const da = normalizeDateYmd(a.dataEntrega) ?? "9999";
+      const db = normalizeDateYmd(b.dataEntrega) ?? "9999";
+      return da.localeCompare(db);
+    }),
+  [validDemandas]);
+
+  // Generate month headers
+  const months = useMemo(() => {
+    const result: { label: string; startDay: number; span: number }[] = [];
+    let cur = new Date(rangeStart);
+    while (cur <= rangeEnd) {
+      const mStart = Math.max(differenceInDays(cur, rangeStart), 0);
+      const mEnd = Math.min(differenceInDays(endOfMonth(cur), rangeStart), totalDays - 1);
+      result.push({
+        label: formatDate(cur, "MMM yyyy", { locale: ptBR }),
+        startDay: mStart,
+        span: mEnd - mStart + 1,
+      });
+      cur = addMonths(startOfMonth(cur), 1);
+    }
+    return result;
+  }, [rangeStart, rangeEnd, totalDays]);
+
+  const dayPct = 100 / totalDays;
+
+  const todayOffset = useMemo(() => {
+    const diff = differenceInDays(today, rangeStart);
+    if (diff < 0 || diff >= totalDays) return null;
+    return diff * dayPct;
+  }, [today, rangeStart, totalDays, dayPct]);
+
+  const getBarStyle = (d: Demanda) => {
+    const fimStr = normalizeDateYmd(d.dataEntrega)!;
+    const iniStr = normalizeDateYmd(d.dataInicio ?? "") ?? fimStr;
+    const startDay = Math.max(differenceInDays(parseISO(iniStr), rangeStart), 0);
+    const endDay = Math.min(differenceInDays(parseISO(fimStr), rangeStart), totalDays - 1);
+    const left = startDay * dayPct;
+    const width = Math.max((endDay - startDay + 1) * dayPct, dayPct * 0.5);
+    return { left: `${left}%`, width: `${width}%` };
+  };
+
+  const barColor = (d: Demanda) => {
+    if (d.status === "concluido") return { bg: "#22c55e", fg: "#fff" };
+    if (d.status === "cancelado") return { bg: "#94a3b8", fg: "#fff" };
+    if (d.prioridade === "alta") return { bg: "#ef4444", fg: "#fff" };
+    if (d.prioridade === "media") return { bg: "#f59e0b", fg: "#fff" };
+    return { bg: "#3b82f6", fg: "#fff" };
+  };
+
+  if (sorted.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-16 text-center text-muted-foreground">
+          <GitBranch className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p>Nenhuma demanda com datas encontrada.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const chartH = sorted.length * GANTT_ROW_H + 56;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <GitBranch className="h-5 w-5" />
+          Gantt de Demandas
+          <span className="ml-auto flex gap-4 text-xs font-normal text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-red-400"/><span>Alta</span></span>
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-amber-400"/><span>Média</span></span>
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-blue-400"/><span>Baixa</span></span>
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-green-400"/><span>Concluído</span></span>
+            <span className="flex items-center gap-1"><span className="text-purple-600 font-bold text-base">◆</span><span>Marco</span></span>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="overflow-x-auto pr-0">
+        <div style={{ minWidth: `${GANTT_LABEL_W + 600}px` }}>
+          {/* Row: month headers */}
+          <div className="flex" style={{ marginLeft: GANTT_LABEL_W }}>
+            {months.map((m, i) => (
+              <div
+                key={i}
+                className="border-r border-gray-200 text-xs text-center py-1 font-semibold text-gray-500 bg-gray-50"
+                style={{ width: `${m.span * dayPct}%`, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}
+              >
+                {m.label}
+              </div>
+            ))}
+          </div>
+
+          {/* Chart area */}
+          <div className="relative" style={{ height: chartH }}>
+            {/* Label column */}
+            <div className="absolute left-0 top-0 bottom-0 flex flex-col" style={{ width: GANTT_LABEL_W, zIndex: 10 }}>
+              <div style={{ height: 28 }} className="border-b border-gray-200 bg-white" />
+              {sorted.map((d, i) => {
+                const resp = getResponsavelNome(d, colaboradores);
+                return (
+                  <div
+                    key={d.id}
+                    className="border-b border-gray-100 bg-white flex items-center gap-2 px-3"
+                    style={{ height: GANTT_ROW_H }}
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: STATUS_ICON_COLOR[d.status] ?? "#94a3b8" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-xs font-medium leading-tight truncate", d.status === "concluido" ? "line-through text-muted-foreground" : "")}>
+                        {d.titulo}
+                      </p>
+                      {resp && <p className="text-[10px] text-muted-foreground truncate">{resp}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Grid + bars area */}
+            <div className="absolute top-0 bottom-0 overflow-hidden" style={{ left: GANTT_LABEL_W, right: 0 }}>
+              {/* Week grid lines */}
+              <div className="absolute inset-0">
+                {Array.from({ length: Math.ceil(totalDays / 7) }).map((_, wi) => (
+                  <div
+                    key={wi}
+                    className="absolute top-0 bottom-0 border-l border-gray-100"
+                    style={{ left: `${wi * 7 * dayPct}%` }}
+                  />
+                ))}
+              </div>
+
+              {/* Day header row */}
+              <div className="absolute top-0 left-0 right-0 border-b border-gray-200" style={{ height: 28 }}>
+                {Array.from({ length: totalDays }).map((_, di) => {
+                  const d = addDays(rangeStart, di);
+                  const dow = formatDate(d, "d");
+                  const isWeekend = [0, 6].includes(d.getDay());
+                  const isTod = formatDate(d, "yyyy-MM-dd") === todayStr;
+                  return (
+                    <div
+                      key={di}
+                      className="absolute top-0 bottom-0 flex items-center justify-center text-[9px]"
+                      style={{
+                        left: `${di * dayPct}%`,
+                        width: `${dayPct}%`,
+                        color: isTod ? "#2563eb" : isWeekend ? "#d1d5db" : "#9ca3af",
+                        fontWeight: isTod ? 700 : 400,
+                      }}
+                    >
+                      {di % 3 === 0 ? dow : ""}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Today line */}
+              {todayOffset !== null && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 z-20"
+                  style={{ left: `${todayOffset}%`, backgroundColor: "#2563eb", opacity: 0.7 }}
+                >
+                  <div
+                    className="absolute -top-0.5 -translate-x-1/2 text-[9px] bg-blue-600 text-white px-1 rounded"
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    Hoje
+                  </div>
+                </div>
+              )}
+
+              {/* Rows */}
+              {sorted.map((d, i) => {
+                const ms = isMilestone(d);
+                const bc = barColor(d);
+                const barStyle = getBarStyle(d);
+                const fimStr = normalizeDateYmd(d.dataEntrega)!;
+                const isOverdue = fimStr < todayStr && d.status !== "concluido" && d.status !== "cancelado";
+
+                return (
+                  <div
+                    key={d.id}
+                    className="absolute left-0 right-0 border-b border-gray-50"
+                    style={{ top: 28 + i * GANTT_ROW_H, height: GANTT_ROW_H }}
+                  >
+                    {/* weekend shading */}
+                    {Array.from({ length: totalDays }).map((_, di) => {
+                      const day = addDays(rangeStart, di);
+                      if (![0, 6].includes(day.getDay())) return null;
+                      return (
+                        <div
+                          key={di}
+                          className="absolute top-0 bottom-0 bg-gray-50"
+                          style={{ left: `${di * dayPct}%`, width: `${dayPct}%` }}
+                        />
+                      );
+                    })}
+
+                    {ms ? (
+                      /* Milestone diamond */
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10"
+                        style={{ left: barStyle.left }}
+                        title={`Marco: ${d.titulo}`}
+                      >
+                        <div
+                          className="text-purple-600 drop-shadow"
+                          style={{ fontSize: 20, lineHeight: 1 }}
+                        >
+                          ◆
+                        </div>
+                      </div>
+                    ) : (
+                      /* Bar */
+                      <div
+                        className="absolute top-2 bottom-2 rounded flex items-center px-1.5 overflow-hidden"
+                        style={{
+                          left: barStyle.left,
+                          width: barStyle.width,
+                          backgroundColor: bc.bg,
+                          outline: isOverdue ? "2px solid #ef4444" : "none",
+                          outlineOffset: "1px",
+                        }}
+                        title={d.titulo}
+                      >
+                        <span className="text-[10px] font-medium truncate" style={{ color: bc.fg }}>
+                          {d.titulo}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Legend footer */}
+          <div className="text-xs text-muted-foreground text-right py-1 pr-4 border-t border-gray-100 bg-gray-50">
+            ◆ Marco = demanda de prazo único (início = fim) &nbsp;|&nbsp; Linha azul = hoje
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DemandasPage() {
   const queryClient = useQueryClient();
@@ -1182,7 +1591,8 @@ export default function DemandasPage() {
   const [clearHistoricoDialogOpen, setClearHistoricoDialogOpen] = useState(false);
   const [clearHistoricoSenha, setClearHistoricoSenha] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  
+  const [viewMode, setViewMode] = useState<"kanban" | "calendario" | "timeline" | "gantt">("kanban");
+
   const [confirmDocumentoDialogOpen, setConfirmDocumentoDialogOpen] = useState(false);
   const [demandaPendenteConclusao, setDemandaPendenteConclusao] = useState<{ id: number; titulo: string } | null>(null);
   const [, setLocation] = useLocation();
@@ -1483,13 +1893,45 @@ export default function DemandasPage() {
 
   return (
     <div className="container mx-auto py-8 space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold">Quadro de Demandas</h1>
-          <p className="text-muted-foreground mt-1">Arraste os cards entre as colunas para alterar o status.</p>
+          <p className="text-muted-foreground mt-1">
+            {viewMode === "kanban" && "Arraste os cards entre as colunas para alterar o status."}
+            {viewMode === "calendario" && "Visualização mensal com destaques por prioridade."}
+            {viewMode === "timeline" && "Linha do tempo ordenada por prazo de entrega."}
+            {viewMode === "gantt" && "Gráfico de Gantt com marcação de marcos (◆)."}
+          </p>
         </div>
 
-        <div className="flex flex-wrap gap-2 justify-end">
+        <div className="flex flex-wrap gap-2 justify-end items-center">
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border overflow-hidden shadow-sm">
+            {([ 
+              { key: "kanban",    icon: <Kanban className="h-4 w-4" />,     label: "Kanban" },
+              { key: "calendario", icon: <Calendar className="h-4 w-4" />,  label: "Calendário" },
+              { key: "timeline",  icon: <LayoutList className="h-4 w-4" />, label: "Timeline" },
+              { key: "gantt",     icon: <GitBranch className="h-4 w-4" />,  label: "Gantt" },
+            ] as const).map(({ key, icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setViewMode(key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                  viewMode === key
+                    ? "text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+                style={viewMode === key ? { backgroundColor: ECOBRASIL.azulEscuro } : {}}
+                title={label}
+              >
+                {icon}
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+
           <RefreshButton />
 
           <Button variant="outline" onClick={downloadDemandasCSV}>
@@ -1497,13 +1939,15 @@ export default function DemandasPage() {
             Baixar CSV
           </Button>
 
-          <Button
-            style={{ backgroundColor: ECOBRASIL.azulEscuro, color: "white" }}
-            onClick={downloadCalendarPDF}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Baixar PDF do Calendário
-          </Button>
+          {viewMode === "calendario" && (
+            <Button
+              style={{ backgroundColor: ECOBRASIL.azulEscuro, color: "white" }}
+              onClick={downloadCalendarPDF}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Baixar PDF
+            </Button>
+          )}
 
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
@@ -1527,45 +1971,58 @@ export default function DemandasPage() {
         </div>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {(Object.entries(STATUS_LABEL) as [Status, string][]).map(([status, label]) => (
-            <KanbanColumn
-              key={status}
-              status={status}
-              label={label}
-              demandas={columns[status]}
-              colaboradores={colaboradores}
-              onEdit={setEditing}
-              onDelete={(id) => {
-                if (confirm("Tem certeza que deseja excluir esta demanda?")) deleteMutation.mutate(id);
-              }}
-            />
-          ))}
-        </div>
+      {/* Views */}
+      {viewMode === "kanban" && (
+        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {(Object.entries(STATUS_LABEL) as [Status, string][]).map(([status, label]) => (
+              <KanbanColumn
+                key={status}
+                status={status}
+                label={label}
+                demandas={columns[status]}
+                colaboradores={colaboradores}
+                onEdit={setEditing}
+                onDelete={(id) => {
+                  if (confirm("Tem certeza que deseja excluir esta demanda?")) deleteMutation.mutate(id);
+                }}
+              />
+            ))}
+          </div>
 
-        <DragOverlay>
-          {activeDemanda ? (
-            <Card className="w-80 opacity-90 rotate-3 shadow-xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">{activeDemanda.titulo}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground">
-                <p className="line-clamp-2">{activeDemanda.descricao}</p>
-              </CardContent>
-            </Card>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeDemanda ? (
+              <Card className="w-80 opacity-90 rotate-3 shadow-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">{activeDemanda.titulo}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs text-muted-foreground">
+                  <p className="line-clamp-2">{activeDemanda.descricao}</p>
+                </CardContent>
+              </Card>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
-      <CalendarioEcoBrasil
-        demandas={demandas}
-        colaboradores={colaboradores}
-        monthDate={calendarMonth}
-        onPrevMonth={() => setCalendarMonth((d) => subMonths(d, 1))}
-        onNextMonth={() => setCalendarMonth((d) => addMonths(d, 1))}
-        exportRef={calendarExportRef}
-      />
+      {viewMode === "calendario" && (
+        <CalendarioEcoBrasil
+          demandas={demandas}
+          colaboradores={colaboradores}
+          monthDate={calendarMonth}
+          onPrevMonth={() => setCalendarMonth((d) => subMonths(d, 1))}
+          onNextMonth={() => setCalendarMonth((d) => addMonths(d, 1))}
+          exportRef={calendarExportRef}
+        />
+      )}
+
+      {viewMode === "timeline" && (
+        <TimelineView demandas={demandas} colaboradores={colaboradores} />
+      )}
+
+      {viewMode === "gantt" && (
+        <GanttView demandas={demandas} colaboradores={colaboradores} />
+      )}
 
       {/* Histórico */}
       <Card className="mt-8">
