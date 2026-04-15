@@ -42,51 +42,90 @@ export async function analyzeDocument(
 ): Promise<DocumentAnalysisResult> {
   const hasContent = contentPreview && contentPreview.trim().length > 50;
 
-  const prompt = `Você é um especialista em documentação técnica ambiental, normas ABNT e legislação brasileira. Analise o documento abaixo e extraia TODAS as informações importantes que conseguir identificar.
+  const prompt = `Você é um analista documental sênior especializado em licenciamento ambiental brasileiro e documentação técnica. Analise o documento abaixo e extraia com máxima precisão todas as informações identificáveis.
 
 Nome do arquivo: ${filename}
-${hasContent ? `\nConteúdo do documento:\n${contentPreview!.substring(0, 8000)}` : "\n(Sem conteúdo textual disponível — analise com base no nome do arquivo)"}
+${hasContent ? `\nCONTEÚDO DO DOCUMENTO:\n${contentPreview!.substring(0, 10000)}` : "\n(Sem conteúdo textual — analise com base no nome do arquivo)"}
 
-Extraia o máximo de variáveis possível e responda em JSON com a estrutura abaixo. Use null para campos não identificáveis. Nunca invente informações:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTRUÇÕES PARA CADA CAMPO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ÓRGÃO EMISSOR: Procure em cabeçalhos, brasões, assinaturas e carimbos. Órgãos ambientais brasileiros:
+- Federais: IBAMA, ICMBio, ANA, ANEEL, ANM, MMA, FUNAI, IPHAN
+- BA: INEMA (Instituto do Meio Ambiente e Recursos Hídricos), SEMA, CEPRAM
+- SP: CETESB, SMA; MG: FEAM, SUPRAM; RS: FEPAM; PA: SEMAS; GO: SEMAD; PR: IAT
+- SE: ADEMA; ES/MA: IEMA; AM: IPAAM; RO: SEDAM; AL/PI/RN/TO: SEMARH
+- Conselhos: CONAMA, CONSEMA; ABNT (normas técnicas)
+Escreva o nome completo + sigla. Ex: "Instituto do Meio Ambiente e Recursos Hídricos (INEMA)"
+
+DATA DE EMISSÃO: Busque a data de assinatura/publicação (não de recebimento). Locais comuns: bloco de assinatura ("Salvador, 15 de março de 2024"), campo "Data:", "Emitido em:", rodapé. Converta para YYYY-MM-DD:
+- "15/03/2024" → "2024-03-15"
+- "15 de março de 2024" → "2024-03-15"
+- "março/2024" → "2024-03-01"
+- Apenas ano "2024" → "2024-01-01"
+
+NÚMERO DO DOCUMENTO: Reconheça padrões como:
+- Licenças: "LP nº 001/2024", "LI 0023/2023-INEMA", "LO 2024.001.000345-2"
+- Ofícios: "OFÍCIO nº 1234/2024/INEMA", "OF. 045/GAB/2024"
+- Notificações: "NOT-001/2024", "NOTIFICAÇÃO nº 2024001004933"
+- Processos SEI: "SEI 0648-0001234/2024-21"
+- Pareceres: "PARECER TÉCNICO nº 123/2024"
+- Normas: "CONAMA 357/2005", "NBR 10004:2004"
+
+TIPO DE DOCUMENTO: Classifique pelo conteúdo real:
+- Licença Ambiental (LP, LI, LO, LAC, LAU, LAS) → "licenca"
+- Notificação, Intimação, Auto de Notificação → "notificacao"
+- Ofício, Memorando, Despacho → "oficio"
+- Relatório Técnico, EIA, RIMA, PCA, RAP, PRAD, RCA → "relatorio"
+- Parecer Técnico ou Jurídico → "parecer"
+- ART/RRT → "art"
+- Mapa, Planta, Croqui → "mapa"
+- Lei, Decreto, Resolução, Portaria, IN, Norma ABNT → "documento_legal"
+- Auto de Infração, Embargo → "auto_infracao"
+- Artigo Científico, Dissertação, Tese → "artigo_cientifico"
+- Outro → "outro"
+
+Retorne APENAS JSON válido:
 
 {
   "isArtigoCientifico": boolean,
-  "titulo": string ou null,
-  "tipoDocumento": string ou null (ex: "Licença Ambiental", "Norma Técnica", "Guia Metodológico", "EIA", "RIMA", "PCA", "RAP", "Plano de Monitoramento", "Artigo Científico", "Manual Técnico", "Instrução Normativa", "Resolução", "Guia Técnico"),
-  "orgaoEmissor": string ou null (ex: "IBAMA", "INEMA", "SEMA", "CETESB", "CONAMA", "ABNT", nome da universidade, empresa),
-  "numeroDocumento": string ou null (número da norma/licença/resolução, ex: "CONAMA 357/2005", "NBR 10004"),
-  "dataEmissao": string ou null (data de emissão ou publicação, formato DD/MM/AAAA ou AAAA),
-  "vigencia": string ou null (prazo de validade, ex: "31/12/2027", "3 anos"),
-  "versao": string ou null (versão do documento),
-  "autores": string ou null (para artigos: "SOBRENOME, Nome; SOBRENOME2, Nome2"),
-  "anoPublicacao": string ou null,
-  "periodico": string ou null,
-  "doi": string ou null,
-  "tema": string (um de: ${TEMAS_AMBIENTAIS.join(", ")}),
-  "areaAtuacao": string ou null (ex: "Licenciamento Ambiental", "SST", "Gestão de Resíduos", "Qualidade da Água", "Monitoramento de Fauna"),
-  "municipioUf": string ou null,
-  "empreendimento": string ou null,
-  "legislacaoReferenciada": string ou null (principais leis e resoluções referenciadas),
-  "condicionantes": string ou null (condicionantes ou requisitos principais, máx 300 chars),
-  "prazosImportantes": string ou null (prazos e periodicidades, máx 200 chars),
-  "palavrasChave": string ou null (5-8 palavras-chave separadas por vírgula),
-  "resumoAuto": string (resumo executivo de 3-5 frases — seja específico ao conteúdo real),
-  "descricaoGerada": string (descrição curta de 1 frase, máx 150 chars),
-  "citacaoAbnt": string ou null (apenas se artigo científico),
-  "referenciaAbnt": string ou null (apenas se artigo científico)
+  "titulo": "título oficial ou null",
+  "tipoDocumento": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|auto_infracao|artigo_cientifico|outro",
+  "orgaoEmissor": "nome completo (SIGLA) do órgão ou null",
+  "numeroDocumento": "número/código principal do documento ou null",
+  "dataEmissao": "YYYY-MM-DD ou null",
+  "vigencia": "data de vencimento YYYY-MM-DD ou descrição textual ou null",
+  "versao": "versão do documento ou null",
+  "autores": "SOBRENOME, Nome; SOBRENOME2, Nome2 (só para artigos) ou null",
+  "anoPublicacao": "AAAA ou null",
+  "periodico": "nome do periódico (só artigos) ou null",
+  "doi": "DOI (só artigos) ou null",
+  "tema": "um de: ${TEMAS_AMBIENTAIS.join(", ")}",
+  "areaAtuacao": "área específica (ex: 'Monitoramento de Fauna', 'Qualidade da Água') ou null",
+  "municipioUf": "Município - UF (ex: 'Salvador - BA') ou null",
+  "empreendimento": "nome do empreendimento, empresa ou projeto ou null",
+  "legislacaoReferenciada": "principais normas citadas separadas por vírgula ou null",
+  "condicionantes": "principais condicionantes/exigências resumidas (máx 400 chars) ou null",
+  "prazosImportantes": "prazos e periodicidades identificados (máx 250 chars) ou null",
+  "palavrasChave": "5-8 palavras-chave separadas por vírgula ou null",
+  "resumoAuto": "resumo executivo específico e técnico em 3-5 frases sobre este documento",
+  "descricaoGerada": "descrição de 1 frase (máx 150 chars) para uso como título alternativo",
+  "citacaoAbnt": "citação ABNT completa (só artigos) ou null",
+  "referenciaAbnt": "referência ABNT completa (só artigos) ou null"
 }
 
-${hasContent ? "IMPORTANTE: Use o conteúdo fornecido para extrair informações reais. Não invente dados." : "IMPORTANTE: Analise com base apenas no nome do arquivo."}`;
+${hasContent ? "CRÍTICO: Use APENAS informações presentes no texto. Não invente dados. Prefira null a dados incertos." : "Analise com base apenas no nome do arquivo. Todos os dados são inferidos — marque confiança baixa."}`;
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Você é um especialista em biblioteconomia, documentação técnica ambiental e normas ABNT. Extrai informações de documentos com precisão. Responda sempre em JSON válido." },
+        { role: "system", content: "Você é um analista documental sênior com 20 anos de experiência em licenciamento ambiental brasileiro, órgãos ambientais federais e estaduais (IBAMA, ICMBio, INEMA, CETESB, FEAM, etc.), normas ABNT e legislação ambiental. Sua especialidade é extrair com máxima precisão os metadados de documentos oficiais: órgão emissor, número, data de emissão, tipo, condicionantes e prazos. Responda SEMPRE em JSON válido e nunca invente dados." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },
-      max_tokens: 3000
+      max_tokens: 4000
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");

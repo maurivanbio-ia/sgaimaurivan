@@ -3827,91 +3827,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Prompt completo e exaustivo de análise documental
   function buildPromptCompleto(nomeArquivo: string, texto: string) {
-    return `Analise integralmente o documento fornecido e realize uma extração estruturada, precisa e exaustiva de todas as informações relevantes. O objetivo é transformar o conteúdo em dados organizados, rastreáveis e utilizáveis para gestão técnica, jurídica, administrativa ou operacional.
+    return `Você é um analista documental sênior especializado em **licenciamento ambiental brasileiro**, gestão de documentos técnicos e conformidade regulatória. Sua tarefa é realizar uma extração **estruturada, precisa e exaustiva** de todas as informações relevantes do documento fornecido, transformando o conteúdo em dados organizados e acionáveis para gestão técnica, jurídica, administrativa e operacional.
 
-Documento: ${nomeArquivo || 'sem nome'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENTO: ${nomeArquivo || 'sem nome'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 TEXTO DO DOCUMENTO:
-${texto.slice(0, 12000)}
-${texto.length > 12000 ? '\n[... documento truncado para análise - primeiros 12.000 caracteres ...]' : ''}
+${texto.slice(0, 14000)}
+${texto.length > 14000 ? '\n[... documento truncado — primeiros 14.000 caracteres ...]' : ''}
 
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTRUÇÕES CRÍTICAS — LEIA ANTES DE ANALISAR:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Siga rigorosamente as etapas de análise e retorne OBRIGATORIAMENTE em formato JSON válido com a seguinte estrutura. Use null para campos não encontrados ou não aplicáveis:
+**1. IDENTIFICAÇÃO DO ÓRGÃO EMISSOR**
+Procure em cabeçalhos, rodapés, brasões, assinaturas, carimbos e trechos de protocolo. Órgãos ambientais brasileiros comuns:
+- Federais: IBAMA, ICMBio, ANA, ANEEL, DNPM/ANM, MMA, FUNAI, IPHAN
+- Estaduais BA: INEMA, SEMA, CEPRAM, SUDEMA
+- Estaduais outros: CETESB (SP), FEAM/SUPRAM (MG), FEPAM (RS), SEMAS (PA), SEMAD (GO), IAT (PR), ADEMA (SE), IEMA (ES/MA), IPAAM (AM), IMAC (AC), SEDAM (RO), SEMARH (AL/PI/RN/TO), SLAP (AP), FEMARH (RR), SEFAZ/órgãos fiscais
+- Municipais: Secretaria Municipal de Meio Ambiente (SMMA), SEMMA + nome do município
+- Conselhos: CONAMA, CONSEMA, CONDEMA
+- Outros: universidades, institutos de pesquisa (INPE, EMBRAPA), empresas consultoras
+Se o órgão for identificado por sigla no texto, escreva o nome completo seguido da sigla: "Instituto do Meio Ambiente e Recursos Hídricos (INEMA)".
+
+**2. DATA DO DOCUMENTO**
+Busque a **data de emissão/assinatura/publicação** — NÃO a data de protocolo de recebimento. Locais comuns: cabeçalho, rodapé, bloco de assinaturas ("Salvador, 15 de março de 2024"), campo "Data:", "Emitido em:", "Assinado em:", data digitada próxima à assinatura. Converta SEMPRE para formato ISO: YYYY-MM-DD. Exemplos de padrões a reconhecer:
+- "15/03/2024" → "2024-03-15"
+- "15 de março de 2024" → "2024-03-15"
+- "março/2024" ou "03/2024" → "2024-03-01" (usar dia 01 quando só mês/ano)
+- "2024" (apenas ano) → "2024-01-01"
+Se houver mais de uma data, priorize: (1) data de assinatura/emissão, (2) data de publicação, (3) data de protocolo.
+
+**3. NÚMERO DO DOCUMENTO / PROTOCOLO**
+Padrões comuns a reconhecer:
+- Licenças: "LP nº 001/2024", "LI 0023/2023-INEMA", "LO nº 2024.001.000345-2"
+- Ofícios: "OFÍCIO nº 1234/2024/INEMA/DILAM", "OF. 045/GAB/2024"
+- Notificações: "NOT-001/2024", "NOTIFICAÇÃO nº 2024001004933"
+- Processos: "Processo nº 2024.001.000345-2", "SEI 0648-0001234/2024-21"
+- Pareceres: "PARECER TÉCNICO nº 123/2024"
+- Autos de infração: "AUTO DE INFRAÇÃO nº 12345678"
+Extraia o número/código **mais relevante e identificador** do documento.
+
+**4. TIPO DOCUMENTAL**
+Classifique com base no conteúdo real, não apenas no nome do arquivo. Tipos válidos:
+- "licenca" → LP (Licença Prévia), LI (Licença de Instalação), LO (Licença de Operação), LAC, LAS, LAU, LAUDO, LAR
+- "notificacao" → notificação, auto de notificação, intimação
+- "oficio" → ofício, memorando, despacho, comunicado
+- "relatorio" → relatório técnico, relatório de monitoramento, RCA, PRAD, PCA, RAP, EIA, RIMA
+- "parecer" → parecer técnico, parecer jurídico, parecer de conformidade
+- "art" → ART (Anotação de Responsabilidade Técnica), RRT
+- "mapa" → mapa, planta, croqui, shapefile, KMZ
+- "documento_legal" → lei, decreto, resolução, portaria, instrução normativa, norma ABNT
+- "condicionante" → lista ou tabela de condicionantes de licença
+- "auto_infracao" → auto de infração, embargo, interdição
+- "contrato" → contrato, termo de referência, termo de compromisso, TAC, TCAC
+- "laudo" → laudo técnico, laudo de vistoria, laudo pericial
+- "cronograma" → cronograma de execução, plano de trabalho
+- "outro" → demais tipos não classificáveis acima
+
+**5. EXIGÊNCIAS E CONDICIONANTES**
+Extraia TODAS as exigências, obrigações, condicionantes e prazos. Inclua:
+- Condicionantes de licença (numeradas ou não)
+- Prazos para apresentação de documentos, relatórios ou planos
+- Obrigações de monitoramento, medição ou mitigação
+- Penalidades previstas por descumprimento
+- Ações corretivas exigidas
+Para cada exigência, estime a prioridade pelo impacto regulatório.
+
+**6. EMPREENDIMENTO / PROJETO**
+Identifique o nome do empreendimento, projeto ou atividade licenciada/analisada. Pode estar como: razão social da empresa, nome do projeto, nome da fazenda/gleba, nome da UHE/PCH/eólica, etc.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RETORNE OBRIGATORIAMENTE EM JSON VÁLIDO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {
   "fichaTecnica": {
-    "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|outro",
-    "titulo": "título completo do documento ou null",
-    "numeroDocumento": "número ou código do documento ou null",
-    "orgaoEmissor": "órgão emissor ou instituição responsável ou null",
-    "dataEmissao": "data de emissão/assinatura/publicação YYYY-MM-DD ou null",
-    "dataProtocolo": "data de protocolo ou recebimento YYYY-MM-DD ou null",
-    "responsavelTecnico": "nome do responsável técnico ou signatário ou null",
-    "empreendimento": "nome do empreendimento ou projeto relacionado ou null",
-    "processoAdministrativo": "número do processo administrativo vinculado ou null",
-    "localidade": "localidade ou área de abrangência ou null"
+    "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|auto_infracao|contrato|laudo|cronograma|outro",
+    "titulo": "título completo e oficial do documento (ex: 'Licença de Operação nº 0234/2024 — Fazenda Boa Vista') ou null",
+    "numeroDocumento": "número ou código principal do documento (ex: 'LO nº 0234/2024-INEMA', 'OFÍCIO 123/2024/GAB') ou null",
+    "orgaoEmissor": "nome completo do órgão emissor com sigla (ex: 'Instituto do Meio Ambiente e Recursos Hídricos (INEMA)') ou null",
+    "dataEmissao": "data de emissão/assinatura em formato YYYY-MM-DD ou null",
+    "dataProtocolo": "data de protocolo ou recebimento YYYY-MM-DD (diferente da emissão) ou null",
+    "dataVencimento": "data de validade/vencimento do documento YYYY-MM-DD ou null",
+    "responsavelTecnico": "nome completo + registro profissional (CREA/CRBio/CRQ) do responsável técnico ou signatário principal ou null",
+    "empreendimento": "nome completo do empreendimento, empresa ou projeto relacionado ou null",
+    "cnpjCpf": "CNPJ ou CPF do empreendedor/requerente identificado no documento ou null",
+    "processoAdministrativo": "número do processo administrativo vinculado (ex: 'Processo nº 2024.001.000345-2') ou null",
+    "localidade": "município(s), estado e coordenadas/localização da área ou null",
+    "atividadeLicenciada": "descrição da atividade ou empreendimento licenciado/analisado ou null"
   },
-  "resumoExecutivo": "resumo claro, técnico e objetivo em 2-3 parágrafos identificando o objetivo principal, contexto e finalidade prática do documento",
+  "resumoExecutivo": "resumo técnico em 2-4 parágrafos: (1) o que é este documento e sua finalidade; (2) contexto do empreendimento ou situação; (3) principais determinações, resultados ou conclusões; (4) implicações práticas para a equipe ambiental",
   "exigencias": [
     {
-      "descricao": "descrição precisa da exigência, obrigação ou condicionante",
-      "trechoOriginal": "trecho literal do documento de onde foi extraída",
-      "prazo": "prazo estabelecido em texto livre ou null",
+      "descricao": "descrição clara e completa da exigência, condicionante ou obrigação",
+      "trechoOriginal": "trecho LITERAL do documento de onde foi extraída (máx 200 chars)",
+      "prazo": "prazo em texto livre como aparece no documento ou null",
       "dataLimite": "data limite estimada YYYY-MM-DD ou null",
-      "responsavelSugerido": "responsável sugerido pela execução ou null",
+      "responsavelSugerido": "perfil profissional ou equipe recomendada para execução ou null",
       "prioridade": "alta|media|baixa",
-      "riscoNaoAtendimento": "descrição do risco regulatório ou técnico em caso de não atendimento"
+      "riscoNaoAtendimento": "risco regulatório, multa, embargo ou consequência de não cumprimento"
     }
   ],
   "documentosRelacionados": [
     {
-      "tipo": "notificacao_anterior|licenca_vinculada|oficio_resposta|relatorio_complementar|anexo_tecnico|outro",
+      "tipo": "notificacao_anterior|licenca_vinculada|oficio_resposta|relatorio_complementar|anexo_tecnico|processo_sei|outro",
       "identificacao": "número, nome ou código do documento relacionado",
-      "relacaoLogica": "como este documento se relaciona logicamente com o documento analisado"
+      "relacaoLogica": "como se relaciona com o documento analisado"
     }
   ],
   "dadosTecnicos": {
-    "coordenadas": "coordenadas geográficas identificadas ou null",
-    "areas": "áreas em ha, m² ou km² identificadas ou null",
-    "especiesCitadas": "espécies identificadas ou null",
-    "parametrosAmbientais": "parâmetros ambientais mencionados ou null",
-    "metodologias": "metodologias citadas ou null",
-    "valoresFinanceiros": "valores financeiros identificados ou null",
-    "outrosDados": "outros dados técnicos relevantes ou null"
+    "coordenadas": "coordenadas UTM ou geográficas identificadas ou null",
+    "areas": "áreas em ha, m², km² com contexto (ex: 'APP: 45,3 ha; Reserva Legal: 120 ha') ou null",
+    "especiesCitadas": "espécies da fauna/flora citadas (nome científico e popular) ou null",
+    "parametrosAmbientais": "parâmetros de qualidade ambiental (pH, turbidez, coliformes, etc.) ou null",
+    "metodologias": "metodologias, normas ABNT ou protocolos técnicos citados ou null",
+    "valoresFinanceiros": "valores de multas, taxas, compensações ou investimentos ou null",
+    "outrosDados": "outros dados técnicos quantitativos relevantes ou null"
   },
   "baseLegal": [
     {
-      "nome": "nome completo da norma, lei, decreto, resolução ou portaria",
-      "numero": "número da norma",
+      "nome": "nome completo da norma (ex: 'Resolução CONAMA nº 357, de 17 de março de 2005')",
+      "numero": "número identificador",
       "ano": "ano de publicação",
-      "contexto": "como é aplicada no documento"
+      "contexto": "como e por que é aplicada neste documento"
     }
   ],
   "linhaDoTempo": [
     {
-      "data": "YYYY-MM-DD ou descrição temporal",
-      "evento": "descrição do evento ou marco",
+      "data": "YYYY-MM-DD ou descrição temporal (ex: '30 dias após notificação')",
+      "evento": "marco, prazo ou evento relevante",
       "status": "concluido|pendente|vencido|em_andamento"
     }
   ],
   "riscos": [
     {
-      "tipo": "documento_faltante|informacao_ausente|inconsistencia_tecnica|conflito_datas|fragilidade_documental|risco_regulatorio",
-      "descricao": "descrição precisa do risco, lacuna ou inconsistência identificada"
+      "tipo": "documento_faltante|informacao_ausente|inconsistencia_tecnica|conflito_datas|fragilidade_documental|risco_regulatorio|prazo_critico",
+      "descricao": "descrição precisa do risco, lacuna ou inconsistência"
     }
   ],
   "planoDeAcao": [
     {
-      "acao": "descrição da ação corretiva ou preventiva",
-      "responsavel": "responsável recomendado",
+      "acao": "ação objetiva e específica a ser executada pela equipe",
+      "responsavel": "perfil ou equipe responsável (ex: 'Biólogo responsável', 'Coord. de Licenciamento')",
       "prioridade": "alta|media|baixa",
       "ordem": 1
     }
   ],
   "confianca": "alta|media|baixa",
-  "observacoesGerais": "quaisquer observações adicionais, incertezas ou informações ambíguas identificadas durante a análise"
-}`;
+  "justificativaConfianca": "explique brevemente por que atribuiu este nível de confiança (ex: 'Texto claro com datas e assinaturas legíveis' ou 'PDF escaneado com baixa qualidade — algumas informações incertas')",
+  "observacoesGerais": "incertezas, ambiguidades, informações contraditórias ou contexto adicional relevante"
+}
+
+REGRAS ABSOLUTAS:
+- Retorne APENAS o JSON, sem markdown, sem explicações fora do JSON
+- Use null para campos não encontrados — NUNCA invente ou assuma dados não presentes no texto
+- Datas SEMPRE em YYYY-MM-DD quando possível
+- Exigências: extraia TODAS, mesmo que sejam muitas
+- Base legal: inclua TODAS as normas citadas explicitamente
+- Se o texto for de baixa qualidade ou escaneado, sinalize em "observacoesGerais" e reduza a confiança`;
   }
 
   // AI extraction endpoint - extração rápida de metadados (formulário de upload)
