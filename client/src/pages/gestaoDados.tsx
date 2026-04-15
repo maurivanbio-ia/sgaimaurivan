@@ -1551,17 +1551,88 @@ export default function GestaoDados() {
                   </div>
                 )}
 
-                {/* Detalhes */}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {detailDataset.orgaoEmissor && <div><span className="text-muted-foreground">Órgão:</span> <strong>{detailDataset.orgaoEmissor}</strong></div>}
-                  {detailDataset.responsavel && <div><span className="text-muted-foreground">Responsável:</span> <strong>{detailDataset.responsavel}</strong></div>}
-                  {detailDataset.disciplina && <div><span className="text-muted-foreground">Disciplina:</span> <Badge variant="outline" className="text-xs">{detailDataset.disciplina}</Badge></div>}
-                  <div><span className="text-muted-foreground">Versão:</span> <strong>{detailDataset.versao || "V0.1"}</strong></div>
-                  <div><span className="text-muted-foreground">Upload:</span> {formatDate(detailDataset.dataUpload)}</div>
-                  <div><span className="text-muted-foreground">Tamanho:</span> {formatFileSize(detailDataset.tamanho)}</div>
-                  {detailDataset.codigoArquivo && <div className="col-span-2"><span className="text-muted-foreground">Código:</span> <code className="text-xs bg-muted px-1 rounded">{detailDataset.codigoArquivo}</code></div>}
+                {/* Detalhes do documento */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm border rounded-lg p-3 bg-muted/30">
+                  {/* Tipo Documental */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Tipo Documental</p>
+                    <p className="font-medium">
+                      {detailDataset.tipoDocumental
+                        ? <Badge variant="outline" className="text-xs">{getTipoDocumentalInfo(detailDataset.tipoDocumental)?.label || detailDataset.tipoDocumental}</Badge>
+                        : <span className="text-muted-foreground">—</span>}
+                    </p>
+                  </div>
+                  {/* Número do Documento */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Número / Protocolo</p>
+                    <p className="font-medium">{detailDataset.numeroDocumento || <span className="text-muted-foreground">—</span>}</p>
+                  </div>
+                  {/* Órgão Emissor */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Órgão Emissor</p>
+                    <p className="font-medium">{detailDataset.orgaoEmissor || <span className="text-muted-foreground">—</span>}</p>
+                  </div>
+                  {/* Responsável */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Responsável</p>
+                    <p className="font-medium">{detailDataset.responsavel || <span className="text-muted-foreground">—</span>}</p>
+                  </div>
+                  {/* Data de Emissão */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Data de Emissão</p>
+                    <p className="font-medium">
+                      {detailDataset.dataEmissao
+                        ? new Intl.DateTimeFormat("pt-BR").format(new Date(detailDataset.dataEmissao + "T12:00:00"))
+                        : <span className="text-muted-foreground">—</span>}
+                    </p>
+                  </div>
+                  {/* Prazo */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Prazo de Atendimento</p>
+                    <p className="font-medium">
+                      {detailDataset.prazoAtendimento
+                        ? new Intl.DateTimeFormat("pt-BR").format(new Date(detailDataset.prazoAtendimento + "T12:00:00"))
+                        : <span className="text-muted-foreground">—</span>}
+                    </p>
+                  </div>
+                  {/* Disciplina + Versão */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Disciplina</p>
+                    <p className="font-medium">
+                      {detailDataset.disciplina
+                        ? <Badge variant="outline" className="text-xs">{detailDataset.disciplina}</Badge>
+                        : <span className="text-muted-foreground">—</span>}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Versão</p>
+                    <p className="font-medium">{detailDataset.versao || "V0.1"}</p>
+                  </div>
+                  {/* Upload + Tamanho */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Data de Upload</p>
+                    <p className="font-medium">{formatDate(detailDataset.dataUpload)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Tamanho</p>
+                    <p className="font-medium">{formatFileSize(detailDataset.tamanho)}</p>
+                  </div>
+                  {/* Código — ocupa linha inteira */}
+                  {detailDataset.codigoArquivo && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground mb-0.5">Código Padronizado</p>
+                      <code className="text-xs bg-muted px-2 py-1 rounded block break-all">{detailDataset.codigoArquivo}</code>
+                    </div>
+                  )}
+                  {/* Vínculo */}
                   {detailDataset.vinculoTipo && detailDataset.documentoRelacionadoId && (
-                    <div className="col-span-2 flex items-center gap-2"><Link2 className="h-4 w-4 text-blue-500" /><span className="text-muted-foreground">Vínculo:</span> {VINCULOS_TIPOS.find(v => v.value === detailDataset.vinculoTipo)?.label || detailDataset.vinculoTipo} (doc #{detailDataset.documentoRelacionadoId})</div>
+                    <div className="col-span-2 flex items-center gap-2">
+                      <Link2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Vínculo</p>
+                        <p className="text-sm">{VINCULOS_TIPOS.find(v => v.value === detailDataset.vinculoTipo)?.label || detailDataset.vinculoTipo} — doc #{detailDataset.documentoRelacionadoId}</p>
+                      </div>
+                    </div>
                   )}
                 </div>
 
