@@ -44,6 +44,9 @@ const CONVERT  = findBinary('convert')  || '/usr/bin/convert';
 
 const PLACEHOLDER_PATTERNS = ['seu-servidor', 'your-server', 'placeholder', 'example.com'];
 
+// URL padrão correta do HuggingFace Router (OpenAI-compatible)
+export const HF_ROUTER_URL = 'https://router.huggingface.co/v1';
+
 function isPlaceholderUrl(url: string | undefined): boolean {
   if (!url) return true;
   return PLACEHOLDER_PATTERNS.some(p => url.toLowerCase().includes(p));
@@ -76,21 +79,38 @@ function getApiKey(baseUrl: string, modelApiKeyVar?: string): string {
 }
 
 /**
- * Para HuggingFace Serverless API, o formato de URL é:
- *   https://api-inference.huggingface.co/v1 (usa model name na chamada)
- * ou
- *   https://api-inference.huggingface.co/models/<model>/v1 (modelo no URL)
+ * Normaliza a URL para o formato correto.
  *
- * Para HF Inference Endpoints dedicados:
- *   https://xxxx.endpoints.huggingface.cloud (URL já inclui o endpoint)
- *
- * Para vLLM local:
- *   http://192.168.x.x:8000/v1
+ * Para HuggingFace: converte api-inference (legado) → router.huggingface.co/v1
+ * Para Inference Endpoints dedicados: mantém como está
+ * Para vLLM local: adiciona /v1 se necessário
  */
 function buildBaseUrl(rawUrl: string): string {
-  // Remove trailing slash
   const clean = rawUrl.replace(/\/+$/, '');
-  // Se não tem /v1 no final, adiciona
+
+  // Converte api-inference.huggingface.co/models/<model>/v1 → router.huggingface.co/v1
+  if (clean.includes('api-inference.huggingface.co/models/')) {
+    warn(`URL api-inference legada detectada — migrando automaticamente para router.huggingface.co/v1`);
+    return HF_ROUTER_URL;
+  }
+
+  // api-inference.huggingface.co/v1 → router.huggingface.co/v1
+  if (clean.includes('api-inference.huggingface.co')) {
+    warn(`api-inference.huggingface.co não suporta OpenAI-compatible API — migrando para router.huggingface.co/v1`);
+    return HF_ROUTER_URL;
+  }
+
+  // HF Inference Endpoints dedicados (*.endpoints.huggingface.cloud)
+  if (clean.includes('endpoints.huggingface.cloud')) {
+    return clean.endsWith('/v1') ? clean : clean + '/v1';
+  }
+
+  // HF Router já configurado corretamente
+  if (clean.includes('router.huggingface.co')) {
+    return clean.endsWith('/v1') ? clean : clean + '/v1';
+  }
+
+  // URL genérica (vLLM, etc) — adiciona /v1 se necessário
   if (!clean.endsWith('/v1')) return clean + '/v1';
   return clean;
 }
@@ -122,10 +142,8 @@ function getQwenVLClient(): { client: OpenAI; modelName: string } | null {
   const baseURL = buildBaseUrl(rawUrl);
   const apiKey  = getApiKey(rawUrl, 'QWEN_VL_API_KEY');
   const client  = new OpenAI({ baseURL, apiKey, timeout: 180_000, maxRetries: 1 });
-  // Para HF serverless, o model name é o path completo; para endpoints dedicados, pode ser 'tgi'
-  const modelName = isHuggingFaceUrl(rawUrl) && rawUrl.includes('/models/')
-    ? 'tgi'
-    : (process.env.QWEN_VL_MODEL || 'Qwen/Qwen2.5-VL-7B-Instruct');
+  // Extrai o nome do modelo corretamente (mesmo que QWEN_VL_MODEL contenha uma URL por engano)
+  const modelName = extractModelFromValue(process.env.QWEN_VL_MODEL, 'Qwen/Qwen2.5-VL-7B-Instruct');
   return { client, modelName };
 }
 
@@ -135,10 +153,28 @@ function getGLMClient(): { client: OpenAI; modelName: string } | null {
   const baseURL = buildBaseUrl(rawUrl);
   const apiKey  = getApiKey(rawUrl, 'GLM_OCR_API_KEY');
   const client  = new OpenAI({ baseURL, apiKey, timeout: 180_000, maxRetries: 1 });
-  const modelName = isHuggingFaceUrl(rawUrl) && rawUrl.includes('/models/')
-    ? 'tgi'
-    : (process.env.GLM_OCR_MODEL || 'zai-org/GLM-OCR');
+  // Extrai o nome do modelo corretamente (mesmo que GLM_OCR_MODEL contenha uma URL por engano)
+  const modelName = extractModelFromValue(process.env.GLM_OCR_MODEL, 'zai-org/GLM-OCR');
   return { client, modelName };
+}
+
+// Modelos de texto que NÃO estão disponíveis no HF Router free tier
+const HF_ROUTER_UNAVAILABLE_MODELS = new Set([
+  'Qwen/Qwen2.5-14B-Instruct',
+  'Qwen/Qwen2.5-VL-7B-Instruct',
+  'Qwen/Qwen2.5-VL-72B-Instruct',
+  'zai-org/GLM-OCR',
+]);
+
+// Se o nome do env var parece uma URL (começa com http), extrai o modelo do path
+function extractModelFromValue(val: string | undefined, fallback: string): string {
+  if (!val) return fallback;
+  if (val.startsWith('http')) {
+    // Extrai o nome do modelo da URL: .../models/Qwen/Qwen2.5-14B-Instruct/v1
+    const m = val.match(/\/models\/(.+?)(?:\/v1)?$/);
+    return m?.[1] || fallback;
+  }
+  return val;
 }
 
 function getTextLLMClient(): { client: OpenAI; modelName: string } | null {
@@ -147,22 +183,41 @@ function getTextLLMClient(): { client: OpenAI; modelName: string } | null {
   const baseURL = buildBaseUrl(rawUrl);
   const apiKey  = getApiKey(rawUrl, 'TEXT_LLM_API_KEY');
   const client  = new OpenAI({ baseURL, apiKey, timeout: 300_000, maxRetries: 1 });
-  const modelName = isHuggingFaceUrl(rawUrl) && rawUrl.includes('/models/')
-    ? 'tgi'
-    : (process.env.TEXT_LLM_MODEL || 'Qwen/Qwen2.5-14B-Instruct');
+
+  const isHFRouter = baseURL.includes('router.huggingface.co');
+
+  // Lê o modelo configurado; extrai nome se for uma URL acidentalmente
+  const configuredModel = extractModelFromValue(process.env.TEXT_LLM_MODEL, 'Qwen/Qwen2.5-14B-Instruct');
+
+  // Se o modelo configurado não está disponível no HF Router, usa o 72B (disponível no free tier)
+  let modelName = configuredModel;
+  if (isHFRouter && HF_ROUTER_UNAVAILABLE_MODELS.has(configuredModel)) {
+    modelName = 'Qwen/Qwen2.5-72B-Instruct';
+    log(`Modelo '${configuredModel}' não disponível no HF Router free tier → usando ${modelName}`);
+  }
+
   return { client, modelName };
 }
 
 // ── URLs padrão HuggingFace por modelo ─────────────────────────────────────
 
+/**
+ * URL padrão sugerida para cada modelo no HuggingFace Router (free tier).
+ * Nota: modelos de visão (VL) e OCR especializado não estão disponíveis no free tier
+ * — requerem Inference Endpoints dedicados (*.endpoints.huggingface.cloud).
+ */
 export function getDefaultHFUrl(modelEnvKey: string): string {
-  const modelPaths: Record<string, string> = {
-    QWEN_VL_MODEL:  process.env.QWEN_VL_MODEL  || 'Qwen/Qwen2.5-VL-7B-Instruct',
-    GLM_OCR_MODEL:  process.env.GLM_OCR_MODEL  || 'zai-org/GLM-OCR',
-    TEXT_LLM_MODEL: process.env.TEXT_LLM_MODEL || 'Qwen/Qwen2.5-14B-Instruct',
+  // Todos os modelos de texto usam o mesmo router URL
+  return HF_ROUTER_URL;
+}
+
+export function getDefaultHFModel(modelEnvKey: string): string {
+  const defaults: Record<string, string> = {
+    QWEN_VL_MODEL:  'Qwen/Qwen2.5-VL-7B-Instruct',   // requer endpoint dedicado
+    GLM_OCR_MODEL:  'zai-org/GLM-OCR',                 // não é chat model
+    TEXT_LLM_MODEL: 'Qwen/Qwen2.5-72B-Instruct',       // disponível no free tier
   };
-  const model = modelPaths[modelEnvKey] || '';
-  return `https://api-inference.huggingface.co/models/${model}/v1`;
+  return defaults[modelEnvKey] || 'Qwen/Qwen2.5-72B-Instruct';
 }
 
 // ── Prompt OCR ──────────────────────────────────────────────────────────────
@@ -482,25 +537,57 @@ export interface ConnectivityResult {
   provider?: string;
 }
 
-export async function testModelConnectivity(baseUrl: string): Promise<ConnectivityResult> {
+export async function testModelConnectivity(baseUrl: string, modelName?: string): Promise<ConnectivityResult> {
   const start = Date.now();
-  const provider = detectProvider(baseUrl);
+  const normalizedUrl = buildBaseUrl(baseUrl);
+  const provider = detectProvider(normalizedUrl);
+  const apiKey = getApiKey(normalizedUrl);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(apiKey && apiKey !== 'vllm' ? { Authorization: `Bearer ${apiKey}` } : {}),
+  };
+
+  const isHFRouter = normalizedUrl.includes('router.huggingface.co');
+
   try {
-    const clean = buildBaseUrl(baseUrl);
-    const modelsUrl = clean.replace(/\/v1\/?$/, '') + '/v1/models';
-    const apiKey = getApiKey(baseUrl);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
-    const resp = await fetch(modelsUrl, {
-      signal: controller.signal,
-      headers: apiKey && apiKey !== 'vllm' ? { Authorization: `Bearer ${apiKey}` } : {},
-    });
-    clearTimeout(timer);
-    const latencyMs = Date.now() - start;
-    if (!resp.ok) return { reachable: false, latencyMs, error: `HTTP ${resp.status}`, provider };
-    const data = await resp.json() as any;
-    const models = (data?.data || []).map((m: any) => m.id).slice(0, 5);
-    return { reachable: true, latencyMs, models, provider };
+    if (isHFRouter) {
+      // HF Router: testa via chat completions (o /models endpoint não é suportado)
+      const testModel = modelName || 'Qwen/Qwen2.5-72B-Instruct';
+      const chatUrl = normalizedUrl.replace(/\/v1\/?$/, '') + '/v1/chat/completions';
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      const resp = await fetch(chatUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers,
+        body: JSON.stringify({
+          model: testModel,
+          messages: [{ role: 'user', content: 'Responda apenas: OK' }],
+          max_tokens: 5,
+        }),
+      });
+      clearTimeout(timer);
+      const latencyMs = Date.now() - start;
+      if (!resp.ok) {
+        let errMsg = `HTTP ${resp.status}`;
+        try { const j = await resp.json() as any; errMsg += ': ' + (j?.error?.message || ''); } catch {}
+        return { reachable: false, latencyMs, error: errMsg, provider };
+      }
+      await resp.json();
+      return { reachable: true, latencyMs, models: [testModel], provider };
+    } else {
+      // vLLM / endpoints dedicados: testa via /models
+      const modelsUrl = normalizedUrl.replace(/\/v1\/?$/, '') + '/v1/models';
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      const resp = await fetch(modelsUrl, { signal: controller.signal, headers });
+      clearTimeout(timer);
+      const latencyMs = Date.now() - start;
+      if (!resp.ok) return { reachable: false, latencyMs, error: `HTTP ${resp.status}`, provider };
+      const data = await resp.json() as any;
+      const models = (data?.data || []).map((m: any) => m.id).slice(0, 5);
+      return { reachable: true, latencyMs, models, provider };
+    }
   } catch (err: any) {
     return { reachable: false, error: err?.message?.slice(0, 120), provider };
   }
@@ -510,17 +597,27 @@ export async function testModelConnectivity(baseUrl: string): Promise<Connectivi
 
 export interface ModelStatus {
   model: string;
+  effectiveModel?: string;
   configured: boolean;
   isPlaceholder: boolean;
   baseUrl: string | null;
+  effectiveUrl?: string;
   role: string;
   priority: number;
   provider: Provider;
   defaultHFUrl?: string;
+  note?: string;
 }
 
 export function getModelStatus(): ModelStatus[] {
   const hfToken = !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN);
+
+  // Determina o modelo efetivo de texto (HF router usa 72B por padrão)
+  const textRawUrl   = process.env.TEXT_LLM_BASE_URL || null;
+  const textBaseUrl  = textRawUrl ? buildBaseUrl(textRawUrl) : null;
+  const isTextHFRouter = textBaseUrl?.includes('router.huggingface.co') || false;
+  const textEffModel = process.env.TEXT_LLM_MODEL || (isTextHFRouter ? 'Qwen/Qwen2.5-72B-Instruct' : 'Qwen/Qwen2.5-14B-Instruct');
+
   return [
     {
       model:         process.env.QWEN_VL_MODEL  || 'Qwen/Qwen2.5-VL-7B-Instruct',
@@ -530,34 +627,41 @@ export function getModelStatus(): ModelStatus[] {
       role:          'OCR primário (visão)',
       priority:      1,
       provider:      detectProvider(process.env.QWEN_VL_BASE_URL || ''),
-      defaultHFUrl:  getDefaultHFUrl('QWEN_VL_MODEL'),
+      defaultHFUrl:  HF_ROUTER_URL,
+      note:          'Requer Inference Endpoint dedicado HF (modelo de visão não disponível no free tier)',
     },
     {
       model:         process.env.GLM_OCR_MODEL  || 'zai-org/GLM-OCR',
       configured:    !!getValidUrl('GLM_OCR_BASE_URL') && (isHuggingFaceUrl(process.env.GLM_OCR_BASE_URL || '') ? hfToken : true),
       isPlaceholder: isPlaceholderUrl(process.env.GLM_OCR_BASE_URL),
       baseUrl:       process.env.GLM_OCR_BASE_URL || null,
-      role:          'OCR fallback (visão)',
+      role:          'OCR fallback (visão especializada)',
       priority:      2,
       provider:      detectProvider(process.env.GLM_OCR_BASE_URL || ''),
-      defaultHFUrl:  getDefaultHFUrl('GLM_OCR_MODEL'),
+      defaultHFUrl:  HF_ROUTER_URL,
+      note:          'Requer Inference Endpoint dedicado HF (modelo de OCR especializado)',
     },
     {
       model:         process.env.TEXT_LLM_MODEL || 'Qwen/Qwen2.5-14B-Instruct',
+      effectiveModel: textEffModel,
       configured:    !!getValidUrl('TEXT_LLM_BASE_URL') && (isHuggingFaceUrl(process.env.TEXT_LLM_BASE_URL || '') ? hfToken : true),
       isPlaceholder: isPlaceholderUrl(process.env.TEXT_LLM_BASE_URL),
-      baseUrl:       process.env.TEXT_LLM_BASE_URL || null,
+      baseUrl:       textRawUrl,
+      effectiveUrl:  textBaseUrl || undefined,
       role:          'Análise textual e validação',
       priority:      3,
-      provider:      detectProvider(process.env.TEXT_LLM_BASE_URL || ''),
-      defaultHFUrl:  getDefaultHFUrl('TEXT_LLM_MODEL'),
+      provider:      detectProvider(textRawUrl || ''),
+      defaultHFUrl:  HF_ROUTER_URL,
+      note:          isTextHFRouter
+        ? `Usando HF Router — modelo efetivo: ${textEffModel} (free tier ✓)`
+        : 'Configure TEXT_LLM_BASE_URL=https://router.huggingface.co/v1 para usar HF free tier',
     },
     {
       model:         'gemini-2.0-flash',
       configured:    !!process.env.GEMINI_API_KEY,
       isPlaceholder: false,
       baseUrl:       'https://generativelanguage.googleapis.com',
-      role:          'OCR fallback final (Google AI)',
+      role:          'OCR + análise fallback (Google AI)',
       priority:      4,
       provider:      'gemini',
     },
