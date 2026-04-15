@@ -86,7 +86,7 @@ import {
   insertWhatsappDemandaConfigSchema,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL } from "drizzle-orm";
+import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL, inArray } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -3786,6 +3786,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single dataset
+  // GET /api/datasets/autorizacoes-emp — documentos tipo licença/notificação/doc-legal para tab Autorizações
+  // DEVE ficar ANTES de /:id
+  app.get('/api/datasets/autorizacoes-emp', requireAuth, async (req: any, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      if (!empreendimentoId) return res.status(400).json({ error: 'empreendimentoId required' });
+
+      const TIPOS_AUTORIZACAO = ['licenca', 'notificacao', 'documento_legal', 'auto_infracao'];
+
+      const rows = await db
+        .select()
+        .from(datasets)
+        .where(
+          and(
+            eq(datasets.empreendimentoId, parseInt(empreendimentoId as string)),
+            inArray(datasets.tipoDocumental, TIPOS_AUTORIZACAO)
+          )
+        )
+        .orderBy(desc(datasets.criadoEm));
+
+      res.json(rows);
+    } catch (error) {
+      console.error('Error fetching autorizacoes datasets:', error);
+      res.status(500).json({ error: 'Failed to fetch datasets' });
+    }
+  });
+
   app.get('/api/datasets/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
