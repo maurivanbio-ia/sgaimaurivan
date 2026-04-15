@@ -642,9 +642,38 @@ function DemandaCard({
 
   const responsavelNome = getResponsavelNome(demanda, colaboradores);
 
+  const todayYmd = formatDate(new Date(), "yyyy-MM-dd");
+  const prazoYmd = normalizeDateYmd(demanda.dataEntrega) ?? "";
+  const isAtiva = demanda.status !== "concluido" && demanda.status !== "cancelado";
+  const isOverdue = isAtiva && prazoYmd && prazoYmd < todayYmd;
+  const isVenceHoje = isAtiva && prazoYmd === todayYmd;
+
   return (
     <>
-      <Card ref={setNodeRef} style={style} className="mb-2 hover:shadow-md transition-shadow">
+      <Card
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "mb-2 transition-shadow",
+          isOverdue
+            ? "border-red-400 border-2 shadow-md shadow-red-100 hover:shadow-red-200"
+            : isVenceHoje
+            ? "border-amber-400 border-2 shadow-md shadow-amber-100 hover:shadow-amber-200"
+            : "hover:shadow-md"
+        )}
+      >
+        {isOverdue && (
+          <div className="flex items-center gap-1.5 bg-red-500 text-white text-[11px] font-bold px-3 py-1 rounded-t-[calc(var(--radius)-1px)]">
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            DEMANDA ATRASADA
+          </div>
+        )}
+        {isVenceHoje && (
+          <div className="flex items-center gap-1.5 bg-amber-400 text-white text-[11px] font-bold px-3 py-1 rounded-t-[calc(var(--radius)-1px)]">
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            VENCE HOJE
+          </div>
+        )}
         <CardHeader className="pb-2 pt-3 px-3">
           <div className="flex items-start justify-between gap-2">
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pt-1">
@@ -710,7 +739,18 @@ function DemandaCard({
             <Badge className={`${prioridadeColor} text-white text-xs`}>
               {demanda.prioridade === "baixa" ? "Baixa" : demanda.prioridade === "media" ? "Média" : "Alta"}
             </Badge>
-            <Badge variant="outline" className="text-xs">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs font-semibold",
+                isOverdue
+                  ? "bg-red-50 text-red-700 border-red-400"
+                  : isVenceHoje
+                  ? "bg-amber-50 text-amber-700 border-amber-400"
+                  : ""
+              )}
+            >
+              {isOverdue && "⚠ "}
               {demanda.dataEntrega ? formatDate(parseISO(demanda.dataEntrega), "dd/MM/yyyy", { locale: ptBR }) : "-"}
             </Badge>
             {(demanda as any).condicionanteId && (
