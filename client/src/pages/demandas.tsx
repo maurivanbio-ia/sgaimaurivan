@@ -1360,7 +1360,7 @@ function isMilestone(d: Demanda): boolean {
   return inicio === fim;
 }
 
-function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaboradores: Colaborador[] }) {
+function GanttView({ demandas, colaboradores, onView }: { demandas: Demanda[]; colaboradores: Colaborador[]; onView?: (d: Demanda) => void }) {
   const today = startOfDay(new Date());
   const todayStr = formatDate(today, "yyyy-MM-dd");
 
@@ -1612,11 +1612,12 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
                       /* Milestone diamond */
                       <div
                         className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10"
-                        style={{ left: barStyle.left }}
-                        title={`Marco: ${d.titulo}`}
+                        style={{ left: barStyle.left, cursor: onView ? "pointer" : "default" }}
+                        title={`Marco: ${d.titulo} — clique para detalhes`}
+                        onClick={() => onView?.(d)}
                       >
                         <div
-                          className="text-purple-600 drop-shadow"
+                          className="text-purple-600 drop-shadow hover:scale-125 transition-transform"
                           style={{ fontSize: 20, lineHeight: 1 }}
                         >
                           ◆
@@ -1632,8 +1633,13 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
                           backgroundColor: bc.bg,
                           outline: isOverdue ? "2px solid #ef4444" : "none",
                           outlineOffset: "1px",
+                          cursor: onView ? "pointer" : "default",
+                          transition: "filter 0.15s",
                         }}
-                        title={`${d.titulo} — ${barStyle.durationDays} dia${barStyle.durationDays !== 1 ? "s" : ""}`}
+                        title={`${d.titulo} — ${barStyle.durationDays} dia${barStyle.durationDays !== 1 ? "s" : ""} — clique para detalhes`}
+                        onClick={() => onView?.(d)}
+                        onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.15)")}
+                        onMouseLeave={e => (e.currentTarget.style.filter = "")}
                       >
                         <span className="text-[10px] font-medium truncate flex items-center gap-1" style={{ color: bc.fg }}>
                           {d.titulo}
@@ -1702,6 +1708,7 @@ export default function DemandasPage() {
   }, [historicoRaw]);
 
   const [editing, setEditing] = useState<Demanda | null>(null);
+  const [viewDetail, setViewDetail] = useState<Demanda | null>(null);
   const [activeDemanda, setActiveDemanda] = useState<Demanda | null>(null);
   const [clearHistoricoDialogOpen, setClearHistoricoDialogOpen] = useState(false);
   const [clearHistoricoSenha, setClearHistoricoSenha] = useState("");
@@ -2136,7 +2143,7 @@ export default function DemandasPage() {
       )}
 
       {viewMode === "gantt" && (
-        <GanttView demandas={demandas} colaboradores={colaboradores} />
+        <GanttView demandas={demandas} colaboradores={colaboradores} onView={setViewDetail} />
       )}
 
       {/* Histórico */}
@@ -2244,6 +2251,109 @@ export default function DemandasPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Detalhes (Gantt / Timeline click) */}
+      <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
+        <DialogContent className="max-w-lg">
+          {viewDetail && (() => {
+            const vd = viewDetail;
+            const resp = getResponsavelNome(vd, colaboradores);
+            const statusLabel = STATUS_LABEL[vd.status] ?? vd.status;
+            const prioridadeColor = vd.prioridade === "alta" ? "bg-red-500" : vd.prioridade === "media" ? "bg-amber-500" : "bg-blue-500";
+            const categoriaLabel = CATEGORIAS.find(c => c.value === vd.categoria)?.label ?? vd.categoria ?? "-";
+            const fimStr = normalizeDateYmd(vd.dataEntrega);
+            const iniStr = normalizeDateYmd(vd.dataInicio ?? "") || fimStr;
+            const durDays = iniStr && fimStr
+              ? Math.max(differenceInDays(parseISO(fimStr!), parseISO(iniStr!)) + 1, 1)
+              : null;
+            const isOverdue = fimStr && fimStr < formatDate(new Date(), "yyyy-MM-dd") && vd.status !== "concluido" && vd.status !== "cancelado";
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 pr-6">
+                    <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                    <span className="leading-snug">{vd.titulo}</span>
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {/* Status row */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Badge variant="outline">{statusLabel}</Badge>
+                    <Badge className={`${prioridadeColor} text-white`}>
+                      Prioridade: {vd.prioridade === "baixa" ? "Baixa" : vd.prioridade === "media" ? "Média" : "Alta"}
+                    </Badge>
+                    {durDays !== null && (
+                      <Badge variant="secondary">{durDays} dia{durDays !== 1 ? "s" : ""}</Badge>
+                    )}
+                    {isOverdue && (
+                      <Badge className="bg-red-100 text-red-700 border border-red-300">⚠ Atrasada</Badge>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {vd.descricao && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Descrição</p>
+                      <p className="text-sm whitespace-pre-wrap">{vd.descricao}</p>
+                    </div>
+                  )}
+
+                  {/* Grid fields */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-0.5">
+                        <User className="h-3 w-3" /> Responsável
+                      </p>
+                      <p>{resp || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-0.5">
+                        <Tag className="h-3 w-3" /> Setor
+                      </p>
+                      <p>{vd.setor || "—"}</p>
+                    </div>
+                    {iniStr && iniStr !== fimStr && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-0.5">
+                          <Calendar className="h-3 w-3" /> Data de Início
+                        </p>
+                        <p>{formatDate(parseISO(iniStr), "dd/MM/yyyy")}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-0.5">
+                        <Calendar className="h-3 w-3" /> Data de Entrega
+                      </p>
+                      <p className={isOverdue ? "text-red-600 font-medium" : ""}>
+                        {fimStr ? formatDate(parseISO(fimStr), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-0.5">
+                        <AlertCircle className="h-3 w-3" /> Complexidade
+                      </p>
+                      <p className="capitalize">{vd.complexidade || "Não definida"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-0.5">Categoria</p>
+                      <p>{categoriaLabel}</p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex justify-end gap-2 pt-3 border-t">
+                    <Button variant="outline" onClick={() => setViewDetail(null)}>Fechar</Button>
+                    <Button onClick={() => { setViewDetail(null); setEditing(vd); }}>
+                      <Pencil className="h-4 w-4 mr-2" /> Editar
+                    </Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Edição */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
