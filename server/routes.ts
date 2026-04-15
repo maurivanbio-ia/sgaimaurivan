@@ -921,6 +921,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download do arquivo PDF da licença — suporta /files/, object: e URLs diretas
+  app.get("/api/licencas/:id/arquivo", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const licenca = await storage.getLicenca(id);
+      if (!licenca || !licenca.arquivoPdf) {
+        return res.status(404).json({ message: "Arquivo não encontrado" });
+      }
+
+      const path = licenca.arquivoPdf;
+
+      // Caso 1: path /files/... — servido pelo objectStorage
+      if (path.startsWith("/files/")) {
+        const { ObjectStorageService } = await import("./objectStorage");
+        const svc = new ObjectStorageService();
+        const fullPath = svc.getFullObjectPath(path);
+        return await svc.downloadFile(fullPath, res);
+      }
+
+      // Caso 2: path object:... — converte para fullPath
+      if (path.startsWith("object:")) {
+        const { ObjectStorageService } = await import("./objectStorage");
+        const svc = new ObjectStorageService();
+        const privateDir = svc.getPrivateObjectDir();
+        const relativePath = path.slice("object:".length);
+        const fullPath = privateDir ? `${privateDir}/${relativePath}` : relativePath;
+        return await svc.downloadFile(fullPath, res);
+      }
+
+      // Caso 3: URL pública (https://) — redireciona
+      if (path.startsWith("http")) {
+        return res.redirect(path);
+      }
+
+      // Caso 4: caminho legado local não acessível
+      return res.status(410).json({
+        message: "Arquivo do sistema anterior não está mais disponível. Por favor, edite a licença e faça o upload novamente."
+      });
+    } catch (error: any) {
+      console.error("Download licença arquivo error:", error);
+      if (error?.message?.includes("not found") || error?.name === "ObjectNotFoundError") {
+        return res.status(404).json({ message: "Arquivo não encontrado no servidor." });
+      }
+      res.status(500).json({ message: "Erro ao baixar arquivo" });
+    }
+  });
+
   app.post("/api/licencas", requireAuth, async (req, res) => {
     try {
       const data = insertLicencaAmbientalSchema.parse(req.body);

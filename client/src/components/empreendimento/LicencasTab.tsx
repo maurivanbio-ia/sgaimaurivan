@@ -547,9 +547,9 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                     </div>
                     {license.arquivoPdf && (
                       <div className="mt-2">
-                        {license.arquivoPdf.startsWith("/files/") ? (
+                        {(license.arquivoPdf.startsWith("/files/") || license.arquivoPdf.startsWith("object:") || license.arquivoPdf.startsWith("http")) ? (
                           <a 
-                            href={license.arquivoPdf} 
+                            href={`/api/licencas/${license.id}/arquivo`}
                             className="text-primary hover:underline text-sm flex items-center gap-1"
                             target="_blank"
                             rel="noopener noreferrer"
