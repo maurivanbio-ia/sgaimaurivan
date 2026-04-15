@@ -136,6 +136,7 @@ ${hasContent ? "CRÍTICO: Use APENAS informações presentes no texto. Não inve
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },
+      temperature: 0,
       max_tokens: 4000
     });
 

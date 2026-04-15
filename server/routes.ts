@@ -3827,15 +3827,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Prompt completo e exaustivo de análise documental
   function buildPromptCompleto(nomeArquivo: string, texto: string) {
-    return `Você é um analista documental sênior especializado em **licenciamento ambiental brasileiro**, gestão de documentos técnicos e conformidade regulatória. Sua tarefa é realizar uma extração **estruturada, precisa e exaustiva** de todas as informações relevantes do documento fornecido, transformando o conteúdo em dados organizados e acionáveis para gestão técnica, jurídica, administrativa e operacional.
+    const textoDisponivel = texto.trim().length > 50;
+    return `Você é um extrator de dados documentais especializado em licenciamento ambiental brasileiro. Seu trabalho é extrair informações **literalmente presentes no texto** — sem inventar, inferir ou generalizar.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DOCUMENTO: ${nomeArquivo || 'sem nome'}
+ARQUIVO: ${nomeArquivo || 'sem nome'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-TEXTO DO DOCUMENTO:
-${texto.slice(0, 14000)}
-${texto.length > 14000 ? '\n[... documento truncado — primeiros 14.000 caracteres ...]' : ''}
+TEXTO COMPLETO DO DOCUMENTO (analise cada linha):
+${texto.slice(0, 18000)}
+${texto.length > 18000 ? '\n[DOCUMENTO TRUNCADO — apenas os primeiros 18.000 caracteres foram fornecidos]' : ''}
+
+${!textoDisponivel ? '⚠️ AVISO: Nenhum texto extraível foi fornecido. Informe isso no resumo e use null para todos os campos de conteúdo.' : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INSTRUÇÕES CRÍTICAS — LEIA ANTES DE ANALISAR:
@@ -3899,112 +3902,123 @@ Para cada exigência, estime a prioridade pelo impacto regulatório.
 Identifique o nome do empreendimento, projeto ou atividade licenciada/analisada. Pode estar como: razão social da empresa, nome do projeto, nome da fazenda/gleba, nome da UHE/PCH/eólica, etc.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ATENÇÃO CRÍTICA ANTES DE GERAR O RESUMO:
+METODOLOGIA OBRIGATÓRIA — SIGA ESTA ORDEM:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-O campo "resumoExecutivo" É O MAIS IMPORTANTE. Ele será lido pela equipe ambiental como a principal fonte de informação sobre o documento.
 
-❌ RESUMOS PROIBIDOS (genéricos e inúteis):
-- "Este documento visa apresentar informações sobre a gestão ambiental do projeto..."
-- "O objetivo é fornecer um panorama das ações realizadas..."
-- "O relatório busca identificar riscos e propor um plano de ação..."
-- "O documento trata de questões ambientais relacionadas ao empreendimento..."
-Essas frases descrevem QUALQUER documento ambiental e não informam nada específico.
+**PASSO 1 — LEIA O TEXTO LINHA A LINHA** e identifique:
+- Cabeçalho/timbre: nome do órgão, brasão, endereço
+- Linha de assunto/referência: número do documento, tipo, processo
+- Destinatário: empresa, CNPJ, responsável
+- Corpo: objeto, fundamento, determinações, condicionantes, prazos
+- Assinatura: nome, cargo, data, registro profissional
+- Rodapé: código de verificação, data, órgão
 
-✅ RESUMOS CORRETOS (concretos, específicos, acionáveis):
-- "A INEMA emitiu a Licença de Operação nº 0234/2024 para a Fazenda Boa Vista Ltda. (CNPJ 12.345.678/0001-90) para a atividade de piscicultura em tanques-rede no Rio São Francisco, municípios de Barra e Xique-Xique/BA. A licença tem validade de 4 anos (vence em 15/03/2028) e estabelece 12 condicionantes, sendo as mais críticas: (1) apresentação trimestral de relatório de monitoramento de qualidade da água do entorno, com análises de DBO, pH, fósforo total e coliformes; (2) implantação do Plano de Gerenciamento de Resíduos em até 60 dias. O descumprimento das condicionantes pode resultar em suspensão da licença."
-- "O Relatório de Monitoramento de Fauna (2º semestre/2023) da UHE Cachoeira Alta registrou 847 indivíduos de 112 espécies de aves nas 15 estações de amostragem, incluindo 3 espécies ameaçadas de extinção: Sporophila cinnamomea (CR), Ara glaucogularis (EN) e Amazona vinacea (VU). A densidade populacional de S. cinnamomea apresentou redução de 23% em relação ao 1º semestre, exigindo acionar o Protocolo de Manejo de Emergência previsto na condicionante 15 da LO."
+**PASSO 2 — EXTRAIA PRIMEIRO, DEPOIS SINTETIZE**
+O campo "dadosExtraidos" deve ser preenchido ANTES do resumoExecutivo.
+O resumoExecutivo deve ser construído SOMENTE a partir dos dados em "dadosExtraidos".
+Se um dado não aparecer em "dadosExtraidos", NÃO pode aparecer no resumoExecutivo.
 
-O resumo deve ser proporcional ao conteúdo disponível. Se o texto for escaneado/ilegível, diga isso claramente.
+**PASSO 3 — SEJA LITERAL**
+Copie as informações exatamente como aparecem no texto.
+Se o texto diz "NOTIFICAÇÃO Nº 2023001004933", escreva exatamente isso.
+Se o texto diz "Município de Aurantia, Estado da Bahia", escreva exatamente isso.
+Nunca parafraseie ou generalize dados que podem ser copiados do original.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RETORNE OBRIGATORIAMENTE EM JSON VÁLIDO:
+RETORNE EXATAMENTE ESTE JSON (sem texto fora):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {
+  "dadosExtraidos": {
+    "trechoIdentificacaoDocumento": "copie aqui a linha ou parágrafo do texto que identifica o número e tipo do documento — EXATAMENTE como aparece",
+    "trechoOrgaoEmissor": "copie aqui a linha do texto com o nome do órgão emissor — EXATAMENTE como aparece",
+    "trechoData": "copie aqui a linha do texto com a data de emissão/assinatura — EXATAMENTE como aparece",
+    "trechoDestinatario": "copie aqui o trecho com o nome da empresa/pessoa destinatária — EXATAMENTE como aparece",
+    "trechoObjeto": "copie aqui o parágrafo principal que descreve o objeto/assunto do documento — EXATAMENTE como aparece",
+    "trechosDeterminacoes": ["copie aqui cada determinação, condicionante ou exigência principal — uma por item, LITERALMENTE do texto"],
+    "trechosPrazos": ["copie aqui cada prazo mencionado — EXATAMENTE como aparece no texto"],
+    "dadosNumericos": ["liste TODOS os números, valores, áreas, quantidades, coordenadas, percentuais encontrados no texto com seu contexto"],
+    "especiesNomes": ["liste todas as espécies científicas ou populares mencionadas"],
+    "normativosCitados": ["liste todas as leis, decretos, resoluções, portarias citadas com seus números"]
+  },
   "fichaTecnica": {
     "tipoDocumental": "licenca|notificacao|oficio|relatorio|parecer|art|mapa|documento_legal|condicionante|auto_infracao|contrato|laudo|cronograma|outro",
-    "titulo": "título completo e oficial do documento (ex: 'Licença de Operação nº 0234/2024 — Fazenda Boa Vista') ou null",
-    "numeroDocumento": "número ou código principal do documento (ex: 'LO nº 0234/2024-INEMA', 'OFÍCIO 123/2024/GAB') ou null",
-    "orgaoEmissor": "nome completo do órgão emissor com sigla (ex: 'Instituto do Meio Ambiente e Recursos Hídricos (INEMA)') ou null",
-    "dataEmissao": "data de emissão/assinatura em formato YYYY-MM-DD ou null",
-    "dataProtocolo": "data de protocolo ou recebimento YYYY-MM-DD (diferente da emissão) ou null",
-    "dataVencimento": "data de validade/vencimento do documento YYYY-MM-DD ou null",
-    "responsavelTecnico": "nome completo + registro profissional (CREA/CRBio/CRQ) do responsável técnico ou signatário principal ou null",
-    "empreendimento": "nome completo do empreendimento, empresa ou projeto relacionado ou null",
-    "cnpjCpf": "CNPJ ou CPF do empreendedor/requerente identificado no documento ou null",
-    "processoAdministrativo": "número do processo administrativo vinculado (ex: 'Processo nº 2024.001.000345-2') ou null",
-    "localidade": "município(s), estado e coordenadas/localização da área ou null",
-    "atividadeLicenciada": "descrição da atividade ou empreendimento licenciado/analisado ou null"
+    "titulo": "título oficial extraído do campo dadosExtraidos.trechoIdentificacaoDocumento ou null",
+    "numeroDocumento": "número extraído literalmente do texto — ex: 'NOTIFICAÇÃO Nº 2023001004933' ou null",
+    "orgaoEmissor": "nome extraído de dadosExtraidos.trechoOrgaoEmissor (com sigla se disponível) ou null",
+    "dataEmissao": "data convertida de dadosExtraidos.trechoData para YYYY-MM-DD ou null",
+    "dataProtocolo": "data de protocolo/recebimento YYYY-MM-DD se diferente da emissão ou null",
+    "dataVencimento": "data de vencimento/validade YYYY-MM-DD ou null",
+    "responsavelTecnico": "nome e cargo do signatário extraído do bloco de assinatura ou null",
+    "empreendimento": "nome do empreendimento/empresa extraído de dadosExtraidos.trechoDestinatario ou null",
+    "cnpjCpf": "CNPJ ou CPF extraído literalmente do texto ou null",
+    "processoAdministrativo": "número do processo extraído literalmente do texto ou null",
+    "localidade": "município e estado extraídos literalmente do texto ou null",
+    "atividadeLicenciada": "descrição da atividade extraída do texto ou null"
   },
-  "resumoExecutivo": "ATENÇÃO — ANTI-PADRÃO PROIBIDO: Jamais escreva frases genéricas como 'este documento visa apresentar informações sobre...' ou 'o objetivo é fornecer um panorama...' ou 'busca identificar riscos...'. Essas frases são inúteis porque se aplicam a qualquer documento. O resumo deve conter APENAS informações específicas extraídas do texto real.\n\nEscreva 2-4 parágrafos concretos e técnicos respondendo:\n(1) O QUE ESPECIFICAMENTE acontece neste documento? Ex: 'A INEMA notifica a empresa Fazenda Boa Vista (CNPJ 12.345.678/0001-90) sobre irregularidades na Licença de Operação nº LO-0234/2023, identificadas em vistoria realizada em 12/03/2024.' — não 'este documento apresenta informações sobre...'.\n(2) QUAIS SÃO as determinações, resultados ou dados concretos? Cite números, espécies, parâmetros, datas, valores, condicionantes numeradas, áreas em hectares — qualquer dado mensurável presente no texto.\n(3) O QUE A EQUIPE AMBIENTAL precisa fazer em decorrência deste documento? Prazos específicos, ações concretas, riscos de não cumprimento.\n\nSe o documento for escaneado ou de baixa qualidade e o texto estiver ilegível, informe explicitamente: 'Documento de baixa qualidade — texto parcialmente ilegível. As seguintes informações foram possíveis de extrair: [liste o que conseguiu]. Recomenda-se reprocessar com OCR de melhor qualidade.'",
+  "resumoExecutivo": "CONSTRUÍDO SOMENTE A PARTIR DOS DADOS EM dadosExtraidos ACIMA. Escreva 2-3 parágrafos usando apenas as informações que você já extraiu literalmente. Parágrafo 1: identifique o documento (quem emite, para quem, número, data, tipo). Parágrafo 2: o que o documento determina/constata/notifica (use os trechos de dadosExtraidos.trechosDeterminacoes). Parágrafo 3: prazos e consequências (de dadosExtraidos.trechosPrazos). SE o texto for ilegível, escaneado ou vazio, escreva: 'ATENÇÃO: O texto extraído do documento é de baixa qualidade ou ilegível — provavelmente PDF escaneado sem OCR. Não foi possível extrair informações específicas. Recomenda-se converter o PDF para texto antes de reanalisar. Dados disponíveis apenas pelo nome do arquivo: [descreva o que o nome do arquivo indica].'",
   "exigencias": [
     {
-      "descricao": "descrição clara e completa da exigência, condicionante ou obrigação",
-      "trechoOriginal": "trecho LITERAL do documento de onde foi extraída (máx 200 chars)",
-      "prazo": "prazo em texto livre como aparece no documento ou null",
-      "dataLimite": "data limite estimada YYYY-MM-DD ou null",
-      "responsavelSugerido": "perfil profissional ou equipe recomendada para execução ou null",
+      "descricao": "descrição da exigência baseada em dadosExtraidos.trechosDeterminacoes",
+      "trechoOriginal": "copie aqui o trecho literal do texto — obrigatório",
+      "prazo": "prazo copiado literalmente de dadosExtraidos.trechosPrazos ou null",
+      "dataLimite": "YYYY-MM-DD ou null",
+      "responsavelSugerido": "perfil recomendado ou null",
       "prioridade": "alta|media|baixa",
-      "riscoNaoAtendimento": "risco regulatório, multa, embargo ou consequência de não cumprimento"
+      "riscoNaoAtendimento": "consequência descrita no próprio texto ou estimada com base no tipo de documento"
     }
   ],
   "documentosRelacionados": [
     {
       "tipo": "notificacao_anterior|licenca_vinculada|oficio_resposta|relatorio_complementar|anexo_tecnico|processo_sei|outro",
-      "identificacao": "número, nome ou código do documento relacionado",
-      "relacaoLogica": "como se relaciona com o documento analisado"
+      "identificacao": "número ou nome extraído literalmente do texto",
+      "relacaoLogica": "como se relaciona — baseado no texto"
     }
   ],
   "dadosTecnicos": {
-    "coordenadas": "coordenadas UTM ou geográficas identificadas ou null",
-    "areas": "áreas em ha, m², km² com contexto (ex: 'APP: 45,3 ha; Reserva Legal: 120 ha') ou null",
-    "especiesCitadas": "espécies da fauna/flora citadas (nome científico e popular) ou null",
-    "parametrosAmbientais": "parâmetros de qualidade ambiental (pH, turbidez, coliformes, etc.) ou null",
-    "metodologias": "metodologias, normas ABNT ou protocolos técnicos citados ou null",
-    "valoresFinanceiros": "valores de multas, taxas, compensações ou investimentos ou null",
-    "outrosDados": "outros dados técnicos quantitativos relevantes ou null"
+    "coordenadas": "extraído de dadosExtraidos.dadosNumericos ou null",
+    "areas": "valores de área extraídos literalmente do texto (ex: 'APP: 45,3 ha conforme texto') ou null",
+    "especiesCitadas": "de dadosExtraidos.especiesNomes ou null",
+    "parametrosAmbientais": "parâmetros extraídos literalmente (ex: 'DBO: 45 mg/L conforme análise') ou null",
+    "metodologias": "normas e metodologias de dadosExtraidos.normativosCitados ou null",
+    "valoresFinanceiros": "valores monetários extraídos literalmente do texto ou null",
+    "outrosDados": "outros dados numéricos de dadosExtraidos.dadosNumericos ou null"
   },
   "baseLegal": [
     {
-      "nome": "nome completo da norma (ex: 'Resolução CONAMA nº 357, de 17 de março de 2005')",
-      "numero": "número identificador",
-      "ano": "ano de publicação",
-      "contexto": "como e por que é aplicada neste documento"
+      "nome": "nome completo da norma extraído de dadosExtraidos.normativosCitados",
+      "numero": "número da norma",
+      "ano": "ano",
+      "contexto": "como é aplicada — baseado no texto"
     }
   ],
   "linhaDoTempo": [
     {
-      "data": "YYYY-MM-DD ou descrição temporal (ex: '30 dias após notificação')",
-      "evento": "marco, prazo ou evento relevante",
+      "data": "YYYY-MM-DD ou texto literal do documento",
+      "evento": "evento extraído do texto",
       "status": "concluido|pendente|vencido|em_andamento"
     }
   ],
   "riscos": [
     {
-      "tipo": "documento_faltante|informacao_ausente|inconsistencia_tecnica|conflito_datas|fragilidade_documental|risco_regulatorio|prazo_critico",
-      "descricao": "descrição precisa do risco, lacuna ou inconsistência"
+      "tipo": "documento_faltante|informacao_ausente|inconsistencia_tecnica|conflito_datas|fragilidade_documental|risco_regulatorio|prazo_critico|texto_ilegivel",
+      "descricao": "risco identificado — se texto ilegível, use tipo 'texto_ilegivel'"
     }
   ],
   "planoDeAcao": [
     {
-      "acao": "ação objetiva e específica a ser executada pela equipe",
-      "responsavel": "perfil ou equipe responsável (ex: 'Biólogo responsável', 'Coord. de Licenciamento')",
+      "acao": "ação concreta baseada nas exigências extraídas do texto",
+      "responsavel": "perfil responsável",
       "prioridade": "alta|media|baixa",
       "ordem": 1
     }
   ],
   "confianca": "alta|media|baixa",
-  "justificativaConfianca": "explique brevemente por que atribuiu este nível de confiança (ex: 'Texto claro com datas e assinaturas legíveis' ou 'PDF escaneado com baixa qualidade — algumas informações incertas')",
-  "observacoesGerais": "incertezas, ambiguidades, informações contraditórias ou contexto adicional relevante"
+  "justificativaConfianca": "se 'alta': texto claro e legível com dados extraíveis. Se 'media': texto parcialmente legível. Se 'baixa': texto ilegível, escaneado sem OCR, ou muito curto para análise.",
+  "observacoesGerais": "qualquer observação sobre a qualidade do texto, truncamento, ou ambiguidades encontradas"
 }
 
-REGRAS ABSOLUTAS:
-- Retorne APENAS o JSON, sem markdown, sem explicações fora do JSON
-- Use null para campos não encontrados — NUNCA invente ou assuma dados não presentes no texto
-- Datas SEMPRE em YYYY-MM-DD quando possível
-- Exigências: extraia TODAS, mesmo que sejam muitas
-- Base legal: inclua TODAS as normas citadas explicitamente
-- Se o texto for de baixa qualidade ou escaneado, sinalize em "observacoesGerais" e reduza a confiança`;
+REGRA FINAL ABSOLUTA: Retorne APENAS o JSON. Se dadosExtraidos.trechoObjeto for vazio ou ilegível, o resumoExecutivo DEVE começar com 'ATENÇÃO: texto ilegível' — nunca gere um resumo genérico para preencher o campo.`;
   }
 
   // AI extraction endpoint - extração rápida de metadados (formulário de upload)
@@ -4023,9 +4037,12 @@ REGRAS ABSOLUTAS:
         try {
           const { GoogleGenerativeAI } = await import('@google/generative-ai');
           const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-          for (const m of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
+          for (const m of ['gemini-2.5-flash-preview-04-17', 'gemini-2.0-flash', 'gemini-1.5-flash']) {
             try {
-              const result = await genAI.getGenerativeModel({ model: m }).generateContent(prompt);
+              const result = await genAI.getGenerativeModel({
+                model: m,
+                generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+              }).generateContent(prompt);
               rawText = result.response.text();
               break;
             } catch (e: any) { lastErrEx = e; }
@@ -4037,7 +4054,14 @@ REGRAS ABSOLUTAS:
         try {
           const { default: OpenAI } = await import('openai');
           const ds = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com/v1' });
-          const c = await ds.chat.completions.create({ model: 'deepseek-chat', messages: [{ role: 'user', content: prompt }], temperature: 0.2 });
+          const c = await ds.chat.completions.create({
+            model: 'deepseek-chat',
+            messages: [
+              { role: 'system', content: 'Você é um extrator de dados documentais. Retorne APENAS JSON válido. Extraia informações LITERALMENTE do texto. Nunca invente ou generalize.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0,
+          });
           rawText = c.choices[0]?.message?.content || '';
         } catch (e: any) { lastErrEx = e; }
       }
@@ -4045,7 +4069,15 @@ REGRAS ABSOLUTAS:
       if (!rawText && process.env.OPENAI_API_KEY) {
         try {
           const { default: OpenAI } = await import('openai');
-          const c = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.2 });
+          const c = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'Você é um extrator de dados documentais especializado em licenciamento ambiental. Retorne APENAS JSON válido. Extraia literalmente do texto. Nunca invente.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0,
+            response_format: { type: 'json_object' },
+          });
           rawText = c.choices[0]?.message?.content || '';
         } catch (e: any) { lastErrEx = e; }
       }
@@ -4157,7 +4189,10 @@ REGRAS ABSOLUTAS:
           const MODELS = ['gemini-2.5-flash-preview-04-17', 'gemini-2.0-flash', 'gemini-1.5-flash'];
           for (const modelName of MODELS) {
             try {
-              const model = genAI.getGenerativeModel({ model: modelName });
+              const model = genAI.getGenerativeModel({
+                model: modelName,
+                generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+              });
               const result = await model.generateContent(prompt);
               rawText = result.response.text();
               break;
@@ -4182,8 +4217,11 @@ REGRAS ABSOLUTAS:
           });
           const chat = await deepseek.chat.completions.create({
             model: 'deepseek-chat',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.2,
+            messages: [
+              { role: 'system', content: 'Você é um extrator de dados documentais. Retorne APENAS JSON válido. Extraia informações LITERALMENTE do texto fornecido. Nunca invente ou generalize dados.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0,
           });
           rawText = chat.choices[0]?.message?.content || '';
           console.log('[ai-analise] Usando DeepSeek como fallback');
@@ -4200,8 +4238,12 @@ REGRAS ABSOLUTAS:
           const oai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
           const chat = await oai.chat.completions.create({
             model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.2,
+            messages: [
+              { role: 'system', content: 'Você é um extrator de dados documentais especializado em licenciamento ambiental brasileiro. Retorne APENAS JSON válido. Extraia informações LITERALMENTE do texto fornecido. Nunca invente ou generalize dados.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0,
+            response_format: { type: 'json_object' },
           });
           rawText = chat.choices[0]?.message?.content || '';
           console.log('[ai-analise] Usando OpenAI GPT-4o-mini como fallback');
