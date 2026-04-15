@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -10,57 +10,71 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Plus, Pencil, Trash2, ShieldCheck, AlertTriangle, Calendar,
-  Upload, FileText, FileImage, Download, X, Paperclip, Loader2,
-  Sparkles, CheckCircle2, Info
+  ShieldCheck, AlertTriangle, Calendar, FileText, Download, Pencil, Trash2,
+  Eye, ExternalLink, Loader2, Info, FileSearch
 } from "lucide-react";
-import type { Autorizacao } from "@shared/schema";
 
 interface Props { empreendimentoId: number; }
 
-type DocMeta = { nome: string; caminho: string; mimeType: string; tamanhoBytes: number; uploadedAt: string };
+interface DatasetDoc {
+  id: number;
+  nome: string;
+  titulo?: string | null;
+  descricao?: string | null;
+  tipo: string;
+  tamanho: number;
+  url: string;
+  objectPath?: string | null;
+  tipoDocumental?: string | null;
+  numeroDocumento?: string | null;
+  orgaoEmissor?: string | null;
+  prazoAtendimento?: string | null;
+  statusDocumental?: string | null;
+  dataEmissao?: string | null;
+  resumoIA?: string | null;
+  exigencias?: string | null;
+  criadoEm: string;
+  dataUpload: string;
+}
 
-const STATUS_COLORS: Record<string, string> = {
-  vigente: "bg-green-100 text-green-800",
-  vencida: "bg-red-100 text-red-800",
-  cancelada: "bg-gray-100 text-gray-800",
-  em_renovacao: "bg-yellow-100 text-yellow-800",
-  a_vencer: "bg-orange-100 text-orange-800",
+const TIPO_INFO: Record<string, { label: string; icon: string; color: string }> = {
+  licenca:        { label: "Licença Ambiental", icon: "📋", color: "bg-green-100 text-green-800 border-green-200" },
+  notificacao:    { label: "Notificação",        icon: "📢", color: "bg-red-100 text-red-800 border-red-200" },
+  documento_legal:{ label: "Documento Legal",    icon: "⚖️", color: "bg-purple-100 text-purple-800 border-purple-200" },
+  auto_infracao:  { label: "Auto de Infração",   icon: "🚨", color: "bg-orange-100 text-orange-800 border-orange-200" },
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  vigente: "Vigente",
-  vencida: "Vencida",
-  cancelada: "Cancelada",
-  em_renovacao: "Em Renovação",
-  a_vencer: "A Vencer (30d)",
+const STATUS_DOC: Record<string, { label: string; color: string }> = {
+  recebido:       { label: "Recebido",       color: "bg-blue-100 text-blue-800" },
+  em_analise:     { label: "Em Análise",     color: "bg-yellow-100 text-yellow-800" },
+  em_atendimento: { label: "Em Atendimento", color: "bg-orange-100 text-orange-800" },
+  respondido:     { label: "Respondido",     color: "bg-teal-100 text-teal-800" },
+  concluido:      { label: "Concluído",      color: "bg-green-100 text-green-800" },
+  vencido:        { label: "Vencido",        color: "bg-red-100 text-red-800" },
 };
 
-const TIPOS = ["LP", "LI", "LO", "ASV", "LAC", "AO", "Outorga", "Portaria", "Declaração", "Outro"];
-
-function isExpiringSoon(dataValidade?: string | null): boolean {
-  if (!dataValidade) return false;
-  const diff = new Date(dataValidade).getTime() - Date.now();
+function isExpiringSoon(date?: string | null) {
+  if (!date) return false;
+  const diff = new Date(date).getTime() - Date.now();
   return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000;
 }
 
-function isExpired(dataValidade?: string | null): boolean {
-  if (!dataValidade) return false;
-  return new Date(dataValidade) < new Date();
+function isExpired(date?: string | null) {
+  if (!date) return false;
+  return new Date(date) < new Date();
 }
 
-function getEffectiveStatus(item: Autorizacao): string {
-  if (item.status === "cancelada") return "cancelada";
-  if (item.status === "em_renovacao") return "em_renovacao";
-  if (!item.dataValidade) return item.status || "vigente";
-  if (isExpired(item.dataValidade)) return "vencida";
-  if (isExpiringSoon(item.dataValidade)) return "a_vencer";
-  return "vigente";
+function diasRestantes(date?: string | null): number | null {
+  if (!date) return null;
+  return Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-function diasRestantes(dataValidade?: string | null): number | null {
-  if (!dataValidade) return null;
-  return Math.ceil((new Date(dataValidade).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+function formatDate(d?: string | null) {
+  if (!d) return null;
+  try {
+    const [y, m, day] = d.split("-");
+    return `${day}/${m}/${y}`;
+  } catch { return d; }
 }
 
 function formatBytes(bytes: number): string {
@@ -69,251 +83,239 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function FileIcon({ mimeType }: { mimeType: string }) {
-  if (mimeType.startsWith("image/")) return <FileImage className="h-4 w-4 text-blue-500" />;
-  return <FileText className="h-4 w-4 text-red-500" />;
-}
-
-const EMPTY_FORM = {
-  tipo: "Outro", numero: "", titulo: "", orgaoEmissor: "", descricao: "",
-  dataEmissao: "", dataValidade: "", status: "vigente", observacoes: "",
-};
-
 export function AutorizacoesTab({ empreendimentoId }: Props) {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Autorizacao | null>(null);
-  const [docsModal, setDocsModal] = useState<Autorizacao | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiFields, setAiFields] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const aiFileInputRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [editingDoc, setEditingDoc] = useState<DatasetDoc | null>(null);
+  const [detailDoc, setDetailDoc] = useState<DatasetDoc | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
 
-  const { data: items = [], isLoading } = useQuery<Autorizacao[]>({
-    queryKey: ["/api/autorizacoes", empreendimentoId],
-    queryFn: () => fetch(`/api/autorizacoes?empreendimentoId=${empreendimentoId}`).then(r => r.json()),
+  const { data: docs = [], isLoading } = useQuery<DatasetDoc[]>({
+    queryKey: ["/api/datasets/autorizacoes-emp", empreendimentoId],
+    queryFn: () =>
+      fetch(`/api/datasets/autorizacoes-emp?empreendimentoId=${empreendimentoId}`, {
+        credentials: "include",
+      }).then(r => r.json()),
   });
 
-  const saveMutation = useMutation({
-    mutationFn: (data: any) =>
-      editing ? apiRequest("PUT", `/api/autorizacoes/${editing.id}`, data)
-              : apiRequest("POST", "/api/autorizacoes", { ...data, empreendimentoId }),
+  const editMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PATCH", `/api/datasets/${editingDoc!.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
-      setOpen(false); setEditing(null); setAiFields([]);
-      toast({ title: editing ? "Autorização atualizada" : "Autorização registrada" });
+      queryClient.invalidateQueries({ queryKey: ["/api/datasets/autorizacoes-emp", empreendimentoId] });
+      setEditingDoc(null);
+      toast({ title: "Documento atualizado com sucesso" });
     },
+    onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/autorizacoes/${id}`),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/datasets/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
-      toast({ title: "Autorização removida" });
-    },
-  });
-
-  const deleteDocMutation = useMutation({
-    mutationFn: async ({ autorizacaoId, idx }: { autorizacaoId: number; idx: number }) => {
-      const res = await apiRequest("DELETE", `/api/autorizacoes/${autorizacaoId}/documentos/${idx}`);
-      return res.json() as Promise<Autorizacao>;
-    },
-    onSuccess: (data: Autorizacao) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
-      setDocsModal(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/datasets/autorizacoes-emp", empreendimentoId] });
       toast({ title: "Documento removido" });
     },
+    onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
   });
 
-  function openNew() {
-    setEditing(null);
-    setAiFields([]);
-    setForm({ ...EMPTY_FORM });
-    setOpen(true);
-  }
-
-  function openEdit(item: Autorizacao) {
-    setEditing(item);
-    setAiFields([]);
-    setForm({
-      tipo: item.tipo, numero: item.numero, titulo: item.titulo,
-      orgaoEmissor: item.orgaoEmissor || "", descricao: item.descricao || "",
-      dataEmissao: item.dataEmissao || "", dataValidade: item.dataValidade || "",
-      status: item.status || "vigente", observacoes: item.observacoes || "",
+  function openEdit(doc: DatasetDoc) {
+    setEditingDoc(doc);
+    setEditForm({
+      titulo: doc.titulo || "",
+      numeroDocumento: doc.numeroDocumento || "",
+      orgaoEmissor: doc.orgaoEmissor || "",
+      tipoDocumental: doc.tipoDocumental || "",
+      dataEmissao: doc.dataEmissao || "",
+      prazoAtendimento: doc.prazoAtendimento || "",
+      statusDocumental: doc.statusDocumental || "recebido",
+      descricao: doc.descricao || "",
+      exigencias: doc.exigencias || "",
     });
-    setOpen(true);
   }
 
-  // ── Reconhecimento IA ────────────────────────────────────────────────────
-  async function handleAiRecognize(file: File) {
-    setAiLoading(true);
-    setAiFields([]);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/autorizacoes/ai-reconhecer", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Erro no reconhecimento");
-      }
-      const data = await res.json();
-
-      const filled: string[] = [];
-      const update: Partial<typeof form> = {};
-
-      if (data.tipo && TIPOS.includes(data.tipo)) { update.tipo = data.tipo; filled.push("tipo"); }
-      if (data.numero) { update.numero = data.numero; filled.push("número"); }
-      if (data.titulo) { update.titulo = data.titulo; filled.push("título"); }
-      if (data.orgaoEmissor) { update.orgaoEmissor = data.orgaoEmissor; filled.push("órgão emissor"); }
-      if (data.dataEmissao) { update.dataEmissao = data.dataEmissao; filled.push("data de emissão"); }
-      if (data.dataValidade) { update.dataValidade = data.dataValidade; filled.push("validade"); }
-      if (data.descricao) { update.descricao = data.descricao; filled.push("descrição"); }
-      if (data.observacoes) { update.observacoes = data.observacoes; filled.push("observações"); }
-
-      setForm(f => ({ ...f, ...update }));
-      setAiFields(filled);
-
-      if (filled.length > 0) {
-        toast({ title: `IA preencheu ${filled.length} campo(s)`, description: filled.join(", ") });
-      } else {
-        toast({ title: "Documento processado", description: "Não foi possível extrair campos automaticamente. Preencha manualmente.", variant: "destructive" });
-      }
-    } catch (e: any) {
-      toast({ title: "Erro no reconhecimento", description: e.message, variant: "destructive" });
-    } finally {
-      setAiLoading(false);
-      if (aiFileInputRef.current) aiFileInputRef.current.value = "";
-    }
+  function handleDownload(doc: DatasetDoc) {
+    const link = document.createElement("a");
+    link.href = doc.url;
+    link.download = doc.nome;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
-  async function handleUpload(autorizacaoId: number, file: File) {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`/api/autorizacoes/${autorizacaoId}/documentos`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Erro no upload");
-      }
-      const updated: Autorizacao = await res.json();
-      queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
-      setDocsModal(updated);
-      toast({ title: "Documento enviado com sucesso" });
-    } catch (e: any) {
-      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file && docsModal) handleUpload(docsModal.id, file);
-    e.target.value = "";
-  }
-
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && docsModal) handleUpload(docsModal.id, file);
-  }
-
-  const vigentes = items.filter(i => getEffectiveStatus(i) === "vigente").length;
-  const vencidas = items.filter(i => getEffectiveStatus(i) === "vencida").length;
-  const aVencer = items.filter(i => getEffectiveStatus(i) === "a_vencer").length;
+  // KPIs
+  const vencidos = docs.filter(d => isExpired(d.prazoAtendimento)).length;
+  const aVencer = docs.filter(d => isExpiringSoon(d.prazoAtendimento)).length;
+  const vigentes = docs.length - vencidos - aVencer;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-lg">Autorizações Ambientais</h3>
-          <p className="text-sm text-muted-foreground">Outorgas, portarias e autorizações complementares</p>
+          <p className="text-sm text-muted-foreground">
+            Documentos de Licença, Notificação e Documentos Legais cadastrados em Gestão de Dados
+          </p>
         </div>
-        <Button onClick={openNew} size="sm" className="gap-2">
-          <Plus className="h-4 w-4" /> Nova Autorização
-        </Button>
       </div>
 
-      {items.length > 0 && (
+      {/* Aviso orientativo */}
+      <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+        <span>
+          Os documentos aparecem aqui automaticamente a partir do módulo{" "}
+          <strong>Gestão de Dados</strong> quando cadastrados com tipo{" "}
+          <em>Licença Ambiental</em>, <em>Notificação</em>, <em>Documento Legal</em> ou <em>Auto de Infração</em>.
+        </span>
+      </div>
+
+      {docs.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="border rounded-lg p-3 text-center bg-green-50">
             <p className="text-2xl font-bold text-green-700">{vigentes}</p>
-            <p className="text-xs text-green-600">Vigentes</p>
+            <p className="text-xs text-green-600">No prazo / Sem prazo</p>
           </div>
           <div className="border rounded-lg p-3 text-center bg-yellow-50">
             <p className="text-2xl font-bold text-yellow-700">{aVencer}</p>
             <p className="text-xs text-yellow-600">A Vencer (30d)</p>
           </div>
           <div className="border rounded-lg p-3 text-center bg-red-50">
-            <p className="text-2xl font-bold text-red-700">{vencidas}</p>
-            <p className="text-xs text-red-600">Vencidas</p>
+            <p className="text-2xl font-bold text-red-700">{vencidos}</p>
+            <p className="text-xs text-red-600">Vencidos</p>
           </div>
         </div>
       )}
 
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <ShieldCheck className="h-10 w-10 mx-auto mb-2 opacity-30" />
-          <p>Nenhuma autorização registrada</p>
+        <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Carregando documentos...</span>
+        </div>
+      ) : docs.length === 0 ? (
+        <div className="text-center py-14 text-muted-foreground">
+          <ShieldCheck className="h-12 w-12 mx-auto mb-3 opacity-20" />
+          <p className="font-medium">Nenhum documento encontrado</p>
+          <p className="text-sm mt-1">
+            Cadastre documentos em <strong>Gestão de Dados</strong> com o tipo adequado e eles aparecerão aqui.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map(item => {
-            const docs: DocMeta[] = (item.documentos as any) || [];
-            const efectivo = getEffectiveStatus(item);
-            const dias = diasRestantes(item.dataValidade);
-            const borderClass = efectivo === "vencida" ? "border-red-300 bg-red-50/30" : efectivo === "a_vencer" ? "border-orange-300 bg-orange-50/30" : "";
+          {docs.map(doc => {
+            const tipoInfo = TIPO_INFO[doc.tipoDocumental || ""] || { label: doc.tipoDocumental || "Documento", icon: "📄", color: "bg-gray-100 text-gray-800 border-gray-200" };
+            const statusInfo = STATUS_DOC[doc.statusDocumental || ""] || null;
+            const dias = diasRestantes(doc.prazoAtendimento);
+            const expired = isExpired(doc.prazoAtendimento);
+            const expiringSoon = isExpiringSoon(doc.prazoAtendimento);
+
+            const borderClass = expired
+              ? "border-red-300 bg-red-50/30"
+              : expiringSoon
+              ? "border-orange-300 bg-orange-50/20"
+              : "";
+
             return (
-              <div key={item.id} className={`border rounded-lg p-4 flex items-start justify-between gap-4 bg-card ${borderClass}`}>
+              <div
+                key={doc.id}
+                className={`border rounded-lg p-4 flex items-start gap-4 bg-card ${borderClass}`}
+              >
+                {/* Ícone do tipo */}
+                <div className="text-2xl mt-0.5 flex-shrink-0">{tipoInfo.icon}</div>
+
+                {/* Conteúdo principal */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary">{item.tipo}</Badge>
-                    <span className="font-medium text-sm">{item.numero}</span>
-                    <Badge className={STATUS_COLORS[efectivo]}>
-                      {efectivo === "a_vencer" && <AlertTriangle className="h-3 w-3 mr-1" />}
-                      {STATUS_LABELS[efectivo] || efectivo}
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${tipoInfo.color}`}
+                    >
+                      {tipoInfo.label}
                     </Badge>
-                    {dias !== null && dias < 0 && (
-                      <span className="text-xs text-red-600 font-medium">Vencida há {Math.abs(dias)} dia{Math.abs(dias) !== 1 ? "s" : ""}</span>
+                    {doc.numeroDocumento && (
+                      <span className="text-sm font-semibold">Nº {doc.numeroDocumento}</span>
                     )}
-                    {dias !== null && dias >= 0 && dias <= 30 && (
-                      <span className="text-xs text-orange-600 font-medium">Vence em {dias} dia{dias !== 1 ? "s" : ""}</span>
+                    {statusInfo && (
+                      <Badge className={`text-xs ${statusInfo.color}`}>
+                        {statusInfo.label}
+                      </Badge>
                     )}
-                  </div>
-                  <p className="text-sm font-medium mt-1">{item.titulo}</p>
-                  {item.orgaoEmissor && <p className="text-xs text-muted-foreground">{item.orgaoEmissor}</p>}
-                  <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                    {item.dataEmissao && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Emissão: {item.dataEmissao}</span>}
-                    {item.dataValidade && (
-                      <span className={`flex items-center gap-1 ${dias !== null && dias < 0 ? "text-red-600 font-medium" : dias !== null && dias <= 30 ? "text-orange-600 font-medium" : ""}`}>
-                        <Calendar className="h-3 w-3" />Validade: {item.dataValidade}
+                    {expired && dias !== null && (
+                      <span className="text-xs text-red-600 font-medium flex items-center gap-0.5">
+                        <AlertTriangle className="h-3 w-3" /> Vencido há {Math.abs(dias)} dia{Math.abs(dias) !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {expiringSoon && dias !== null && (
+                      <span className="text-xs text-orange-600 font-medium flex items-center gap-0.5">
+                        <AlertTriangle className="h-3 w-3" /> Vence em {dias} dia{dias !== 1 ? "s" : ""}
                       </span>
                     )}
                   </div>
-                  {docs.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                      <Paperclip className="h-3 w-3" />
-                      <span>{docs.length} documento{docs.length > 1 ? "s" : ""}</span>
-                    </div>
+
+                  {/* Título */}
+                  <p className="text-sm font-medium mt-1 truncate">
+                    {doc.titulo || doc.nome}
+                  </p>
+
+                  {/* Órgão emissor */}
+                  {doc.orgaoEmissor && (
+                    <p className="text-xs text-muted-foreground">{doc.orgaoEmissor}</p>
                   )}
+
+                  {/* Datas */}
+                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                    {doc.dataEmissao && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> Emissão: {formatDate(doc.dataEmissao)}
+                      </span>
+                    )}
+                    {doc.prazoAtendimento && (
+                      <span className={`flex items-center gap-1 ${expired ? "text-red-600 font-medium" : expiringSoon ? "text-orange-600 font-medium" : ""}`}>
+                        <Calendar className="h-3 w-3" /> Prazo: {formatDate(doc.prazoAtendimento)}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" /> {formatBytes(doc.tamanho)}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Ações */}
                 <div className="flex gap-1 flex-shrink-0">
-                  <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsModal(item)}>
-                    <Paperclip className="h-4 w-4" />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Visualizar detalhes"
+                    onClick={() => setDetailDoc(doc)}
+                  >
+                    <Eye className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => { if (confirm("Remover autorização?")) deleteMutation.mutate(item.id); }}><Trash2 className="h-4 w-4" /></Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Baixar documento"
+                    onClick={() => handleDownload(doc)}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Editar metadados"
+                    onClick={() => openEdit(doc)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    title="Excluir documento"
+                    onClick={() => {
+                      if (confirm(`Excluir "${doc.titulo || doc.nome}"? Esta ação não pode ser desfeita.`)) {
+                        deleteMutation.mutate(doc.id);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             );
@@ -321,241 +323,226 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
         </div>
       )}
 
-      {/* Modal Criar/Editar */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setAiFields([]); }}>
+      {/* Modal de Detalhes */}
+      <Dialog open={!!detailDoc} onOpenChange={v => !v && setDetailDoc(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {detailDoc && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <span>{TIPO_INFO[detailDoc.tipoDocumental || ""]?.icon || "📄"}</span>
+                  {detailDoc.titulo || detailDoc.nome}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {detailDoc.tipoDocumental && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tipo</p>
+                      <p className="font-medium">{TIPO_INFO[detailDoc.tipoDocumental]?.label || detailDoc.tipoDocumental}</p>
+                    </div>
+                  )}
+                  {detailDoc.numeroDocumento && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Número</p>
+                      <p className="font-medium">{detailDoc.numeroDocumento}</p>
+                    </div>
+                  )}
+                  {detailDoc.orgaoEmissor && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Órgão Emissor</p>
+                      <p className="font-medium">{detailDoc.orgaoEmissor}</p>
+                    </div>
+                  )}
+                  {detailDoc.statusDocumental && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <Badge className={`text-xs ${STATUS_DOC[detailDoc.statusDocumental]?.color || ""}`}>
+                        {STATUS_DOC[detailDoc.statusDocumental]?.label || detailDoc.statusDocumental}
+                      </Badge>
+                    </div>
+                  )}
+                  {detailDoc.dataEmissao && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Data de Emissão</p>
+                      <p className="font-medium">{formatDate(detailDoc.dataEmissao)}</p>
+                    </div>
+                  )}
+                  {detailDoc.prazoAtendimento && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Prazo de Atendimento</p>
+                      <p className={`font-medium ${isExpired(detailDoc.prazoAtendimento) ? "text-red-600" : isExpiringSoon(detailDoc.prazoAtendimento) ? "text-orange-600" : ""}`}>
+                        {formatDate(detailDoc.prazoAtendimento)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {detailDoc.descricao && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Descrição</p>
+                    <p className="text-sm">{detailDoc.descricao}</p>
+                  </div>
+                )}
+
+                {detailDoc.resumoIA && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                    <p className="text-xs font-medium text-blue-700 mb-1 flex items-center gap-1">
+                      <FileSearch className="h-3 w-3" /> Resumo IA
+                    </p>
+                    <p className="text-xs text-blue-800 whitespace-pre-wrap">{detailDoc.resumoIA.substring(0, 500)}{detailDoc.resumoIA.length > 500 ? "..." : ""}</p>
+                  </div>
+                )}
+
+                {detailDoc.exigencias && (
+                  <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
+                    <p className="text-xs font-medium text-orange-700 mb-1">Exigências extraídas</p>
+                    <p className="text-xs text-orange-800 whitespace-pre-wrap">{detailDoc.exigencias.substring(0, 400)}{detailDoc.exigencias.length > 400 ? "..." : ""}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    className="flex-1 gap-2"
+                    onClick={() => handleDownload(detailDoc)}
+                  >
+                    <Download className="h-4 w-4" /> Baixar Documento
+                  </Button>
+                  {detailDoc.url && (
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => window.open(detailDoc.url, "_blank")}
+                    >
+                      <ExternalLink className="h-4 w-4" /> Abrir
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Edição */}
+      <Dialog open={!!editingDoc} onOpenChange={v => !v && setEditingDoc(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar Autorização" : "Nova Autorização"}</DialogTitle>
+            <DialogTitle>Editar Metadados do Documento</DialogTitle>
           </DialogHeader>
 
-          {/* ── Banner IA ─────────────────────────────────────────────────── */}
-          <div className="border border-dashed border-[#00599C]/40 rounded-xl bg-[#00599C]/5 p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#00599C]" />
-              <span className="text-sm font-semibold text-[#00599C]">Reconhecimento por IA</span>
-              <span className="text-xs text-muted-foreground ml-auto">PDF, imagem ou TXT</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Envie o documento da autorização e a IA extrai automaticamente os campos abaixo.
-            </p>
-            <div
-              className="border-2 border-dashed border-[#00599C]/30 rounded-lg p-3 text-center cursor-pointer hover:border-[#00599C]/60 hover:bg-[#00599C]/5 transition-colors"
-              onClick={() => !aiLoading && aiFileInputRef.current?.click()}
-            >
-              {aiLoading ? (
-                <div className="flex flex-col items-center gap-1 text-[#00599C]">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <p className="text-xs font-medium">Analisando documento com IA...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-1 text-muted-foreground">
-                  <Sparkles className="h-6 w-6 text-[#00599C]/60" />
-                  <p className="text-xs font-medium">Clique para selecionar o documento</p>
-                </div>
-              )}
-              <input
-                ref={aiFileInputRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.txt,.jpg,.jpeg,.png,.webp"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAiRecognize(file);
-                }}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>Título</Label>
+              <Input
+                value={editForm.titulo}
+                onChange={e => setEditForm((f: any) => ({ ...f, titulo: e.target.value }))}
+                placeholder="Título do documento"
               />
             </div>
 
-            {/* Campos preenchidos pela IA */}
-            {aiFields.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {aiFields.map(f => (
-                  <span key={f} className="inline-flex items-center gap-0.5 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 className="h-3 w-3" /> {f}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Tipo *</Label>
-                <Select value={form.tipo} onValueChange={v => setForm(f => ({ ...f, tipo: v }))}>
-                  <SelectTrigger className={aiFields.includes("tipo") ? "border-green-400 bg-green-50/50" : ""}><SelectValue /></SelectTrigger>
-                  <SelectContent>{TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Número *</Label>
-                <Input
-                  value={form.numero}
-                  onChange={e => setForm(f => ({ ...f, numero: e.target.value }))}
-                  placeholder="Ex: 001/2024"
-                  className={aiFields.includes("número") ? "border-green-400 bg-green-50/50" : ""}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>Título *</Label>
-              <Input
-                value={form.titulo}
-                onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
-                placeholder="Objeto da autorização"
-                className={aiFields.includes("título") ? "border-green-400 bg-green-50/50" : ""}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Órgão Emissor</Label>
-              <Input
-                value={form.orgaoEmissor}
-                onChange={e => setForm(f => ({ ...f, orgaoEmissor: e.target.value }))}
-                placeholder="Ex: INEMA, IBAMA, ANA"
-                className={aiFields.includes("órgão emissor") ? "border-green-400 bg-green-50/50" : ""}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Descrição</Label>
-              <Textarea
-                value={form.descricao}
-                onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
-                rows={2}
-                className={aiFields.includes("descrição") ? "border-green-400 bg-green-50/50" : ""}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>Tipo Documental</Label>
+                <Select
+                  value={editForm.tipoDocumental}
+                  onValueChange={v => setEditForm((f: any) => ({ ...f, tipoDocumental: v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="vigente">Vigente</SelectItem>
-                    <SelectItem value="vencida">Vencida</SelectItem>
-                    <SelectItem value="em_renovacao">Em Renovação</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                    <SelectItem value="licenca">📋 Licença Ambiental</SelectItem>
+                    <SelectItem value="notificacao">📢 Notificação</SelectItem>
+                    <SelectItem value="documento_legal">⚖️ Documento Legal</SelectItem>
+                    <SelectItem value="auto_infracao">🚨 Auto de Infração</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Emissão</Label>
+                <Label>Número do Documento</Label>
+                <Input
+                  value={editForm.numeroDocumento}
+                  onChange={e => setEditForm((f: any) => ({ ...f, numeroDocumento: e.target.value }))}
+                  placeholder="Ex: 001/2024"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Órgão Emissor</Label>
+              <Input
+                value={editForm.orgaoEmissor}
+                onChange={e => setEditForm((f: any) => ({ ...f, orgaoEmissor: e.target.value }))}
+                placeholder="Ex: INEMA, IBAMA, ANA"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Select
+                  value={editForm.statusDocumental}
+                  onValueChange={v => setEditForm((f: any) => ({ ...f, statusDocumental: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recebido">Recebido</SelectItem>
+                    <SelectItem value="em_analise">Em Análise</SelectItem>
+                    <SelectItem value="em_atendimento">Em Atendimento</SelectItem>
+                    <SelectItem value="respondido">Respondido</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="vencido">Vencido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Data de Emissão</Label>
                 <Input
                   type="date"
-                  value={form.dataEmissao}
-                  onChange={e => setForm(f => ({ ...f, dataEmissao: e.target.value }))}
-                  className={aiFields.includes("data de emissão") ? "border-green-400 bg-green-50/50" : ""}
+                  value={editForm.dataEmissao}
+                  onChange={e => setEditForm((f: any) => ({ ...f, dataEmissao: e.target.value }))}
                 />
               </div>
               <div className="space-y-1">
-                <Label>Validade</Label>
+                <Label>Prazo de Atendimento</Label>
                 <Input
                   type="date"
-                  value={form.dataValidade}
-                  onChange={e => setForm(f => ({ ...f, dataValidade: e.target.value }))}
-                  className={aiFields.includes("validade") ? "border-green-400 bg-green-50/50" : ""}
+                  value={editForm.prazoAtendimento}
+                  onChange={e => setEditForm((f: any) => ({ ...f, prazoAtendimento: e.target.value }))}
                 />
               </div>
             </div>
+
             <div className="space-y-1">
-              <Label>Observações</Label>
+              <Label>Descrição</Label>
               <Textarea
-                value={form.observacoes}
-                onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))}
+                value={editForm.descricao}
+                onChange={e => setEditForm((f: any) => ({ ...f, descricao: e.target.value }))}
                 rows={2}
-                className={aiFields.includes("observações") ? "border-green-400 bg-green-50/50" : ""}
               />
             </div>
 
-            {aiFields.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
-                <Info className="h-3 w-3 flex-shrink-0" />
-                Campos com borda verde foram preenchidos pela IA. Revise antes de salvar.
-              </div>
-            )}
+            <div className="space-y-1">
+              <Label>Exigências</Label>
+              <Textarea
+                value={editForm.exigencias}
+                onChange={e => setEditForm((f: any) => ({ ...f, exigencias: e.target.value }))}
+                rows={3}
+                placeholder="Liste as exigências do documento..."
+              />
+            </div>
 
             <div className="flex gap-2 justify-end pt-2">
-              <Button variant="outline" onClick={() => { setOpen(false); setAiFields([]); }}>Cancelar</Button>
-              <Button onClick={() => saveMutation.mutate(form)} disabled={!form.tipo || !form.numero || !form.titulo || saveMutation.isPending}>
-                {saveMutation.isPending ? "Salvando..." : "Salvar"}
+              <Button variant="outline" onClick={() => setEditingDoc(null)}>Cancelar</Button>
+              <Button
+                onClick={() => editMutation.mutate(editForm)}
+                disabled={editMutation.isPending}
+              >
+                {editMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" />Salvando...</>
+                ) : "Salvar Alterações"}
               </Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Documentos */}
-      <Dialog open={!!docsModal} onOpenChange={(open) => !open && setDocsModal(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Paperclip className="h-5 w-5" />
-              Documentos — {docsModal?.numero}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div
-              className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              {uploading ? (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                  <p className="text-sm">Enviando arquivo...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Upload className="h-8 w-8" />
-                  <p className="text-sm font-medium">Clique ou arraste arquivos aqui</p>
-                  <p className="text-xs">PDF, DOC, DOCX, XLS, JPG, PNG — até 30 MB</p>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.txt,.zip,.rar"
-                onChange={handleFileChange}
-              />
-            </div>
-
-            {docsModal && ((docsModal.documentos as any) || []).length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Documentos anexados</p>
-                {((docsModal.documentos as any) as DocMeta[]).map((doc, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/20">
-                    <FileIcon mimeType={doc.mimeType} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{doc.nome}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatBytes(doc.tamanhoBytes)} · {new Date(doc.uploadedAt).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button size="icon" variant="ghost" title="Baixar" asChild>
-                        <a href={`/api/autorizacoes/${docsModal.id}/documentos/${idx}/download`} download={doc.nome} target="_blank" rel="noreferrer">
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button
-                        size="icon" variant="ghost" className="text-destructive" title="Remover"
-                        disabled={deleteDocMutation.isPending}
-                        onClick={() => {
-                          if (confirm(`Remover "${doc.nome}"?`)) {
-                            deleteDocMutation.mutate({ autorizacaoId: docsModal.id, idx });
-                          }
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-sm text-muted-foreground py-2">Nenhum documento anexado ainda.</p>
-            )}
           </div>
         </DialogContent>
       </Dialog>
