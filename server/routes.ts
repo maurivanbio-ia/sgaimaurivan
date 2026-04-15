@@ -4126,8 +4126,19 @@ REGRAS FINAIS:
 
   // Status dos modelos de IA configurados
   app.get('/api/datasets/ai-models-status', requireAuth, async (_req, res) => {
-    const { getModelStatus } = await import('./services/multiModelOcrService');
-    res.json({ models: getModelStatus() });
+    const { getModelStatus, getSystemInfo } = await import('./services/multiModelOcrService');
+    res.json({ models: getModelStatus(), system: getSystemInfo() });
+  });
+
+  // Teste de conectividade com os servidores de modelos
+  app.post('/api/datasets/ai-models-ping', requireAuth, async (req: any, res) => {
+    const { baseUrl } = req.body;
+    if (!baseUrl || typeof baseUrl !== 'string') {
+      return res.status(400).json({ error: 'baseUrl é obrigatório' });
+    }
+    const { testModelConnectivity } = await import('./services/multiModelOcrService');
+    const result = await testModelConnectivity(baseUrl);
+    res.json(result);
   });
 
   // AI análise completa de documento já cadastrado (pelo ID)

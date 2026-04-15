@@ -375,11 +375,32 @@ export default function GestaoDados() {
   });
 
   // Status dos modelos de IA
-  const { data: aiModelsData } = useQuery<{ models: { model: string; configured: boolean; baseUrl: string | null; role: string }[] }>({
+  const { data: aiModelsData } = useQuery<{
+    models: { model: string; configured: boolean; isPlaceholder: boolean; baseUrl: string | null; role: string; priority: number }[];
+    system: { gmPath: string; pdftoppmPath: string; gmAvailable: boolean; pdftoppmAvailable: boolean };
+  }>({
     queryKey: ["/api/datasets/ai-models-status"],
     staleTime: 60 * 1000,
   });
   const aiModels = aiModelsData?.models ?? [];
+  const aiSystem = aiModelsData?.system;
+  const [pingResults, setPingResults] = useState<Record<string, { reachable: boolean; latencyMs?: number; error?: string; loading?: boolean }>>({});
+
+  async function pingModel(baseUrl: string) {
+    setPingResults(prev => ({ ...prev, [baseUrl]: { reachable: false, loading: true } }));
+    try {
+      const resp = await fetch('/api/datasets/ai-models-ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ baseUrl }),
+      });
+      const data = await resp.json();
+      setPingResults(prev => ({ ...prev, [baseUrl]: { ...data, loading: false } }));
+    } catch {
+      setPingResults(prev => ({ ...prev, [baseUrl]: { reachable: false, error: 'Falha de rede', loading: false } }));
+    }
+  }
 
   // ── Auto-inicializar pastas ───────────────────────────────────────────────────
   const [autoInitialized, setAutoInitialized] = useState(false);
@@ -792,15 +813,74 @@ export default function GestaoDados() {
         {/* Tabs principais */}
         {/* Painel de modelos de IA */}
         {aiModels.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-muted/40 border text-xs">
-            <span className="font-semibold text-muted-foreground flex items-center gap-1"><Sparkles className="h-3 w-3" /> Pipeline IA:</span>
-            {aiModels.map((m) => (
-              <span key={m.model} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono ${m.configured ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-950 dark:text-green-300' : 'bg-muted border-border text-muted-foreground'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${m.configured ? 'bg-green-500' : 'bg-gray-300'}`} />
-                {m.model.split('/').pop()}
-                <span className="opacity-60">· {m.role.split(' ')[0]}</span>
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-purple-500" /> Pipeline de Reconhecimento de Documentos
               </span>
-            ))}
+              {aiSystem && (
+                <span className="text-xs text-muted-foreground">
+                  GM: {aiSystem.gmAvailable ? <span className="text-green-600">✓</span> : <span className="text-red-500">✗</span>}
+                  {' · '}
+                  pdftoppm: {aiSystem.pdftoppmAvailable ? <span className="text-green-600">✓</span> : <span className="text-red-500">✗</span>}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {aiModels.map((m) => {
+                const ping = m.baseUrl ? pingResults[m.baseUrl] : undefined;
+                const isGemini = m.model.includes('gemini');
+                return (
+                  <div key={m.model} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-mono
+                    ${m.configured && !m.isPlaceholder
+                      ? 'bg-green-50 border-green-300 text-green-800 dark:bg-green-950/50 dark:text-green-300'
+                      : m.isPlaceholder
+                        ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                        : isGemini && m.configured
+                          ? 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+                          : 'bg-muted/60 border-border text-muted-foreground'}`}>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      ping?.reachable ? 'bg-green-500' :
+                      ping?.reachable === false ? 'bg-red-500' :
+                      m.configured && !m.isPlaceholder ? 'bg-green-400' :
+                      m.isPlaceholder ? 'bg-amber-400' :
+                      isGemini && m.configured ? 'bg-blue-400' :
+                      'bg-gray-300'
+                    }`} />
+                    <span className="font-semibold">{m.priority}.</span>
+                    <span>{m.model.split('/').pop()}</span>
+                    <span className="opacity-60 hidden sm:inline">— {m.role}</span>
+                    {m.isPlaceholder && (
+                      <span className="text-amber-600 dark:text-amber-400 font-normal hidden md:inline">(URL de exemplo)</span>
+                    )}
+                    {ping?.latencyMs && (
+                      <span className="text-green-600">{ping.latencyMs}ms</span>
+                    )}
+                    {ping?.error && !ping.loading && (
+                      <span className="text-red-500 truncate max-w-[100px]">{ping.error}</span>
+                    )}
+                    {m.baseUrl && !isGemini && !m.isPlaceholder && (
+                      <button
+                        onClick={() => pingModel(m.baseUrl!)}
+                        disabled={ping?.loading}
+                        className="ml-1 opacity-70 hover:opacity-100 transition-opacity"
+                        title="Testar conectividade"
+                      >
+                        {ping?.loading ? '⟳' : '⚡'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {aiModels.some(m => m.isPlaceholder) && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                <span>⚠</span>
+                <span>
+                  Alguns servidores estão com URL de exemplo. Atualize os Secrets <strong>QWEN_VL_BASE_URL</strong>, <strong>GLM_OCR_BASE_URL</strong> e/ou <strong>TEXT_LLM_BASE_URL</strong> com o IP real da sua máquina GPU. Enquanto isso, o sistema usa o Gemini como fallback.
+                </span>
+              </p>
+            )}
           </div>
         )}
 
