@@ -410,12 +410,12 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                             <CheckCircle className="h-3 w-3" />
                             PDF pronto para salvar — clique em Salvar
                           </p>
-                        ) : field.value && !field.value.startsWith("/files/") ? (
+                        ) : field.value && !(field.value.toLowerCase().startsWith("/files/") || field.value.toLowerCase().startsWith("object:") || field.value.toLowerCase().startsWith("http")) ? (
                           <p className="text-sm text-amber-600 flex items-center gap-1 mt-1">
                             <AlertTriangle className="h-3 w-3" />
                             Arquivo legado — faça o upload acima para substituir
                           </p>
-                        ) : field.value && field.value.startsWith("/files/") ? (
+                        ) : field.value && (field.value.toLowerCase().startsWith("/files/") || field.value.toLowerCase().startsWith("object:") || field.value.toLowerCase().startsWith("http")) ? (
                           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                             <CheckCircle className="h-3 w-3" />
                             Arquivo atual vinculado. Faça upload para substituir.
@@ -547,7 +547,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                     </div>
                     {license.arquivoPdf && (
                       <div className="mt-2">
-                        {(license.arquivoPdf.startsWith("/files/") || license.arquivoPdf.startsWith("object:") || license.arquivoPdf.startsWith("http")) ? (
+                        {(license.arquivoPdf.toLowerCase().startsWith("/files/") || license.arquivoPdf.toLowerCase().startsWith("object:") || license.arquivoPdf.toLowerCase().startsWith("http")) ? (
                           <a 
                             href={`/api/licencas/${license.id}/arquivo`}
                             className="text-primary hover:underline text-sm flex items-center gap-1"

@@ -931,17 +931,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const path = licenca.arquivoPdf;
+      const pathLower = path.toLowerCase();
 
-      // Caso 1: path /files/... — servido pelo objectStorage
-      if (path.startsWith("/files/")) {
+      // Caso 1: path /files/... — servido pelo objectStorage (aceita maiúsculas/minúsculas)
+      // UUIDs gerados por randomUUID() são sempre lowercase; converter tudo para lowercase é seguro
+      if (pathLower.startsWith("/files/")) {
         const { ObjectStorageService } = await import("./objectStorage");
         const svc = new ObjectStorageService();
-        const fullPath = svc.getFullObjectPath(path);
+        const fullPath = svc.getFullObjectPath(pathLower);
         return await svc.downloadFile(fullPath, res);
       }
 
       // Caso 2: path object:... — converte para fullPath
-      if (path.startsWith("object:")) {
+      if (pathLower.startsWith("object:")) {
         const { ObjectStorageService } = await import("./objectStorage");
         const svc = new ObjectStorageService();
         const privateDir = svc.getPrivateObjectDir();
@@ -951,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Caso 3: URL pública (https://) — redireciona
-      if (path.startsWith("http")) {
+      if (pathLower.startsWith("http")) {
         return res.redirect(path);
       }
 
