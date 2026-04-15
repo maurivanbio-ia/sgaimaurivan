@@ -1,0 +1,105 @@
+import os
+
+QWEN_VL_BASE_URL = os.getenv("QWEN_VL_BASE_URL")
+GLM_OCR_BASE_URL = os.getenv("GLM_OCR_BASE_URL")
+TEXT_LLM_BASE_URL = os.getenv("TEXT_LLM_BASE_URL")
+
+QWEN_VL_MODEL = os.getenv("QWEN_VL_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct")
+GLM_OCR_MODEL = os.getenv("GLM_OCR_MODEL", "zai-org/GLM-OCR")
+TEXT_LLM_MODEL = os.getenv("TEXT_LLM_MODEL", "Qwen/Qwen2.5-14B-Instruct")
+
+Terceiro, coloque o script como arquivo principal do projeto, por exemplo eco_document_pipeline.py.
+
+Quarto, instale as dependências no Replit. Em um Repl Python, você pode usar o requirements.txt com algo como:
+
+requests
+pydantic
+pillow
+pdf2image
+sentence-transformers
+transformers
+torch
+accelerate
+
+Há uma limitação importante aqui. pdf2image normalmente depende de utilitário do sistema, especialmente Poppler. No Replit, isso pode exigir ajuste do ambiente via replit.nix, porque a documentação atual mostra que dependências de sistema são gerenciadas por replit.nix ou pela ferramenta de dependências do workspace.
+
+Um replit.nix típico para esse projeto pode ficar assim:
+
+{ pkgs }: {
+  deps = [
+    pkgs.python311
+    pkgs.poppler_utils
+  ];
+}
+
+Depois, no shell do Replit, você roda:
+
+python eco_document_pipeline.py run ./documento.pdf --uploaded-by maurivan
+
+Também vale deixar um pequeno teste no início do app para confirmar que as variáveis chegaram corretamente:
+
+import os
+
+for key in [
+    "QWEN_VL_BASE_URL",
+    "GLM_OCR_BASE_URL",
+    "TEXT_LLM_BASE_URL",
+    "QWEN_VL_MODEL",
+    "GLM_OCR_MODEL",
+    "TEXT_LLM_MODEL",
+]:
+    print(key, "=", os.getenv(key))
+
+No Replit, você também pode conferir tudo pelo Shell com printenv, porque a própria documentação orienta isso para visualizar variáveis disponíveis no app.
+
+Há três cenários possíveis para os seus endpoints.
+
+No cenário 1, você tem uma máquina fora do Replit rodando os modelos. Nesse caso, as variáveis ficam assim:
+
+QWEN_VL_BASE_URL=http://IP-DA-MAQUINA:8000/v1
+GLM_OCR_BASE_URL=http://IP-DA-MAQUINA:8080/v1
+TEXT_LLM_BASE_URL=http://IP-DA-MAQUINA:8001/v1
+
+No cenário 2, você usa um túnel ou domínio reverso, como um subdomínio próprio apontando para esses serviços. Aí ficaria algo como:
+
+QWEN_VL_BASE_URL=https://qwen.suaempresa.com/v1
+GLM_OCR_BASE_URL=https://glmocr.suaempresa.com/v1
+TEXT_LLM_BASE_URL=https://textllm.suaempresa.com/v1
+
+No cenário 3, você tenta rodar tudo no próprio Replit. Para esses modelos, isso tende a ser inviável ou bastante instável por custo computacional, memória e tempo de resposta. Para MVP, o Replit funciona melhor como camada de aplicação, não como host dos modelos pesados.
+
+A forma mais limpa de organizar o projeto no Replit seria esta.
+
+main.py como ponto de entrada.
+eco_document_pipeline.py com o pipeline.
+requirements.txt.
+replit.nix, se precisar de Poppler.
+Secrets configurados no painel.
+Storage local inicial em pasta do projeto ou depois migração para bucket.
+
+Um main.py mínimo poderia ser:
+
+from eco_document_pipeline import build_pipeline
+
+pipeline = build_pipeline()
+print("Pipeline carregado com sucesso.")
+
+Se você for expor isso como app web no Replit, aí o ideal é colocar FastAPI ou Flask por cima do pipeline. Nesse caso, a configuração de porta também pode ser feita pelo arquivo .replit, que é o arquivo usado pelo Replit para configurar comportamento do app e mapeamento de portas. A documentação atual mostra esse uso para localPort e externalPort.
+
+Exemplo simples de .replit para uma API:
+
+run = "uvicorn app:app --host 0.0.0.0 --port 8000"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
+
+Em resumo, para “colocar isso no Replit”, você precisa fazer quatro coisas.
+
+Criar os Secrets com essas chaves e valores.
+
+Garantir que os valores *_BASE_URL apontem para servidores reais dos modelos, não para placeholders.
+
+Instalar dependências Python e, para PDF, dependências de sistema via replit.nix quando necessário.
+
+Executar o pipeline ou envolvê.lo em uma API web.
