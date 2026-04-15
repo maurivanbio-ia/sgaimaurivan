@@ -4122,6 +4122,8 @@ REGRA FINAL ABSOLUTA: Retorne APENAS o JSON. Se dadosExtraidos.trechoObjeto for 
       let texto = '';
       const nomeArquivo = dataset.nome || dataset.codigoArquivo || 'documento';
 
+      let pdfBuf: Buffer | null = null; // manter buffer para OCR Gemini Vision se necessário
+
       // Tentar extrair texto do documento
       if (dataset.url && dataset.url.startsWith('data:')) {
         // Base64 data URL → extrair via pdf-parse se for PDF
@@ -4129,8 +4131,8 @@ REGRA FINAL ABSOLUTA: Retorne APENAS o JSON. Se dadosExtraidos.trechoObjeto for 
         if (base64 && dataset.url.includes('pdf')) {
           try {
             const { default: pdfParse } = await import('pdf-parse');
-            const buf = Buffer.from(base64, 'base64');
-            const parsed = await pdfParse(buf);
+            pdfBuf = Buffer.from(base64, 'base64');
+            const parsed = await pdfParse(pdfBuf);
             texto = parsed.text;
           } catch (e) {
             console.warn('Falha ao extrair PDF da data URL:', e);
@@ -4146,15 +4148,62 @@ REGRA FINAL ABSOLUTA: Retorne APENAS o JSON. Se dadosExtraidos.trechoObjeto for 
           const { getDefaultBucket } = await import('./services/objectStorageService');
           const bucket = await getDefaultBucket();
           const buf = await bucket.downloadFileAsBuffer(dataset.objectPath);
+          pdfBuf = buf;
           if (nomeArquivo.toLowerCase().endsWith('.pdf')) {
             const { default: pdfParse } = await import('pdf-parse');
             const parsed = await pdfParse(buf);
             texto = parsed.text;
           } else {
             texto = buf.toString('utf-8');
+            pdfBuf = null; // não é PDF, não usar OCR
           }
         } catch (e) {
           console.warn('Falha ao acessar Object Storage:', e);
+        }
+      }
+
+      // ── OCR GEMINI VISION — PDF escaneado (texto muito curto) ─────────────
+      // Se o pdf-parse retornou pouco texto (< 300 chars), provavelmente é escaneado.
+      // Enviamos o PDF inteiro como base64 para o Gemini ler visualmente.
+      const textoMuitoCurto = texto.trim().length < 300;
+      const isPdf = nomeArquivo.toLowerCase().endsWith('.pdf');
+      if (textoMuitoCurto && isPdf && pdfBuf && process.env.GEMINI_API_KEY) {
+        try {
+          console.log(`[OCR] Texto extraído muito curto (${texto.trim().length} chars). Tentando OCR via Gemini Vision...`);
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const visionModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+          for (const vModel of visionModels) {
+            try {
+              const model = genAI.getGenerativeModel({
+                model: vModel,
+                generationConfig: { temperature: 0 },
+              });
+              const pdfBase64 = pdfBuf.toString('base64');
+              // Gemini suporta PDFs inline como application/pdf
+              const result = await model.generateContent([
+                {
+                  inlineData: {
+                    mimeType: 'application/pdf',
+                    data: pdfBase64,
+                  },
+                },
+                {
+                  text: `Este é um documento PDF que pode estar escaneado. Extraia TODO o texto visível neste documento, incluindo:\n- Cabeçalho e timbre do órgão\n- Número e tipo do documento\n- Destinatário e CNPJ\n- Corpo completo do texto\n- Condicionantes e exigências numeradas\n- Datas, prazos e valores\n- Assinaturas, cargos e registros profissionais\n- Rodapé e código de verificação\n\nRetorne apenas o texto extraído, sem comentários ou formatação adicional.`,
+                },
+              ]);
+              const ocrText = result.response.text();
+              if (ocrText && ocrText.trim().length > 200) {
+                texto = ocrText;
+                console.log(`[OCR] Gemini Vision (${vModel}) extraiu ${texto.length} caracteres do PDF escaneado`);
+                break;
+              }
+            } catch (vErr: any) {
+              console.warn(`[OCR] Gemini Vision (${vModel}) falhou:`, vErr?.message);
+            }
+          }
+        } catch (ocrErr: any) {
+          console.warn('[OCR] Fallback Gemini Vision falhou:', ocrErr?.message);
         }
       }
 
