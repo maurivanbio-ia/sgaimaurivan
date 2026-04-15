@@ -684,7 +684,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                       <FormItem>
                         <div className="flex items-center justify-between">
                           <FormLabel>Prazo *</FormLabel>
-                          {tipoCondWatch === "periodica" && licenca.validade && (
+                          {licenca.validade && (
                             <button
                               type="button"
                               className="text-xs text-[#00599C] hover:underline flex items-center gap-0.5 font-medium"
