@@ -4037,8 +4037,17 @@ REGRAS FINAIS:
       let rawText = '';
       let lastErrEx: any;
 
+      // 0) Text LLM local (Qwen2.5-14B via vLLM) — prioridade máxima
+      if (process.env.TEXT_LLM_BASE_URL) {
+        try {
+          const { analyzeWithTextLLM } = await import('./services/multiModelOcrService');
+          const result = await analyzeWithTextLLM(prompt);
+          if (result?.raw) rawText = result.raw;
+        } catch (e: any) { lastErrEx = e; }
+      }
+
       // 1) Gemini
-      if (process.env.GEMINI_API_KEY) {
+      if (!rawText && process.env.GEMINI_API_KEY) {
         try {
           const { GoogleGenerativeAI } = await import('@google/generative-ai');
           const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -4115,6 +4124,12 @@ REGRAS FINAIS:
     }
   });
 
+  // Status dos modelos de IA configurados
+  app.get('/api/datasets/ai-models-status', requireAuth, async (_req, res) => {
+    const { getModelStatus } = await import('./services/multiModelOcrService');
+    res.json({ models: getModelStatus() });
+  });
+
   // AI análise completa de documento já cadastrado (pelo ID)
   app.post('/api/datasets/:id/ai-analise', requireAuth, async (req: any, res) => {
     try {
@@ -4167,96 +4182,16 @@ REGRAS FINAIS:
         }
       }
 
-      // ── OCR GEMINI — fallback para PDFs escaneados ────────────────────────
-      // Ativado sempre que o texto extraído é curto (< 500 chars).
-      // Usa Gemini File API (upload de arquivo) + fallback inline base64.
-      const textoMuitoCurto = texto.trim().length < 500;
+      // ── OCR Multi-Model — cascata completa para PDFs escaneados ────────────
+      // Pipeline: Qwen2.5-VL → GLM-OCR → Gemini File API → Gemini inline
+      // Ativado quando pdf-parse retorna < 500 chars
       const isPdf = nomeArquivo.toLowerCase().endsWith('.pdf');
-      if (textoMuitoCurto && isPdf && pdfBuf && process.env.GEMINI_API_KEY) {
-        console.log(`[OCR] pdf-parse retornou ${texto.trim().length} chars. Ativando OCR via Gemini...`);
-        let ocrOk = false;
-
-        const ocrPromptText = `Você é um sistema de OCR especializado em documentos oficiais brasileiros. Leia CADA PÁGINA deste PDF e transcreva TODO o texto visível, exatamente como aparece — sem resumir, sem interpretar.
-
-Inclua obrigatoriamente:
-1. Todo o texto do cabeçalho/timbre (nome do órgão, estado, brasão textual)
-2. Número e tipo do documento (ex: NOTIFICAÇÃO Nº 2023001004933)
-3. Destinatário completo (nome, CNPJ, endereço)
-4. Número do processo administrativo (ex: SEI, Processo nº)
-5. Corpo completo do documento — cada parágrafo, cada item
-6. Todas as condicionantes e exigências (numeradas ou não)
-7. Todos os prazos mencionados (ex: "30 dias", "até 15/03/2024")
-8. Bloco de assinatura (nome, cargo, data, CREA/CRBio)
-9. Rodapé, código de autenticação, carimbos
-
-Retorne APENAS o texto transcrito. Nada mais.`;
-
-        // ── Tentativa 1: Gemini File API (mais confiável para PDFs grandes) ──
-        if (!ocrOk) {
-          try {
-            const fs = await import('fs');
-            const path = await import('path');
-            const os = await import('os');
-            const tmpPath = path.join(os.tmpdir(), `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`);
-            fs.writeFileSync(tmpPath, pdfBuf);
-            try {
-              const { GoogleAIFileManager } = await import('@google/generative-ai/server');
-              const { GoogleGenerativeAI } = await import('@google/generative-ai');
-              const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
-              const upload = await fileManager.uploadFile(tmpPath, {
-                mimeType: 'application/pdf',
-                displayName: nomeArquivo,
-              });
-              const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-              const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0 } });
-              const result = await model.generateContent([
-                { fileData: { mimeType: upload.file.mimeType, fileUri: upload.file.uri } },
-                { text: ocrPromptText },
-              ]);
-              const ocrText = result.response.text();
-              if (ocrText && ocrText.trim().length > 100) {
-                texto = ocrText;
-                ocrOk = true;
-                console.log(`[OCR] Gemini File API OK — ${texto.length} chars extraídos`);
-              }
-              // limpar arquivo do Gemini
-              try { await fileManager.deleteFile(upload.file.name); } catch (_) {}
-            } finally {
-              try { fs.unlinkSync(tmpPath); } catch (_) {}
-            }
-          } catch (fileApiErr: any) {
-            console.warn('[OCR] Gemini File API falhou:', fileApiErr?.message);
-          }
-        }
-
-        // ── Tentativa 2: Inline base64 (fallback para PDFs menores) ──────────
-        if (!ocrOk && pdfBuf.length < 15 * 1024 * 1024) { // < 15 MB
-          const visionModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
-          for (const vModel of visionModels) {
-            try {
-              const { GoogleGenerativeAI } = await import('@google/generative-ai');
-              const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-              const model = genAI.getGenerativeModel({ model: vModel, generationConfig: { temperature: 0 } });
-              const pdfBase64 = pdfBuf.toString('base64');
-              const result = await model.generateContent([
-                { inlineData: { mimeType: 'application/pdf', data: pdfBase64 } },
-                { text: ocrPromptText },
-              ]);
-              const ocrText = result.response.text();
-              if (ocrText && ocrText.trim().length > 100) {
-                texto = ocrText;
-                ocrOk = true;
-                console.log(`[OCR] Inline Gemini (${vModel}) OK — ${texto.length} chars`);
-                break;
-              }
-            } catch (inlineErr: any) {
-              console.warn(`[OCR] Inline Gemini (${vModel}) falhou:`, inlineErr?.message);
-            }
-          }
-        }
-
-        if (!ocrOk) {
-          console.warn(`[OCR] Todos os métodos OCR falharam. Usando ${texto.trim().length} chars do pdf-parse.`);
+      if (texto.trim().length < 500 && isPdf && pdfBuf) {
+        const { runMultiModelOcr } = await import('./services/multiModelOcrService');
+        const ocrResult = await runMultiModelOcr(pdfBuf, nomeArquivo, texto);
+        if (ocrResult.text.trim().length > texto.trim().length) {
+          texto = ocrResult.text;
+          console.log(`[OCR] ${ocrResult.method.toUpperCase()} — ${ocrResult.chars} chars (${ocrResult.pages > 0 ? ocrResult.pages + ' páginas' : 'PDF direto'})`);
         }
       }
 
@@ -4283,8 +4218,23 @@ Retorne APENAS o texto transcrito. Nada mais.`;
       let rawText = '';
       let lastErr: any;
 
+      // ── 0) Text LLM local (Qwen2.5-14B via vLLM) — prioridade máxima ─────
+      if (process.env.TEXT_LLM_BASE_URL) {
+        try {
+          const { analyzeWithTextLLM } = await import('./services/multiModelOcrService');
+          const result = await analyzeWithTextLLM(prompt);
+          if (result?.raw) {
+            rawText = result.raw;
+            console.log(`[ai-analise] Qwen2.5-14B OK (${rawText.length} chars)`);
+          }
+        } catch (e: any) {
+          console.warn('[ai-analise] Text LLM falhou:', e?.message);
+          lastErr = e;
+        }
+      }
+
       // ── 1) Cascade Gemini ────────────────────────────────────────────────
-      if (process.env.GEMINI_API_KEY) {
+      if (!rawText && process.env.GEMINI_API_KEY) {
         try {
           const { GoogleGenerativeAI } = await import('@google/generative-ai');
           const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);

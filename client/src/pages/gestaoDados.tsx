@@ -374,6 +374,13 @@ export default function GestaoDados() {
     enabled: !!historyDataset?.id,
   });
 
+  // Status dos modelos de IA
+  const { data: aiModelsData } = useQuery<{ models: { model: string; configured: boolean; baseUrl: string | null; role: string }[] }>({
+    queryKey: ["/api/datasets/ai-models-status"],
+    staleTime: 60 * 1000,
+  });
+  const aiModels = aiModelsData?.models ?? [];
+
   // ── Auto-inicializar pastas ───────────────────────────────────────────────────
   const [autoInitialized, setAutoInitialized] = useState(false);
   useEffect(() => {
@@ -783,6 +790,20 @@ export default function GestaoDados() {
         </div>
 
         {/* Tabs principais */}
+        {/* Painel de modelos de IA */}
+        {aiModels.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-muted/40 border text-xs">
+            <span className="font-semibold text-muted-foreground flex items-center gap-1"><Sparkles className="h-3 w-3" /> Pipeline IA:</span>
+            {aiModels.map((m) => (
+              <span key={m.model} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono ${m.configured ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-950 dark:text-green-300' : 'bg-muted border-border text-muted-foreground'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${m.configured ? 'bg-green-500' : 'bg-gray-300'}`} />
+                {m.model.split('/').pop()}
+                <span className="opacity-60">· {m.role.split(' ')[0]}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full md:w-auto">
             <TabsTrigger value="documentos" className="gap-2"><FileText className="h-4 w-4" />Documentos</TabsTrigger>
