@@ -162,6 +162,7 @@ const loginSchema = z.object({
 
 // Register schema - accepts any valid email
 const registerSchema = z.object({
+  nome: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
   unidade: z.enum(["goiania", "salvador", "luiz-eduardo-magalhaes"]),
@@ -416,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { email, password, unidade, cargo } = registerSchema.parse(req.body);
+      const { nome, email, password, unidade, cargo } = registerSchema.parse(req.body);
       
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
@@ -430,6 +431,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cargo,
         unidade,
       });
+
+      // Automatically create an RH record for the new user (if not already exists)
+      try {
+        const existingRh = await db.select({ id: rhRegistros.id })
+          .from(rhRegistros)
+          .where(eq(rhRegistros.contatoEmail, email))
+          .limit(1);
+
+        if (existingRh.length === 0) {
+          const displayName = nome?.trim() ||
+            email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+          await db.insert(rhRegistros).values({
+            nomeColaborador: displayName,
+            cargo: cargo || null,
+            contatoEmail: email,
+            unidade: unidade || "salvador",
+            status: "ativo",
+          });
+        }
+      } catch (rhErr) {
+        // Non-fatal: log but don't block registration
+        console.error("[Register] Falha ao criar registro RH:", rhErr);
+      }
 
       req.session.userId = newUser.id;
       res.json({ message: "Registro bem-sucedido", user: { id: newUser.id, email: newUser.email, role: newUser.role, cargo: newUser.cargo, unidade: newUser.unidade } });
