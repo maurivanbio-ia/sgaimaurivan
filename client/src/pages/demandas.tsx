@@ -1422,12 +1422,13 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
 
   const getBarStyle = (d: Demanda) => {
     const fimStr = normalizeDateYmd(d.dataEntrega)!;
-    const iniStr = normalizeDateYmd(d.dataInicio ?? "") ?? fimStr;
+    const iniStr = normalizeDateYmd(d.dataInicio ?? "") || fimStr; // use || to catch empty string
     const startDay = Math.max(differenceInDays(parseISO(iniStr), rangeStart), 0);
     const endDay = Math.min(differenceInDays(parseISO(fimStr), rangeStart), totalDays - 1);
     const left = startDay * dayPct;
-    const width = Math.max((endDay - startDay + 1) * dayPct, dayPct * 0.5);
-    return { left: `${left}%`, width: `${width}%` };
+    const durationDays = Math.max(endDay - startDay + 1, 1);
+    const width = Math.max(durationDays * dayPct, dayPct * 0.5);
+    return { left: `${left}%`, width: `${width}%`, durationDays };
   };
 
   const barColor = (d: Demanda) => {
@@ -1485,9 +1486,17 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
           <div className="relative" style={{ height: chartH }}>
             {/* Label column */}
             <div className="absolute left-0 top-0 bottom-0 flex flex-col" style={{ width: GANTT_LABEL_W, zIndex: 10 }}>
-              <div style={{ height: 28 }} className="border-b border-gray-200 bg-white" />
+              <div style={{ height: 28 }} className="border-b border-gray-200 bg-white flex items-center justify-between px-3">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Demanda</span>
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Dias</span>
+              </div>
               {sorted.map((d, i) => {
                 const resp = getResponsavelNome(d, colaboradores);
+                const fimStr = normalizeDateYmd(d.dataEntrega)!;
+                const iniStr = normalizeDateYmd(d.dataInicio ?? "") || fimStr;
+                const durDays = iniStr && fimStr
+                  ? Math.max(differenceInDays(parseISO(fimStr), parseISO(iniStr)) + 1, 1)
+                  : 1;
                 return (
                   <div
                     key={d.id}
@@ -1503,6 +1512,17 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
                         {d.titulo}
                       </p>
                       {resp && <p className="text-[10px] text-muted-foreground truncate">{resp}</p>}
+                    </div>
+                    <div
+                      className="flex-shrink-0 text-[9px] font-bold text-center rounded px-1 py-0.5"
+                      style={{
+                        backgroundColor: durDays === 1 ? "#e2e8f0" : durDays <= 7 ? "#dbeafe" : durDays <= 30 ? "#fef9c3" : "#fce7f3",
+                        color: durDays === 1 ? "#64748b" : durDays <= 7 ? "#1d4ed8" : durDays <= 30 ? "#92400e" : "#9d174d",
+                        minWidth: 28,
+                      }}
+                      title={`${durDays} dia${durDays !== 1 ? "s" : ""} de duração`}
+                    >
+                      {durDays}d
                     </div>
                   </div>
                 );
@@ -1605,7 +1625,7 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
                     ) : (
                       /* Bar */
                       <div
-                        className="absolute top-2 bottom-2 rounded flex items-center px-1.5 overflow-hidden"
+                        className="absolute top-2 bottom-2 rounded flex items-center px-1.5 overflow-hidden group"
                         style={{
                           left: barStyle.left,
                           width: barStyle.width,
@@ -1613,10 +1633,18 @@ function GanttView({ demandas, colaboradores }: { demandas: Demanda[]; colaborad
                           outline: isOverdue ? "2px solid #ef4444" : "none",
                           outlineOffset: "1px",
                         }}
-                        title={d.titulo}
+                        title={`${d.titulo} — ${barStyle.durationDays} dia${barStyle.durationDays !== 1 ? "s" : ""}`}
                       >
-                        <span className="text-[10px] font-medium truncate" style={{ color: bc.fg }}>
+                        <span className="text-[10px] font-medium truncate flex items-center gap-1" style={{ color: bc.fg }}>
                           {d.titulo}
+                          {barStyle.durationDays > 1 && (
+                            <span
+                              className="flex-shrink-0 ml-1 text-[9px] font-bold opacity-90 bg-black/20 rounded px-0.5"
+                              style={{ whiteSpace: "nowrap" }}
+                            >
+                              {barStyle.durationDays}d
+                            </span>
+                          )}
                         </span>
                       </div>
                     )}
