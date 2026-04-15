@@ -3899,6 +3899,24 @@ Para cada exigência, estime a prioridade pelo impacto regulatório.
 Identifique o nome do empreendimento, projeto ou atividade licenciada/analisada. Pode estar como: razão social da empresa, nome do projeto, nome da fazenda/gleba, nome da UHE/PCH/eólica, etc.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ATENÇÃO CRÍTICA ANTES DE GERAR O RESUMO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+O campo "resumoExecutivo" É O MAIS IMPORTANTE. Ele será lido pela equipe ambiental como a principal fonte de informação sobre o documento.
+
+❌ RESUMOS PROIBIDOS (genéricos e inúteis):
+- "Este documento visa apresentar informações sobre a gestão ambiental do projeto..."
+- "O objetivo é fornecer um panorama das ações realizadas..."
+- "O relatório busca identificar riscos e propor um plano de ação..."
+- "O documento trata de questões ambientais relacionadas ao empreendimento..."
+Essas frases descrevem QUALQUER documento ambiental e não informam nada específico.
+
+✅ RESUMOS CORRETOS (concretos, específicos, acionáveis):
+- "A INEMA emitiu a Licença de Operação nº 0234/2024 para a Fazenda Boa Vista Ltda. (CNPJ 12.345.678/0001-90) para a atividade de piscicultura em tanques-rede no Rio São Francisco, municípios de Barra e Xique-Xique/BA. A licença tem validade de 4 anos (vence em 15/03/2028) e estabelece 12 condicionantes, sendo as mais críticas: (1) apresentação trimestral de relatório de monitoramento de qualidade da água do entorno, com análises de DBO, pH, fósforo total e coliformes; (2) implantação do Plano de Gerenciamento de Resíduos em até 60 dias. O descumprimento das condicionantes pode resultar em suspensão da licença."
+- "O Relatório de Monitoramento de Fauna (2º semestre/2023) da UHE Cachoeira Alta registrou 847 indivíduos de 112 espécies de aves nas 15 estações de amostragem, incluindo 3 espécies ameaçadas de extinção: Sporophila cinnamomea (CR), Ara glaucogularis (EN) e Amazona vinacea (VU). A densidade populacional de S. cinnamomea apresentou redução de 23% em relação ao 1º semestre, exigindo acionar o Protocolo de Manejo de Emergência previsto na condicionante 15 da LO."
+
+O resumo deve ser proporcional ao conteúdo disponível. Se o texto for escaneado/ilegível, diga isso claramente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RETORNE OBRIGATORIAMENTE EM JSON VÁLIDO:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -3918,7 +3936,7 @@ RETORNE OBRIGATORIAMENTE EM JSON VÁLIDO:
     "localidade": "município(s), estado e coordenadas/localização da área ou null",
     "atividadeLicenciada": "descrição da atividade ou empreendimento licenciado/analisado ou null"
   },
-  "resumoExecutivo": "resumo técnico em 2-4 parágrafos: (1) o que é este documento e sua finalidade; (2) contexto do empreendimento ou situação; (3) principais determinações, resultados ou conclusões; (4) implicações práticas para a equipe ambiental",
+  "resumoExecutivo": "ATENÇÃO — ANTI-PADRÃO PROIBIDO: Jamais escreva frases genéricas como 'este documento visa apresentar informações sobre...' ou 'o objetivo é fornecer um panorama...' ou 'busca identificar riscos...'. Essas frases são inúteis porque se aplicam a qualquer documento. O resumo deve conter APENAS informações específicas extraídas do texto real.\n\nEscreva 2-4 parágrafos concretos e técnicos respondendo:\n(1) O QUE ESPECIFICAMENTE acontece neste documento? Ex: 'A INEMA notifica a empresa Fazenda Boa Vista (CNPJ 12.345.678/0001-90) sobre irregularidades na Licença de Operação nº LO-0234/2023, identificadas em vistoria realizada em 12/03/2024.' — não 'este documento apresenta informações sobre...'.\n(2) QUAIS SÃO as determinações, resultados ou dados concretos? Cite números, espécies, parâmetros, datas, valores, condicionantes numeradas, áreas em hectares — qualquer dado mensurável presente no texto.\n(3) O QUE A EQUIPE AMBIENTAL precisa fazer em decorrência deste documento? Prazos específicos, ações concretas, riscos de não cumprimento.\n\nSe o documento for escaneado ou de baixa qualidade e o texto estiver ilegível, informe explicitamente: 'Documento de baixa qualidade — texto parcialmente ilegível. As seguintes informações foram possíveis de extrair: [liste o que conseguiu]. Recomenda-se reprocessar com OCR de melhor qualidade.'",
   "exigencias": [
     {
       "descricao": "descrição clara e completa da exigência, condicionante ou obrigação",
