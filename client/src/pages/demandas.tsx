@@ -1107,8 +1107,23 @@ function CalendarioEcoBrasil({
                         <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                           {list.map((dem) => {
                             const resp = getResponsavelNome(dem, colaboradores);
-                            const borderColor = dem.prioridade === "alta" ? "#dc2626" : dem.prioridade === "media" ? "#ca8a04" : "#16a34a";
-                            const bgColor = dem.prioridade === "alta" ? "#fef2f2" : dem.prioridade === "media" ? "#fefce8" : "#f0fdf4";
+                            const todayYmd = formatDate(new Date(), "yyyy-MM-dd");
+                            const entregaYmd = dem.dataEntrega ? normalizeDateYmd(dem.dataEntrega) : null;
+                            const isDone = ["concluido", "cancelado"].includes(dem.status ?? "");
+                            const isOverdue = !isDone && entregaYmd && entregaYmd < todayYmd;
+                            const isVenceHoje = !isDone && entregaYmd === todayYmd;
+
+                            const borderColor = isOverdue ? "#dc2626"
+                              : isVenceHoje ? "#f59e0b"
+                              : dem.prioridade === "alta" ? "#dc2626"
+                              : dem.prioridade === "media" ? "#ca8a04"
+                              : "#16a34a";
+                            const bgColor = isOverdue ? "#fef2f2"
+                              : isVenceHoje ? "#fffbeb"
+                              : dem.prioridade === "alta" ? "#fef2f2"
+                              : dem.prioridade === "media" ? "#fefce8"
+                              : "#f0fdf4";
+
                             return (
                               <div
                                 key={dem.id}
@@ -1119,19 +1134,43 @@ function CalendarioEcoBrasil({
                                   padding: "4px 6px",
                                   fontSize: "11px",
                                   lineHeight: "1.3",
+                                  border: isOverdue ? `1px solid #fca5a5` : isVenceHoje ? `1px solid #fde68a` : "none",
+                                  borderLeftWidth: "4px",
+                                  borderLeftColor: borderColor,
+                                  outline: isOverdue ? "none" : "none",
                                 }}
                               >
+                                {isOverdue && (
+                                  <div style={{
+                                    fontSize: "9px", fontWeight: "700",
+                                    color: "#dc2626", marginBottom: "2px",
+                                    display: "flex", alignItems: "center", gap: "2px",
+                                    textTransform: "uppercase", letterSpacing: "0.04em",
+                                  }}>
+                                    ⚠ ATRASADA
+                                  </div>
+                                )}
+                                {isVenceHoje && (
+                                  <div style={{
+                                    fontSize: "9px", fontWeight: "700",
+                                    color: "#b45309", marginBottom: "2px",
+                                    textTransform: "uppercase", letterSpacing: "0.04em",
+                                  }}>
+                                    ⚡ VENCE HOJE
+                                  </div>
+                                )}
                                 <div style={{ 
                                   fontWeight: "600", 
-                                  color: ECOBRASIL.azulEscuro,
+                                  color: isOverdue ? "#991b1b" : ECOBRASIL.azulEscuro,
                                   wordBreak: "break-word",
                                   whiteSpace: "normal",
                                   lineHeight: "1.35",
+                                  textDecoration: isDone ? "line-through" : "none",
                                 }}>
                                   {dem.titulo}
                                 </div>
                                 {dem.dataEntrega && (
-                                  <div style={{ fontSize: "9px", color: "#6b7280", marginTop: "1px" }}>
+                                  <div style={{ fontSize: "9px", color: isOverdue ? "#dc2626" : "#6b7280", marginTop: "1px" }}>
                                     📅 {formatDateBR(dem.dataEntrega)}
                                   </div>
                                 )}
@@ -1159,8 +1198,16 @@ function CalendarioEcoBrasil({
             justifyContent: "space-between",
             fontSize: "11px",
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
               <span style={{ fontWeight: "600", color: ECOBRASIL.azulEscuro }}>Legenda:</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "12px", height: "12px", backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderLeft: "3px solid #dc2626", borderRadius: "2px", display: "inline-block" }} />
+                ⚠ Atrasada
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "12px", height: "12px", backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderLeft: "3px solid #f59e0b", borderRadius: "2px", display: "inline-block" }} />
+                ⚡ Vence hoje
+              </span>
               <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                 <span style={{ width: "12px", height: "12px", backgroundColor: "#dc2626", borderRadius: "2px", display: "inline-block" }} />
                 Alta
