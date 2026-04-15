@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SensitivePageWrapper } from "@/components/SensitivePageWrapper";
 import { Button } from "@/components/ui/button";
@@ -332,6 +332,44 @@ export default function GestaoDados() {
       return res.json();
     },
   });
+
+  const { data: rhRecords = [] } = useQuery<{ id: number; nomeColaborador: string; contatoEmail?: string | null }[]>({
+    queryKey: ["/api/rh"],
+    queryFn: async () => {
+      const res = await fetch("/api/rh", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Combined & deduplicated list of responsável options: system users first, then RH-only
+  const responsavelOptions = useMemo(() => {
+    const opts: { value: string; label: string; sub?: string }[] = [];
+    const seenEmails = new Set<string>();
+
+    // System users first
+    for (const u of usuarios) {
+      const emailKey = u.email.toLowerCase();
+      if (!seenEmails.has(emailKey)) {
+        seenEmails.add(emailKey);
+        const displayName = u.nome || u.email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        opts.push({ value: u.email, label: displayName, sub: u.cargo || undefined });
+      }
+    }
+
+    // RH-only people not already in system users
+    for (const rh of rhRecords) {
+      const emailKey = rh.contatoEmail?.toLowerCase();
+      if (emailKey && seenEmails.has(emailKey)) continue; // already added via system user
+      const value = rh.contatoEmail || rh.nomeColaborador;
+      const valueKey = value.toLowerCase();
+      if (seenEmails.has(valueKey)) continue;
+      seenEmails.add(valueKey);
+      opts.push({ value, label: rh.nomeColaborador, sub: "RH" });
+    }
+
+    return opts;
+  }, [usuarios, rhRecords]);
 
   const { data: datasets = [], isLoading, refetch } = useQuery<DatasetExt[]>({
     queryKey: ["/api/datasets", { empreendimentoId: filterEmpreendimento }],
@@ -1111,8 +1149,10 @@ export default function GestaoDados() {
                     <SelectTrigger><SelectValue placeholder={currentUser?.email || "Selecione"} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__self__">Eu mesmo ({currentUser?.email || "—"})</SelectItem>
-                      {usuarios.map(u => (
-                        <SelectItem key={u.id} value={u.email}>{u.nome || u.email} {u.cargo ? `(${u.cargo})` : ""}</SelectItem>
+                      {responsavelOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}{opt.sub ? ` (${opt.sub})` : ""}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1363,8 +1403,10 @@ export default function GestaoDados() {
                       <SelectTrigger className="h-8"><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">— Nenhum —</SelectItem>
-                        {usuarios.map(u => (
-                          <SelectItem key={u.id} value={u.email}>{u.nome || u.email} {u.cargo ? `(${u.cargo})` : ""}</SelectItem>
+                        {responsavelOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}{opt.sub ? ` (${opt.sub})` : ""}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
