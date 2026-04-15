@@ -823,7 +823,7 @@ export default function GestaoDados() {
 
         {/* Tabs principais */}
         {/* Painel de modelos de IA */}
-        {aiModels.length > 0 && (
+        {false && aiModels.length > 0 && (
           <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
