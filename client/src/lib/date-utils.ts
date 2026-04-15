@@ -54,6 +54,8 @@ export function getStatusLabel(status: string): string {
     case 'vencida':
     case 'vencido':
       return 'Vencida';
+    case 'finalizada':
+      return 'Finalizada';
     default:
       return 'Desconhecido';
   }
@@ -69,6 +71,8 @@ export function getStatusClass(status: string): string {
     case 'vencida':
     case 'vencido':
       return 'status-expired';
+    case 'finalizada':
+      return 'status-finalizada';
     default:
       return '';
   }

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload } from "lucide-react";
+import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload, RefreshCw, Archive } from "lucide-react";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
 import type { LicencaAmbiental } from "@shared/schema";
 import { ExportButton } from "@/components/ExportButton";
@@ -57,6 +57,8 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
   const [editingLicense, setEditingLicense] = useState<LicencaAmbiental | null>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const [uploadedPdfPath, setUploadedPdfPath] = useState<string | null>(null);
+  const [renovatingLicense, setRenovatingLicense] = useState<LicencaAmbiental | null>(null);
+  const [isRenovacaoDialogOpen, setIsRenovacaoDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -67,6 +69,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
   const licencasAtivas = licencas.filter(l => l.status === 'ativa');
   const licencasVencidas = licencas.filter(l => l.status === 'vencida');
   const licencasAVencer = licencas.filter(l => l.status === 'a_vencer');
+  const licencasFinalizadas = licencas.filter(l => l.status === 'finalizada');
 
   const form = useForm<LicenseFormData>({
     resolver: zodResolver(licenseSchema),
@@ -154,6 +157,61 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       });
     },
   });
+
+  const finalizarLicenca = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("POST", `/api/licencas/${id}/finalizar`, {});
+      return response.json();
+    },
+  });
+
+  const renovacaoForm = useForm<LicenseFormData>({
+    resolver: zodResolver(licenseSchema),
+    defaultValues: { numero: "", tipo: "", orgaoEmissor: "", dataEmissao: "", validade: "", arquivoPdf: "" },
+  });
+  const [renovacaoPdfPath, setRenovacaoPdfPath] = useState<string | null>(null);
+  const [renovacaoPdfUploading, setRenovacaoPdfUploading] = useState(false);
+
+  const createRenovacao = useMutation({
+    mutationFn: async (data: LicenseFormData & { predecessorId: number }) => {
+      const response = await apiRequest("POST", "/api/licencas", { ...data, empreendimentoId });
+      return response.json();
+    },
+    onSuccess: async (_, variables) => {
+      await finalizarLicenca.mutateAsync(variables.predecessorId);
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "licencas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/licenses"] });
+      toast({ title: "Renovação concluída", description: "Nova licença criada e a anterior marcada como finalizada." });
+      setIsRenovacaoDialogOpen(false);
+      setRenovatingLicense(null);
+      setRenovacaoPdfPath(null);
+      renovacaoForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Erro ao processar renovação. Tente novamente.", variant: "destructive" });
+    },
+  });
+
+  const handleRenovar = (license: LicencaAmbiental) => {
+    setRenovatingLicense(license);
+    setRenovacaoPdfPath(null);
+    renovacaoForm.reset({
+      numero: "",
+      tipo: license.tipo,
+      tipoOutorga: (license as any).tipoOutorga || "",
+      orgaoEmissor: license.orgaoEmissor,
+      dataEmissao: "",
+      validade: "",
+      arquivoPdf: "",
+    });
+    setIsRenovacaoDialogOpen(true);
+  };
+
+  const onRenovacaoSubmit = (data: LicenseFormData) => {
+    if (!renovatingLicense) return;
+    const finalData = renovacaoPdfPath ? { ...data, arquivoPdf: renovacaoPdfPath } : data;
+    createRenovacao.mutate({ ...finalData, predecessorId: renovatingLicense.id });
+  };
 
   const onSubmit = (data: LicenseFormData) => {
     const finalData = uploadedPdfPath ? { ...data, arquivoPdf: uploadedPdfPath } : data;
@@ -449,7 +507,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -497,12 +555,166 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-slate-500" />
+              <div>
+                <p className="text-xs text-muted-foreground">Finalizadas</p>
+                <p className="text-2xl font-bold text-slate-600">{licencasFinalizadas.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Diálogo de Renovação */}
+      <Dialog open={isRenovacaoDialogOpen} onOpenChange={(open) => { setIsRenovacaoDialogOpen(open); if (!open) { setRenovatingLicense(null); setRenovacaoPdfPath(null); renovacaoForm.reset(); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-700">
+              <RefreshCw className="h-5 w-5" />
+              Renovar Licença
+            </DialogTitle>
+          </DialogHeader>
+          {renovatingLicense && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-2 text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-300">Renovando: {renovatingLicense.tipo} — {renovatingLicense.numero}</p>
+              <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">Ao salvar, esta licença será marcada como <strong>Finalizada</strong> e a nova será cadastrada.</p>
+            </div>
+          )}
+          <Form {...renovacaoForm}>
+            <form onSubmit={renovacaoForm.handleSubmit(onRenovacaoSubmit)} className="space-y-4">
+              <FormField control={renovacaoForm.control} name="numero" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Número da nova licença *</FormLabel>
+                  <FormControl><Input {...field} placeholder="Ex: LO 001/2025" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={renovacaoForm.control} name="tipo" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de licença *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {licenseTypes.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {renovacaoForm.watch("tipo") === "Licença de Outorga" && (
+                <FormField control={renovacaoForm.control} name="tipoOutorga" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Outorga *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="superficial">Superficial</SelectItem>
+                        <SelectItem value="subterranea">Subterrânea</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
+              <FormField control={renovacaoForm.control} name="orgaoEmissor" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Órgão emissor *</FormLabel>
+                  <FormControl><Input {...field} placeholder="Ex: INEMA, IBAMA" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={renovacaoForm.control} name="dataEmissao" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de emissão *</FormLabel>
+                    <FormControl><Input {...field} type="date" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={renovacaoForm.control} name="validade" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Validade *</FormLabel>
+                    <FormControl><Input {...field} type="date" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+
+              <FormField control={renovacaoForm.control} name="arquivoPdf" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>PDF da nova licença (opcional)</FormLabel>
+                  <div className="mt-1 flex justify-center px-6 pt-4 pb-5 border-2 border-border border-dashed rounded-md hover:border-primary/50 transition-colors">
+                    <div className="space-y-1 text-center">
+                      {renovacaoPdfUploading ? (
+                        <Loader2 className="mx-auto h-7 w-7 text-muted-foreground animate-spin" />
+                      ) : (
+                        <Upload className="mx-auto h-7 w-7 text-muted-foreground" />
+                      )}
+                      <div className="flex text-sm text-muted-foreground justify-center">
+                        <label className="relative cursor-pointer bg-background rounded-md font-medium text-primary hover:text-primary/80">
+                          <span>{renovacaoPdfUploading ? "Enviando..." : "Faça upload do PDF"}</span>
+                          <input type="file" accept=".pdf" className="sr-only" disabled={renovacaoPdfUploading} onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setRenovacaoPdfUploading(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              const response = await apiRequestFormData("POST", "/api/upload/pdf/server", formData);
+                              const result = await response.json();
+                              if (result.filePath) {
+                                setRenovacaoPdfPath(result.filePath);
+                                renovacaoForm.setValue("arquivoPdf", result.filePath, { shouldValidate: true });
+                                toast({ title: "Upload realizado", description: "PDF enviado com sucesso!" });
+                              }
+                            } catch {
+                              toast({ title: "Erro no upload", description: "Falha ao enviar o arquivo.", variant: "destructive" });
+                            } finally {
+                              setRenovacaoPdfUploading(false);
+                              e.target.value = "";
+                            }
+                          }} />
+                        </label>
+                        <p className="pl-1">ou arraste e solte</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Apenas PDF até 20MB</p>
+                    </div>
+                  </div>
+                  {renovacaoPdfPath && (
+                    <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
+                      <CheckCircle className="h-3 w-3" /> PDF pronto — clique em Salvar
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => { setIsRenovacaoDialogOpen(false); setRenovatingLicense(null); }}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createRenovacao.isPending || finalizarLicenca.isPending || renovacaoPdfUploading} className="bg-emerald-600 hover:bg-emerald-700">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {createRenovacao.isPending || finalizarLicenca.isPending ? "Processando..." : "Confirmar Renovação"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {licencas.length > 0 ? (
         <div className="space-y-4">
           {licencas.map((license) => (
-            <Card key={license.id} className="shadow-sm hover:shadow-md transition-shadow">
+            <Card key={license.id} className={`shadow-sm hover:shadow-md transition-shadow ${license.status === 'finalizada' ? 'opacity-70 border-slate-200 dark:border-slate-700' : ''}`}>
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -573,13 +785,27 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                         Detalhes
                       </Button>
                     </Link>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(license)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    {license.status === 'vencida' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRenovar(license)}
+                        className="gap-1 text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950"
+                        title="Renovar licença — cria nova licença e marca esta como finalizada"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Renovar
+                      </Button>
+                    )}
+                    {license.status !== 'finalizada' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(license)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
