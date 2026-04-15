@@ -13,6 +13,7 @@ import registerBackground from "@assets/register-background-puma.png";
 
 export default function Register() {
   const [, setLocation] = useLocation();
+  const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -47,7 +48,7 @@ export default function Register() {
 
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/auth/register", { email, password, unidade, cargo });
+      const response = await apiRequest("POST", "/api/auth/register", { nome: nome.trim(), email, password, unidade, cargo });
 
       toast({
         title: "Conta criada com sucesso!",
@@ -111,6 +112,24 @@ export default function Register() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label
+                  htmlFor="nome"
+                  className="block text-sm font-medium text-white mb-2 drop-shadow"
+                >
+                  Nome completo
+                </Label>
+                <Input
+                  type="text"
+                  id="nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  required
+                  placeholder="Seu nome completo"
+                  className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50"
+                />
+              </div>
+
               <div>
                 <Label
                   htmlFor="email"
