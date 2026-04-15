@@ -3743,6 +3743,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Status dos modelos de IA configurados (MUST be before /:id)
+  app.get('/api/datasets/ai-models-status', requireAuth, async (_req, res) => {
+    const { getModelStatus, getSystemInfo } = await import('./services/multiModelOcrService');
+    res.json({ models: getModelStatus(), system: getSystemInfo() });
+  });
+
+  // Teste de conectividade com os servidores de modelos (MUST be before /:id)
+  app.post('/api/datasets/ai-models-ping', requireAuth, async (req: any, res) => {
+    const { baseUrl } = req.body;
+    if (!baseUrl || typeof baseUrl !== 'string') {
+      return res.status(400).json({ error: 'baseUrl é obrigatório' });
+    }
+    const { testModelConnectivity } = await import('./services/multiModelOcrService');
+    const result = await testModelConnectivity(baseUrl);
+    res.json(result);
+  });
+
   // Get single dataset
   app.get('/api/datasets/:id', requireAuth, async (req, res) => {
     try {
@@ -4122,23 +4139,6 @@ REGRAS FINAIS:
       console.error('Erro na extração IA:', error);
       res.status(500).json({ error: 'Falha na extração por IA: ' + error.message });
     }
-  });
-
-  // Status dos modelos de IA configurados
-  app.get('/api/datasets/ai-models-status', requireAuth, async (_req, res) => {
-    const { getModelStatus, getSystemInfo } = await import('./services/multiModelOcrService');
-    res.json({ models: getModelStatus(), system: getSystemInfo() });
-  });
-
-  // Teste de conectividade com os servidores de modelos
-  app.post('/api/datasets/ai-models-ping', requireAuth, async (req: any, res) => {
-    const { baseUrl } = req.body;
-    if (!baseUrl || typeof baseUrl !== 'string') {
-      return res.status(400).json({ error: 'baseUrl é obrigatório' });
-    }
-    const { testModelConnectivity } = await import('./services/multiModelOcrService');
-    const result = await testModelConnectivity(baseUrl);
-    res.json(result);
   });
 
   // AI análise completa de documento já cadastrado (pelo ID)
