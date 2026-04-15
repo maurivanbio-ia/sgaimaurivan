@@ -86,6 +86,17 @@ TIPO DE DOCUMENTO: Classifique pelo conteúdo real:
 - Artigo Científico, Dissertação, Tese → "artigo_cientifico"
 - Outro → "outro"
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AVISO SOBRE O CAMPO resumoAuto:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❌ PROIBIDO — resumos genéricos inúteis:
+"Este documento visa apresentar informações sobre..." / "O objetivo é fornecer um panorama..." / "O relatório busca identificar riscos..."
+Essas frases se aplicam a QUALQUER documento e não informam nada.
+
+✅ CORRETO — resumo concreto e específico:
+"A INEMA emitiu a Licença de Operação nº 0234/2024 para a Fazenda Boa Vista (piscicultura, Rio São Francisco, BA). Validade: 4 anos. 12 condicionantes, destacando: relatório trimestral de qualidade da água e implantação do PGRS em 60 dias."
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 Retorne APENAS JSON válido:
 
 {
@@ -109,7 +120,7 @@ Retorne APENAS JSON válido:
   "condicionantes": "principais condicionantes/exigências resumidas (máx 400 chars) ou null",
   "prazosImportantes": "prazos e periodicidades identificados (máx 250 chars) ou null",
   "palavrasChave": "5-8 palavras-chave separadas por vírgula ou null",
-  "resumoAuto": "resumo executivo específico e técnico em 3-5 frases sobre este documento",
+  "resumoAuto": "PROIBIDO escrever frases genéricas como 'este documento visa apresentar...', 'o objetivo é fornecer um panorama...', 'busca identificar riscos...'. Essas frases não informam nada. Escreva 3-5 frases 100% específicas ao conteúdo real: QUEM emitiu e para QUEM? SOBRE O QUÊ exatamente? QUAIS dados concretos (números, espécies, parâmetros, áreas, valores, datas, condicionantes)? O QUE precisa ser feito? Exemplo de resumo correto: 'A INEMA notificou a Fazenda Boa Vista Ltda. (LO nº 234/2023) em 15/03/2024 sobre não conformidade na condicionante 8 (ausência de relatório semestral de monitoramento hídrico). A empresa tem 30 dias para apresentar o relatório ou estará sujeita a embargo. O parâmetro em não conformidade é o nível de DBO no Rio Jacuípe (medição de 45 mg/L contra limite de 20 mg/L pela CONAMA 357/2005).' Se o texto for ilegível ou de baixa qualidade, indique isso explicitamente.",
   "descricaoGerada": "descrição de 1 frase (máx 150 chars) para uso como título alternativo",
   "citacaoAbnt": "citação ABNT completa (só artigos) ou null",
   "referenciaAbnt": "referência ABNT completa (só artigos) ou null"
