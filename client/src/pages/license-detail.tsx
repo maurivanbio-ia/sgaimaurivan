@@ -729,7 +729,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Cards de Exigências Numerados */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Shield className="h-12 w-12 mx-auto mb-4 opacity-30" />
@@ -737,147 +737,153 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
           <p className="text-sm">Clique em "Nova Condicionante" para começar</p>
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Item</TableHead>
-                <TableHead className="w-20">Código</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead className="w-36">Categoria</TableHead>
-                <TableHead className="w-32">Responsável</TableHead>
-                <TableHead className="w-28">Vencimento</TableHead>
-                <TableHead className="w-28">Status</TableHead>
-                <TableHead className="w-24">Progresso</TableHead>
-                <TableHead className="w-24">Atraso</TableHead>
-                <TableHead className="w-24 text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(cond => {
-                const dias = diasParaVencer(cond.prazo);
-                const atrasado = dias !== null && dias < 0 && cond.status !== "cumprida";
-                const st = STATUS_CONDICIONANTE[cond.status] || STATUS_CONDICIONANTE.pendente;
-                const StatusIcon = st.icon;
-                return (
-                  <TableRow
-                    key={cond.id}
-                    className={`cursor-pointer hover:bg-muted/50 ${selectedCond?.id === cond.id ? "bg-muted" : ""}`}
-                    onClick={() => setSelectedCond(selectedCond?.id === cond.id ? null : cond)}
-                  >
-                    <TableCell className="text-sm">{(cond as any).item || "-"}</TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted px-1 py-0.5 rounded">{(cond as any).codigo || "-"}</code>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium text-sm">{(cond as any).titulo || cond.descricao.substring(0, 60)}</div>
-                      {(cond as any).titulo && (
-                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{cond.descricao}</div>
+        <div className="space-y-3">
+          {filtered.map((cond, idx) => {
+            const dias = diasParaVencer(cond.prazo);
+            const atrasado = dias !== null && dias < 0 && cond.status !== "cumprida";
+            const st = STATUS_CONDICIONANTE[cond.status] || STATUS_CONDICIONANTE.pendente;
+            const StatusIcon = st.icon;
+            const isSelected = selectedCond?.id === cond.id;
+            const itemLabel = (cond as any).item || String(idx + 1);
+            const codigoLabel = (cond as any).codigo;
+            const titulo = (cond as any).titulo;
+
+            return (
+              <div
+                key={cond.id}
+                className={`border rounded-xl transition-all duration-150 cursor-pointer hover:shadow-md ${
+                  isSelected
+                    ? "border-primary shadow-sm bg-primary/5 dark:bg-primary/10"
+                    : atrasado
+                    ? "border-red-200 bg-red-50/30 dark:border-red-800/40 dark:bg-red-900/10"
+                    : "border-border bg-card hover:border-primary/40"
+                }`}
+                onClick={() => setSelectedCond(isSelected ? null : cond)}
+              >
+                <div className="flex items-start gap-4 p-4">
+                  {/* Número sequencial */}
+                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shadow-sm border-2 ${
+                    cond.status === "cumprida"
+                      ? "bg-green-100 border-green-400 text-green-700 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300"
+                      : atrasado
+                      ? "bg-red-100 border-red-400 text-red-700 dark:bg-red-900/40 dark:border-red-600 dark:text-red-300"
+                      : "bg-[#00599C]/10 border-[#00599C]/40 text-[#00599C] dark:bg-[#00599C]/20 dark:border-[#00599C]/50"
+                  }`}>
+                    {itemLabel}
+                  </div>
+
+                  {/* Conteúdo principal */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-start gap-2 mb-1">
+                      {codigoLabel && (
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono border">{codigoLabel}</code>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      {(cond as any).categoria ? (
-                        <Badge variant="outline" className="text-xs">{(cond as any).categoria}</Badge>
-                      ) : "-"}
-                    </TableCell>
-                    <TableCell className="text-sm">{(cond as any).responsavelNome || "-"}</TableCell>
-                    <TableCell className="text-sm">{formatDate(cond.prazo)}</TableCell>
-                    <TableCell>
-                      <Badge className={`gap-1 text-xs ${st.color}`}>
-                        <StatusIcon className="h-3 w-3" />
-                        {st.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Progress value={(cond as any).progresso || 0} className="h-1.5" />
-                        <span className="text-xs text-muted-foreground">{(cond as any).progresso || 0}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {atrasado ? (
-                        <Badge variant="destructive" className="text-xs">{Math.abs(dias!)}d atraso</Badge>
-                      ) : dias !== null && dias <= 7 && cond.status !== "cumprida" ? (
-                        <Badge className="bg-orange-100 text-orange-800 text-xs">{dias}d</Badge>
-                      ) : cond.status === "cumprida" ? (
-                        <CheckCheck className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{dias !== null ? `${dias}d` : "-"}</span>
+                      <span className="font-semibold text-sm leading-snug">
+                        {titulo || cond.descricao.substring(0, 80)}
+                      </span>
+                    </div>
+                    {titulo && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{cond.descricao}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {(cond as any).categoria && (
+                        <Badge variant="outline" className="text-xs py-0">{(cond as any).categoria}</Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(cond)}>
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          onClick={() => {
-                            if (confirm("Excluir esta condicionante?")) deleteCond.mutate(cond.id);
-                          }}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      {(cond as any).responsavelNome && (
+                        <span className="text-xs text-muted-foreground">👤 {(cond as any).responsavelNome}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Coluna direita: status, prazo, progresso, ações */}
+                  <div className="flex-shrink-0 flex flex-col items-end gap-2 min-w-[130px]">
+                    <Badge className={`gap-1 text-xs ${st.color}`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {st.label}
+                    </Badge>
+
+                    <div className="text-xs text-muted-foreground text-right">
+                      📅 {formatDate(cond.prazo)}
+                    </div>
+
+                    {atrasado ? (
+                      <Badge variant="destructive" className="text-xs">{Math.abs(dias!)}d de atraso</Badge>
+                    ) : dias !== null && dias <= 7 && cond.status !== "cumprida" ? (
+                      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 text-xs">{dias}d restantes</Badge>
+                    ) : cond.status === "cumprida" ? (
+                      <CheckCheck className="h-4 w-4 text-green-500" />
+                    ) : null}
+
+                    {/* Progresso */}
+                    <div className="w-full space-y-0.5">
+                      <Progress value={(cond as any).progresso || 0} className="h-1.5 w-28" />
+                      <span className="text-xs text-muted-foreground">{(cond as any).progresso || 0}%</span>
+                    </div>
+
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(cond)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          if (confirm("Excluir esta condicionante?")) deleteCond.mutate(cond.id);
+                        }}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção expandida ao selecionar */}
+                {isSelected && (
+                  <div className="border-t px-4 pt-3 pb-4 bg-muted/30 rounded-b-xl space-y-3">
+                    {/* Texto completo da exigência */}
+                    <div className="bg-background/70 border rounded-lg p-3">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">Texto da Exigência</p>
+                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{cond.descricao}</p>
+                    </div>
+                    {/* Metadados */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block">Tipo</span>
+                        <span className="font-medium">{TIPOS_CONDICIONANTE.find(t => t.value === (cond as any).tipoCondicionante)?.label || "-"}</span>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      <div>
+                        <span className="text-muted-foreground block">Responsável</span>
+                        <span className="font-medium">{(cond as any).responsavelNome || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Prazo</span>
+                        <span className="font-medium">{formatDate(cond.prazo)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Progresso</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Progress value={(cond as any).progresso || 0} className="h-1.5 flex-1" />
+                          <span className="font-medium">{(cond as any).progresso || 0}%</span>
+                        </div>
+                      </div>
+                    </div>
+                    {cond.observacoes && (
+                      <p className="text-xs text-muted-foreground italic border-l-2 border-muted-foreground/30 pl-2">Obs: {cond.observacoes}</p>
+                    )}
+                    {/* Botões de ação */}
+                    <div className="flex gap-2 pt-1" onClick={e => e.stopPropagation()}>
+                      <CriarDemandaDialog condicionante={cond} licenca={licenca} empreendimentoId={empreendimentoId} />
+                      <AdicionarCronogramaDialog condicionante={cond} licenca={licenca} empreendimentoId={empreendimentoId} />
+                    </div>
+                    {/* Evidências */}
+                    <div onClick={e => e.stopPropagation()}>
+                      <EvidenciasPanel condicionanteId={cond.id} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Condicionante Detail Panel */}
-      {selectedCond && (
-        <Card className="border-2 border-primary/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-base">
-                  {(selectedCond as any).codigo && <code className="mr-2 text-sm bg-muted px-1 rounded">{(selectedCond as any).codigo}</code>}
-                  {(selectedCond as any).titulo || selectedCond.descricao.substring(0, 80)}
-                </CardTitle>
-                {(selectedCond as any).titulo && (
-                  <p className="text-sm text-muted-foreground mt-1">{selectedCond.descricao}</p>
-                )}
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <CriarDemandaDialog condicionante={selectedCond} licenca={licenca} empreendimentoId={empreendimentoId} />
-                <AdicionarCronogramaDialog condicionante={selectedCond} licenca={licenca} empreendimentoId={empreendimentoId} />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Tipo:</span>
-                <div>{TIPOS_CONDICIONANTE.find(t => t.value === (selectedCond as any).tipoCondicionante)?.label || "-"}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Responsável:</span>
-                <div>{(selectedCond as any).responsavelNome || "-"}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Prazo:</span>
-                <div>{formatDate(selectedCond.prazo)}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Progresso:</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={(selectedCond as any).progresso || 0} className="h-2 flex-1" />
-                  <span>{(selectedCond as any).progresso || 0}%</span>
-                </div>
-              </div>
-            </div>
-            {selectedCond.observacoes && (
-              <div className="text-sm bg-muted/50 rounded p-3">
-                <span className="font-medium">Observações: </span>{selectedCond.observacoes}
-              </div>
-            )}
-            {/* Evidências da condicionante selecionada */}
-            <EvidenciasPanel condicionanteId={selectedCond.id} />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

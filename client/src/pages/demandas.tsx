@@ -337,6 +337,22 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
     dataEntrega: initial?.dataEntrega ? normalizeDateYmd(initial.dataEntrega) : "",
     status: (initial?.status ?? "a_fazer") as Status,
     empreendimentoId: initial?.empreendimentoId ? String(initial.empreendimentoId) : "",
+    licencaId: (initial as any)?.licencaId ? String((initial as any).licencaId) : "",
+    condicionanteId: (initial as any)?.condicionanteId ? String((initial as any).condicionanteId) : "",
+  });
+
+  // Licenças do empreendimento selecionado
+  const { data: licencasEmp = [] } = useQuery<any[]>({
+    queryKey: ["/api/empreendimentos", form.empreendimentoId, "licencas"],
+    queryFn: async () => apiRequest("GET", `/api/empreendimentos/${form.empreendimentoId}/licencas`),
+    enabled: Boolean(form.empreendimentoId),
+  });
+
+  // Condicionantes/exigências da licença selecionada
+  const { data: condicionantesLic = [] } = useQuery<any[]>({
+    queryKey: ["/api/licencas", form.licencaId, "condicionantes"],
+    queryFn: async () => apiRequest("GET", `/api/licencas/${form.licencaId}/condicionantes`),
+    enabled: Boolean(form.licencaId),
   });
 
   const mutation = useMutation({
@@ -357,6 +373,11 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
       };
 
       if (form.empreendimentoId) payload.empreendimentoId = Number(form.empreendimentoId);
+      if (form.licencaId) payload.licencaId = Number(form.licencaId);
+      if (form.condicionanteId) {
+        payload.condicionanteId = Number(form.condicionanteId);
+        payload.origem = "condicionante";
+      }
 
       const res =
         isEdit && initial?.id != null
@@ -408,7 +429,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
 
       <div>
         <Label>Empreendimento</Label>
-        <Select value={form.empreendimentoId || ""} onValueChange={(v) => setForm({ ...form, empreendimentoId: v })}>
+        <Select value={form.empreendimentoId || ""} onValueChange={(v) => setForm({ ...form, empreendimentoId: v, licencaId: "", condicionanteId: "" })}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione um empreendimento (opcional)" />
           </SelectTrigger>
@@ -421,6 +442,63 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
           </SelectContent>
         </Select>
       </div>
+
+      {/* Licença (aparece quando empreendimento está selecionado) */}
+      {form.empreendimentoId && (
+        <div>
+          <Label>Licença Ambiental <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+          <Select value={form.licencaId || ""} onValueChange={(v) => setForm({ ...form, licencaId: v, condicionanteId: "" })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione uma licença" />
+            </SelectTrigger>
+            <SelectContent>
+              {ensureArray<any>(licencasEmp).map((lic: any) => (
+                <SelectItem key={lic.id} value={String(lic.id)}>
+                  {lic.numero} — {lic.tipo || "Licença"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Exigência/Condicionante (aparece quando licença está selecionada) */}
+      {form.licencaId && (
+        <div>
+          <Label>Exigência / Condicionante <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+          <Select value={form.condicionanteId || ""} onValueChange={(v) => {
+            const cond = condicionantesLic.find((c: any) => String(c.id) === v);
+            const updates: any = { condicionanteId: v };
+            if (cond && !form.dataEntrega && cond.prazo) updates.dataEntrega = cond.prazo;
+            setForm({ ...form, ...updates });
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a exigência" />
+            </SelectTrigger>
+            <SelectContent>
+              {ensureArray<any>(condicionantesLic).map((cond: any, idx: number) => {
+                const num = cond.item || String(idx + 1);
+                const label = cond.titulo || cond.descricao?.substring(0, 60);
+                return (
+                  <SelectItem key={cond.id} value={String(cond.id)}>
+                    <span className="font-mono text-xs mr-1">{num}.</span> {label}
+                    {cond.codigo ? <span className="text-muted-foreground ml-1">[{cond.codigo}]</span> : null}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {form.condicionanteId && (() => {
+            const cond = condicionantesLic.find((c: any) => String(c.id) === form.condicionanteId);
+            if (!cond) return null;
+            return (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 bg-muted/50 rounded px-2 py-1">
+                {cond.descricao}
+              </p>
+            );
+          })()}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <div>
