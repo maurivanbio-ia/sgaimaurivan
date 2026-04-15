@@ -95,6 +95,11 @@ type EvidenciaFormData = z.infer<typeof evidenciaSchema>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function isArquivoAcessivel(path: string | null | undefined): boolean {
+  if (!path) return false;
+  return path.startsWith("/files/") || path.startsWith("object:") || path.startsWith("http");
+}
+
 function diasParaVencer(prazo: string | null): number | null {
   if (!prazo) return null;
   const hoje = new Date();
@@ -1361,8 +1366,8 @@ export default function LicenseDetail() {
             </Button>
           </Link>
           {licenca.arquivoPdf && (
-            licenca.arquivoPdf.startsWith("/files/") ? (
-              <a href={licenca.arquivoPdf} target="_blank" rel="noopener noreferrer">
+            isArquivoAcessivel(licenca.arquivoPdf) ? (
+              <a href={`/api/licencas/${licencaId}/arquivo`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm" className="gap-1">
                   <Download className="h-4 w-4" />
                   PDF
@@ -1483,8 +1488,8 @@ export default function LicenseDetail() {
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Arquivo PDF:</span>
                   <div>
-                    {licenca.arquivoPdf.startsWith("/files/") ? (
-                      <a href={licenca.arquivoPdf} target="_blank" rel="noopener noreferrer"
+                    {isArquivoAcessivel(licenca.arquivoPdf) ? (
+                      <a href={`/api/licencas/${licencaId}/arquivo`} target="_blank" rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-1">
                         <FileText className="h-4 w-4" />
                         Visualizar PDF
