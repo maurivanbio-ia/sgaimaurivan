@@ -73,6 +73,7 @@ import ClienteDashboard from "./pages/cliente/dashboard";
 import ClienteEmpreendimentoDetail from "./pages/cliente/empreendimento-detail";
 import ClienteDocumentos from "./pages/cliente/documentos";
 import NotFound from "@/pages/not-found";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -161,6 +162,7 @@ function Router() {
               <Sidebar />
               <main className="flex-1 md:ml-64 pt-16 md:pt-0 transition-all duration-300" id="main">
                 <PermissionGate>
+                  <ErrorBoundary>
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/dashboard" component={Dashboard} />
@@ -216,6 +218,7 @@ function Router() {
                     <Route path="/ativar-admin" component={AtivarAdmin} />
                     <Route component={NotFound} />
                   </Switch>
+                  </ErrorBoundary>
                 </PermissionGate>
               </main>
               <FloatingAIChat />
