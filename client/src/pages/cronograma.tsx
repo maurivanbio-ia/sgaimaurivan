@@ -448,7 +448,37 @@ const TIPO_LABEL: Record<string, string> = {
   campanha: "Campanha", relatorio: "Relatório", marco: "Marco", etapa: "Etapa",
 };
 
-// ─── Timeline Cronograma ──────────────────────────────────────────────────────
+// ─── Timeline Horizontal (calendário) ────────────────────────────────────────
+const MONTH_W = 140; // px por mês
+const BAR_H   = 40;  // altura da barra de meses
+const CARD_H  = 108; // altura de cada card flutuante
+const LANE_GAP = 8;  // espaço entre lanes
+
+function dateToX(date: Date, rangeStart: Date): number {
+  const totalMs = 30 * 24 * 3600 * 1000; // ~1 mês em ms
+  const ms = date.getTime() - startOfMonth(rangeStart).getTime();
+  return (ms / totalMs) * MONTH_W;
+}
+
+function assignLanes(items: CronogramaItem[], rangeStart: Date): Map<number, number> {
+  const laneMap = new Map<number, number>();
+  const laneEndX: number[] = [];
+  const CARD_W = 132;
+
+  const sorted = [...items]
+    .filter(i => i.dataFim)
+    .sort((a, b) => a.dataFim.localeCompare(b.dataFim));
+
+  for (const item of sorted) {
+    const x = dateToX(parseISO(item.dataFim), rangeStart);
+    let lane = 0;
+    while (laneEndX[lane] !== undefined && laneEndX[lane] > x - 4) lane++;
+    laneMap.set(item.id, lane);
+    laneEndX[lane] = x + CARD_W;
+  }
+  return laneMap;
+}
+
 function CronogramaTimelineView({
   items,
   empMap,
@@ -466,119 +496,277 @@ function CronogramaTimelineView({
   onToggleExecute: (i: CronogramaItem) => void;
   executeMutationPending: boolean;
 }) {
-  const sorted = useMemo(() =>
-    [...items].sort((a, b) => (a.dataFim ?? "9999").localeCompare(b.dataFim ?? "9999")),
-  [items]);
+  const [activeId, setActiveId] = useState<number | null>(null);
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const today = startOfDay(new Date());
+  const todayStr = format(today, "yyyy-MM-dd");
 
-  if (sorted.length === 0) {
+  const validItems = useMemo(() => items.filter(i => i.dataFim), [items]);
+
+  const { rangeStart, months } = useMemo(() => {
+    if (validItems.length === 0) {
+      const rs = startOfMonth(addMonths(today, -2));
+      const ms = Array.from({ length: 12 }, (_, i) => addMonths(rs, i));
+      return { rangeStart: rs, months: ms };
+    }
+    const dates = validItems.map(i => parseISO(i.dataFim));
+    const minD = startOfMonth(addMonths(minDate([...dates, today]), -2));
+    const maxD = startOfMonth(addMonths(maxDate([...dates, today]),  2));
+    const count = Math.max(differenceInDays(maxD, minD) / 30, 8);
+    const ms = Array.from({ length: Math.ceil(count) + 1 }, (_, i) => addMonths(minD, i));
+    return { rangeStart: minD, months: ms };
+  }, [validItems, today]);
+
+  const laneMap = useMemo(() => assignLanes(validItems, rangeStart), [validItems, rangeStart]);
+  const maxLane = useMemo(() => Math.max(0, ...Array.from(laneMap.values())), [laneMap]);
+
+  const totalW = months.length * MONTH_W;
+  const cardsAreaH = (maxLane + 1) * (CARD_H + LANE_GAP) + LANE_GAP + 24;
+
+  const todayX = dateToX(today, rangeStart);
+  const todayInRange = todayX >= 0 && todayX <= totalW;
+
+  const CARD_W = 132;
+
+  if (validItems.length === 0) {
     return (
       <Card>
         <CardContent className="py-16 text-center text-muted-foreground">
-          <LayoutList className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p>Nenhum item encontrado no cronograma.</p>
+          <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p>Nenhum item com datas encontrado no cronograma.</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="relative space-y-1 pl-8 pt-2 pb-8">
-      <div className="absolute left-[19px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-300 via-gray-200 to-gray-100 rounded-full" />
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2 flex-row items-center gap-3">
+        <CalendarDays className="h-5 w-5 text-primary" />
+        <CardTitle className="text-base">Timeline Horizontal</CardTitle>
+        <div className="ml-auto flex gap-3 text-xs text-muted-foreground font-normal">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />Atrasado</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />Em Andamento</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" />Pendente</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />Concluído</span>
+          <span className="flex items-center gap-1"><span className="text-purple-600 font-bold">◆</span>Marco</span>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <div style={{ width: totalW, minWidth: "100%", position: "relative" }}>
 
-      {sorted.map((item, idx) => {
-        const st = getItemStatus(item);
-        const sc = STATUS_COLOR_MAP[st] ?? STATUS_COLOR_MAP.pendente;
-        const isMilestone = item.tipo === "marco";
-        const empNome = item.empreendimentoId ? empMap.get(item.empreendimentoId) : null;
-        const projNome = item.projetoId ? projMap.get(item.projetoId) : null;
-        const isOverdue = st === "atrasado";
-        const isHoje = item.dataFim === todayStr && !item.concluido;
+            {/* Cards area */}
+            <div style={{ height: cardsAreaH, position: "relative", background: "#f8fafc" }}>
+              {/* Vertical month guides */}
+              {months.map((m, mi) => (
+                <div
+                  key={mi}
+                  style={{
+                    position: "absolute", top: 0, bottom: 0,
+                    left: mi * MONTH_W, width: 1,
+                    background: mi === 0 ? "transparent" : "#e2e8f0",
+                    zIndex: 0,
+                  }}
+                />
+              ))}
 
-        return (
-          <div key={item.id} className={cn("relative flex gap-4 pb-6", idx === sorted.length - 1 ? "pb-0" : "")}>
-            {/* dot */}
-            <div
-              className={cn(
-                "absolute -left-[21px] top-1.5 flex-shrink-0 z-10 border-2 border-white shadow-sm",
-                isMilestone ? "h-5 w-5 rotate-45 rounded-sm" : "h-4 w-4 rounded-full"
+              {/* Today vertical line */}
+              {todayInRange && (
+                <div style={{ position: "absolute", top: 0, bottom: 0, left: todayX, width: 2, background: "#2563eb", opacity: 0.35, zIndex: 1 }} />
               )}
-              style={{ backgroundColor: sc.dot }}
-            />
 
-            <div
-              className={cn(
-                "flex-1 rounded-xl border shadow-sm p-4 transition-all hover:shadow-md",
-                isOverdue ? "border-l-4" : isHoje ? "border-l-4" : "border-l-4",
-              )}
-              style={{ borderLeftColor: sc.border, borderLeftWidth: 4 }}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <Badge className="text-xs" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
-                      {st === "atrasado" ? "⚠ Atrasado" : st === "concluido" ? "✓ Concluído" : st === "em_andamento" ? "Em Andamento" : "Pendente"}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {isMilestone ? "◆ Marco" : TIPO_LABEL[item.tipo] ?? item.tipo}
-                    </Badge>
-                    {item.prioridade && item.prioridade !== "media" && (
-                      <Badge variant="outline" className={cn("text-xs", item.prioridade === "alta" ? "border-red-400 text-red-600 bg-red-50" : "border-green-400 text-green-600 bg-green-50")}>
-                        {item.prioridade === "alta" ? "Alta" : "Baixa"}
-                      </Badge>
-                    )}
-                    {item.recorrencia && item.recorrencia !== "nenhuma" && (
-                      <Badge variant="secondary" className="text-xs gap-1"><Repeat className="h-3 w-3" />{item.recorrencia}</Badge>
-                    )}
-                    {isOverdue && <Badge className="text-xs bg-red-100 text-red-700 border-red-300">Atrasado</Badge>}
-                    {isHoje && <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-300">Vence hoje</Badge>}
-                  </div>
-                  <h3 className={cn("font-semibold text-base leading-tight", item.concluido ? "line-through text-muted-foreground" : "")}>
-                    {item.titulo}
-                  </h3>
-                  {item.descricao && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.descricao}</p>}
-                  <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
-                    {empNome && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{empNome}</span>}
-                    {projNome && <span className="flex items-center gap-1"><FolderOpen className="h-3 w-3" />{projNome}</span>}
-                    {item.responsavel && <span className="flex items-center gap-1"><User className="h-3 w-3" />{item.responsavel}</span>}
-                  </div>
-                </div>
+              {/* Item cards */}
+              {validItems.map(item => {
+                const st = getItemStatus(item);
+                const sc = STATUS_COLOR_MAP[st] ?? STATUS_COLOR_MAP.pendente;
+                const isMilestone = item.tipo === "marco";
+                const empNome = item.empreendimentoId ? empMap.get(item.empreendimentoId) : null;
+                const lane = laneMap.get(item.id) ?? 0;
+                const x = dateToX(parseISO(item.dataFim), rangeStart);
+                const isActive = activeId === item.id;
+                const isOverdue = st === "atrasado";
+                const isHoje = item.dataFim === todayStr && !item.concluido;
 
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <div className="text-xs text-muted-foreground text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      <CalendarDays className="h-3 w-3" />
-                      {item.dataInicio !== item.dataFim
-                        ? <span>{formatDateBR(item.dataInicio)} → {formatDateBR(item.dataFim)}</span>
-                        : <span>{formatDateBR(item.dataFim)}</span>
-                      }
+                const top = LANE_GAP + lane * (CARD_H + LANE_GAP);
+                const cardX = Math.max(0, Math.min(x - 6, totalW - CARD_W - 4));
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setActiveId(isActive ? null : item.id)}
+                    style={{
+                      position: "absolute",
+                      left: cardX,
+                      top,
+                      width: CARD_W,
+                      height: CARD_H,
+                      zIndex: isActive ? 30 : 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {/* Connector dot on card bottom-left */}
+                    <div style={{
+                      position: "absolute", bottom: -4, left: x - cardX - 5,
+                      width: isMilestone ? 12 : 10, height: isMilestone ? 12 : 10,
+                      background: sc.dot, borderRadius: isMilestone ? 0 : "50%",
+                      transform: isMilestone ? "rotate(45deg)" : "none",
+                      border: "2px solid white", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                      zIndex: 20,
+                    }} />
+
+                    {/* Vertical tick line */}
+                    <div style={{
+                      position: "absolute", bottom: 0, left: x - cardX - 0.5,
+                      width: 1.5, height: 8,
+                      background: sc.dot, zIndex: 15,
+                    }} />
+
+                    {/* Card */}
+                    <div style={{
+                      position: "absolute", top: 0, left: 0, right: 0,
+                      height: CARD_H - 14,
+                      border: `1.5px ${isOverdue ? "dashed" : "solid"} ${isActive ? sc.border : isOverdue ? "#ef4444" : "#cbd5e1"}`,
+                      borderRadius: 8,
+                      background: isActive ? sc.bg : "#ffffff",
+                      padding: "6px 8px",
+                      boxShadow: isActive ? `0 4px 16px ${sc.dot}44` : "0 1px 4px rgba(0,0,0,0.08)",
+                      transition: "all 0.15s",
+                      overflow: "hidden",
+                    }}>
+                      {/* Date */}
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isOverdue ? "#dc2626" : "#475569", marginBottom: 2 }}>
+                        {isHoje ? "⚡ Hoje" : isOverdue ? "⚠ " + formatDateBR(item.dataFim) : formatDateBR(item.dataFim)}
+                      </div>
+                      {/* Title */}
+                      <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3, color: item.concluido ? "#94a3b8" : "#1e293b",
+                        textDecoration: item.concluido ? "line-through" : "none",
+                        overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
+                        {isMilestone && "◆ "}{item.titulo}
+                      </div>
+                      {/* Type */}
+                      <div style={{ fontSize: 9, color: "#64748b", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        {TIPO_LABEL[item.tipo] ?? item.tipo}
+                      </div>
+                      {/* Emp */}
+                      {empNome && (
+                        <div style={{ fontSize: 9, color: "#64748b", marginTop: 1, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                          🏗 {empNome}
+                        </div>
+                      )}
+                      {/* Responsible */}
+                      {item.responsavel && (
+                        <div style={{ fontSize: 9, color: "#64748b", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                          👤 {item.responsavel}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onToggleExecute(item)} disabled={executeMutationPending} title={item.concluido ? "Reabrir" : "Marcar como executado"}>
-                      {item.concluido ? <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" /> : <CheckCheck className="h-3.5 w-3.5 text-green-600" />}
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(item)} title="Editar">
-                      <Edit className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDelete(item)} title="Excluir">
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
 
-              {!item.concluido && item.dataInicio && item.dataFim && (
-                <div className="mt-2">
-                  <Progress value={getTimeProgress(item.dataInicio, item.dataFim)} className="h-1" />
-                </div>
+                    {/* Expanded actions panel */}
+                    {isActive && (
+                      <div style={{
+                        position: "absolute", top: CARD_H - 14 + 4, left: 0, width: CARD_W + 16,
+                        background: "#1e293b", borderRadius: 8, padding: "6px 8px",
+                        display: "flex", gap: 4, zIndex: 40,
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+                      }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); onToggleExecute(item); setActiveId(null); }}
+                          disabled={executeMutationPending}
+                          style={{ flex: 1, fontSize: 10, color: "#86efac", background: "transparent", border: "1px solid #86efac22", borderRadius: 4, padding: "3px 2px", cursor: "pointer" }}
+                          title={item.concluido ? "Reabrir" : "Concluir"}
+                        >
+                          {item.concluido ? "↩ Reabrir" : "✓ Concluir"}
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); onEdit(item); setActiveId(null); }}
+                          style={{ flex: 1, fontSize: 10, color: "#93c5fd", background: "transparent", border: "1px solid #93c5fd22", borderRadius: 4, padding: "3px 2px", cursor: "pointer" }}
+                        >
+                          ✎ Editar
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); onDelete(item); setActiveId(null); }}
+                          style={{ flex: 1, fontSize: 10, color: "#fca5a5", background: "transparent", border: "1px solid #fca5a522", borderRadius: 4, padding: "3px 2px", cursor: "pointer" }}
+                        >
+                          ✕ Excluir
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Month bar */}
+            <div style={{ display: "flex", height: BAR_H, position: "relative" }}>
+              {months.map((m, mi) => {
+                const isCurrentMonth = format(m, "yyyy-MM") === format(today, "yyyy-MM");
+                const isPast = m < startOfMonth(today);
+                return (
+                  <div
+                    key={mi}
+                    style={{
+                      width: MONTH_W, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      background: isCurrentMonth ? "#0369a1" : isPast ? "#334155" : "#1e7a45",
+                      color: isCurrentMonth ? "#fff" : isPast ? "#94a3b8" : "#d1fae5",
+                      borderRight: "1px solid rgba(255,255,255,0.1)",
+                      position: "relative",
+                      cursor: "default",
+                    }}
+                  >
+                    {isCurrentMonth && (
+                      <span style={{
+                        position: "absolute", top: -6, left: "50%", transform: "translateX(-50%)",
+                        color: "#2563eb", fontSize: 14, filter: "drop-shadow(0 0 3px #2563eb88)",
+                      }}>◆</span>
+                    )}
+                    {format(m, "MMM", { locale: ptBR }).toUpperCase()}
+                  </div>
+                );
+              })}
+
+              {/* Today marker on bar */}
+              {todayInRange && (
+                <div style={{
+                  position: "absolute", top: 0, bottom: 0, left: todayX,
+                  width: 2, background: "#2563eb", zIndex: 20,
+                }} />
               )}
             </div>
+
+            {/* Year labels */}
+            <div style={{ display: "flex", height: 22, background: "#f1f5f9", borderTop: "1px solid #e2e8f0" }}>
+              {months.map((m, mi) => {
+                const showYear = mi === 0 || format(m, "MM") === "01";
+                return (
+                  <div key={mi} style={{ width: MONTH_W, flexShrink: 0, position: "relative" }}>
+                    {showYear && (
+                      <span style={{
+                        position: "absolute", left: 6, top: 3,
+                        fontSize: 10, color: "#64748b", fontWeight: 600,
+                      }}>
+                        {format(m, "yyyy")}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        );
-      })}
-    </div>
+        </div>
+        <div className="text-xs text-muted-foreground px-4 py-2 border-t bg-gray-50 flex items-center gap-2">
+          <span className="text-blue-600 font-bold">◆</span>
+          <span>Mês atual destacado em azul</span>
+          <span className="mx-2 text-gray-300">|</span>
+          <span>Clique em um card para ver as ações</span>
+          <span className="mx-2 text-gray-300">|</span>
+          <span>Borda tracejada = item atrasado</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
