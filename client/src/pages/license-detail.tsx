@@ -58,6 +58,18 @@ const TIPOS_CONDICIONANTE = [
   { value: "conforme_necessidade", label: "Conforme Necessidade" },
 ];
 
+const PERIODICIDADES = [
+  { value: "diario", label: "Diária" },
+  { value: "semanal", label: "Semanal" },
+  { value: "quinzenal", label: "Quinzenal" },
+  { value: "mensal", label: "Mensal" },
+  { value: "bimestral", label: "Bimestral" },
+  { value: "trimestral", label: "Trimestral" },
+  { value: "semestral", label: "Semestral" },
+  { value: "anual", label: "Anual" },
+  { value: "bianual", label: "Bianual" },
+];
+
 const STATUS_CONDICIONANTE: Record<string, { label: string; color: string; icon: any }> = {
   pendente: { label: "Pendente", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300", icon: Clock },
   em_andamento: { label: "Em Andamento", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", icon: BarChart3 },
@@ -77,6 +89,7 @@ const condicionanteSchema = z.object({
   tipoCondicionante: z.string().optional(),
   responsavelNome: z.string().optional(),
   prazo: z.string().min(1, "Prazo é obrigatório"),
+  periodicidade: z.string().optional(),
   status: z.string().default("pendente"),
   progresso: z.number().min(0).max(100).default(0),
   observacoes: z.string().optional(),
@@ -460,6 +473,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
       tipoCondicionante: "",
       responsavelNome: "",
       prazo: "",
+      periodicidade: "",
       status: "pendente",
       progresso: 0,
       observacoes: "",
@@ -529,6 +543,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
       tipoCondicionante: (cond as any).tipoCondicionante || "",
       responsavelNome: (cond as any).responsavelNome || "",
       prazo: cond.prazo,
+      periodicidade: (cond as any).periodicidade || "",
       status: cond.status,
       progresso: (cond as any).progresso ?? 0,
       observacoes: cond.observacoes || "",
@@ -540,7 +555,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
     setEditingCond(null);
     form.reset({
       item: "", codigo: "", titulo: "", descricao: "", categoria: "",
-      tipoCondicionante: "", responsavelNome: "", prazo: "",
+      tipoCondicionante: "", responsavelNome: "", prazo: "", periodicidade: "",
       status: "pendente", progresso: 0, observacoes: "",
     });
     setIsDialogOpen(true);
@@ -650,6 +665,23 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                       </FormItem>
                     )} />
                   </div>
+                  {tipoCondWatch === "periodica" && (
+                    <FormField control={form.control} name="periodicidade" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Periodicidade</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Selecione a periodicidade" /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PERIODICIDADES.map(p => (
+                              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                  )}
                   <FormField control={form.control} name="titulo" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Título *</FormLabel>
@@ -886,6 +918,11 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                       <div>
                         <span className="text-muted-foreground block">Tipo</span>
                         <span className="font-medium">{TIPOS_CONDICIONANTE.find(t => t.value === (cond as any).tipoCondicionante)?.label || "-"}</span>
+                        {(cond as any).tipoCondicionante === "periodica" && (cond as any).periodicidade && (
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block mt-0.5">
+                            {PERIODICIDADES.find(p => p.value === (cond as any).periodicidade)?.label || (cond as any).periodicidade}
+                          </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-muted-foreground block">Responsável</span>

@@ -83,7 +83,8 @@ export const condicionantes = pgTable("condicionantes", {
   titulo: text("titulo"), // Título curto da condicionante
   descricao: text("descricao").notNull(), // Descrição completa
   categoria: text("categoria"), // Ex: Monitoramento, Controle, Documento, Relatório
-  tipoCondicionante: text("tipo_condicionante"), // periodica, pontual, entrega_documento
+  tipoCondicionante: text("tipo_condicionante"), // periodica, pontual, entrega_documento, permanente, conforme_necessidade
+  periodicidade: text("periodicidade"), // diario, semanal, quinzenal, mensal, bimestral, trimestral, semestral, anual, bianual
   // Responsável
   responsavelId: integer("responsavel_id").references(() => users.id),
   responsavelNome: text("responsavel_nome"), // Nome livre quando não vinculado a usuário
