@@ -70,6 +70,48 @@ const PERIODICIDADES = [
   { value: "bianual", label: "Bianual" },
 ];
 
+const PERIODICIDADE_MESES: Record<string, number> = {
+  diario: 0,
+  semanal: 0,
+  quinzenal: 0,
+  mensal: 1,
+  bimestral: 2,
+  trimestral: 3,
+  semestral: 6,
+  anual: 12,
+  bianual: 24,
+};
+
+const PERIODICIDADE_DIAS: Record<string, number> = {
+  diario: 1,
+  semanal: 7,
+  quinzenal: 15,
+};
+
+function calcularOcorrencias(periodicidade: string, prazo: string): { total: number; label: string } | null {
+  if (!periodicidade || !prazo) return null;
+  const hoje = new Date();
+  const fim = new Date(prazo);
+  if (isNaN(fim.getTime()) || fim <= hoje) return null;
+
+  let total = 0;
+  const diasLabel = PERIODICIDADE_DIAS[periodicidade];
+  const mesesLabel = PERIODICIDADE_MESES[periodicidade];
+
+  if (diasLabel) {
+    const diffDias = Math.floor((fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    total = Math.floor(diffDias / diasLabel);
+  } else if (mesesLabel) {
+    const mesesTotal =
+      (fim.getFullYear() - hoje.getFullYear()) * 12 + (fim.getMonth() - hoje.getMonth());
+    total = Math.floor(mesesTotal / mesesLabel);
+  }
+
+  if (total <= 0) return null;
+  const freq = PERIODICIDADES.find(p => p.value === periodicidade)?.label ?? periodicidade;
+  return { total, label: `${total} ocorrência${total !== 1 ? "s" : ""} ${freq.toLowerCase()}${total !== 1 ? "s" : ""}` };
+}
+
 const STATUS_CONDICIONANTE: Record<string, { label: string; color: string; icon: any }> = {
   pendente: { label: "Pendente", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300", icon: Clock },
   em_andamento: { label: "Em Andamento", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", icon: BarChart3 },
@@ -482,6 +524,11 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
 
   const progressoValue = form.watch("progresso") ?? 0;
   const tipoCondWatch = form.watch("tipoCondicionante");
+  const periodicidadeWatch = form.watch("periodicidade");
+  const prazoWatch = form.watch("prazo");
+  const ocorrenciasInfo = tipoCondWatch === "periodica"
+    ? calcularOcorrencias(periodicidadeWatch ?? "", prazoWatch ?? "")
+    : null;
 
   // Auto-preenche prazo com vencimento da licença para tipos sem data fixa
   const AUTO_PRAZO_TIPOS = ["permanente", "conforme_necessidade"];
@@ -666,21 +713,31 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                     )} />
                   </div>
                   {tipoCondWatch === "periodica" && (
-                    <FormField control={form.control} name="periodicidade" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Periodicidade</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Selecione a periodicidade" /></SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {PERIODICIDADES.map(p => (
-                              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )} />
+                    <>
+                      <FormField control={form.control} name="periodicidade" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Periodicidade</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger><SelectValue placeholder="Selecione a periodicidade" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {PERIODICIDADES.map(p => (
+                                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )} />
+                      {ocorrenciasInfo && (
+                        <div className="flex items-center gap-2 text-xs bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-3 py-2">
+                          <span className="text-lg">🔄</span>
+                          <span className="text-blue-700 dark:text-blue-300 font-medium">
+                            Previsão: <strong>{ocorrenciasInfo.label}</strong> até o prazo definido
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                   <FormField control={form.control} name="titulo" render={({ field }) => (
                     <FormItem>
@@ -918,11 +975,21 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                       <div>
                         <span className="text-muted-foreground block">Tipo</span>
                         <span className="font-medium">{TIPOS_CONDICIONANTE.find(t => t.value === (cond as any).tipoCondicionante)?.label || "-"}</span>
-                        {(cond as any).tipoCondicionante === "periodica" && (cond as any).periodicidade && (
-                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block mt-0.5">
-                            {PERIODICIDADES.find(p => p.value === (cond as any).periodicidade)?.label || (cond as any).periodicidade}
-                          </span>
-                        )}
+                        {(cond as any).tipoCondicionante === "periodica" && (cond as any).periodicidade && (() => {
+                          const ocorr = calcularOcorrencias((cond as any).periodicidade, cond.prazo ?? "");
+                          return (
+                            <>
+                              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block mt-0.5">
+                                {PERIODICIDADES.find(p => p.value === (cond as any).periodicidade)?.label || (cond as any).periodicidade}
+                              </span>
+                              {ocorr && (
+                                <span className="text-[10px] text-blue-500 dark:text-blue-500 block">
+                                  🔄 {ocorr.total} ocorr. previstas
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       <div>
                         <span className="text-muted-foreground block">Responsável</span>
