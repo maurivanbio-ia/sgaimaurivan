@@ -921,6 +921,7 @@ function CalendarioEcoBrasil({
   onPrevMonth,
   onNextMonth,
   exportRef,
+  onView,
 }: {
   demandas: Demanda[];
   colaboradores: Colaborador[];
@@ -928,6 +929,7 @@ function CalendarioEcoBrasil({
   onPrevMonth: () => void;
   onNextMonth: () => void;
   exportRef: React.RefObject<HTMLDivElement>;
+  onView?: (d: Demanda) => void;
 }) {
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
@@ -1127,56 +1129,45 @@ function CalendarioEcoBrasil({
                             return (
                               <div
                                 key={dem.id}
+                                onClick={() => onView?.(dem)}
+                                title={dem.titulo}
                                 style={{
                                   backgroundColor: bgColor,
-                                  borderLeft: `4px solid ${borderColor}`,
-                                  borderRadius: "4px",
-                                  padding: "4px 6px",
-                                  fontSize: "11px",
-                                  lineHeight: "1.3",
-                                  border: isOverdue ? `1px solid #fca5a5` : isVenceHoje ? `1px solid #fde68a` : "none",
-                                  borderLeftWidth: "4px",
+                                  borderLeft: `3px solid ${borderColor}`,
+                                  borderRadius: "3px",
+                                  padding: "2px 5px",
+                                  fontSize: "10px",
+                                  lineHeight: "1.4",
+                                  border: isOverdue ? `1px solid #fca5a5` : isVenceHoje ? `1px solid #fde68a` : `1px solid ${borderColor}22`,
+                                  borderLeftWidth: "3px",
                                   borderLeftColor: borderColor,
-                                  outline: isOverdue ? "none" : "none",
+                                  cursor: onView ? "pointer" : "default",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  overflow: "hidden",
+                                  transition: "filter 0.12s",
                                 }}
+                                onMouseEnter={e => { if (onView) e.currentTarget.style.filter = "brightness(0.93)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.filter = ""; }}
                               >
                                 {isOverdue && (
-                                  <div style={{
-                                    fontSize: "9px", fontWeight: "700",
-                                    color: "#dc2626", marginBottom: "2px",
-                                    display: "flex", alignItems: "center", gap: "2px",
-                                    textTransform: "uppercase", letterSpacing: "0.04em",
-                                  }}>
-                                    ⚠ ATRASADA
-                                  </div>
+                                  <span style={{ fontSize: "9px", flexShrink: 0 }}>⚠</span>
                                 )}
-                                {isVenceHoje && (
-                                  <div style={{
-                                    fontSize: "9px", fontWeight: "700",
-                                    color: "#b45309", marginBottom: "2px",
-                                    textTransform: "uppercase", letterSpacing: "0.04em",
-                                  }}>
-                                    ⚡ VENCE HOJE
-                                  </div>
+                                {isVenceHoje && !isOverdue && (
+                                  <span style={{ fontSize: "9px", flexShrink: 0 }}>⚡</span>
                                 )}
-                                <div style={{ 
-                                  fontWeight: "600", 
+                                <span style={{
+                                  fontWeight: "600",
                                   color: isOverdue ? "#991b1b" : ECOBRASIL.azulEscuro,
-                                  wordBreak: "break-word",
-                                  whiteSpace: "normal",
-                                  lineHeight: "1.35",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  flex: 1,
                                   textDecoration: isDone ? "line-through" : "none",
                                 }}>
                                   {dem.titulo}
-                                </div>
-                                {dem.dataEntrega && (
-                                  <div style={{ fontSize: "9px", color: isOverdue ? "#dc2626" : "#6b7280", marginTop: "1px" }}>
-                                    📅 {formatDateBR(dem.dataEntrega)}
-                                  </div>
-                                )}
-                                <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", fontWeight: "500" }}>
-                                  {resp}
-                                </div>
+                                </span>
                               </div>
                             );
                           })}
@@ -2135,6 +2126,7 @@ export default function DemandasPage() {
           onPrevMonth={() => setCalendarMonth((d) => subMonths(d, 1))}
           onNextMonth={() => setCalendarMonth((d) => addMonths(d, 1))}
           exportRef={calendarExportRef}
+          onView={setViewDetail}
         />
       )}
 
