@@ -246,6 +246,7 @@ export default function GestaoDados() {
   const [exigencias, setExigencias] = useState("");
   const [resumoIA, setResumoIA] = useState("");
   const [dataEmissao, setDataEmissao] = useState("");
+  const [selectedResponsavel, setSelectedResponsavel] = useState("");
   const [isExtractingIA, setIsExtractingIA] = useState(false);
 
   // Edit dialog
@@ -319,6 +320,15 @@ export default function GestaoDados() {
     queryFn: async () => {
       const res = await fetch("/api/empreendimentos", { credentials: "include" });
       if (!res.ok) throw new Error("Erro ao carregar empreendimentos");
+      return res.json();
+    },
+  });
+
+  const { data: usuarios = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users", { credentials: "include" });
+      if (!res.ok) return [];
       return res.json();
     },
   });
@@ -515,7 +525,7 @@ export default function GestaoDados() {
 
   const resetForm = () => {
     setNome(""); setDescricao(""); setTipo(""); setFile(null);
-    setSelectedEmpreendimento(""); setCliente(""); setUf(""); setProjeto("");
+    setSelectedEmpreendimento(""); setSelectedResponsavel(""); setCliente(""); setUf(""); setProjeto("");
     setSubprojeto(""); setDisciplina(""); setTipoDocumento(""); setEntrega("");
     setArea(""); setPeriodo(""); setStatus("RASC"); setClassificacao("INT");
     setTitulo(""); setCodigoPreview(""); setPastaDestino("");
@@ -533,6 +543,7 @@ export default function GestaoDados() {
     reader.onload = () => {
       const base = {
         empreendimentoId: parseInt(selectedEmpreendimento),
+        responsavel: selectedResponsavel || currentUser?.email || "",
         descricao, tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
         statusDocumental, documentoRelacionadoId: documentoRelacionadoId || null,
         vinculoTipo, exigencias, resumoIA, dataEmissao: dataEmissao || null,
@@ -1085,13 +1096,27 @@ export default function GestaoDados() {
                 <Label htmlFor="useAdvanced" className="cursor-pointer">Usar formulário avançado com código padronizado</Label>
               </div>
 
-              {/* Empreendimento */}
-              <div>
-                <Label>Empreendimento *</Label>
-                <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o empreendimento" /></SelectTrigger>
-                  <SelectContent>{empreendimentos.map(e => <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>)}</SelectContent>
-                </Select>
+              {/* Empreendimento + Responsável */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Empreendimento *</Label>
+                  <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o empreendimento" /></SelectTrigger>
+                    <SelectContent>{empreendimentos.map(e => <SelectItem key={e.id} value={e.id.toString()}>{e.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Coordenador Responsável</Label>
+                  <Select value={selectedResponsavel} onValueChange={setSelectedResponsavel}>
+                    <SelectTrigger><SelectValue placeholder={currentUser?.email || "Selecione"} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Eu mesmo ({currentUser?.email || "—"})</SelectItem>
+                      {usuarios.map(u => (
+                        <SelectItem key={u.id} value={u.email}>{u.nome || u.email} {u.cargo ? `(${u.cargo})` : ""}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Arquivo + botão IA */}
@@ -1332,7 +1357,18 @@ export default function GestaoDados() {
                       <SelectContent>{STATUS_DOCUMENTAIS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div><Label className="text-xs">Responsável</Label><Input className="h-8" value={editFields.responsavel || ""} onChange={e => setEditFields(p => ({ ...p, responsavel: e.target.value }))} /></div>
+                  <div>
+                    <Label className="text-xs">Responsável (Coordenador)</Label>
+                    <Select value={editFields.responsavel || ""} onValueChange={v => setEditFields(p => ({ ...p, responsavel: v }))}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">— Nenhum —</SelectItem>
+                        {usuarios.map(u => (
+                          <SelectItem key={u.id} value={u.email}>{u.nome || u.email} {u.cargo ? `(${u.cargo})` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div><Label className="text-xs">Exigências</Label><Textarea value={editFields.exigencias || ""} onChange={e => setEditFields(p => ({ ...p, exigencias: e.target.value }))} rows={2} className="text-xs" /></div>
                 <div><Label className="text-xs">Resumo / Observações</Label><Textarea value={editFields.resumoIA || ""} onChange={e => setEditFields(p => ({ ...p, resumoIA: e.target.value }))} rows={2} className="text-xs" /></div>
@@ -1667,6 +1703,15 @@ export default function GestaoDados() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Número / Protocolo</p>
                     <p className="font-medium">{detailDataset.numeroDocumento || <span className="text-muted-foreground">—</span>}</p>
+                  </div>
+                  {/* Empreendimento */}
+                  <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <p className="text-xs text-blue-600 font-semibold mb-0.5">🏗 Empreendimento</p>
+                    <p className="font-semibold text-blue-900">
+                      {(detailDataset as any).empreendimentoNome ||
+                        empreendimentos.find(e => e.id === detailDataset.empreendimentoId)?.nome ||
+                        `#${detailDataset.empreendimentoId}`}
+                    </p>
                   </div>
                   {/* Órgão Emissor */}
                   <div>
@@ -2310,11 +2355,21 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
                         {ev.icon} {titulo}
                       </p>
                       <p style={{ fontSize: 9, color: "#6b7280", lineHeight: 1.2 }}>{tipoLabel}</p>
+                      {ev.d.empreendimentoNome && (
+                        <p style={{ fontSize: 8, color: ev.color, lineHeight: 1.2, marginTop: 2, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          🏗 {ev.d.empreendimentoNome.slice(0, 22)}
+                        </p>
+                      )}
                       {ev.fallback && (
                         <p style={{ fontSize: 8, color: "#9ca3af", lineHeight: 1.2, marginTop: 1, fontStyle: "italic" }}>data de inserção</p>
                       )}
                       {!ev.fallback && ev.d.orgaoEmissor && (
                         <p style={{ fontSize: 9, color: "#9ca3af", lineHeight: 1.2, marginTop: 1 }}>{ev.d.orgaoEmissor.slice(0, 20)}</p>
+                      )}
+                      {ev.d.responsavel && (
+                        <p style={{ fontSize: 8, color: "#9ca3af", lineHeight: 1.2, marginTop: 1 }}>
+                          👤 {ev.d.responsavel.includes("@") ? ev.d.responsavel.split("@")[0] : ev.d.responsavel.slice(0, 18)}
+                        </p>
                       )}
                     </div>
                   </div>
