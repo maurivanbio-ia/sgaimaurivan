@@ -997,6 +997,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/licencas/:id/finalizar", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const licenca = await storage.finalizarLicenca(id);
+      websocketService.broadcastInvalidate('licencas');
+      res.json(licenca);
+    } catch (error) {
+      console.error("Finalizar licenca error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.delete("/api/licencas/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

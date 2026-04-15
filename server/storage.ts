@@ -692,10 +692,9 @@ export class DatabaseStorage implements IStorage {
       .where(eq(licencasAmbientais.empreendimentoId, id))
       .orderBy(desc(licencasAmbientais.criadoEm));
 
-    // Recalcula status das licenças baseado na data atual
     const licencas = licencasData.map(licenca => ({
       ...licenca,
-      status: this.calculateLicenseStatus(licenca.validade)
+      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
     }));
 
     return { ...empreendimento, licencas };
@@ -823,20 +822,18 @@ export class DatabaseStorage implements IStorage {
   // Licenca operations
   async getLicencas(): Promise<LicencaAmbiental[]> {
     const licencas = await db.select().from(licencasAmbientais).orderBy(desc(licencasAmbientais.criadoEm));
-    // Recalcula status baseado na data atual
     return licencas.map(licenca => ({
       ...licenca,
-      status: this.calculateLicenseStatus(licenca.validade)
+      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
     }));
   }
 
   async getLicenca(id: number): Promise<LicencaAmbiental | undefined> {
     const [licenca] = await db.select().from(licencasAmbientais).where(eq(licencasAmbientais.id, id));
     if (!licenca) return undefined;
-    // Recalcula status baseado na data atual
     return {
       ...licenca,
-      status: this.calculateLicenseStatus(licenca.validade)
+      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
     };
   }
 
@@ -851,13 +848,25 @@ export class DatabaseStorage implements IStorage {
 
   async updateLicenca(id: number, licenca: Partial<InsertLicencaAmbiental>): Promise<LicencaAmbiental> {
     const updateData: any = { ...licenca };
-    if (licenca.validade) {
+    // Só recalcula status se não for finalizada
+    const [current] = await db.select().from(licencasAmbientais).where(eq(licencasAmbientais.id, id));
+    if (!current) throw new Error('Licença não encontrada');
+    if (!(current as any).finalizada && licenca.validade) {
       updateData.status = this.calculateLicenseStatus(licenca.validade);
     }
     
     const [updated] = await db
       .update(licencasAmbientais)
       .set(updateData)
+      .where(eq(licencasAmbientais.id, id))
+      .returning();
+    return updated;
+  }
+
+  async finalizarLicenca(id: number): Promise<LicencaAmbiental> {
+    const [updated] = await db
+      .update(licencasAmbientais)
+      .set({ finalizada: true, status: 'finalizada' } as any)
       .where(eq(licencasAmbientais.id, id))
       .returning();
     return updated;
@@ -1176,7 +1185,7 @@ export class DatabaseStorage implements IStorage {
     const allCondicionantes = await this.getCondicionantes();
     const allEntregas = await this.getEntregas();
     
-    const licencas = allLicencas.map(l => ({ ...l, status: this.calculateLicenseStatus(l.validade) }));
+    const licencas = allLicencas.map(l => ({ ...l, status: (l as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(l.validade) }));
     const condicionantesFiltradas = allCondicionantes.filter(c => licencaIds.includes(c.licencaId));
     const entregasFiltradas = allEntregas.filter(e => licencaIds.includes(e.licencaId));
 
@@ -1325,7 +1334,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(licencasAmbientais.criadoEm));
     return licencas.map(licenca => ({
       ...licenca,
-      status: this.calculateLicenseStatus(licenca.validade)
+      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
     }));
   }
 

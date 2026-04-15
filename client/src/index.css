@@ -115,3 +115,7 @@
 .status-expired {
   @apply bg-destructive text-destructive-foreground;
 }
+
+.status-finalizada {
+  @apply bg-slate-500 text-white dark:bg-slate-600;
+}
