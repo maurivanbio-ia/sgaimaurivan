@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -469,6 +469,14 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
   const progressoValue = form.watch("progresso") ?? 0;
   const tipoCondWatch = form.watch("tipoCondicionante");
 
+  // Auto-preenche prazo com vencimento da licença para tipos sem data fixa
+  const AUTO_PRAZO_TIPOS = ["permanente", "conforme_necessidade"];
+  useEffect(() => {
+    if (AUTO_PRAZO_TIPOS.includes(tipoCondWatch ?? "") && licenca?.validade) {
+      form.setValue("prazo", licenca.validade, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [tipoCondWatch]);
+
   const createCond = useMutation({
     mutationFn: async (data: CondicionanteFormData) => {
       const res = await apiRequest("POST", `/api/licencas/${licencaId}/condicionantes`, data);
@@ -683,8 +691,12 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                     <FormField control={form.control} name="prazo" render={({ field }) => (
                       <FormItem>
                         <div className="flex items-center justify-between">
-                          <FormLabel>Prazo *</FormLabel>
-                          {licenca.validade && (
+                          <FormLabel>
+                            {AUTO_PRAZO_TIPOS.includes(tipoCondWatch ?? "")
+                              ? "Prazo (vencimento da licença)"
+                              : "Prazo *"}
+                          </FormLabel>
+                          {licenca.validade && !AUTO_PRAZO_TIPOS.includes(tipoCondWatch ?? "") && (
                             <button
                               type="button"
                               className="text-xs text-[#00599C] hover:underline flex items-center gap-0.5 font-medium"
@@ -696,6 +708,12 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                           )}
                         </div>
                         <FormControl><Input type="date" {...field} /></FormControl>
+                        {AUTO_PRAZO_TIPOS.includes(tipoCondWatch ?? "") && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <CalendarDays className="h-3 w-3" />
+                            Preenchido automaticamente com o vencimento da licença. Ajuste se necessário.
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )} />
