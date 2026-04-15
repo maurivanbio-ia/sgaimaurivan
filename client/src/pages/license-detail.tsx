@@ -97,7 +97,8 @@ type EvidenciaFormData = z.infer<typeof evidenciaSchema>;
 
 function isArquivoAcessivel(path: string | null | undefined): boolean {
   if (!path) return false;
-  return path.startsWith("/files/") || path.startsWith("object:") || path.startsWith("http");
+  const lower = path.toLowerCase();
+  return lower.startsWith("/files/") || lower.startsWith("object:") || lower.startsWith("http");
 }
 
 function diasParaVencer(prazo: string | null): number | null {
