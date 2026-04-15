@@ -1107,10 +1107,10 @@ export default function GestaoDados() {
                 </div>
                 <div>
                   <Label>Coordenador Responsável</Label>
-                  <Select value={selectedResponsavel} onValueChange={setSelectedResponsavel}>
+                  <Select value={selectedResponsavel || "__self__"} onValueChange={v => setSelectedResponsavel(v === "__self__" ? "" : v)}>
                     <SelectTrigger><SelectValue placeholder={currentUser?.email || "Selecione"} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Eu mesmo ({currentUser?.email || "—"})</SelectItem>
+                      <SelectItem value="__self__">Eu mesmo ({currentUser?.email || "—"})</SelectItem>
                       {usuarios.map(u => (
                         <SelectItem key={u.id} value={u.email}>{u.nome || u.email} {u.cargo ? `(${u.cargo})` : ""}</SelectItem>
                       ))}
@@ -1171,9 +1171,9 @@ export default function GestaoDados() {
                   </div>
                   <div>
                     <Label className="text-xs">Documento Relacionado</Label>
-                    <Select value={documentoRelacionadoId} onValueChange={setDocumentoRelacionadoId}>
+                    <Select value={documentoRelacionadoId || "__none__"} onValueChange={v => setDocumentoRelacionadoId(v === "__none__" ? "" : v)}>
                       <SelectTrigger className="h-8"><SelectValue placeholder="Selecionar (opcional)" /></SelectTrigger>
-                      <SelectContent><SelectItem value="">Nenhum</SelectItem>{datasets.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.codigoArquivo || d.nome}</SelectItem>)}</SelectContent>
+                      <SelectContent><SelectItem value="__none__">Nenhum</SelectItem>{datasets.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.codigoArquivo || d.nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   {documentoRelacionadoId && (
@@ -1359,10 +1359,10 @@ export default function GestaoDados() {
                   </div>
                   <div>
                     <Label className="text-xs">Responsável (Coordenador)</Label>
-                    <Select value={editFields.responsavel || ""} onValueChange={v => setEditFields(p => ({ ...p, responsavel: v }))}>
+                    <Select value={editFields.responsavel || "__none__"} onValueChange={v => setEditFields(p => ({ ...p, responsavel: v === "__none__" ? "" : v }))}>
                       <SelectTrigger className="h-8"><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">— Nenhum —</SelectItem>
+                        <SelectItem value="__none__">— Nenhum —</SelectItem>
                         {usuarios.map(u => (
                           <SelectItem key={u.id} value={u.email}>{u.nome || u.email} {u.cargo ? `(${u.cargo})` : ""}</SelectItem>
                         ))}
