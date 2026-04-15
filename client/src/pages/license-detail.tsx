@@ -55,6 +55,7 @@ const TIPOS_CONDICIONANTE = [
   { value: "pontual", label: "Pontual" },
   { value: "entrega_documento", label: "Entrega de Documento" },
   { value: "permanente", label: "Permanente" },
+  { value: "conforme_necessidade", label: "Conforme Necessidade" },
 ];
 
 const STATUS_CONDICIONANTE: Record<string, { label: string; color: string; icon: any }> = {
