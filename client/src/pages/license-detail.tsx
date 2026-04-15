@@ -464,6 +464,7 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
   });
 
   const progressoValue = form.watch("progresso") ?? 0;
+  const tipoCondWatch = form.watch("tipoCondicionante");
 
   const createCond = useMutation({
     mutationFn: async (data: CondicionanteFormData) => {
@@ -678,7 +679,19 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId }: {
                   <div className="grid grid-cols-2 gap-3">
                     <FormField control={form.control} name="prazo" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prazo *</FormLabel>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Prazo *</FormLabel>
+                          {tipoCondWatch === "periodica" && licenca.validade && (
+                            <button
+                              type="button"
+                              className="text-xs text-[#00599C] hover:underline flex items-center gap-0.5 font-medium"
+                              onClick={() => form.setValue("prazo", licenca.validade, { shouldValidate: true, shouldDirty: true })}
+                            >
+                              <CalendarDays className="h-3 w-3" />
+                              Até venc. da licença ({formatDate(licenca.validade)})
+                            </button>
+                          )}
+                        </div>
                         <FormControl><Input type="date" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
