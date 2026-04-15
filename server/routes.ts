@@ -14745,6 +14745,134 @@ Regras:
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ─── AUTORIZAÇÕES — Reconhecimento IA de documento ───────────────────────
+  app.post("/api/autorizacoes/ai-reconhecer", requireAuth, (req, res, next) => {
+    arquivoController.upload.single("file")(req, res, (err: any) => {
+      if (err) return res.status(400).json({ error: err.message || "Erro no upload" });
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "Arquivo é obrigatório" });
+
+      const buf = req.file.buffer;
+      const mime = req.file.mimetype;
+      const nome = req.file.originalname;
+      let texto = "";
+
+      // Extrai texto do PDF
+      if (mime === "application/pdf") {
+        try {
+          const pdfParse = await import("pdf-parse");
+          const pdfData = await pdfParse.default(buf);
+          texto = pdfData.text?.trim() || "";
+        } catch {}
+      } else if (mime === "text/plain") {
+        texto = buf.toString("utf-8");
+      }
+
+      // Se texto curto → tenta OCR multi-model
+      if (texto.length < 100) {
+        try {
+          const { runMultiModelOcr } = await import("./services/multiModelOcrService");
+          const ocrResult = await runMultiModelOcr(buf, nome, texto);
+          if (ocrResult.text.length > texto.length) texto = ocrResult.text;
+        } catch {}
+      }
+
+      if (!texto || texto.length < 20) {
+        texto = `Documento: ${nome}\n(Texto não extraível automaticamente — preencha manualmente.)`;
+      }
+
+      // Prompt específico para autorizações ambientais
+      const prompt = `Você é um especialista em documentos ambientais brasileiros (licenças, outorgas, portarias, notificações, declarações).
+Analise o texto abaixo e extraia os campos de uma autorização ambiental.
+
+TEXTO DO DOCUMENTO:
+${texto.slice(0, 14000)}
+
+Retorne APENAS um JSON com exatamente esta estrutura (null para campos não encontrados):
+{
+  "tipo": "Tipo do documento. Use uma das opções: LP, LI, LO, ASV, LAC, AO, Outorga, Portaria, Declaração, Outro",
+  "numero": "Número ou código do documento (ex: 001/2024, N2021.001.006499)",
+  "titulo": "Título ou objeto principal do documento (frase curta e objetiva)",
+  "orgaoEmissor": "Sigla do órgão emissor (ex: INEMA, IBAMA, ANA, CEPRAM, MTE)",
+  "dataEmissao": "Data de emissão no formato YYYY-MM-DD ou null",
+  "dataValidade": "Data de validade/vencimento no formato YYYY-MM-DD ou null",
+  "descricao": "Descrição objetiva do conteúdo principal (1-2 frases)",
+  "observacoes": "Determinações, exigências ou observações relevantes (resumido)"
+}
+
+REGRAS:
+- Extraia APENAS o que está no texto. Nunca invente.
+- Para tipo: prefira a opção mais específica que corresponda ao documento.
+- Para datas: converta "15 de março de 2024" → "2024-03-15", "03/2024" → "2024-03-01".
+- Para número: extraia o identificador principal do documento.
+- Se o órgão for INEMA, IBAMA, ANA, MTE, etc., use a sigla diretamente.
+Retorne APENAS o JSON, sem markdown.`;
+
+      let rawText = "";
+
+      // 1) Gemini
+      if (!rawText && process.env.GEMINI_API_KEY) {
+        try {
+          const { GoogleGenerativeAI } = await import("@google/generative-ai");
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          for (const m of ["gemini-2.5-flash-preview-04-17", "gemini-2.0-flash", "gemini-1.5-flash"]) {
+            try {
+              const result = await genAI.getGenerativeModel({ model: m, generationConfig: { temperature: 0, responseMimeType: "application/json" } }).generateContent(prompt);
+              rawText = result.response.text();
+              break;
+            } catch {}
+          }
+        } catch {}
+      }
+      // 2) DeepSeek fallback
+      if (!rawText && process.env.DEEPSEEK_API_KEY) {
+        try {
+          const { default: OpenAI } = await import("openai");
+          const ds = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: "https://api.deepseek.com/v1" });
+          const c = await ds.chat.completions.create({
+            model: "deepseek-chat",
+            messages: [
+              { role: "system", content: "Você extrai dados de documentos ambientais. Retorne APENAS JSON válido." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0,
+          });
+          rawText = c.choices[0]?.message?.content || "";
+        } catch {}
+      }
+      // 3) OpenAI fallback
+      if (!rawText && process.env.OPENAI_API_KEY) {
+        try {
+          const { default: OpenAI } = await import("openai");
+          const c = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "Você extrai dados de documentos ambientais. Retorne APENAS JSON válido." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0,
+            response_format: { type: "json_object" },
+          });
+          rawText = c.choices[0]?.message?.content || "";
+        } catch {}
+      }
+
+      if (!rawText) return res.status(500).json({ error: "Todos os provedores de IA falharam" });
+
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return res.status(500).json({ error: "IA não retornou JSON válido", raw: rawText });
+
+      const data = JSON.parse(jsonMatch[0]);
+      res.json(data);
+    } catch (e: any) {
+      console.error("[Autorizações AI] Erro:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ─── MINUTAS ─────────────────────────────────────────────────────────────
   app.get("/api/minutas", requireAuth, async (req, res) => {
     try {

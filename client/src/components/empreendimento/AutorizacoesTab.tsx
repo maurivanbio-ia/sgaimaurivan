@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Pencil, Trash2, ShieldCheck, AlertTriangle, Calendar,
-  Upload, FileText, FileImage, Download, X, Paperclip, Loader2
+  Upload, FileText, FileImage, Download, X, Paperclip, Loader2,
+  Sparkles, CheckCircle2, Info
 } from "lucide-react";
 import type { Autorizacao } from "@shared/schema";
 
@@ -73,17 +74,22 @@ function FileIcon({ mimeType }: { mimeType: string }) {
   return <FileText className="h-4 w-4 text-red-500" />;
 }
 
+const EMPTY_FORM = {
+  tipo: "Outro", numero: "", titulo: "", orgaoEmissor: "", descricao: "",
+  dataEmissao: "", dataValidade: "", status: "vigente", observacoes: "",
+};
+
 export function AutorizacoesTab({ empreendimentoId }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Autorizacao | null>(null);
   const [docsModal, setDocsModal] = useState<Autorizacao | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiFields, setAiFields] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState({
-    tipo: "LP", numero: "", titulo: "", orgaoEmissor: "", descricao: "",
-    dataEmissao: "", dataValidade: "", status: "vigente", observacoes: "",
-  });
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const { data: items = [], isLoading } = useQuery<Autorizacao[]>({
     queryKey: ["/api/autorizacoes", empreendimentoId],
@@ -96,7 +102,7 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
               : apiRequest("POST", "/api/autorizacoes", { ...data, empreendimentoId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/autorizacoes", empreendimentoId] });
-      setOpen(false); setEditing(null);
+      setOpen(false); setEditing(null); setAiFields([]);
       toast({ title: editing ? "Autorização atualizada" : "Autorização registrada" });
     },
   });
@@ -123,12 +129,14 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
 
   function openNew() {
     setEditing(null);
-    setForm({ tipo: "LP", numero: "", titulo: "", orgaoEmissor: "", descricao: "", dataEmissao: "", dataValidade: "", status: "vigente", observacoes: "" });
+    setAiFields([]);
+    setForm({ ...EMPTY_FORM });
     setOpen(true);
   }
 
   function openEdit(item: Autorizacao) {
     setEditing(item);
+    setAiFields([]);
     setForm({
       tipo: item.tipo, numero: item.numero, titulo: item.titulo,
       orgaoEmissor: item.orgaoEmissor || "", descricao: item.descricao || "",
@@ -136,6 +144,51 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
       status: item.status || "vigente", observacoes: item.observacoes || "",
     });
     setOpen(true);
+  }
+
+  // ── Reconhecimento IA ────────────────────────────────────────────────────
+  async function handleAiRecognize(file: File) {
+    setAiLoading(true);
+    setAiFields([]);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/autorizacoes/ai-reconhecer", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro no reconhecimento");
+      }
+      const data = await res.json();
+
+      const filled: string[] = [];
+      const update: Partial<typeof form> = {};
+
+      if (data.tipo && TIPOS.includes(data.tipo)) { update.tipo = data.tipo; filled.push("tipo"); }
+      if (data.numero) { update.numero = data.numero; filled.push("número"); }
+      if (data.titulo) { update.titulo = data.titulo; filled.push("título"); }
+      if (data.orgaoEmissor) { update.orgaoEmissor = data.orgaoEmissor; filled.push("órgão emissor"); }
+      if (data.dataEmissao) { update.dataEmissao = data.dataEmissao; filled.push("data de emissão"); }
+      if (data.dataValidade) { update.dataValidade = data.dataValidade; filled.push("validade"); }
+      if (data.descricao) { update.descricao = data.descricao; filled.push("descrição"); }
+      if (data.observacoes) { update.observacoes = data.observacoes; filled.push("observações"); }
+
+      setForm(f => ({ ...f, ...update }));
+      setAiFields(filled);
+
+      if (filled.length > 0) {
+        toast({ title: `IA preencheu ${filled.length} campo(s)`, description: filled.join(", ") });
+      } else {
+        toast({ title: "Documento processado", description: "Não foi possível extrair campos automaticamente. Preencha manualmente.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Erro no reconhecimento", description: e.message, variant: "destructive" });
+    } finally {
+      setAiLoading(false);
+      if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+    }
   }
 
   async function handleUpload(autorizacaoId: number, file: File) {
@@ -164,18 +217,14 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file && docsModal) {
-      handleUpload(docsModal.id, file);
-    }
+    if (file && docsModal) handleUpload(docsModal.id, file);
     e.target.value = "";
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (file && docsModal) {
-      handleUpload(docsModal.id, file);
-    }
+    if (file && docsModal) handleUpload(docsModal.id, file);
   }
 
   const vigentes = items.filter(i => getEffectiveStatus(i) === "vigente").length;
@@ -273,36 +322,106 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
       )}
 
       {/* Modal Criar/Editar */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setAiFields([]); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Autorização" : "Nova Autorização"}</DialogTitle>
           </DialogHeader>
+
+          {/* ── Banner IA ─────────────────────────────────────────────────── */}
+          <div className="border border-dashed border-[#00599C]/40 rounded-xl bg-[#00599C]/5 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#00599C]" />
+              <span className="text-sm font-semibold text-[#00599C]">Reconhecimento por IA</span>
+              <span className="text-xs text-muted-foreground ml-auto">PDF, imagem ou TXT</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Envie o documento da autorização e a IA extrai automaticamente os campos abaixo.
+            </p>
+            <div
+              className="border-2 border-dashed border-[#00599C]/30 rounded-lg p-3 text-center cursor-pointer hover:border-[#00599C]/60 hover:bg-[#00599C]/5 transition-colors"
+              onClick={() => !aiLoading && aiFileInputRef.current?.click()}
+            >
+              {aiLoading ? (
+                <div className="flex flex-col items-center gap-1 text-[#00599C]">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <p className="text-xs font-medium">Analisando documento com IA...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                  <Sparkles className="h-6 w-6 text-[#00599C]/60" />
+                  <p className="text-xs font-medium">Clique para selecionar o documento</p>
+                </div>
+              )}
+              <input
+                ref={aiFileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.txt,.jpg,.jpeg,.png,.webp"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleAiRecognize(file);
+                }}
+              />
+            </div>
+
+            {/* Campos preenchidos pela IA */}
+            {aiFields.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {aiFields.map(f => (
+                  <span key={f} className="inline-flex items-center gap-0.5 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                    <CheckCircle2 className="h-3 w-3" /> {f}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Tipo *</Label>
                 <Select value={form.tipo} onValueChange={v => setForm(f => ({ ...f, tipo: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className={aiFields.includes("tipo") ? "border-green-400 bg-green-50/50" : ""}><SelectValue /></SelectTrigger>
                   <SelectContent>{TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <Label>Número *</Label>
-                <Input value={form.numero} onChange={e => setForm(f => ({ ...f, numero: e.target.value }))} placeholder="Ex: 001/2024" />
+                <Input
+                  value={form.numero}
+                  onChange={e => setForm(f => ({ ...f, numero: e.target.value }))}
+                  placeholder="Ex: 001/2024"
+                  className={aiFields.includes("número") ? "border-green-400 bg-green-50/50" : ""}
+                />
               </div>
             </div>
             <div className="space-y-1">
               <Label>Título *</Label>
-              <Input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Objeto da autorização" />
+              <Input
+                value={form.titulo}
+                onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
+                placeholder="Objeto da autorização"
+                className={aiFields.includes("título") ? "border-green-400 bg-green-50/50" : ""}
+              />
             </div>
             <div className="space-y-1">
               <Label>Órgão Emissor</Label>
-              <Input value={form.orgaoEmissor} onChange={e => setForm(f => ({ ...f, orgaoEmissor: e.target.value }))} placeholder="Ex: INEMA, IBAMA, ANA" />
+              <Input
+                value={form.orgaoEmissor}
+                onChange={e => setForm(f => ({ ...f, orgaoEmissor: e.target.value }))}
+                placeholder="Ex: INEMA, IBAMA, ANA"
+                className={aiFields.includes("órgão emissor") ? "border-green-400 bg-green-50/50" : ""}
+              />
             </div>
             <div className="space-y-1">
               <Label>Descrição</Label>
-              <Textarea value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} rows={2} />
+              <Textarea
+                value={form.descricao}
+                onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
+                rows={2}
+                className={aiFields.includes("descrição") ? "border-green-400 bg-green-50/50" : ""}
+              />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -319,19 +438,42 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
               </div>
               <div className="space-y-1">
                 <Label>Emissão</Label>
-                <Input type="date" value={form.dataEmissao} onChange={e => setForm(f => ({ ...f, dataEmissao: e.target.value }))} />
+                <Input
+                  type="date"
+                  value={form.dataEmissao}
+                  onChange={e => setForm(f => ({ ...f, dataEmissao: e.target.value }))}
+                  className={aiFields.includes("data de emissão") ? "border-green-400 bg-green-50/50" : ""}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Validade</Label>
-                <Input type="date" value={form.dataValidade} onChange={e => setForm(f => ({ ...f, dataValidade: e.target.value }))} />
+                <Input
+                  type="date"
+                  value={form.dataValidade}
+                  onChange={e => setForm(f => ({ ...f, dataValidade: e.target.value }))}
+                  className={aiFields.includes("validade") ? "border-green-400 bg-green-50/50" : ""}
+                />
               </div>
             </div>
             <div className="space-y-1">
               <Label>Observações</Label>
-              <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} />
+              <Textarea
+                value={form.observacoes}
+                onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))}
+                rows={2}
+                className={aiFields.includes("observações") ? "border-green-400 bg-green-50/50" : ""}
+              />
             </div>
+
+            {aiFields.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                <Info className="h-3 w-3 flex-shrink-0" />
+                Campos com borda verde foram preenchidos pela IA. Revise antes de salvar.
+              </div>
+            )}
+
             <div className="flex gap-2 justify-end pt-2">
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setOpen(false); setAiFields([]); }}>Cancelar</Button>
               <Button onClick={() => saveMutation.mutate(form)} disabled={!form.tipo || !form.numero || !form.titulo || saveMutation.isPending}>
                 {saveMutation.isPending ? "Salvando..." : "Salvar"}
               </Button>
@@ -351,7 +493,6 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Zona de upload */}
             <div
               className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -379,7 +520,6 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
               />
             </div>
 
-            {/* Lista de documentos */}
             {docsModal && ((docsModal.documentos as any) || []).length > 0 ? (
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Documentos anexados</p>
@@ -393,21 +533,13 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
                       </p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title="Baixar"
-                        asChild
-                      >
+                      <Button size="icon" variant="ghost" title="Baixar" asChild>
                         <a href={`/api/autorizacoes/${docsModal.id}/documentos/${idx}/download`} download={doc.nome} target="_blank" rel="noreferrer">
                           <Download className="h-4 w-4" />
                         </a>
                       </Button>
                       <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-destructive"
-                        title="Remover"
+                        size="icon" variant="ghost" className="text-destructive" title="Remover"
                         disabled={deleteDocMutation.isPending}
                         onClick={() => {
                           if (confirm(`Remover "${doc.nome}"?`)) {
