@@ -234,51 +234,6 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
     }
   });
 
-  // Registrar requerimento de renovação e atualizar status para em_renovacao
-  app.post("/api/licencas/:id/registrar-requerimento", requireAuth, async (req, res) => {
-    try {
-      const licencaId = parseInt(req.params.id);
-      const user = req.user as any;
-      const { dataProtocolo, numeroProtocolo, orgao, observacoes } = req.body;
-
-      // Busca a licença para obter empreendimentoId
-      const [licenca] = await db.select().from(licencasAmbientais).where(eq(licencasAmbientais.id, licencaId));
-      if (!licenca) return res.status(404).json({ message: "Licença não encontrada" });
-
-      // Cria registro de documento mínimo na Gestão de Dados para aparecer no Ciclo de Vida
-      const titulo = `Requerimento de Renovação — ${licenca.numero}${numeroProtocolo ? ` (Prot. ${numeroProtocolo})` : ''}`;
-      const [dataset] = await db.insert(datasets).values({
-        empreendimentoId: licenca.empreendimentoId,
-        nome: titulo,
-        titulo,
-        tipo: "pdf",
-        tamanho: 0,
-        url: "manual",
-        usuario: user?.nome || user?.email || "Sistema",
-        unidade: user?.unidade || 'salvador',
-        licencaId,
-        licencaVinculoTipo: 'requerimento',
-        dataEmissao: dataProtocolo || null,
-        numeroDocumento: numeroProtocolo || null,
-        orgaoEmissor: orgao || null,
-        statusDocumental: 'recebido',
-        tipoDocumental: 'requerimento',
-        descricao: observacoes || null,
-      }).returning();
-
-      // Atualiza o status da licença para em_renovacao
-      await db.update(licencasAmbientais)
-        .set({ status: 'em_renovacao' })
-        .where(and(eq(licencasAmbientais.id, licencaId), ne(licencasAmbientais.status, 'cancelada')));
-
-      websocketService.broadcastInvalidate('licencas');
-      res.status(201).json({ dataset, message: "Requerimento registrado e licença marcada como Em Renovação." });
-    } catch (error) {
-      console.error("Registrar requerimento error:", error);
-      res.status(500).json({ message: "Erro ao registrar requerimento" });
-    }
-  });
-
   // Condicionante routes
   app.get("/api/condicionantes", requireAuth, async (req, res) => {
     try {
