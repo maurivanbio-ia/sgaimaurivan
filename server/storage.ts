@@ -1128,45 +1128,57 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMonthlyExpiryData(unidade: string, empreendimentoId?: number): Promise<Array<{ month: string; count: number }>> {
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
     // Busca empreendimentos - todos se unidade vazia, ou filtrado por unidade
     const emps = unidade && unidade.trim() !== ''
       ? await db.select().from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
       : await db.select().from(empreendimentos);
     const empIds = emps.map(e => e.id);
-    
+
     if (empIds.length === 0) {
-      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      const now = new Date();
-      return monthNames.slice(now.getMonth()).concat(monthNames.slice(0, now.getMonth())).map(m => ({ month: m, count: 0 }));
+      return monthNames.map(m => ({ month: m, count: 0 }));
     }
-    
-    const licencas = empreendimentoId 
+
+    const licencas = empreendimentoId
       ? await this.getLicencasByEmpreendimento(empreendimentoId)
       : await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
-    
+
     const now = new Date();
     const currentYear = now.getFullYear();
-    
+    const currentMonth = now.getMonth(); // 0-indexed
+
+    // Janela: 3 meses atrás → 8 meses à frente (12 meses no total)
     const monthlyData: Array<{ month: string; count: number }> = [];
-    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    for (let i = 0; i < 12; i++) {
-      const targetDate = new Date(currentYear, now.getMonth() + i, 1);
-      const monthName = monthNames[targetDate.getMonth()];
-      const year = targetDate.getFullYear();
-      
+
+    for (let i = -3; i <= 8; i++) {
+      // Date arithmetic correto: new Date(ano, mes, 1) lida com overflow automaticamente
+      const targetDate = new Date(currentYear, currentMonth + i, 1);
+      const targetMonth = targetDate.getMonth(); // 0-indexed
+      const targetYear = targetDate.getFullYear();
+
       const count = licencas.filter((licenca: any) => {
-        const validadeDate = new Date(licenca.validade);
-        return validadeDate.getMonth() === targetDate.getMonth() && 
-               validadeDate.getFullYear() === year;
+        if (!licenca.validade) return false;
+        // Parse seguro: extrai ano/mês da string YYYY-MM-DD sem conversão UTC
+        const validadeStr: string = typeof licenca.validade === 'string'
+          ? licenca.validade
+          : licenca.validade instanceof Date
+            ? licenca.validade.toISOString()
+            : String(licenca.validade);
+        const parts = validadeStr.split('T')[0].split('-');
+        if (parts.length < 2) return false;
+        const vYear = parseInt(parts[0], 10);
+        const vMonth = parseInt(parts[1], 10) - 1; // converte 1-indexed p/ 0-indexed
+        return vMonth === targetMonth && vYear === targetYear;
       }).length;
-      
-      monthlyData.push({
-        month: year === currentYear ? monthName : `${monthName}/${year.toString().slice(-2)}`,
-        count
-      });
+
+      const label = targetYear === currentYear
+        ? monthNames[targetMonth]
+        : `${monthNames[targetMonth]}/${String(targetYear).slice(-2)}`;
+
+      monthlyData.push({ month: label, count });
     }
-    
+
     return monthlyData;
   }
 
