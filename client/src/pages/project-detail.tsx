@@ -27,7 +27,7 @@ import {
   BookOpen,
   MessageSquare
 } from "lucide-react";
-import type { Empreendimento } from "@shared/schema";
+import type { Empreendimento, EmpreendimentoResponsavel } from "@shared/schema";
 import { LicencasTab } from "@/components/empreendimento/LicencasTab";
 import { ContratosTab } from "@/components/empreendimento/ContratosTab";
 import { CronogramaTab } from "@/components/empreendimento/CronogramaTab";
@@ -98,6 +98,16 @@ export default function ProjectDetail() {
       if (!response.ok) throw new Error("Failed to fetch project");
       return response.json();
     },
+  });
+
+  const { data: responsaveis = [] } = useQuery<EmpreendimentoResponsavel[]>({
+    queryKey: ["/api/empreendimentos", id, "responsaveis"],
+    queryFn: async () => {
+      const res = await fetch(`/api/empreendimentos/${id}/responsaveis`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!id,
   });
 
   if (isLoading) {
@@ -183,33 +193,38 @@ export default function ProjectDetail() {
               <p className="text-card-foreground" data-testid="text-responsible">{project.responsavelInterno}</p>
             </div>
             {project.gestorNome && (
-              <>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    Gestor do Projeto
-                  </p>
-                  <p className="text-card-foreground">{project.gestorNome}</p>
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-1 col-span-full sm:col-span-auto">
+                <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1">
+                  <Users className="h-4 w-4 text-primary" />
+                  Gestor Responsável pelo Contrato
+                </p>
+                <p className="text-card-foreground font-medium">{project.gestorNome}</p>
+                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                  {project.gestorEmail && (
+                    <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{project.gestorEmail}</span>
+                  )}
+                  {project.gestorTelefone && (
+                    <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{project.gestorTelefone}</span>
+                  )}
                 </div>
-                {project.gestorEmail && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                      <Mail className="h-4 w-4" />
-                      Email do Gestor
-                    </p>
-                    <p className="text-card-foreground text-sm">{project.gestorEmail}</p>
+              </div>
+            )}
+            {responsaveis.length > 0 && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2 col-span-full sm:col-span-auto">
+                <p className="text-sm font-semibold text-muted-foreground flex items-center gap-1">
+                  <Users className="h-4 w-4 text-primary" />
+                  Outros Responsáveis
+                </p>
+                {responsaveis.map(r => (
+                  <div key={r.id} className="border-b last:border-0 pb-1 last:pb-0">
+                    <p className="text-sm font-medium text-card-foreground">{r.nome} <span className="text-xs text-muted-foreground font-normal">— {r.responsabilidade}</span></p>
+                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      {r.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{r.email}</span>}
+                      {r.whatsapp && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{r.whatsapp}</span>}
+                    </div>
                   </div>
-                )}
-                {project.gestorTelefone && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-4 w-4" />
-                      Telefone do Gestor
-                    </p>
-                    <p className="text-card-foreground">{project.gestorTelefone}</p>
-                  </div>
-                )}
-              </>
+                ))}
+              </div>
             )}
             {project.dataInicio && (
               <div>

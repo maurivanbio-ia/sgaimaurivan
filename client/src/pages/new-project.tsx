@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User, Wand2, Camera, Building2, ZoomIn, ZoomOut } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Users, Wand2, Camera, Building2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Colaborador {
@@ -66,6 +66,9 @@ const projectSchema = z.object({
   coordenadorId: z.number().optional(),
   tipo: z.enum(["hidreletrica", "parque_eolico", "usina_solar", "termoeletrica", "linha_transmissao", "mina", "pchs", "outro"]).default("outro"),
   status: z.enum(["ativo", "em_planejamento", "em_execucao", "concluido", "inativo", "cancelado"]).default("ativo"),
+  gestorNome: z.string().optional(),
+  gestorEmail: z.string().email("E-mail inválido").optional().or(z.literal("")),
+  gestorTelefone: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -115,6 +118,9 @@ export default function NewProject() {
       responsavelInterno: "",
       tipo: "outro",
       status: "ativo",
+      gestorNome: "",
+      gestorEmail: "",
+      gestorTelefone: "",
     },
   });
 
@@ -615,6 +621,37 @@ export default function NewProject() {
                   </FormItem>
                 )}
               />
+
+              {/* Gestor Responsável pelo Contrato */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  Gestor Responsável pelo Contrato
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <FormField control={form.control} name="gestorNome" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
+                      <FormControl><Input placeholder="Nome do gestor" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="gestorEmail" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>E-mail</FormLabel>
+                      <FormControl><Input type="email" placeholder="email@empresa.com" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="gestorTelefone" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl><Input placeholder="(00) 00000-0000" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
 
               <div className="flex space-x-4">
                 <Button 
