@@ -1126,6 +1126,8 @@ function CondicionantesTab({ licencaId, licenca, empreendimentoId, empreendiment
 
 function EvidenciasPanel({ condicionanteId }: { condicionanteId: number }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [uploadedFilePath, setUploadedFilePath] = useState<string>("");
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1152,6 +1154,8 @@ function EvidenciasPanel({ condicionanteId }: { condicionanteId: number }) {
       toast({ title: "Evidência registrada" });
       setIsDialogOpen(false);
       form.reset();
+      setUploadedFilePath("");
+      setUploadedFileName("");
     },
     onError: () => toast({ title: "Erro ao registrar evidência", variant: "destructive" }),
   });
@@ -1184,7 +1188,7 @@ function EvidenciasPanel({ condicionanteId }: { condicionanteId: number }) {
           <FileText className="h-4 w-4" />
           Evidências e Documentos ({evidencias.length})
         </h4>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setUploadedFilePath(""); setUploadedFileName(""); form.reset(); } }}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1 h-7">
               <Upload className="h-3 w-3" />
@@ -1196,7 +1200,7 @@ function EvidenciasPanel({ condicionanteId }: { condicionanteId: number }) {
               <DialogTitle>Adicionar Evidência</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(d => createEv.mutate(d))} className="space-y-3">
+              <form onSubmit={form.handleSubmit(d => createEv.mutate({ ...d, url: uploadedFilePath || d.url }))} className="space-y-3">
                 <FormField control={form.control} name="nome" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nome do Documento *</FormLabel>
@@ -1239,19 +1243,29 @@ function EvidenciasPanel({ condicionanteId }: { condicionanteId: number }) {
                     </FormItem>
                   )} />
                 </div>
-                <FormField control={form.control} name="url" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Arquivo</FormLabel>
-                    <FormControl>
-                      <ObjectUploader
-                        value={field.value}
-                        onChange={field.onChange}
-                        accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
-                        label="Upload do documento"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )} />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Arquivo <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                  {uploadedFilePath ? (
+                    <div className="flex items-center gap-2 p-2.5 rounded-md border bg-green-50 text-green-800 text-sm">
+                      <FileText className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 truncate">{uploadedFileName || "Arquivo enviado"}</span>
+                      <button type="button" onClick={() => { setUploadedFilePath(""); setUploadedFileName(""); }} className="text-green-600 hover:text-red-600 transition-colors ml-1 shrink-0" title="Remover arquivo">✕</button>
+                    </div>
+                  ) : (
+                    <ObjectUploader
+                      accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
+                      onGetUploadParameters={async () => {
+                        const res = await apiRequest("POST", "/api/upload/pdf");
+                        const data = await res.json();
+                        return { method: "PUT" as const, url: data.url, filePath: data.filePath };
+                      }}
+                      onComplete={({ filePath, fileName }) => {
+                        setUploadedFilePath(filePath || "");
+                        setUploadedFileName(fileName || "Arquivo enviado");
+                      }}
+                    />
+                  )}
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                   <Button type="submit" disabled={createEv.isPending}>Registrar Evidência</Button>
