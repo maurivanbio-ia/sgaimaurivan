@@ -1383,42 +1383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           a.status === 'vencida' || (a.dataValidade && a.dataValidade < today)
         );
 
-        // 2) Documentos da Gestão de Dados com prazoAtendimento vencido
-        const conditionsDs: SQL[] = [
-          sql`${datasets.prazoAtendimento} IS NOT NULL`,
-          sql`${datasets.prazoAtendimento} < ${today}`,
-        ];
-        if (unidade) conditionsDs.push(eq(datasets.unidade, unidade));
-        if (empreendimentoId) conditionsDs.push(eq(datasets.empreendimentoId, empreendimentoId));
-
-        const vencidasDs = await db.select({
-          id: datasets.id,
-          numero: datasets.numeroDocumento,
-          titulo: datasets.titulo,
-          tipo: datasets.tipoDocumental,
-          orgaoEmissor: datasets.orgaoEmissor,
-          dataValidade: datasets.prazoAtendimento,
-          status: sql<string>`'vencida'`,
-          empreendimentoId: datasets.empreendimentoId,
-          fonte: sql<string>`'gestao_dados'`,
-          nome: datasets.nome,
-          codigoArquivo: datasets.codigoArquivo,
-        }).from(datasets).where(and(...conditionsDs));
-
-        // Normaliza datasets para o mesmo formato
-        const vencidasDsNorm = vencidasDs.map(d => ({
-          id: d.id,
-          numero: d.numero || d.codigoArquivo || d.nome || `DOC-${d.id}`,
-          titulo: d.titulo || d.nome || 'Documento sem título',
-          tipo: d.tipo || 'documento',
-          orgaoEmissor: d.orgaoEmissor,
-          dataValidade: d.dataValidade,
-          status: 'vencida',
-          empreendimentoId: d.empreendimentoId,
-          fonte: 'gestao_dados' as const,
-        }));
-
-        return [...vencidasAut, ...vencidasDsNorm];
+        return vencidasAut;
       };
 
       const [
