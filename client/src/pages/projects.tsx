@@ -43,7 +43,7 @@ export default function Projects() {
     });
   };
 
-  const expandAll = (ids: number[]) => setExpandedCards(new Set(ids));
+  const expandAll = (ids: number[]) => { setExpandedCards(new Set(ids)); };
   const collapseAll = () => setExpandedCards(new Set());
   
   const search = useSearch();
@@ -197,7 +197,7 @@ export default function Projects() {
                 </Button>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => expandAll(projects?.map(p => p.id) ?? [])} className="text-xs gap-1">
+                <Button variant="outline" size="sm" onClick={() => { expandAll(projects?.map(p => p.id) ?? []); }} className="text-xs gap-1">
                   <ChevronDown className="h-3 w-3" /> Expandir todos
                 </Button>
                 <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
@@ -282,7 +282,7 @@ export default function Projects() {
                             size="sm"
                             className={`h-7 px-2 ${project.visivel === false ? "text-orange-500" : "text-muted-foreground"}`}
                             title={project.visivel === false ? "Oculto — clique para tornar visível" : "Visível — clique para ocultar"}
-                            onClick={() => visivelMutation.mutate({ id: project.id, visivel: project.visivel === false })}
+                            onClick={() => { visivelMutation.mutate({ id: project.id, visivel: project.visivel === false }); }}
                             disabled={visivelMutation.isPending}
                           >
                             {project.visivel === false ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -375,7 +375,7 @@ export default function Projects() {
       )}
 
       {/* Sugestão de ocultar ao encerrar contrato (Pilar 5) */}
-      <AlertDialog open={!!suggestHideDialog} onOpenChange={() => setSuggestHideDialog(null)}>
+      <AlertDialog open={!!suggestHideDialog} onOpenChange={() => { setSuggestHideDialog(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

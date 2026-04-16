@@ -56,7 +56,7 @@ export function useNotifications() {
         
         if (data.type === 'notification') {
           setNotifications(prev => [data.notification, ...prev]);
-          refetchUnreadCount();
+          void refetchUnreadCount();
         }
         
         if (data.type === 'pending_notifications') {

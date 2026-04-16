@@ -1,0 +1,1041 @@
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LicençaFácil - Sistema de Gestão de Licenças Ambientais</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    success: {
+                        DEFAULT: "var(--success)",
+                        foreground: "var(--success-foreground)",
+                    },
+                    warning: {
+                        DEFAULT: "var(--warning)",
+                        foreground: "var(--warning-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                },
+                fontFamily: {
+                    sans: ["Inter", "system-ui", "sans-serif"],
+                }
+            },
+        }
+    };
+    </script>
+    <style>
+        :root {
+            --background: hsl(210 40% 98%);
+            --foreground: hsl(210 40% 8%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(210 40% 8%);
+            --primary: hsl(205 85% 31%); /* #00599C */
+            --primary-foreground: hsl(0 0% 100%);
+            --secondary: hsl(205 45% 80%); /* #B2CDE1 */
+            --secondary-foreground: hsl(205 85% 31%);
+            --muted: hsl(210 40% 96%);
+            --muted-foreground: hsl(210 13% 45%);
+            --accent: hsl(145 63% 20%); /* #204A2E */
+            --accent-foreground: hsl(0 0% 100%);
+            --success: hsl(145 63% 20%); /* #204A2E */
+            --success-foreground: hsl(0 0% 100%);
+            --warning: hsl(145 67% 12%); /* #15351F */
+            --warning-foreground: hsl(0 0% 100%);
+            --destructive: hsl(0 84% 60%);
+            --destructive-foreground: hsl(0 0% 100%);
+            --border: hsl(210 40% 90%);
+            --input: hsl(210 40% 96%);
+            --ring: hsl(205 85% 31%);
+            --radius: 0.75rem;
+        }
+
+        body {
+            font-family: Inter, system-ui, sans-serif;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .status-badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+        }
+
+        .status-active {
+            @apply bg-success text-success-foreground;
+        }
+
+        .status-expiring {
+            @apply bg-warning text-warning-foreground;
+        }
+
+        .status-expired {
+            @apply bg-destructive text-destructive-foreground;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-background text-foreground">
+
+<!-- @COMPONENT: LoginScreen -->
+<div id="login-screen" class="screen active min-h-screen bg-gradient-to-br from-primary to-accent flex items-center justify-center p-4">
+    <div class="bg-card rounded-lg shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png" alt="EcoBrasil Logo" class="mx-auto h-16 mb-4">
+            <h1 class="text-2xl font-bold text-card-foreground">Acesso ao LicençaFácil</h1>
+            <p class="text-muted-foreground mt-2">Sistema de Gestão de Licenças Ambientais</p>
+        </div>
+        
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-medium text-card-foreground mb-2">E-mail corporativo</label>
+                <input type="email" id="email" name="email" required
+                    class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                    placeholder="seu@ecobrasil.bio.br" value="ecobrasil@ecobrasil.bio.br">
+            </div>
+            
+            <div>
+                <label for="password" class="block text-sm font-medium text-card-foreground mb-2">Senha</label>
+                <input type="password" id="password" name="password" required
+                    class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                    placeholder="••••••••" value="123456">
+            </div>
+            
+            <div id="login-error" class="text-destructive text-sm hidden">
+                Usuário ou senha inválidos
+            </div>
+            
+            <button type="submit" id="login-btn" 
+                class="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring transition-colors font-medium">
+                <span id="login-text">Entrar</span>
+                <span id="login-loading" class="hidden">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Entrando...
+                </span>
+            </button>
+        </form>
+    </div>
+</div>
+<!-- @END_COMPONENT: LoginScreen -->
+
+<!-- @COMPONENT: MainApp -->
+<div id="main-app" class="screen min-h-screen bg-background">
+    <!-- Header -->
+    <header class="bg-card border-b border-border shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <img src="http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-padrao-a.png" alt="EcoBrasil Logo" class="h-8 mr-4">
+                    <h1 class="text-xl font-semibold text-primary">LicençaFácil</h1>
+                </div>
+                
+                <nav class="hidden md:flex space-x-8">
+                    <button onclick="showScreen('dashboard')" class="nav-btn text-primary border-b-2 border-primary px-1 py-4 text-sm font-medium">
+                        Painel
+                    </button>
+                    <button onclick="showScreen('projects')" class="nav-btn text-muted-foreground hover:text-primary px-1 py-4 text-sm font-medium">
+                        Empreendimentos
+                    </button>
+                    <button onclick="logout()" class="text-muted-foreground hover:text-destructive px-1 py-4 text-sm font-medium">
+                        Sair
+                    </button>
+                </nav>
+                
+                <div class="md:hidden">
+                    <button class="text-muted-foreground hover:text-primary">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="app-screen active">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-card-foreground">Painel Geral</h2>
+                <p class="text-muted-foreground mt-2">Visão geral do status das licenças ambientais</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-success/10 rounded-md">
+                            <i class="fas fa-check-circle text-success text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-muted-foreground">Licenças Ativas</p>
+                            <p class="text-2xl font-bold text-success" data-bind="stats.active">15</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-warning/10 rounded-md">
+                            <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-muted-foreground">A Vencer (90 dias)</p>
+                            <p class="text-2xl font-bold text-warning" data-bind="stats.expiring">3</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-destructive/10 rounded-md">
+                            <i class="fas fa-times-circle text-destructive text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-muted-foreground">Licenças Vencidas</p>
+                            <p class="text-2xl font-bold text-destructive" data-bind="stats.expired">1</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <h3 class="text-lg font-semibold text-card-foreground mb-4">Status das Licenças</h3>
+                    <div class="h-64">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <h3 class="text-lg font-semibold text-card-foreground mb-4">Vencimentos por Mês</h3>
+                    <div class="h-64">
+                        <canvas id="expiryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-card-foreground mb-4">Ações Rápidas</h3>
+                <div class="flex flex-wrap gap-4">
+                    <button onclick="showScreen('projects')" 
+                        class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                        <i class="fas fa-building mr-2"></i>Ver Empreendimentos
+                    </button>
+                    <button onclick="showScreen('new-project')" 
+                        class="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90 transition-colors font-medium">
+                        <i class="fas fa-plus mr-2"></i>Novo Empreendimento
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects List Screen -->
+    <div id="projects-screen" class="app-screen">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-card-foreground">Empreendimentos</h2>
+                    <p class="text-muted-foreground mt-2">Gerencie os empreendimentos cadastrados</p>
+                </div>
+                <button onclick="showScreen('new-project')" 
+                    class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                    <i class="fas fa-plus mr-2"></i>Novo Empreendimento
+                </button>
+            </div>
+
+            <!-- Projects Grid -->
+            <div class="grid gap-6">
+                <!-- @MAP: projects.map(project => ( -->
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-card-foreground" data-bind="project.nome">Usina Solar Cerrado Verde</h3>
+                            <div class="mt-2 space-y-1">
+                                <p class="text-sm text-muted-foreground">
+                                    <i class="fas fa-user mr-2"></i>
+                                    <span class="font-medium">Cliente:</span> <span data-bind="project.cliente">EcoEnergy Ltda</span>
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    <i class="fas fa-map-marker-alt mr-2"></i>
+                                    <span class="font-medium">Localização:</span> <span data-bind="project.localizacao">Brasília, DF</span>
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    <i class="fas fa-user-tie mr-2"></i>
+                                    <span class="font-medium">Responsável:</span> <span data-bind="project.responsavel_interno">Ana Silva</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex flex-col space-y-2">
+                            <button onclick="showProjectDetail(1)" 
+                                class="bg-secondary text-secondary-foreground px-3 py-1 rounded text-sm hover:bg-secondary/80 transition-colors">
+                                <i class="fas fa-eye mr-1"></i>Ver Detalhes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-card-foreground">Mineração Serra Azul</h3>
+                            <div class="mt-2 space-y-1">
+                                <p class="text-sm text-muted-foreground">
+                                    <i class="fas fa-user mr-2"></i>
+                                    <span class="font-medium">Cliente:</span> Minérios do Brasil S.A.
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    <i class="fas fa-map-marker-alt mr-2"></i>
+                                    <span class="font-medium">Localização:</span> Belo Horizonte, MG
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    <i class="fas fa-user-tie mr-2"></i>
+                                    <span class="font-medium">Responsável:</span> Carlos Oliveira
+                                </p>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex flex-col space-y-2">
+                            <button onclick="showProjectDetail(2)" 
+                                class="bg-secondary text-secondary-foreground px-3 py-1 rounded text-sm hover:bg-secondary/80 transition-colors">
+                                <i class="fas fa-eye mr-1"></i>Ver Detalhes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_MAP )) -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="no-projects" class="hidden text-center py-12">
+                <i class="fas fa-building text-4xl text-muted-foreground mb-4"></i>
+                <h3 class="text-lg font-medium text-card-foreground mb-2">Nenhum empreendimento cadastrado ainda</h3>
+                <p class="text-muted-foreground mb-4">Comece cadastrando seu primeiro empreendimento</p>
+                <button onclick="showScreen('new-project')" 
+                    class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                    <i class="fas fa-plus mr-2"></i>Novo Empreendimento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Screen -->
+    <div id="new-project-screen" class="app-screen">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-card-foreground">Novo Empreendimento</h2>
+                <p class="text-muted-foreground mt-2">Cadastre um novo empreendimento no sistema</p>
+            </div>
+
+            <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                <form id="new-project-form" class="space-y-6">
+                    <div>
+                        <label for="project-name" class="block text-sm font-medium text-card-foreground mb-2">Nome do empreendimento *</label>
+                        <input type="text" id="project-name" name="nome" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                            placeholder="Digite o nome do empreendimento">
+                    </div>
+
+                    <div>
+                        <label for="project-client" class="block text-sm font-medium text-card-foreground mb-2">Cliente *</label>
+                        <input type="text" id="project-client" name="cliente" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                            placeholder="Nome do cliente responsável">
+                    </div>
+
+                    <div>
+                        <label for="project-location" class="block text-sm font-medium text-card-foreground mb-2">Localização *</label>
+                        <input type="text" id="project-location" name="localizacao" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                            placeholder="Cidade, Estado">
+                    </div>
+
+                    <div>
+                        <label for="project-responsible" class="block text-sm font-medium text-card-foreground mb-2">Responsável interno *</label>
+                        <input type="text" id="project-responsible" name="responsavel_interno" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                            placeholder="Nome do responsável na equipe">
+                    </div>
+
+                    <div id="project-error" class="text-destructive text-sm hidden">
+                        Preencha todos os campos obrigatórios
+                    </div>
+
+                    <div id="project-success" class="text-success text-sm hidden">
+                        Empreendimento cadastrado com sucesso!
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button type="submit" 
+                            class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                            <i class="fas fa-save mr-2"></i>Salvar Empreendimento
+                        </button>
+                        <button type="button" onclick="showScreen('projects')" 
+                            class="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/80 transition-colors font-medium">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Detail Screen -->
+    <div id="project-detail-screen" class="app-screen">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-card-foreground" data-bind="currentProject.nome">Usina Solar Cerrado Verde</h2>
+                    <p class="text-muted-foreground mt-2">Licenças Ambientais</p>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="showScreen('new-license')" 
+                        class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                        <i class="fas fa-plus mr-2"></i>Nova Licença
+                    </button>
+                    <button onclick="showScreen('projects')" 
+                        class="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/80 transition-colors font-medium">
+                        <i class="fas fa-arrow-left mr-2"></i>Voltar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Project Info Card -->
+            <div class="bg-card rounded-lg border border-border p-6 shadow-sm mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Cliente</p>
+                        <p class="text-card-foreground" data-bind="currentProject.cliente">EcoEnergy Ltda</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Localização</p>
+                        <p class="text-card-foreground" data-bind="currentProject.localizacao">Brasília, DF</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Responsável</p>
+                        <p class="text-card-foreground" data-bind="currentProject.responsavel_interno">Ana Silva</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Licenses List -->
+            <div class="space-y-4">
+                <!-- @MAP: currentProject.licenses.map(license => ( -->
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <h3 class="text-lg font-semibold text-card-foreground mr-3" data-bind="license.tipo">Licença Prévia (LP)</h3>
+                                <span class="status-badge status-active" data-bind="license.status">Ativa</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-building mr-2"></i>
+                                        <span class="font-medium">Órgão Emissor:</span> <span data-bind="license.orgao_emissor">IBAMA</span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-calendar mr-2"></i>
+                                        <span class="font-medium">Data de Emissão:</span> <span data-bind="license.data_emissao">15/03/2023</span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-calendar-check mr-2"></i>
+                                        <span class="font-medium">Validade:</span> <span data-bind="license.validade">15/03/2025</span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-file-pdf mr-2"></i>
+                                        <a href="#" class="text-primary hover:underline" data-bind="license.arquivo_pdf">Baixar PDF</a>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex flex-col space-y-2">
+                            <button onclick="showEditLicense(1)" 
+                                class="bg-secondary text-secondary-foreground px-3 py-1 rounded text-sm hover:bg-secondary/80 transition-colors">
+                                <i class="fas fa-edit mr-1"></i>Editar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <h3 class="text-lg font-semibold text-card-foreground mr-3">Licença de Instalação (LI)</h3>
+                                <span class="status-badge status-expiring">A Vencer</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-building mr-2"></i>
+                                        <span class="font-medium">Órgão Emissor:</span> IBRAM-DF
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-calendar mr-2"></i>
+                                        <span class="font-medium">Data de Emissão:</span> 10/06/2023
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-calendar-check mr-2"></i>
+                                        <span class="font-medium">Validade:</span> 10/01/2025
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-muted-foreground">
+                                        <i class="fas fa-file-pdf mr-2"></i>
+                                        <a href="#" class="text-primary hover:underline">Baixar PDF</a>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex flex-col space-y-2">
+                            <button onclick="showEditLicense(2)" 
+                                class="bg-secondary text-secondary-foreground px-3 py-1 rounded text-sm hover:bg-secondary/80 transition-colors">
+                                <i class="fas fa-edit mr-1"></i>Editar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_MAP )) -->
+            </div>
+
+            <!-- Empty State for Licenses -->
+            <div id="no-licenses" class="hidden text-center py-12">
+                <i class="fas fa-file-contract text-4xl text-muted-foreground mb-4"></i>
+                <h3 class="text-lg font-medium text-card-foreground mb-2">Nenhuma licença cadastrada para este empreendimento</h3>
+                <p class="text-muted-foreground mb-4">Comece cadastrando a primeira licença ambiental</p>
+                <button onclick="showScreen('new-license')" 
+                    class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                    <i class="fas fa-plus mr-2"></i>Nova Licença
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New License Screen -->
+    <div id="new-license-screen" class="app-screen">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-card-foreground">Nova Licença</h2>
+                <p class="text-muted-foreground mt-2">Cadastre uma nova licença ambiental</p>
+            </div>
+
+            <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                <form id="new-license-form" class="space-y-6">
+                    <div>
+                        <label for="license-type" class="block text-sm font-medium text-card-foreground mb-2">Tipo de licença *</label>
+                        <select id="license-type" name="tipo" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input">
+                            <option value="">Selecione o tipo de licença</option>
+                            <option value="Licença Prévia (LP)">Licença Prévia (LP)</option>
+                            <option value="Licença de Instalação (LI)">Licença de Instalação (LI)</option>
+                            <option value="Licença de Operação (LO)">Licença de Operação (LO)</option>
+                            <option value="Licença Ambiental Simplificada (LAS)">Licença Ambiental Simplificada (LAS)</option>
+                            <option value="Autorização Ambiental">Autorização Ambiental</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="license-issuer" class="block text-sm font-medium text-card-foreground mb-2">Órgão emissor *</label>
+                        <input type="text" id="license-issuer" name="orgao_emissor" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                            placeholder="Ex: IBAMA, IBRAM, Secretaria de Meio Ambiente">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="license-issue-date" class="block text-sm font-medium text-card-foreground mb-2">Data de emissão *</label>
+                            <input type="date" id="license-issue-date" name="data_emissao" required
+                                class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input">
+                        </div>
+
+                        <div>
+                            <label for="license-validity" class="block text-sm font-medium text-card-foreground mb-2">Validade *</label>
+                            <input type="date" id="license-validity" name="validade" required
+                                class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="license-file" class="block text-sm font-medium text-card-foreground mb-2">Arquivo PDF da licença (opcional)</label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-border border-dashed rounded-md hover:border-primary/50 transition-colors">
+                            <div class="space-y-1 text-center">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-muted-foreground"></i>
+                                <div class="flex text-sm text-muted-foreground">
+                                    <label for="license-file" class="relative cursor-pointer bg-background rounded-md font-medium text-primary hover:text-primary/80">
+                                        <span>Faça upload do arquivo</span>
+                                        <input id="license-file" name="arquivo_pdf" type="file" accept=".pdf" class="sr-only" data-implementation="Handle file upload">
+                                    </label>
+                                    <p class="pl-1">ou arraste e solte</p>
+                                </div>
+                                <p class="text-xs text-muted-foreground">Apenas arquivos PDF até 10MB</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="license-error" class="text-destructive text-sm hidden">
+                        Preencha todos os campos obrigatórios
+                    </div>
+
+                    <div id="license-success" class="text-success text-sm hidden">
+                        Licença cadastrada com sucesso!
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button type="submit" 
+                            class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                            <i class="fas fa-save mr-2"></i>Salvar Licença
+                        </button>
+                        <button type="button" onclick="showScreen('project-detail')" 
+                            class="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/80 transition-colors font-medium">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit License Screen -->
+    <div id="edit-license-screen" class="app-screen">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-card-foreground">Editar Licença</h2>
+                <p class="text-muted-foreground mt-2">Edite as informações da licença ambiental</p>
+            </div>
+
+            <div class="bg-card rounded-lg border border-border p-6 shadow-sm">
+                <form id="edit-license-form" class="space-y-6">
+                    <div>
+                        <label for="edit-license-type" class="block text-sm font-medium text-card-foreground mb-2">Tipo de licença *</label>
+                        <select id="edit-license-type" name="tipo" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input">
+                            <option value="Licença Prévia (LP)" selected>Licença Prévia (LP)</option>
+                            <option value="Licença de Instalação (LI)">Licença de Instalação (LI)</option>
+                            <option value="Licença de Operação (LO)">Licença de Operação (LO)</option>
+                            <option value="Licença Ambiental Simplificada (LAS)">Licença Ambiental Simplificada (LAS)</option>
+                            <option value="Autorização Ambiental">Autorização Ambiental</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="edit-license-issuer" class="block text-sm font-medium text-card-foreground mb-2">Órgão emissor *</label>
+                        <input type="text" id="edit-license-issuer" name="orgao_emissor" required
+                            class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                            value="IBAMA">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="edit-license-issue-date" class="block text-sm font-medium text-card-foreground mb-2">Data de emissão *</label>
+                            <input type="date" id="edit-license-issue-date" name="data_emissao" required
+                                class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                                value="2023-03-15">
+                        </div>
+
+                        <div>
+                            <label for="edit-license-validity" class="block text-sm font-medium text-card-foreground mb-2">Validade *</label>
+                            <input type="date" id="edit-license-validity" name="validade" required
+                                class="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-input"
+                                value="2025-03-15">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-card-foreground mb-2">Arquivo PDF atual</label>
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="flex items-center px-3 py-2 bg-muted rounded-md">
+                                <i class="fas fa-file-pdf text-destructive mr-2"></i>
+                                <span class="text-sm text-muted-foreground">licenca_previa_001.pdf</span>
+                            </div>
+                            <a href="#" class="text-primary hover:underline text-sm">
+                                <i class="fas fa-download mr-1"></i>Baixar
+                            </a>
+                        </div>
+                        
+                        <label class="block text-sm font-medium text-card-foreground mb-2">Substituir arquivo (opcional)</label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-border border-dashed rounded-md hover:border-primary/50 transition-colors">
+                            <div class="space-y-1 text-center">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-muted-foreground"></i>
+                                <div class="flex text-sm text-muted-foreground">
+                                    <label for="edit-license-file" class="relative cursor-pointer bg-background rounded-md font-medium text-primary hover:text-primary/80">
+                                        <span>Faça upload do novo arquivo</span>
+                                        <input id="edit-license-file" name="arquivo_pdf" type="file" accept=".pdf" class="sr-only" data-implementation="Handle file replacement">
+                                    </label>
+                                    <p class="pl-1">ou arraste e solte</p>
+                                </div>
+                                <p class="text-xs text-muted-foreground">Apenas arquivos PDF até 10MB</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="edit-license-success" class="text-success text-sm hidden">
+                        Licença atualizada com sucesso!
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button type="submit" 
+                            class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                            <i class="fas fa-save mr-2"></i>Salvar Alterações
+                        </button>
+                        <button type="button" onclick="showScreen('project-detail')" 
+                            class="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/80 transition-colors font-medium">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- @END_COMPONENT: MainApp -->
+
+<script>
+(function() {
+    // @STATE: currentScreen:string = 'login'
+    // @STATE: currentProject:object = null
+    // @STATE: isAuthenticated:boolean = false
+    
+    let currentScreen = 'login';
+    let currentProject = null;
+    let isAuthenticated = false;
+    
+    // Mock data for demonstration
+    const mockData = {
+        stats: {
+            active: 15,
+            expiring: 3,
+            expired: 1
+        },
+        projects: [
+            {
+                id: 1,
+                nome: "Usina Solar Cerrado Verde",
+                cliente: "EcoEnergy Ltda",
+                localizacao: "Brasília, DF",
+                responsavel_interno: "Ana Silva"
+            },
+            {
+                id: 2,
+                nome: "Mineração Serra Azul",
+                cliente: "Minérios do Brasil S.A.",
+                localizacao: "Belo Horizonte, MG",
+                responsavel_interno: "Carlos Oliveira"
+            }
+        ]
+    };
+    
+    // Screen management
+    window.showScreen = function(screenName) {
+        // Hide all app screens
+        document.querySelectorAll('.app-screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+        
+        // Show target screen
+        const targetScreen = document.getElementById(screenName + '-screen');
+        if (targetScreen) {
+            targetScreen.classList.add('active');
+            currentScreen = screenName;
+            
+            // Update navigation
+            updateNavigation(screenName);
+        }
+    };
+    
+    function updateNavigation(activeScreen) {
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('text-primary', 'border-b-2', 'border-primary');
+            btn.classList.add('text-muted-foreground');
+        });
+        
+        if (activeScreen === 'dashboard') {
+            const dashBtn = document.querySelector('button[onclick="showScreen(\'dashboard\')"]');
+            if (dashBtn) {
+                dashBtn.classList.remove('text-muted-foreground');
+                dashBtn.classList.add('text-primary', 'border-b-2', 'border-primary');
+            }
+        } else if (activeScreen === 'projects') {
+            const projBtn = document.querySelector('button[onclick="showScreen(\'projects\')"]');
+            if (projBtn) {
+                projBtn.classList.remove('text-muted-foreground');
+                projBtn.classList.add('text-primary', 'border-b-2', 'border-primary');
+            }
+        }
+    }
+    
+    // Authentication
+    window.logout = function() {
+        isAuthenticated = false;
+        document.getElementById('login-screen').classList.add('active');
+        document.getElementById('main-app').classList.remove('active');
+        
+        // Clear form
+        document.getElementById('login-form').reset();
+        document.getElementById('email').value = 'ecobrasil@ecobrasil.bio.br';
+        document.getElementById('password').value = '123456';
+    };
+    
+    // Login form handling
+    document.getElementById('login-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('login-error');
+        const loginBtn = document.getElementById('login-btn');
+        const loginText = document.getElementById('login-text');
+        const loginLoading = document.getElementById('login-loading');
+        
+        // Show loading state
+        loginBtn.disabled = true;
+        loginText.classList.add('hidden');
+        loginLoading.classList.remove('hidden');
+        errorDiv.classList.add('hidden');
+        
+        // Simulate authentication delay
+        setTimeout(() => {
+            if (email === 'ecobrasil@ecobrasil.bio.br' && password === '123456') {
+                isAuthenticated = true;
+                document.getElementById('login-screen').classList.remove('active');
+                document.getElementById('main-app').classList.add('active');
+                showScreen('dashboard');
+                initializeCharts();
+            } else {
+                errorDiv.classList.remove('hidden');
+            }
+            
+            // Reset button state
+            loginBtn.disabled = false;
+            loginText.classList.remove('hidden');
+            loginLoading.classList.add('hidden');
+        }, 1500);
+    });
+    
+    // Project detail navigation
+    window.showProjectDetail = function(projectId) {
+        // TODO: Load project data from API
+        currentProject = mockData.projects.find(p => p.id === projectId);
+        showScreen('project-detail');
+    };
+    
+    // License editing
+    window.showEditLicense = function(licenseId) {
+        // TODO: Load license data from API
+        showScreen('edit-license');
+    };
+    
+    // Form handling
+    document.getElementById('new-project-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const errorDiv = document.getElementById('project-error');
+        const successDiv = document.getElementById('project-success');
+        
+        // Validate required fields
+        let hasError = false;
+        ['nome', 'cliente', 'localizacao', 'responsavel_interno'].forEach(field => {
+            if (!formData.get(field)) {
+                hasError = true;
+            }
+        });
+        
+        if (hasError) {
+            errorDiv.classList.remove('hidden');
+            successDiv.classList.add('hidden');
+        } else {
+            // TODO: Submit to API
+            errorDiv.classList.add('hidden');
+            successDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                showScreen('projects');
+                e.target.reset();
+                successDiv.classList.add('hidden');
+            }, 2000);
+        }
+    });
+    
+    document.getElementById('new-license-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const errorDiv = document.getElementById('license-error');
+        const successDiv = document.getElementById('license-success');
+        
+        // Validate required fields
+        let hasError = false;
+        ['tipo', 'orgao_emissor', 'data_emissao', 'validade'].forEach(field => {
+            if (!formData.get(field)) {
+                hasError = true;
+            }
+        });
+        
+        if (hasError) {
+            errorDiv.classList.remove('hidden');
+            successDiv.classList.add('hidden');
+        } else {
+            // TODO: Submit to API
+            errorDiv.classList.add('hidden');
+            successDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                showScreen('project-detail');
+                e.target.reset();
+                successDiv.classList.add('hidden');
+            }, 2000);
+        }
+    });
+    
+    document.getElementById('edit-license-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const successDiv = document.getElementById('edit-license-success');
+        
+        // TODO: Submit changes to API
+        successDiv.classList.remove('hidden');
+        
+        setTimeout(() => {
+            showScreen('project-detail');
+            successDiv.classList.add('hidden');
+        }, 2000);
+    });
+    
+    // Initialize charts
+    function initializeCharts() {
+        // Status Chart
+        const statusCtx = document.getElementById('statusChart');
+        if (statusCtx) {
+            new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ativas', 'A Vencer', 'Vencidas'],
+                    datasets: [{
+                        data: [15, 3, 1],
+                        backgroundColor: [
+                            'hsl(145, 63%, 20%)', // success
+                            'hsl(145, 67%, 12%)', // warning
+                            'hsl(0, 84%, 60%)'    // destructive
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Expiry Chart
+        const expiryCtx = document.getElementById('expiryChart');
+        if (expiryCtx) {
+            new Chart(expiryCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Vencimentos',
+                        data: [2, 1, 3, 0, 1, 2],
+                        backgroundColor: 'hsl(205, 85%, 31%)',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // File upload handling
+    document.addEventListener('change', function(e) {
+        if (e.target.type === 'file') {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('File selected:', file.name);
+                // TODO: Handle file upload
+            }
+        }
+    });
+    
+    // Initialize app state
+    if (isAuthenticated) {
+        showScreen('dashboard');
+    }
+})();
+</script>
+
+</body>
+</html>

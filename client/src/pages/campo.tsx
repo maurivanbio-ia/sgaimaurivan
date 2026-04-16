@@ -690,7 +690,7 @@ export default function CampoMonitoramento() {
                           <span className="px-1.5 py-0.5 rounded text-white text-xs font-bold" style={{ backgroundColor: IUCN_COLORS[r.iucn!] || "#94a3b8" }}>{r.iucn}</span>
                         </td>
                         <td className="px-4 py-2">
-                          <Badge className={`text-xs ${GRUPO_CONFIG[r.grupoTaxonomico]?.bg || "bg-gray-100 text-gray-800"}`}>
+                          <Badge className={`text-xs ${GRUPO_CONFIG[r.grupoTaxonomico].bg || "bg-gray-100 text-gray-800"}`}>
                             {GRUPO_CONFIG[r.grupoTaxonomico]?.label || r.grupoTaxonomico}
                           </Badge>
                         </td>

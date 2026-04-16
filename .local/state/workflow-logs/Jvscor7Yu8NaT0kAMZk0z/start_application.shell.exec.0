@@ -1,0 +1,74 @@
+[1mnpm[22m [33mwarn[39m [94musing --force[39m Recommended protections disabled.
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KInicializando serviço de alertas automáticos...
+Iniciando serviço de alertas automáticos...
+Serviço de alertas configurado para executar a cada 240 minutos
+[Automação] Cron de rotinas diárias agendado para 06:00 BRT
+[Automação] → Alerta 150 dias para licenças
+[Automação] → Criação de instâncias de demandas recorrentes
+[Automação] → Recalcular status de pagamentos
+[CRON] Auto-archive comunicados job scheduled (daily at midnight)
+[CRON] Histórico de movimentações cleanup scheduled (daily at 1 AM, removes records older than 30 days)
+[WhatsApp Cron] Resumo semanal de demandas agendado (verifica diariamente às 08:00 BRT)
+[CRON] Process monitoring job scheduled (every 6 hours)
+[n8n Webhooks] Rotas registradas com sucesso
+[Evolution Webhooks] Rotas registradas com sucesso
+WebSocket server initialized for real-time notifications
+Inicializando serviço de relatórios agendados...
+[Scheduled Reports] Inicializando serviço de envio automático de relatórios...
+[Scheduled Reports] Relatório 360° agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Relatório Financeiro agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Resumo Semanal de Demandas agendado: 0 9 * * 1 (toda segunda às 9h)
+[Relatório Anual] Agendado para 30 e 31 de dezembro às 9h
+[Scheduled Reports] Serviço iniciado com sucesso
+[Backup] Inicializando serviço de backup automático...
+[Backup] Backup automático agendado para 00:00 (horário de Brasília)
+[Backup] Sincronização de arquivos agendada para domingos às 02:00 (horário de Brasília)
+2 relatórios agendados carregados
+Newsletter agendada: 0 9 * * 0 (Brasília)
+Newsletter service initialized
+5:55:20 PM [express] serving on port 5000
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+5:55:47 PM [express] GET /api/auth/user 401 in 2ms :: {"message":"Unauthorized"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m5:56:38 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/charts/expiry-chart.tsx, /src/index.css?v=mteJ9YgpLbvDnfQP1DXRr[22m
+5:58:45 PM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+[CRON] Starting automatic process monitoring check...
+[CRON] Found 0 processes to check
+[CRON] Process monitoring check completed
+[16/04/2026, 18:00:20] Executando verificação de alertas...
+Iniciando verificação de alertas...
+Verificação de alertas concluída
+6:19:53 PM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+6:22:35 PM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+7:04:33 PM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+7:06:50 PM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+7:12:14 PM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}

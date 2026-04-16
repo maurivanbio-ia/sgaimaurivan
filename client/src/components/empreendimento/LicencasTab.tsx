@@ -198,7 +198,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
     renovacaoForm.reset({
       numero: "",
       tipo: license.tipo,
-      tipoOutorga: (license as any).tipoOutorga || "",
+      tipoOutorga: (license as unknown).tipoOutorga || "",
       orgaoEmissor: license.orgaoEmissor,
       dataEmissao: "",
       validade: "",

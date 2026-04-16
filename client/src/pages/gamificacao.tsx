@@ -146,7 +146,7 @@ export default function GamificacaoPage() {
       periodo: periodoAtual,
       unidade: "salvador"
     }),
-    onSuccess: (data: any) => {
+    onSuccess: (data: unknown) => {
       queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia"] });
       queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia/ranking"] });
       queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/ranking"] });
@@ -232,7 +232,7 @@ export default function GamificacaoPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Tarefas Concluídas</p>
-                <p className="text-2xl font-bold">{desempenho?.pontuacao?.tarefasConcluidas || 0}</p>
+                <p className="text-2xl font-bold">{desempenho?.pontuacao.tarefasConcluidas || 0}</p>
               </div>
             </div>
           </CardContent>

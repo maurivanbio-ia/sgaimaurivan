@@ -185,7 +185,7 @@ export default function FornecedoresPage() {
       setIsDialogOpen(false);
       form.reset();
     },
-    onError: (e: any) => {
+    onError: (e: unknown) => {
       toast({
         title: "Erro",
         description: e?.message ?? "Falha ao cadastrar fornecedor",
@@ -886,7 +886,7 @@ export default function FornecedoresPage() {
               </Tabs>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); }}>
                   Cancelar
                 </Button>
                 <Button

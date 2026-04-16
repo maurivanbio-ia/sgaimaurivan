@@ -319,7 +319,7 @@ export default function EcoAssistente() {
                   {sugestoes.map((sug, idx) => (
                     <Button key={idx} variant="outline" size="sm"
                       className="text-left justify-start h-auto py-2 text-xs"
-                      onClick={() => setInput(sug)}>
+                      onClick={() => { setInput(sug); }}>
                       {sug}
                     </Button>
                   ))}

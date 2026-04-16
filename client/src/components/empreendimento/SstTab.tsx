@@ -472,7 +472,7 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Tipo de Programa</Label>
-                  <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
+                  <Select value={formData.tipo} onValueChange={(v) => { setFormData({ ...formData, tipo: v }); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ppra">PPRA</SelectItem>
@@ -523,7 +523,7 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Responsável Técnico</Label>
-                  <Input value={formData.responsavelTecnico} onChange={(e) => setFormData({ ...formData, responsavelTecnico: e.target.value })} />
+                  <Input value={formData.responsavelTecnico} onChange={(e) => { setFormData({ ...formData, responsavelTecnico: e.target.value }); }} />
                 </div>
                 <div>
                   <Label>Registro Profissional</Label>
@@ -537,7 +537,7 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
                 </div>
                 <div>
                   <Label>Data Validade</Label>
-                  <Input type="date" value={formData.dataValidade} onChange={(e) => setFormData({ ...formData, dataValidade: e.target.value })} />
+                  <Input type="date" value={formData.dataValidade} onChange={(e) => { setFormData({ ...formData, dataValidade: e.target.value }); }} />
                 </div>
               </div>
               <Button onClick={() => createMutation.mutate(formData)} disabled={createMutation.isPending} className="w-full">
@@ -580,7 +580,7 @@ function ProgramasSSTSection({ empreendimentoId, programas }: { empreendimentoId
                     <Badge variant={p.status === 'vigente' ? 'default' : 'destructive'}>
                       {p.status === 'vigente' ? 'Vigente' : p.status === 'vencido' ? 'Vencido' : 'Em Revisão'}
                     </Badge>
-                    <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(p.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => { deleteMutation.mutate(p.id); }}>
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
@@ -683,7 +683,7 @@ function ASOsSection({ empreendimentoId, asos, colaboradores }: { empreendimento
                 </div>
                 <div>
                   <Label>Resultado</Label>
-                  <Select value={formData.resultado} onValueChange={(v) => setFormData({ ...formData, resultado: v })}>
+                  <Select value={formData.resultado} onValueChange={(v) => { setFormData({ ...formData, resultado: v }); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="apto">Apto</SelectItem>
@@ -696,7 +696,7 @@ function ASOsSection({ empreendimentoId, asos, colaboradores }: { empreendimento
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Data do Exame</Label>
-                  <Input type="date" value={formData.dataExame} onChange={(e) => setFormData({ ...formData, dataExame: e.target.value })} />
+                  <Input type="date" value={formData.dataExame} onChange={(e) => { setFormData({ ...formData, dataExame: e.target.value }); }} />
                 </div>
                 <div>
                   <Label>Data de Validade</Label>
@@ -1168,11 +1168,11 @@ function InvestigacoesSection({ empreendimentoId, investigacoes }: { empreendime
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Data do Incidente</Label>
-                  <Input type="date" value={formData.dataIncidente} onChange={(e) => setFormData({ ...formData, dataIncidente: e.target.value })} />
+                  <Input type="date" value={formData.dataIncidente} onChange={(e) => { setFormData({ ...formData, dataIncidente: e.target.value }); }} />
                 </div>
                 <div>
                   <Label>Local</Label>
-                  <Input value={formData.localIncidente} onChange={(e) => setFormData({ ...formData, localIncidente: e.target.value })} />
+                  <Input value={formData.localIncidente} onChange={(e) => { setFormData({ ...formData, localIncidente: e.target.value }); }} />
                 </div>
               </div>
               <div>
@@ -1352,7 +1352,7 @@ function TreinamentosSection({ empreendimentoId, documentos }: { empreendimentoI
            tipoDoc === 'certificado de treinamento';
   });
 
-  const { data: listaPresenca, refetch: refetchListaPresenca } = useQuery<any>({
+  const { data: listaPresenca, refetch: refetchListaPresenca } = useQuery<unknown>({
     queryKey: ['/api/seg-documentos', selectedTreinamentoId, 'lista-presenca'],
     queryFn: async () => {
       if (!selectedTreinamentoId) return null;

@@ -342,7 +342,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
   });
 
   // Licenças do empreendimento selecionado
-  const { data: licencasEmp = [] } = useQuery<any[]>({
+  const { data: licencasEmp = [] } = useQuery<unknown[]>({
     queryKey: ["/api/empreendimentos", form.empreendimentoId, "licencas"],
     queryFn: async () => apiRequest("GET", `/api/empreendimentos/${form.empreendimentoId}/licencas`),
     enabled: Boolean(form.empreendimentoId),
@@ -419,7 +419,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
     >
       <div>
         <Label>Título *</Label>
-        <Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} required />
+        <Input value={form.titulo} onChange={(e) => { setForm({ ...form, titulo: e.target.value }); }} required />
       </div>
 
       <div>
@@ -447,7 +447,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
       {form.empreendimentoId && (
         <div>
           <Label>Licença Ambiental <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-          <Select value={form.licencaId || ""} onValueChange={(v) => setForm({ ...form, licencaId: v, condicionanteId: "" })}>
+          <Select value={form.licencaId || ""} onValueChange={(v) => { setForm({ ...form, licencaId: v, condicionanteId: "" }); }}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione uma licença" />
             </SelectTrigger>
@@ -476,7 +476,7 @@ function DemandaForm({ initial, onSuccess }: { initial?: Partial<Demanda>; onSuc
               <SelectValue placeholder="Selecione a exigência" />
             </SelectTrigger>
             <SelectContent>
-              {ensureArray<any>(condicionantesLic).map((cond: any, idx: number) => {
+              {ensureArray<unknown>(condicionantesLic).map((cond: any, idx: number) => {
                 const num = cond.item || String(idx + 1);
                 const label = cond.titulo || cond.descricao?.substring(0, 60);
                 return (

@@ -67,7 +67,7 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
+      img.onload = () => { resolve(img); };
       img.onerror = reject;
       img.src = src;
     });
@@ -954,7 +954,7 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
         autoTable(doc, {
           startY: yPos,
           head: [['Número', 'Tipo', 'Valor', 'Status', 'Vigência']],
-          body: data.contratos.lista.slice(0, 10).map((c: any) => [
+          body: data.contratos.lista.slice(0, 10).map((c: unknown) => [
             c.numero || '-',
             c.tipo || '-',
             formatCurrency(Number(c.valor) || 0),
@@ -1024,7 +1024,7 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
         autoTable(doc, {
           startY: yPos,
           head: [['Nome', 'Tipo', 'Município', 'UF']],
-          body: data.empreendimentos.lista.slice(0, 12).map((e: any) => [
+          body: data.empreendimentos.lista.slice(0, 12).map((e: unknown) => [
             (e.nome || '-').substring(0, 30),
             e.tipo || '-',
             e.municipio || '-',

@@ -117,7 +117,7 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+    mutationFn: async ({ id, data }: { id: number; data: unknown }) => {
       return apiRequest("PATCH", `/api/projetos/${id}`, data);
     },
     onSuccess: () => {

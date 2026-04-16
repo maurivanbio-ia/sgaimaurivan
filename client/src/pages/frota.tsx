@@ -152,7 +152,7 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
       ano: veiculo.ano,
       tipo: veiculo.tipo as any,
       kmAtual: veiculo.kmAtual,
-      combustivel: veiculo.combustivel as any,
+      combustivel: veiculo.combustivel as unknown,
       seguro: veiculo.seguro,
       localizacaoAtual: veiculo.localizacaoAtual,
       proximaRevisao: new Date(veiculo.proximaRevisao),
@@ -1332,7 +1332,7 @@ export default function FrotaPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-muted-foreground">Tipo</Label>
-                    <p className="font-medium capitalize">{TIPO_CONFIG[selectedVeiculo.tipo as keyof typeof TIPO_CONFIG]?.label || selectedVeiculo.tipo}</p>
+                    <p className="font-medium capitalize">{TIPO_CONFIG[selectedVeiculo.tipo as keyof typeof TIPO_CONFIG].label || selectedVeiculo.tipo}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-muted-foreground">Combustível</Label>

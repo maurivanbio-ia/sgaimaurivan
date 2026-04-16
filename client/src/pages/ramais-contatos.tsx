@@ -209,7 +209,7 @@ export default function RamaisContatos() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(contato)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { handleEdit(contato); }}>
                     <Edit className="h-4 w-4" />
                   </Button>
                   <Button 
@@ -326,7 +326,7 @@ export default function RamaisContatos() {
                 <label className="text-sm font-medium">Telefone</label>
                 <Input
                   value={contatoForm.telefone}
-                  onChange={(e) => setContatoForm({ ...contatoForm, telefone: e.target.value })}
+                  onChange={(e) => { setContatoForm({ ...contatoForm, telefone: e.target.value }); }}
                   placeholder="(00) 0000-0000"
                 />
               </div>

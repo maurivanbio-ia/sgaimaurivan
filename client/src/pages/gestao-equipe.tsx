@@ -208,7 +208,7 @@ export default function GestaoEquipePage() {
   const [vinculosDialogOpen, setVinculosDialogOpen] = useState(false);
   const [selectedMembroVinculos, setSelectedMembroVinculos] = useState<MembroEquipe | null>(null);
   
-  const { data: membroEmpreendimentosVinculados = [] } = useQuery<any[]>({
+  const { data: membroEmpreendimentosVinculados = [] } = useQuery<unknown[]>({
     queryKey: ["/api/equipe", selectedMembroVinculos?.id, "empreendimentos"],
     enabled: !!selectedMembroVinculos?.id,
   });
@@ -787,7 +787,7 @@ export default function GestaoEquipePage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleEditTarefa(tarefa)}
+                                onClick={() => { handleEditTarefa(tarefa); }}
                                 data-testid={`button-edit-tarefa-${tarefa.id}`}
                               >
                                 <Edit className="h-4 w-4" />
@@ -1446,8 +1446,8 @@ export default function GestaoEquipePage() {
                 {membroEmpreendimentosVinculados.length === 0 ? (
                   <span className="text-sm text-muted-foreground">Nenhum empreendimento vinculado</span>
                 ) : (
-                  membroEmpreendimentosVinculados.map((vinculo: any) => {
-                    const emp = empreendimentos.find((e: any) => e.id === vinculo.empreendimentoId);
+                  membroEmpreendimentosVinculados.map((vinculo: unknown) => {
+                    const emp = empreendimentos.find((e: unknown) => e.id === vinculo.empreendimentoId);
                     return (
                       <Badge key={vinculo.id} variant="secondary" className="flex items-center gap-1">
                         {emp?.nome || `ID: ${vinculo.empreendimentoId}`}

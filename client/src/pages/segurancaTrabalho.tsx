@@ -213,7 +213,7 @@ export default function SegurancaTrabalho() {
   });
 
   const updateColaboradorMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+    mutationFn: async ({ id, data }: { id: number; data: unknown }) => {
       const res = await fetch(`/api/colaboradores/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -833,7 +833,7 @@ export default function SegurancaTrabalho() {
                       <Input
                         id="cargo"
                         value={colaboradorForm.cargo}
-                        onChange={(e) => setColaboradorForm({ ...colaboradorForm, cargo: e.target.value })}
+                        onChange={(e) => { setColaboradorForm({ ...colaboradorForm, cargo: e.target.value }); }}
                         placeholder="Ex: Técnico de Segurança"
                         data-testid="input-colaborador-cargo"
                       />
@@ -1344,7 +1344,7 @@ export default function SegurancaTrabalho() {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDocumentoDialogOpen(false)} data-testid="button-cancel-documento">
+                  <Button variant="outline" onClick={() => { setIsDocumentoDialogOpen(false); }} data-testid="button-cancel-documento">
                     Cancelar
                   </Button>
                   <Button onClick={handleSaveDocumento} data-testid="button-save-documento">
@@ -1387,7 +1387,7 @@ export default function SegurancaTrabalho() {
                         <TableCell className="font-medium" data-testid={`text-documento-tipo-${doc.id}`}>{(doc as any).tipoDescritivo || doc.tipoDocumento}</TableCell>
                         <TableCell data-testid={`text-documento-colaborador-${doc.id}`}>{doc.colaboradorNome || (doc.colaboradorId ? `Colaborador #${doc.colaboradorId}` : "Escritório")}</TableCell>
                         <TableCell data-testid={`text-documento-empreendimento-${doc.id}`}>
-                          {(doc as any).empreendimentoNome || "Geral"}
+                          {(doc as unknown).empreendimentoNome || "Geral"}
                         </TableCell>
                         <TableCell data-testid={`text-documento-descricao-${doc.id}`}>{doc.descricao || "-"}</TableCell>
                         <TableCell data-testid={`text-documento-validade-${doc.id}`}>

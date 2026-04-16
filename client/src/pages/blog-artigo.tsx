@@ -155,7 +155,7 @@ export default function BlogArtigoPage() {
         url: window.location.href,
       });
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      void navigator.clipboard.writeText(window.location.href);
       toast({ title: "Link copiado!" });
     }
   };

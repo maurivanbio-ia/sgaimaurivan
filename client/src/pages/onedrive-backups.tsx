@@ -95,13 +95,13 @@ export default function BackupDropboxPage() {
       if (data.success) {
         const totalRecords = data.tables ? Object.values(data.tables).reduce((a, b) => a + b, 0) : 0;
         toast({ title: "Backup realizado com sucesso!", description: `${totalRecords.toLocaleString()} registros salvos` });
-        queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
+        void queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
         setShowPasswordDialog(false); setAdminPassword(""); setPasswordError("");
       } else {
         toast({ title: "Erro ao realizar backup", description: data.error, variant: "destructive" });
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       const msg = error.message || "Falha ao executar backup";
       if (msg.includes("Senha") || msg.includes("password") || msg.includes("incorreta")) {
         setPasswordError("Senha incorreta. Tente novamente.");
@@ -119,7 +119,7 @@ export default function BackupDropboxPage() {
       return response.json();
     },
     onSuccess: (data) => toast({ title: "Backup enviado ao Dropbox!", description: data.dropboxPath ? `Salvo em: ${data.dropboxPath}` : "Enviado com sucesso" }),
-    onError: (err: any) => toast({ title: "Erro ao enviar para Dropbox", description: err.message, variant: "destructive" }),
+    onError: (err: unknown) => toast({ title: "Erro ao enviar para Dropbox", description: err.message, variant: "destructive" }),
   });
 
   const handleDownload = async (fileName: string) => {
@@ -157,7 +157,7 @@ export default function BackupDropboxPage() {
 
   const retryMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/dropbox/sync-retry"),
-    onSuccess: (data: any) => {
+    onSuccess: (data: unknown) => {
       toast({ title: "Reprocessamento concluído", description: `${data.success} de ${data.retried} arquivos recuperados.` });
       queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] });
@@ -400,7 +400,7 @@ export default function BackupDropboxPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || isSyncing || !dropboxConn?.success} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+                <Button onClick={() => { syncMutation.mutate(); }} disabled={syncMutation.isPending || isSyncing || !dropboxConn?.success} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
                   {syncMutation.isPending || isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
                   {isSyncing ? "Sincronizando..." : "Sincronizar Todos os Arquivos"}
                 </Button>
@@ -411,13 +411,13 @@ export default function BackupDropboxPage() {
                 </Button>
 
                 {(syncStatus?.errors ?? 0) > 0 && (
-                  <Button variant="outline" onClick={() => retryMutation.mutate()} disabled={retryMutation.isPending} className="border-red-200 text-red-600 hover:bg-red-50 gap-2">
+                  <Button variant="outline" onClick={() => { retryMutation.mutate(); }} disabled={retryMutation.isPending} className="border-red-200 text-red-600 hover:bg-red-50 gap-2">
                     {retryMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                     Reprocessar Erros ({syncStatus?.errors})
                   </Button>
                 )}
 
-                <Button variant="ghost" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] }); queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] }); }} className="gap-2">
+                <Button variant="ghost" onClick={() => { void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] }); queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] }); }} className="gap-2">
                   <RefreshCw className="w-4 h-4" />Atualizar
                 </Button>
               </div>

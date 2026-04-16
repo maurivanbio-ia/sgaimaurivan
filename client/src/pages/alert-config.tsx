@@ -134,7 +134,7 @@ export default function AlertConfigPage() {
         body: JSON.stringify({ phone, message: "✅ Teste EcoGestor - se recebeu, Z-API está funcionando!" }),
       });
       const text = await res.text();
-      let data: any;
+      let data: unknown;
       try { data = JSON.parse(text); } catch { data = { ok: false, body: text, status: res.status }; }
       return data;
     },
@@ -208,7 +208,7 @@ export default function AlertConfigPage() {
         description: data.message || "Notificação de teste criada com sucesso!",
       });
       // Refresh notificações na nav
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     },
     onError: () => {
       toast({
@@ -381,7 +381,7 @@ export default function AlertConfigPage() {
                     id="groupJid"
                     placeholder="Ex: (62) 99428-5690  ou  120363...@g.us"
                     value={wpForm.groupJid || ""}
-                    onChange={e => setWpForm(f => ({ ...f, groupJid: e.target.value }))}
+                    onChange={e => { setWpForm(f => ({ ...f, groupJid: e.target.value })); }}
                   />
                   {wpForm.groupJid && (
                     <p className="text-xs font-mono bg-muted rounded px-2 py-1 text-muted-foreground">
@@ -443,7 +443,7 @@ export default function AlertConfigPage() {
                   </div>
                   <Switch
                     checked={wpForm.notifyNovaDemanda ?? true}
-                    onCheckedChange={v => setWpForm(f => ({ ...f, notifyNovaDemanda: v }))}
+                    onCheckedChange={v => { setWpForm(f => ({ ...f, notifyNovaDemanda: v })); }}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -464,7 +464,7 @@ export default function AlertConfigPage() {
                     <Label>Dia do resumo</Label>
                     <Select
                       value={String(wpForm.diaResumoSemanal ?? 1)}
-                      onValueChange={v => setWpForm(f => ({ ...f, diaResumoSemanal: Number(v) }))}
+                      onValueChange={v => { setWpForm(f => ({ ...f, diaResumoSemanal: Number(v) })); }}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -482,7 +482,7 @@ export default function AlertConfigPage() {
                       id="hora"
                       type="time"
                       value={wpForm.horaResumoSemanal || "08:00"}
-                      onChange={e => setWpForm(f => ({ ...f, horaResumoSemanal: e.target.value }))}
+                      onChange={e => { setWpForm(f => ({ ...f, horaResumoSemanal: e.target.value })); }}
                     />
                   </div>
                 </div>
@@ -566,7 +566,7 @@ export default function AlertConfigPage() {
           <Collapsible 
             key={tipo} 
             open={expandedTypes[tipo]} 
-            onOpenChange={() => handleToggleExpanded(tipo)}
+            onOpenChange={() => { handleToggleExpanded(tipo); }}
           >
             <Card className="shadow-sm">
               <CollapsibleTrigger asChild>

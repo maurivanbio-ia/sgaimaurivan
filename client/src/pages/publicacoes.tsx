@@ -126,7 +126,7 @@ function PublicacaoCard({ pub, onEdit, onDelete, onView }: {
                 <ExternalLink className="w-3.5 h-3.5" />
               </Button>
             )}
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(pub)} title="Editar">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { onEdit(pub); }} title="Editar">
               <Edit className="w-3.5 h-3.5" />
             </Button>
             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => onDelete(pub.id)} title="Excluir">

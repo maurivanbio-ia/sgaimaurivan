@@ -423,7 +423,7 @@ function StatusSection({
                 item={item}
                 empMap={empMap}
                 projMap={projMap}
-                onEdit={() => onEdit(item)}
+                onEdit={() => { onEdit(item); }}
                 onDelete={() => onDelete(item)}
                 onToggleExecute={onToggleExecute}
                 executeMutationPending={executeMutationPending}
@@ -1238,7 +1238,7 @@ export default function CronogramaPage() {
             </div>
             <div>
               <Label>Status</Label>
-              <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
+              <Select value={filters.status} onValueChange={(v) => { setFilters(prev => ({ ...prev, status: v })); }}>
                 <SelectTrigger data-testid="select-filter-status"><SelectValue placeholder="Todos os status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
@@ -1340,7 +1340,7 @@ export default function CronogramaPage() {
           item={executeModal}
           open={!!executeModal}
           onClose={() => setExecuteModal(null)}
-          onConfirm={(obs) => executeMutation.mutate({ id: executeModal.id, concluido: true, obs })}
+          onConfirm={(obs) => { executeMutation.mutate({ id: executeModal.id, concluido: true, obs }); }}
           isLoading={executeMutation.isPending}
         />
       )}
@@ -1420,7 +1420,7 @@ function CronogramaForm({
 
         <div>
           <Label htmlFor="status">Status</Label>
-          <Select value={formData.status} onValueChange={(v) => setFormData(prev => ({ ...prev, status: v }))}>
+          <Select value={formData.status} onValueChange={(v) => { setFormData(prev => ({ ...prev, status: v })); }}>
             <SelectTrigger data-testid="select-status"><SelectValue /></SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
@@ -1431,14 +1431,14 @@ function CronogramaForm({
         <div>
           <Label htmlFor="dataInicio">Data Início *</Label>
           <Input id="dataInicio" type="date" value={formData.dataInicio}
-            onChange={(e) => setFormData(prev => ({ ...prev, dataInicio: e.target.value }))}
+            onChange={(e) => { setFormData(prev => ({ ...prev, dataInicio: e.target.value })); }}
             required data-testid="input-data-inicio" />
         </div>
 
         <div>
           <Label htmlFor="dataFim">Data Fim *</Label>
           <Input id="dataFim" type="date" value={formData.dataFim}
-            onChange={(e) => setFormData(prev => ({ ...prev, dataFim: e.target.value }))}
+            onChange={(e) => { setFormData(prev => ({ ...prev, dataFim: e.target.value })); }}
             required data-testid="input-data-fim" />
         </div>
 
@@ -1461,7 +1461,7 @@ function CronogramaForm({
 
         <div>
           <Label htmlFor="empreendimento">Empreendimento *</Label>
-          <Select value={formData.empreendimentoId} onValueChange={(v) => setFormData(prev => ({ ...prev, empreendimentoId: v, projetoId: "" }))}>
+          <Select value={formData.empreendimentoId} onValueChange={(v) => { setFormData(prev => ({ ...prev, empreendimentoId: v, projetoId: "" })); }}>
             <SelectTrigger data-testid="select-empreendimento"><SelectValue placeholder="Selecione..." /></SelectTrigger>
             <SelectContent>
               {empreendimentos.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nome}</SelectItem>)}
