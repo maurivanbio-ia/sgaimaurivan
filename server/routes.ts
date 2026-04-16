@@ -1138,7 +1138,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Filtered condicionantes route (must be before /:id routes)
   app.get("/api/condicionantes/pendentes", requireAuth, async (req, res) => {
     try {
-      const condicionantes = await storage.getCondicionantesByStatus('pendente');
+      const unidade = (req.user as any)?.unidade || '';
+      const condicionantes = await storage.getCondicionantesByStatus('pendente', unidade);
       res.json(condicionantes);
     } catch (error) {
       console.error("Get condicionantes pendentes error:", error);

@@ -222,7 +222,7 @@ export interface IStorage {
 
   // Filtered data operations  
   getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<any[]>;
-  getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<any[]>;
+  getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida', unidade?: string): Promise<any[]>;
   getEntregasDoMes(): Promise<any[]>;
 
 
@@ -1112,7 +1112,7 @@ export class DatabaseStorage implements IStorage {
     const condicionantesFiltradas = allCondicionantes.filter(c => licencaIds.includes(c.licencaId));
     
     return {
-      pendentes: condicionantesFiltradas.filter(c => c.status === 'pendente').length,
+      pendentes: condicionantesFiltradas.filter(c => c.status === 'pendente' || c.status === 'em_andamento').length,
       cumpridas: condicionantesFiltradas.filter(c => c.status === 'cumprida').length,
       vencidas: condicionantesFiltradas.filter(c => c.status === 'vencida').length,
     };
@@ -1544,25 +1544,35 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida'): Promise<any[]> {
+  async getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida', unidade?: string): Promise<any[]> {
     try {
-      const hoje = new Date();
       const condicionantesList = await db
         .select({
           id: condicionantes.id,
           descricao: condicionantes.descricao,
           prazo: condicionantes.prazo,
           status: condicionantes.status,
+          titulo: condicionantes.titulo,
+          codigo: condicionantes.codigo,
+          item: condicionantes.item,
+          categoria: condicionantes.categoria,
+          tipoCondicionante: condicionantes.tipoCondicionante,
+          periodicidade: condicionantes.periodicidade,
+          progresso: condicionantes.progresso,
+          responsavelNome: condicionantes.responsavelNome,
           observacoes: condicionantes.observacoes,
           licencaId: condicionantes.licencaId,
           criadoEm: condicionantes.criadoEm,
           atualizadoEm: condicionantes.atualizadoEm,
           // Dados da licença
           licencaTipo: licencasAmbientais.tipo,
+          licencaNumero: licencasAmbientais.numero,
           licencaOrgaoEmissor: licencasAmbientais.orgaoEmissor,
           licencaValidade: licencasAmbientais.validade,
+          empreendimentoId: licencasAmbientais.empreendimentoId,
           // Dados do empreendimento
           empreendimentoNome: empreendimentos.nome,
+          empreendimentoUnidade: empreendimentos.unidade,
           empreendimentoCliente: empreendimentos.cliente,
           empreendimentoClienteEmail: empreendimentos.clienteEmail,
           empreendimentoClienteTelefone: empreendimentos.clienteTelefone,
@@ -1571,20 +1581,35 @@ export class DatabaseStorage implements IStorage {
         .from(condicionantes)
         .leftJoin(licencasAmbientais, eq(condicionantes.licencaId, licencasAmbientais.id))
         .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
-        .orderBy(desc(condicionantes.criadoEm));
-      
+        .orderBy(asc(condicionantes.prazo));
+
       return condicionantesList.filter(condicionante => {
-        if (!condicionante.prazo) return false;
-        const dataPrazo = new Date(condicionante.prazo);
-        const diffTime = dataPrazo.getTime() - hoje.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+        // Filtrar por unidade se informada
+        if (unidade && condicionante.empreendimentoUnidade !== unidade) return false;
+
+        // Calcular status efetivo (respeitando manual e recalculando automático)
+        const manualStatuses = ['em_andamento', 'cumprida', 'cancelada'];
+        let efectiveStatus: string;
+        if (manualStatuses.includes(condicionante.status)) {
+          efectiveStatus = condicionante.status;
+        } else {
+          // Recalcular: pendente ou vencida baseado no prazo
+          if (!condicionante.prazo) {
+            efectiveStatus = 'pendente';
+          } else {
+            const prazoDate = new Date(condicionante.prazo + 'T00:00:00');
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            efectiveStatus = prazoDate < now ? 'vencida' : 'pendente';
+          }
+        }
+
         if (status === 'vencida') {
-          return condicionante.status === 'vencida' || (condicionante.status === 'pendente' && diffDays < 0);
+          return efectiveStatus === 'vencida';
         } else if (status === 'cumprida') {
-          return condicionante.status === 'cumprida';
-        } else { // pendente
-          return condicionante.status === 'pendente' && diffDays >= 0;
+          return efectiveStatus === 'cumprida';
+        } else { // pendente: inclui 'pendente' e 'em_andamento' (não concluídas)
+          return efectiveStatus === 'pendente' || efectiveStatus === 'em_andamento';
         }
       });
     } catch (error) {
