@@ -2726,7 +2726,7 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
               if (arcs.length === 0) return null;
               return (
                 <svg
-                  style={{ position: "absolute", left: 0, top: 0, width: containerWidth, height: CONTAINER_H, pointerEvents: "none", zIndex: 3 }}
+                  style={{ position: "absolute", left: 0, top: 0, width: containerWidth, height: CONTAINER_H, pointerEvents: "none", zIndex: 6 }}
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <defs>
@@ -2746,28 +2746,44 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
                     // Centro X de cada evento no eixo
                     const x1 = arc.src.x;
                     const x2 = arc.tgt.x;
-                    // Curva dentro da barra do eixo: começa e termina no centro, bow suave
+                    const midX = (x1 + x2) / 2;
+                    // A profundidade real do arco numa Bézier quadrática é:
+                    //   maxDepth = 0.5*AXIS_CENTER + 0.5*cy
+                    // Para que o arco passe 55px abaixo de AXIS_BOTTOM (244):
+                    //   alvo = AXIS_BOTTOM + 55 = 299
+                    //   cy = 2*(299 - 0.5*AXIS_CENTER) = 2*(299 - 115) = 368
+                    // → usamos cy ≈ AXIS_BOTTOM + 120 para garantir visibilidade clara
+                    const arcDepth = Math.max(120, Math.min(180, Math.abs(x2 - x1) * 0.12));
                     const y1 = AXIS_CENTER;
                     const y2 = AXIS_CENTER;
-                    const midX = (x1 + x2) / 2;
-                    // Arco sempre abaixo do eixo, mas raso (fica dentro da barra colorida)
-                    const cy = AXIS_CENTER + 10;
+                    // Ponto de controle ABAIXO da barra de meses com profundidade suficiente
+                    const cy = AXIS_BOTTOM + arcDepth;
+                    // Ponto mais baixo real do arco (~55–80px abaixo do AXIS_BOTTOM)
+                    const realMaxY = 0.5 * AXIS_CENTER + 0.5 * cy;
                     const path = `M ${x1} ${y1} Q ${midX} ${cy} ${x2} ${y2}`;
                     const vinculoLabel = VINCULOS_TIPOS.find(v => v.value === arc.tipo)?.label || arc.tipo;
-                    // Rótulo no ponto médio da curva, logo abaixo do eixo
+                    // Rótulo posicionado no ponto mais baixo real da curva
                     const labelX = midX;
-                    const labelY = AXIS_BOTTOM + 6;
+                    const labelY = realMaxY + 4;
                     const lblW = Math.min(110, Math.max(60, Math.abs(x2 - x1) * 0.5));
                     return (
                       <g key={i}>
-                        {/* Arco com sombra */}
+                        {/* Sombra branca por trás para realçar a linha */}
+                        <path
+                          d={path}
+                          fill="none"
+                          stroke="white"
+                          strokeWidth={5}
+                          opacity={0.7}
+                        />
+                        {/* Arco principal */}
                         <path
                           d={path}
                           fill="none"
                           stroke={arc.color}
-                          strokeWidth={2}
-                          strokeDasharray="5,3"
-                          opacity={0.75}
+                          strokeWidth={2.5}
+                          strokeDasharray="6,3"
+                          opacity={0.95}
                           markerEnd={`url(#arrow-${i})`}
                         />
                         {/* Rótulo do vínculo */}
