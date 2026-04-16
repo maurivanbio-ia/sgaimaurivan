@@ -370,9 +370,9 @@ export default function GestaoDados() {
   });
 
   const { data: usuarios = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+    queryKey: ["/api/team-members"],
     queryFn: async () => {
-      const res = await fetch("/api/users", { credentials: "include" });
+      const res = await fetch("/api/team-members", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },

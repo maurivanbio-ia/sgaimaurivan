@@ -130,10 +130,10 @@ export default function ProjetosPage() {
     queryKey: ["/api/empreendimentos"],
   });
 
-  const { data: coordenadores = [] } = useQuery<{ id: number; nome: string }[]>({
-    queryKey: ["/api/users"],
+  const { data: coordenadores = [] } = useQuery<{ id: number; email: string; cargo: string }[]>({
+    queryKey: ["/api/team-members"],
     queryFn: async () => {
-      const res = await fetch("/api/users");
+      const res = await fetch("/api/team-members", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -580,7 +580,7 @@ export default function ProjetosPage() {
                         <SelectItem value="">Nenhum</SelectItem>
                         {coordenadores.map((coord: any) => (
                           <SelectItem key={coord.id} value={coord.id.toString()}>
-                            {coord.nome}
+                            {coord.email}{coord.cargo ? ` (${coord.cargo})` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>

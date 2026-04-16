@@ -85,7 +85,7 @@ export default function DashboardCoordenador() {
   });
 
   const { data: allUsers = [] } = useQuery<User[]>({
-    queryKey: ['/api/users'],
+    queryKey: ['/api/team-members'],
   });
 
   const isLoading = userLoading || projectsLoading || lancamentosLoading;
