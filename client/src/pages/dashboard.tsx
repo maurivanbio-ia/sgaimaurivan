@@ -28,6 +28,22 @@ interface AutorizacaoVencida {
   empreendimentoId?: number | null;
 }
 
+interface CondicionanteAlerta {
+  id: number;
+  titulo?: string | null;
+  descricao: string;
+  codigo?: string | null;
+  categoria?: string | null;
+  status: string;
+  prazo: string;
+  progresso: number;
+  responsavelNome?: string | null;
+  licencaId: number;
+  licencaNumero: string;
+  empreendimentoNome: string;
+  empreendimentoId?: number | null;
+}
+
 interface DashboardStats {
   licenses: { active: number; expiring: number; expired: number };
   condicionantes: { pendentes: number; cumpridas: number; vencidas: number };
@@ -41,6 +57,7 @@ interface DashboardStats {
   demandas?: { total: number; pendentes: number; emAndamento: number; concluidas: number };
   contratos?: { total: number; ativos: number; valorTotal: number };
   autorizacoesVencidas?: AutorizacaoVencida[];
+  condicionantesAlerta?: CondicionanteAlerta[];
 }
 
 const STATUS_OPTIONS = [
@@ -101,6 +118,9 @@ export default function Dashboard() {
   const demandas = dashboardStats?.demandas || { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
   const contratos = dashboardStats?.contratos || { total: 0, ativos: 0, valorTotal: 0 };
   const autorizacoesVencidas = dashboardStats?.autorizacoesVencidas || [];
+  const condicionantesAlerta = dashboardStats?.condicionantesAlerta || [];
+  const condicionantesVencidas = condicionantesAlerta.filter(c => c.status === 'vencida');
+  const condicionantesEmAndamento = condicionantesAlerta.filter(c => c.status === 'em_andamento');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -307,6 +327,147 @@ export default function Dashboard() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Condicionantes em Alerta (Vencidas + Em Andamento) */}
+      {(condicionantesVencidas.length > 0 || condicionantesEmAndamento.length > 0) && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-card-foreground mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-500" />
+            Condicionantes em Atenção
+            {condicionantesVencidas.length > 0 && (
+              <span className="text-xs font-normal bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">
+                {condicionantesVencidas.length} vencida{condicionantesVencidas.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {condicionantesEmAndamento.length > 0 && (
+              <span className="text-xs font-normal bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded-full px-2 py-0.5">
+                {condicionantesEmAndamento.length} em andamento
+              </span>
+            )}
+          </h3>
+
+          {/* Vencidas */}
+          {condicionantesVencidas.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2 flex items-center gap-1">
+                <XCircle className="h-3.5 w-3.5" /> Vencidas
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {condicionantesVencidas.map((cond) => {
+                  const hoje = new Date().toISOString().split('T')[0];
+                  const diasVencido = cond.prazo
+                    ? Math.floor((new Date(hoje).getTime() - new Date(cond.prazo).getTime()) / 86400000)
+                    : null;
+                  return (
+                    <Card
+                      key={cond.id}
+                      className="border-l-4 border-l-destructive bg-red-50/60 dark:bg-red-950/20 border border-red-200 dark:border-red-800 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => cond.empreendimentoId && navigate(`/empreendimentos/${cond.empreendimentoId}`)}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {cond.codigo && (
+                                <span className="text-xs font-semibold bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded px-1.5 py-0.5">
+                                  {cond.codigo}
+                                </span>
+                              )}
+                              {cond.categoria && (
+                                <span className="text-xs text-muted-foreground">{cond.categoria}</span>
+                              )}
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                              {cond.titulo || cond.descricao.substring(0, 60)}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">
+                              📋 {cond.licencaNumero} · 📍 {cond.empreendimentoNome}
+                            </p>
+                            {cond.responsavelNome && (
+                              <p className="text-xs text-muted-foreground">👤 {cond.responsavelNome}</p>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-xs text-destructive font-medium">
+                              {cond.prazo.split('-').reverse().join('/')}
+                            </p>
+                            {diasVencido !== null && diasVencido > 0 && (
+                              <p className="text-xs text-destructive font-bold">{diasVencido}d atraso</p>
+                            )}
+                            {cond.progresso > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">{cond.progresso}%</p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Em Andamento */}
+          {condicionantesEmAndamento.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" /> Em Andamento
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {condicionantesEmAndamento.map((cond) => (
+                  <Card
+                    key={cond.id}
+                    className="border-l-4 border-l-yellow-500 bg-yellow-50/60 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => cond.empreendimentoId && navigate(`/empreendimentos/${cond.empreendimentoId}`)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {cond.codigo && (
+                              <span className="text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded px-1.5 py-0.5">
+                                {cond.codigo}
+                              </span>
+                            )}
+                            {cond.categoria && (
+                              <span className="text-xs text-muted-foreground">{cond.categoria}</span>
+                            )}
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {cond.titulo || cond.descricao.substring(0, 60)}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            📋 {cond.licencaNumero} · 📍 {cond.empreendimentoNome}
+                          </p>
+                          {cond.responsavelNome && (
+                            <p className="text-xs text-muted-foreground">👤 {cond.responsavelNome}</p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                            {cond.prazo.split('-').reverse().join('/')}
+                          </p>
+                          {cond.progresso > 0 && (
+                            <div className="mt-1">
+                              <div className="w-16 h-1.5 bg-yellow-200 dark:bg-yellow-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-yellow-500 rounded-full"
+                                  style={{ width: `${cond.progresso}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">{cond.progresso}%</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
