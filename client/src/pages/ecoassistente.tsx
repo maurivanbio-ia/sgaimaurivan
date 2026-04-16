@@ -135,7 +135,7 @@ export default function EcoAssistente() {
         documents: data.documents || [],
       }]);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message || "Erro ao processar pergunta", variant: "destructive" });
     },
   });

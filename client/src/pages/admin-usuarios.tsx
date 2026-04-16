@@ -54,7 +54,7 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
     onSuccess: () => {
       onUnlock();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setErro(error.message || "Senha incorreta");
       setSenha("");
     },
@@ -148,7 +148,7 @@ function AdminUsuariosContent() {
       qc.invalidateQueries({ queryKey: ["/api/users"] });
       setConfirmDelete(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       setConfirmDelete(null);
     },
@@ -168,7 +168,7 @@ function AdminUsuariosContent() {
       qc.invalidateQueries({ queryKey: ["/api/users"] });
       setTesteResult(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
@@ -192,7 +192,7 @@ function AdminUsuariosContent() {
         toast({ title: "Falha no envio", description: errMsg, variant: "destructive" });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setTesteResult({ ok: false, msg: error.message });
       toast({ title: "Erro de conexão", description: error.message, variant: "destructive" });
     },

@@ -296,8 +296,8 @@ export default function ProcessosMonitorados() {
 
   const consultMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/processos-monitorados/${id}/consultar`),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/processos-monitorados"] });
+    onSuccess: (data: { resultado?: { sucesso?: boolean; statusAtual?: string; erro?: string } }) => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/processos-monitorados"] });
       setConsultingId(null);
       if (data?.resultado?.sucesso) {
         toast({ 

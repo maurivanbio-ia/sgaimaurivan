@@ -42,7 +42,7 @@ export default function RelatoriosAutomaticosPage() {
       toast({ title: "Emails atualizados", description: "Lista de emails do Relatório 360° atualizada" });
       queryClient.invalidateQueries({ queryKey: ["/api/relatorios-automaticos/config"] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
@@ -55,7 +55,7 @@ export default function RelatoriosAutomaticosPage() {
       toast({ title: "Emails atualizados", description: "Lista de emails do Relatório Financeiro atualizada" });
       queryClient.invalidateQueries({ queryKey: ["/api/relatorios-automaticos/config"] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
@@ -67,7 +67,7 @@ export default function RelatoriosAutomaticosPage() {
     onSuccess: () => {
       toast({ title: "Relatório enviado!", description: "O Relatório 360° foi gerado e enviado por email" });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
     },
   });
@@ -79,7 +79,7 @@ export default function RelatoriosAutomaticosPage() {
     onSuccess: () => {
       toast({ title: "Relatório enviado!", description: "O Relatório Financeiro foi gerado e enviado por email" });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
     },
   });

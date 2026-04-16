@@ -167,7 +167,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       toast({ title: "Documento anexado", description: "O arquivo foi salvo com sucesso." });
       setUploadingDoc(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro no upload", description: error.message, variant: "destructive" });
       setUploadingDoc(false);
     },
@@ -182,7 +182,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       toast({ title: "Documento removido", description: "O arquivo foi excluído com sucesso." });
       setDeletingDocId(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
       setDeletingDocId(null);
     },
@@ -196,7 +196,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "contratos"] });
       toast({ title: "PDF removido", description: "O documento foi removido com sucesso." });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
     },
   });
@@ -223,7 +223,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       toast({ title: "Contrato criado", description: "O contrato foi cadastrado com sucesso." });
       handleCloseDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao criar", description: error.message, variant: "destructive" });
     },
   });
@@ -249,7 +249,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       toast({ title: "Contrato atualizado", description: "O contrato foi atualizado com sucesso." });
       handleCloseDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
     },
   });
@@ -267,7 +267,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
         setExpandedContratoId(null);
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     },
   });
@@ -283,7 +283,7 @@ export function ContratosTab({ empreendimentoId }: ContratosTabProps) {
       setAditivoForm(emptyAditivoForm);
       setActiveContratoForAditivo(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao criar aditivo", description: error.message, variant: "destructive" });
     },
   });

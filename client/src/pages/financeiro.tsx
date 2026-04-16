@@ -301,7 +301,7 @@ export default function FinanceiroPage() {
         description: "O status do lançamento foi alterado com sucesso!",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o status. Tente novamente.",
@@ -329,7 +329,7 @@ export default function FinanceiroPage() {
       setDeleteDialogOpen(false);
       setDeletingLancamentoId(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: "Não foi possível excluir o lançamento. Tente novamente.",
@@ -357,7 +357,7 @@ export default function FinanceiroPage() {
       setEditDialogOpen(false);
       setEditingLancamento(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o lançamento. Tente novamente.",

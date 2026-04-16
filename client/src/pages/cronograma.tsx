@@ -1039,7 +1039,7 @@ export default function CronogramaPage() {
       toast({ title: "Sucesso", description: "Item adicionado ao cronograma!" });
       setDialogOpen(false);
     },
-    onError: (error: any) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -1050,7 +1050,7 @@ export default function CronogramaPage() {
       setDialogOpen(false);
       setEditingItem(null);
     },
-    onError: (error: any) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -1059,7 +1059,7 @@ export default function CronogramaPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/cronograma"] });
       toast({ title: "Sucesso", description: "Item excluído!" });
     },
-    onError: (error: any) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const executeMutation = useMutation({
@@ -1077,7 +1077,7 @@ export default function CronogramaPage() {
       });
       setExecuteModal(null);
     },
-    onError: (error: any) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const handleToggleExecute = (item: CronogramaItem) => {

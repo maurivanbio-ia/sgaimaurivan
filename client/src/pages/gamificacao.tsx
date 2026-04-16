@@ -146,16 +146,16 @@ export default function GamificacaoPage() {
       periodo: periodoAtual,
       unidade: "salvador"
     }),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia/ranking"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/ranking"] });
+    onSuccess: (data: { resultados?: unknown[]; totalPontos?: number }) => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/economia/ranking"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/ranking"] });
       toast({ 
         title: "Economia calculada!", 
         description: `${data.resultados?.length || 0} projetos analisados, ${data.totalPontos || 0} pontos distribuídos` 
       });
     },
-    onError: (e: any) => {
+    onError: (e: Error) => {
       toast({ title: "Erro", description: e?.message, variant: "destructive" });
     }
   });
@@ -163,10 +163,10 @@ export default function GamificacaoPage() {
   const seedMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/gamificacao/seed-conquistas"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/conquistas"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/gamificacao/conquistas"] });
       toast({ title: "Sucesso", description: "Conquistas padrão criadas!" });
     },
-    onError: (e: any) => {
+    onError: (e: Error) => {
       toast({ title: "Erro", description: e?.message, variant: "destructive" });
     }
   });
