@@ -530,6 +530,16 @@ export default function GestaoDados() {
     }
   }, [pastasLoading, pastas.length, autoInitialized]);
 
+  // ── Auto-preenchimento ao selecionar empreendimento ──────────────────────────
+  useEffect(() => {
+    if (!selectedEmpreendimento || !useAdvancedForm) return;
+    const emp = empreendimentos.find(e => e.id.toString() === selectedEmpreendimento);
+    if (!emp) return;
+    if (emp.cliente) setCliente(emp.cliente);
+    if (emp.uf) setUf(emp.uf);
+    if (emp.nome) setProjeto(emp.nome);
+  }, [selectedEmpreendimento, useAdvancedForm]);
+
   // ── Preview código ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (useAdvancedForm && (cliente || projeto || disciplina || tipoDocumento)) generateCodePreview();
