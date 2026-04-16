@@ -56,7 +56,7 @@ export function useNotifications() {
         
         if (data.type === 'notification') {
           setNotifications(prev => [data.notification, ...prev]);
-          refetchUnreadCount();
+          void refetchUnreadCount();
         }
         
         if (data.type === 'pending_notifications') {
@@ -79,9 +79,9 @@ export function useNotifications() {
             rh: ['/api/rh'],
           };
           const routes = entityRoutes[data.entity] || [`/api/${data.entity}`];
-          routes.forEach(r => queryClient.invalidateQueries({ queryKey: [r] }));
+          routes.forEach(r => { void queryClient.invalidateQueries({ queryKey: [r] }); });
           if (data.keys?.length) {
-            data.keys.forEach((k: string) => queryClient.invalidateQueries({ queryKey: [k] }));
+            data.keys.forEach((k: string) => { void queryClient.invalidateQueries({ queryKey: [k] }); });
           }
         }
       } catch (error) {
@@ -133,7 +133,7 @@ export function useNotifications() {
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, lida: true } : n)
       );
-      refetchUnreadCount();
+      void refetchUnreadCount();
       
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'mark_read', notificationId }));
@@ -151,7 +151,7 @@ export function useNotifications() {
       });
       
       setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
-      refetchUnreadCount();
+      void refetchUnreadCount();
       
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'mark_all_read', userId }));
