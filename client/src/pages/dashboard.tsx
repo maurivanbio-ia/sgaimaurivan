@@ -313,7 +313,7 @@ export default function Dashboard() {
                     <div
                       key={`aut-${aut.id}`}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/40 dark:hover:bg-orange-950/10 cursor-pointer transition-colors"
-                      onClick={() => emp && navigate(`/empreendimentos/${emp.id}`)}
+                      onClick={() => aut.fonte === 'gestao_dados' ? navigate('/gestao-dados') : (emp && navigate(`/empreendimentos/${emp.id}`))}
                     >
                       {/* Tipo badge */}
                       <span className="flex-shrink-0 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded px-1.5 py-0.5 uppercase tracking-wide">
