@@ -246,6 +246,8 @@ export default function GestaoDados() {
   const [exigencias, setExigencias] = useState("");
   const [resumoIA, setResumoIA] = useState("");
   const [dataEmissao, setDataEmissao] = useState("");
+  const [licencaVinculadaId, setLicencaVinculadaId] = useState<string>("");
+  const [licencaVinculoTipoUpload, setLicencaVinculoTipoUpload] = useState<string>("");
   const [selectedResponsavel, setSelectedResponsavel] = useState("");
   const [isExtractingIA, setIsExtractingIA] = useState(false);
 
@@ -331,6 +333,30 @@ export default function GestaoDados() {
       if (!res.ok) return [];
       return res.json();
     },
+  });
+
+  // Licenças do empreendimento selecionado (para vincular documentos no upload)
+  const { data: licencasDoEmpreendimento = [] } = useQuery<any[]>({
+    queryKey: ["/api/empreendimentos", selectedEmpreendimento, "licencas"],
+    queryFn: async () => {
+      if (!selectedEmpreendimento || selectedEmpreendimento === "") return [];
+      const res = await fetch(`/api/empreendimentos/${selectedEmpreendimento}/licencas`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedEmpreendimento && selectedEmpreendimento !== "",
+  });
+
+  // Licenças do empreendimento do documento sendo editado
+  const { data: licencasEditando = [] } = useQuery<any[]>({
+    queryKey: ["/api/empreendimentos", editingDataset?.empreendimentoId, "licencas"],
+    queryFn: async () => {
+      if (!editingDataset?.empreendimentoId) return [];
+      const res = await fetch(`/api/empreendimentos/${editingDataset.empreendimentoId}/licencas`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!editingDataset?.empreendimentoId,
   });
 
   const { data: rhRecords = [] } = useQuery<{ id: number; nomeColaborador: string; contatoEmail?: string | null }[]>({
@@ -585,6 +611,8 @@ export default function GestaoDados() {
         descricao, tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
         statusDocumental, documentoRelacionadoId: documentoRelacionadoId || null,
         vinculoTipo, exigencias, resumoIA, dataEmissao: dataEmissao || null,
+        licencaId: licencaVinculadaId ? parseInt(licencaVinculadaId) : null,
+        licencaVinculoTipo: licencaVinculoTipoUpload || null,
       };
       if (useAdvancedForm) {
         uploadAdvancedMutation.mutate({
@@ -649,6 +677,8 @@ export default function GestaoDados() {
       statusDocumental: d.statusDocumental || "recebido", vinculoTipo: d.vinculoTipo || "",
       exigencias: d.exigencias || "", resumoIA: d.resumoIA || "",
       documentoRelacionadoId: d.documentoRelacionadoId || undefined,
+      licencaId: (d as any).licencaId || undefined,
+      licencaVinculoTipo: (d as any).licencaVinculoTipo || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -1225,6 +1255,41 @@ export default function GestaoDados() {
                       </Select>
                     </div>
                   )}
+                  {/* Vínculo com licença */}
+                  <div>
+                    <Label className="text-xs flex items-center gap-1">
+                      <span>🔗</span> Licença Relacionada
+                    </Label>
+                    <Select value={licencaVinculadaId || "__none__"} onValueChange={v => setLicencaVinculadaId(v === "__none__" ? "" : v)}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Vincular a uma licença (opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Nenhuma</SelectItem>
+                        {licencasDoEmpreendimento.map((l: any) => (
+                          <SelectItem key={l.id} value={l.id.toString()}>
+                            {l.numero || l.tipo} {l.orgaoEmissor ? `— ${l.orgaoEmissor}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {licencaVinculadaId && licencaVinculadaId !== "__none__" && (
+                    <div>
+                      <Label className="text-xs">Tipo de Relação com a Licença</Label>
+                      <Select value={licencaVinculoTipoUpload} onValueChange={setLicencaVinculoTipoUpload}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="requerimento">📋 Requerimento</SelectItem>
+                          <SelectItem value="protocolo">📮 Protocolo</SelectItem>
+                          <SelectItem value="notificacao">📬 Notificação</SelectItem>
+                          <SelectItem value="resposta">📩 Resposta/Ofício</SelectItem>
+                          <SelectItem value="renovacao">🔄 Pedido de Renovação</SelectItem>
+                          <SelectItem value="complementacao">➕ Complementação</SelectItem>
+                          <SelectItem value="recurso">⚖️ Recurso</SelectItem>
+                          <SelectItem value="outro">📄 Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label className="text-xs">Exigências Identificadas</Label>
@@ -1410,6 +1475,52 @@ export default function GestaoDados() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+                {/* Vínculo com Licença */}
+                <div className="border rounded-lg p-3 space-y-3 bg-green-50/30 border-green-200">
+                  <h4 className="text-sm font-semibold text-green-800 flex items-center gap-1">
+                    🔗 Vínculo com Licença
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Licença Relacionada</Label>
+                      <Select
+                        value={(editFields as any).licencaId ? String((editFields as any).licencaId) : "__none__"}
+                        onValueChange={v => setEditFields(p => ({ ...p, licencaId: v === "__none__" ? undefined : parseInt(v) }))}
+                      >
+                        <SelectTrigger className="h-8"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhuma</SelectItem>
+                          {licencasEditando.map((l: any) => (
+                            <SelectItem key={l.id} value={String(l.id)}>
+                              {l.numero || l.tipo} {l.orgaoEmissor ? `— ${l.orgaoEmissor}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {(editFields as any).licencaId && (
+                      <div>
+                        <Label className="text-xs">Tipo de Relação com a Licença</Label>
+                        <Select
+                          value={(editFields as any).licencaVinculoTipo || ""}
+                          onValueChange={v => setEditFields(p => ({ ...p, licencaVinculoTipo: v }))}
+                        >
+                          <SelectTrigger className="h-8"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="requerimento">📋 Requerimento</SelectItem>
+                            <SelectItem value="protocolo">📮 Protocolo</SelectItem>
+                            <SelectItem value="notificacao">📬 Notificação</SelectItem>
+                            <SelectItem value="resposta">📩 Resposta/Ofício</SelectItem>
+                            <SelectItem value="renovacao">🔄 Pedido de Renovação</SelectItem>
+                            <SelectItem value="complementacao">➕ Complementação</SelectItem>
+                            <SelectItem value="recurso">⚖️ Recurso</SelectItem>
+                            <SelectItem value="outro">📄 Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div><Label className="text-xs">Exigências</Label><Textarea value={editFields.exigencias || ""} onChange={e => setEditFields(p => ({ ...p, exigencias: e.target.value }))} rows={2} className="text-xs" /></div>
@@ -1812,13 +1923,30 @@ export default function GestaoDados() {
                       <code className="text-xs bg-muted px-2 py-1 rounded block break-all">{detailDataset.codigoArquivo}</code>
                     </div>
                   )}
-                  {/* Vínculo */}
+                  {/* Vínculo entre documentos */}
                   {detailDataset.vinculoTipo && detailDataset.documentoRelacionadoId && (
                     <div className="col-span-2 flex items-center gap-2">
                       <Link2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Vínculo</p>
+                        <p className="text-xs text-muted-foreground">Vínculo entre documentos</p>
                         <p className="text-sm">{VINCULOS_TIPOS.find(v => v.value === detailDataset.vinculoTipo)?.label || detailDataset.vinculoTipo} — doc #{detailDataset.documentoRelacionadoId}</p>
+                      </div>
+                    </div>
+                  )}
+                  {/* Vínculo com licença */}
+                  {(detailDataset as any).licencaId && (
+                    <div className="col-span-2 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-2">
+                      <span className="text-lg">🔗</span>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Licença Vinculada</p>
+                        <p className="text-sm font-medium text-green-800">
+                          Licença #{(detailDataset as any).licencaId}
+                          {(detailDataset as any).licencaVinculoTipo && (
+                            <span className="ml-2 text-xs font-normal text-green-600">
+                              ({(detailDataset as any).licencaVinculoTipo})
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -1956,6 +2084,11 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
                 <TableCell className="max-w-[200px]">
                   <div className="truncate font-mono text-xs" title={d.codigoArquivo || d.nome}>{d.codigoArquivo || d.nome}</div>
                   {d.titulo && <div className="text-xs text-muted-foreground truncate">{d.titulo}</div>}
+                  {(d as any).licencaId && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1 mt-0.5">
+                      🔗 Lic. #{(d as any).licencaId}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {tipoDoc ? <span className="text-xs">{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-xs text-muted-foreground">—</span>}
@@ -2082,6 +2215,11 @@ function DocumentosGrouped({ datasets, empreendimentos = [], onPreview, onHistor
                             )}
                             {d.numeroDocumento && (
                               <div className="text-[10px] text-muted-foreground">Nº {d.numeroDocumento}</div>
+                            )}
+                            {(d as any).licencaId && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1 mt-0.5">
+                                🔗 Lic. #{(d as any).licencaId}
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="text-xs">{tipoDoc ? <span>{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
