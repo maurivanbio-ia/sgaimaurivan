@@ -86,7 +86,7 @@ import {
   insertWhatsappDemandaConfigSchema,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL, inArray } from "drizzle-orm";
+import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -1290,6 +1290,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const defaultDemandasStats = { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
       const defaultContratosStats = { total: 0, ativos: 0, valorTotal: 0 };
 
+      // Query autorizações vencidas inline
+      const getAutorizacoesVencidas = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const conditions: SQL[] = [ne(autorizacoes.status, 'cancelada')];
+        if (unidade) conditions.push(eq(autorizacoes.unidade, unidade));
+        if (empreendimentoId) conditions.push(eq(autorizacoes.empreendimentoId, empreendimentoId));
+        
+        const all = await db.select({
+          id: autorizacoes.id,
+          numero: autorizacoes.numero,
+          titulo: autorizacoes.titulo,
+          tipo: autorizacoes.tipo,
+          orgaoEmissor: autorizacoes.orgaoEmissor,
+          dataValidade: autorizacoes.dataValidade,
+          status: autorizacoes.status,
+          empreendimentoId: autorizacoes.empreendimentoId,
+        }).from(autorizacoes).where(and(...conditions));
+
+        const vencidas = all.filter(a =>
+          a.status === 'vencida' || (a.dataValidade && a.dataValidade < today)
+        );
+        return vencidas;
+      };
+
       const [
         licenseStats,
         condicionanteStats,
@@ -1300,7 +1324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         equipamentosStats,
         rhStats,
         demandasStats,
-        contratosStats
+        contratosStats,
+        autorizacoesVencidas
       ] = await Promise.all([
         storage.getLicenseStats(unidade, empreendimentoId).catch(() => defaultLicenseStats),
         storage.getCondicionanteStats(unidade, empreendimentoId).catch(() => defaultCondStats),
@@ -1311,7 +1336,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getEquipamentosStats(unidade, empreendimentoId).catch(() => defaultEquipStats),
         storage.getRhStats(unidade, empreendimentoId).catch(() => defaultRhStats),
         storage.getDemandasStats(unidade, empreendimentoId).catch(() => defaultDemandasStats),
-        storage.getContratosStats(unidade, empreendimentoId).catch(() => defaultContratosStats)
+        storage.getContratosStats(unidade, empreendimentoId).catch(() => defaultContratosStats),
+        getAutorizacoesVencidas().catch(() => [])
       ]);
 
       res.json({
@@ -1324,7 +1350,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         equipamentos: equipamentosStats || defaultEquipStats,
         rh: rhStats || defaultRhStats,
         demandas: demandasStats || defaultDemandasStats,
-        contratos: contratosStats || defaultContratosStats
+        contratos: contratosStats || defaultContratosStats,
+        autorizacoesVencidas: autorizacoesVencidas || []
       });
     } catch (error) {
       console.error("Get dashboard stats error:", error);
