@@ -1293,8 +1293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Query condicionantes vencidas e em_andamento com contexto
       const getCondicionantesAlerta = async () => {
         const emps = unidade && unidade.trim() !== ''
-          ? await db.select({ id: empreendimentos.id, nome: empreendimentos.nome }).from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
-          : await db.select({ id: empreendimentos.id, nome: empreendimentos.nome }).from(empreendimentos);
+          ? await db.select({ id: empreendimentos.id, nome: empreendimentos.nome, cliente: empreendimentos.cliente }).from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+          : await db.select({ id: empreendimentos.id, nome: empreendimentos.nome, cliente: empreendimentos.cliente }).from(empreendimentos);
         
         const empIds = emps.map(e => e.id);
         if (empIds.length === 0) return [];
@@ -1316,6 +1316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           prazo: condicionantes.prazo,
           progresso: condicionantes.progresso,
           responsavelNome: condicionantes.responsavelNome,
+          responsavelId: condicionantes.responsavelId,
           licencaId: condicionantes.licencaId,
         }).from(condicionantes).where(sql`${condicionantes.licencaId} IN (${sql.join(licencaIds.map(id => sql`${id}`), sql`, `)})`);
 
@@ -1324,11 +1325,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .map(c => {
             const lic = licencasData.find(l => l.id === c.licencaId);
             const emp = lic ? emps.find(e => e.id === lic.empreendimentoId) : null;
+            const empCliente = emp?.cliente || '';
+            // Determinar tipo: se responsavelNome bate com o cliente do empreendimento → empreendedor, senão → ecobrasil
+            const tipoResponsavel: 'empreendedor' | 'ecobrasil' | 'sem_responsavel' =
+              !c.responsavelNome ? 'sem_responsavel'
+              : c.responsavelNome === empCliente ? 'empreendedor'
+              : 'ecobrasil';
             return {
               ...c,
               licencaNumero: lic?.numero || '',
               empreendimentoNome: emp?.nome || '',
               empreendimentoId: lic?.empreendimentoId || null,
+              empCliente,
+              tipoResponsavel,
             };
           });
       };
