@@ -1218,6 +1218,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/licencas/:licencaId/documentos — datasets da Gestão de Dados vinculados à licença
+  app.get("/api/licencas/:licencaId/documentos", requireAuth, async (req, res) => {
+    try {
+      const licencaId = parseInt(req.params.licencaId);
+      const docs = await db
+        .select()
+        .from(datasets)
+        .where(eq(datasets.licencaId, licencaId))
+        .orderBy(desc(datasets.criadoEm));
+      res.json(docs);
+    } catch (error) {
+      console.error("Get documentos by licenca error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/licencas/:licencaId/entregas", requireAuth, async (req, res) => {
     try {
       const licencaId = parseInt(req.params.licencaId);
@@ -4004,7 +4020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nome, descricao, status, classificacao, versao,
         tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
         statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA,
-        responsavel, titulo
+        responsavel, titulo, licencaId, licencaVinculoTipo
       } = req.body;
       const updateData: Record<string, any> = {};
       if (nome !== undefined) updateData.nome = nome;
@@ -4024,6 +4040,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (responsavel !== undefined) updateData.responsavel = responsavel;
       if (titulo !== undefined) updateData.titulo = titulo;
       if (req.body.dataEmissao !== undefined) updateData.dataEmissao = req.body.dataEmissao || null;
+      if (licencaId !== undefined) updateData.licencaId = licencaId || null;
+      if (licencaVinculoTipo !== undefined) updateData.licencaVinculoTipo = licencaVinculoTipo || null;
 
       const updated = await db.update(datasets).set(updateData).where(eq(datasets.id, id)).returning();
       if (updated.length === 0) {
@@ -5503,6 +5521,7 @@ REGRAS FINAIS:
       const {
         tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
         statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA, dataEmissao,
+        licencaId: licencaIdAvancado, licencaVinculoTipo: licencaVinculoTipoAvancado,
       } = req.body;
 
       // Criar dataset
@@ -5542,6 +5561,8 @@ REGRAS FINAIS:
         exigencias: exigencias || null,
         resumoIA: resumoIA || null,
         dataEmissao: dataEmissao || null,
+        licencaId: licencaIdAvancado ? parseInt(licencaIdAvancado) : null,
+        licencaVinculoTipo: licencaVinculoTipoAvancado || null,
       }).returning();
       
       // Criar registro de versão
