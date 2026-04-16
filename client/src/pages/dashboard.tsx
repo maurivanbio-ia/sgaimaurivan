@@ -26,6 +26,7 @@ interface AutorizacaoVencida {
   dataValidade?: string | null;
   status: string;
   empreendimentoId?: number | null;
+  fonte?: 'autorizacao' | 'gestao_dados';
 }
 
 interface CondicionanteAlerta {
@@ -296,19 +297,25 @@ export default function Dashboard() {
               const diasVencido = aut.dataValidade
                 ? Math.floor((new Date(hoje).getTime() - new Date(aut.dataValidade).getTime()) / 86400000)
                 : null;
+              const isGestao = aut.fonte === 'gestao_dados';
               return (
                 <Card
-                  key={aut.id}
+                  key={`${aut.fonte || 'aut'}-${aut.id}`}
                   className="border-l-4 border-l-orange-500 bg-orange-50/60 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => emp && navigate(`/empreendimentos/${emp.id}`)}
+                  onClick={() => isGestao ? navigate('/gestao-dados') : (emp && navigate(`/empreendimentos/${emp.id}`))}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded px-1.5 py-0.5">
-                            {aut.tipo}
+                            {aut.tipo || 'documento'}
                           </span>
+                          {isGestao && (
+                            <span className="text-[10px] font-medium bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
+                              Gestão de Dados
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground font-mono truncate">{aut.numero}</span>
                         </div>
                         <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{aut.titulo}</p>
