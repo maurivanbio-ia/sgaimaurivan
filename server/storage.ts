@@ -191,7 +191,7 @@ export interface IStorage {
   deleteEntrega(id: number): Promise<void>;
 
   // Enhanced Stats - MULTI-TENANCY: unidade obrigatória
-  getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; proxVencer?: number }>;
+  getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; emRenovacao: number; proxVencer?: number }>;
   getCondicionanteStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }>;
   getEntregaStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; entregues: number; atrasadas: number }>;
   getEntregasDoMes(): Promise<Entrega[]>;
@@ -1000,7 +1000,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enhanced Stats - MULTI-TENANCY
-  async getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; proxVencer?: number }> {
+  async getLicenseStats(unidade: string, empreendimentoId?: number): Promise<{ active: number; expiring: number; expired: number; emRenovacao: number; proxVencer?: number }> {
     // Se temos um empreendimentoId específico, usar direto
     if (empreendimentoId) {
       const licencas = await this.getLicencasByEmpreendimento(empreendimentoId);
@@ -1021,25 +1021,33 @@ export class DatabaseStorage implements IStorage {
     // Busca licenças dos empreendimentos
     const licencas = await db.select().from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
     
-    const now = new Date();
-    const ninetyDaysFromNow = new Date();
-    ninetyDaysFromNow.setDate(now.getDate() + 90);
-    const sixtyDaysFromNow = new Date();
-    sixtyDaysFromNow.setDate(now.getDate() + 60);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const today = new Date(todayStr + "T00:00:00");
+    const threshold130 = new Date(today);
+    threshold130.setDate(today.getDate() + 130);
+    const threshold60 = new Date(today);
+    threshold60.setDate(today.getDate() + 60);
 
     let active = 0;
     let expiring = 0;
     let expired = 0;
+    let emRenovacao = 0;
     let proxVencer = 0;
 
-    licencas.forEach(licenca => {
-      const validadeDate = new Date(licenca.validade);
-      
-      if (validadeDate < now) {
+    licencas.forEach((licenca: any) => {
+      // Licenças em renovação são contadas à parte (status armazenado no banco)
+      if (licenca.status === 'em_renovacao') {
+        emRenovacao++;
+      }
+      const validadeStr = String(licenca.validade || '').slice(0, 10);
+      if (!validadeStr) return;
+      const validadeDate = new Date(validadeStr + "T00:00:00");
+
+      if (validadeDate < today) {
         expired++;
-      } else if (validadeDate <= ninetyDaysFromNow) {
+      } else if (validadeDate <= threshold130) {
         expiring++;
-        if (validadeDate <= sixtyDaysFromNow) {
+        if (validadeDate <= threshold60) {
           proxVencer++;
         }
       } else {
@@ -1047,28 +1055,35 @@ export class DatabaseStorage implements IStorage {
       }
     });
 
-    return { active, expiring, expired, proxVencer };
+    return { active, expiring, expired, emRenovacao, proxVencer };
   }
-  
-  private calcularLicenseStats(licencas: any[]): { active: number; expiring: number; expired: number; proxVencer: number } {
-    const now = new Date();
-    const ninetyDaysFromNow = new Date();
-    ninetyDaysFromNow.setDate(now.getDate() + 90);
-    const sixtyDaysFromNow = new Date();
-    sixtyDaysFromNow.setDate(now.getDate() + 60);
+
+  private calcularLicenseStats(licencas: any[]): { active: number; expiring: number; expired: number; emRenovacao: number; proxVencer: number } {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const today = new Date(todayStr + "T00:00:00");
+    const threshold130 = new Date(today);
+    threshold130.setDate(today.getDate() + 130);
+    const threshold60 = new Date(today);
+    threshold60.setDate(today.getDate() + 60);
 
     let active = 0;
     let expiring = 0;
     let expired = 0;
+    let emRenovacao = 0;
     let proxVencer = 0;
 
-    licencas.forEach(licenca => {
-      const validadeDate = new Date(licenca.validade);
-      if (validadeDate < now) {
+    licencas.forEach((licenca: any) => {
+      if (licenca.status === 'em_renovacao') {
+        emRenovacao++;
+      }
+      const validadeStr = String(licenca.validade || '').slice(0, 10);
+      if (!validadeStr) return;
+      const validadeDate = new Date(validadeStr + "T00:00:00");
+      if (validadeDate < today) {
         expired++;
-      } else if (validadeDate <= ninetyDaysFromNow) {
+      } else if (validadeDate <= threshold130) {
         expiring++;
-        if (validadeDate <= sixtyDaysFromNow) {
+        if (validadeDate <= threshold60) {
           proxVencer++;
         }
       } else {
@@ -1076,7 +1091,7 @@ export class DatabaseStorage implements IStorage {
       }
     });
 
-    return { active, expiring, expired, proxVencer };
+    return { active, expiring, expired, emRenovacao, proxVencer };
   }
 
   async getCondicionanteStats(unidade: string, empreendimentoId?: number): Promise<{ pendentes: number; cumpridas: number; vencidas: number }> {
@@ -1377,12 +1392,12 @@ export class DatabaseStorage implements IStorage {
     const validadeStr = validade.slice(0, 10);
     const validadeDate = new Date(validadeStr + "T00:00:00");
     const today = new Date(todayStr + "T00:00:00");
-    const ninetyDaysFromNow = new Date(today);
-    ninetyDaysFromNow.setDate(today.getDate() + 90);
+    const threshold = new Date(today);
+    threshold.setDate(today.getDate() + 130);
 
     if (validadeDate < today) {
       return "vencida";
-    } else if (validadeDate <= ninetyDaysFromNow) {
+    } else if (validadeDate <= threshold) {
       return "a_vencer";
     } else {
       return "ativa";
