@@ -17,6 +17,17 @@ import MapComponent from "@/components/MapComponent";
 import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter, Map, CalendarDays } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 
+interface AutorizacaoVencida {
+  id: number;
+  numero: string;
+  titulo: string;
+  tipo: string;
+  orgaoEmissor?: string | null;
+  dataValidade?: string | null;
+  status: string;
+  empreendimentoId?: number | null;
+}
+
 interface DashboardStats {
   licenses: { active: number; expiring: number; expired: number };
   condicionantes: { pendentes: number; cumpridas: number; vencidas: number };
@@ -29,6 +40,7 @@ interface DashboardStats {
   rh?: { total: number; ativos: number; afastados: number };
   demandas?: { total: number; pendentes: number; emAndamento: number; concluidas: number };
   contratos?: { total: number; ativos: number; valorTotal: number };
+  autorizacoesVencidas?: AutorizacaoVencida[];
 }
 
 const STATUS_OPTIONS = [
@@ -88,6 +100,7 @@ export default function Dashboard() {
   const rh = dashboardStats?.rh || { total: 0, ativos: 0, afastados: 0 };
   const demandas = dashboardStats?.demandas || { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
   const contratos = dashboardStats?.contratos || { total: 0, ativos: 0, valorTotal: 0 };
+  const autorizacoesVencidas = dashboardStats?.autorizacoesVencidas || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -120,7 +133,7 @@ export default function Dashboard() {
       </div>
 
       {/* Enhanced KPI Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         {/* Licenças */}
         <Card className="shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 border-white/40 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas/ativas")}>
           <CardContent className="p-4">
@@ -203,7 +216,99 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Autorizações Vencidas */}
+        <Card
+          className={`shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all ${
+            autorizacoesVencidas.length > 0
+              ? "border-orange-300 dark:border-orange-700 ring-1 ring-orange-300 dark:ring-orange-700"
+              : "border-white/40"
+          }`}
+          onClick={() => {
+            const el = document.getElementById("secao-autorizacoes-vencidas");
+            el?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-orange-500/10 rounded-md">
+                <AlertTriangle className="text-orange-500 h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">Autorizações Vencidas</p>
+                <p className="text-xl font-bold text-orange-500" data-testid="stat-autorizacoes-vencidas">
+                  {autorizacoesVencidas.length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Autorizações Vencidas — Seção de Detalhe */}
+      {autorizacoesVencidas.length > 0 && (
+        <div className="mb-6" id="secao-autorizacoes-vencidas">
+          <h3 className="text-lg font-semibold text-card-foreground mb-4 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-orange-500" />
+            Autorizações com Documentos Vencidos
+            <span className="ml-1 text-xs font-normal bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-full px-2 py-0.5">
+              {autorizacoesVencidas.length} {autorizacoesVencidas.length === 1 ? "item" : "itens"}
+            </span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {autorizacoesVencidas.map((aut) => {
+              const emp = empreendimentos?.find(e => e.id === aut.empreendimentoId);
+              const hoje = new Date().toISOString().split('T')[0];
+              const diasVencido = aut.dataValidade
+                ? Math.floor((new Date(hoje).getTime() - new Date(aut.dataValidade).getTime()) / 86400000)
+                : null;
+              return (
+                <Card
+                  key={aut.id}
+                  className="border-l-4 border-l-orange-500 bg-orange-50/60 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => emp && navigate(`/empreendimentos/${emp.id}`)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded px-1.5 py-0.5">
+                            {aut.tipo}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-mono truncate">{aut.numero}</span>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{aut.titulo}</p>
+                        {emp && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">📍 {emp.nome}</p>
+                        )}
+                        {aut.orgaoEmissor && (
+                          <p className="text-xs text-muted-foreground truncate">🏛 {aut.orgaoEmissor}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        {aut.dataValidade ? (
+                          <>
+                            <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                              {aut.dataValidade.split('-').reverse().join('/')}
+                            </p>
+                            {diasVencido !== null && diasVencido > 0 && (
+                              <p className="text-xs text-destructive font-semibold">
+                                {diasVencido}d vencida
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Sem validade</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Recursos e Gestão - Nova Seção */}
       <div className="mb-6">
