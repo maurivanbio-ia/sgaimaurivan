@@ -20,7 +20,6 @@ export default function ExpiryChart() {
   useEffect(() => {
     if (!chartRef.current || isLoading || !monthlyData) return;
 
-    // Destroy existing chart
     if (chartInstance.current) {
       chartInstance.current.destroy();
     }
@@ -28,10 +27,19 @@ export default function ExpiryChart() {
     const ctx = chartRef.current.getContext("2d");
     if (!ctx) return;
 
-    // Extract data from API response - limit to first 6 months for better visualization
-    const limitedData = monthlyData.slice(0, 6);
-    const months = limitedData.map(item => item.month);
-    const counts = limitedData.map(item => item.count);
+    const months = monthlyData.map(item => item.month);
+    const counts = monthlyData.map(item => item.count);
+
+    // Índice do mês atual (3º item, pois a janela começa 3 meses atrás)
+    const currentMonthIdx = 3;
+
+    const bgColors = counts.map((_, idx) =>
+      idx === currentMonthIdx
+        ? "hsl(205, 85%, 31%)"         // mês atual: azul escuro
+        : idx < currentMonthIdx
+          ? "hsl(205, 50%, 65%)"       // meses passados: azul claro
+          : "hsl(205, 85%, 45%)"       // meses futuros: azul médio
+    );
 
     chartInstance.current = new Chart(ctx, {
       type: "bar",
@@ -41,7 +49,7 @@ export default function ExpiryChart() {
           {
             label: "Vencimentos",
             data: counts,
-            backgroundColor: "hsl(205, 85%, 31%)",
+            backgroundColor: bgColors,
             hoverBackgroundColor: "hsl(205, 85%, 25%)",
             borderRadius: 4,
           },
@@ -57,6 +65,11 @@ export default function ExpiryChart() {
               stepSize: 1,
             },
           },
+          x: {
+            ticks: {
+              font: { size: 10 },
+            },
+          },
         },
         plugins: {
           legend: {
@@ -64,9 +77,6 @@ export default function ExpiryChart() {
           },
           tooltip: {
             callbacks: {
-              title: function(context: any) {
-                return `${context[0].label} de 2024`;
-              },
               label: function(context: any) {
                 const value = context.parsed.y || 0;
                 return `${value} ${value === 1 ? 'vencimento' : 'vencimentos'}`;
@@ -88,6 +98,15 @@ export default function ExpiryChart() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-sm text-muted-foreground">Carregando dados...</div>
+      </div>
+    );
+  }
+
+  if (!monthlyData || monthlyData.every(d => d.count === 0)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-1">
+        <div className="text-sm text-muted-foreground">Nenhum vencimento encontrado</div>
+        <div className="text-xs text-muted-foreground opacity-60">nos últimos 3 e próximos 8 meses</div>
       </div>
     );
   }
