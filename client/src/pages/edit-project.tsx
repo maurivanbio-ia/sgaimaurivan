@@ -13,9 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash, Camera, Building2, ZoomIn, ZoomOut } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Hash, Camera, Building2, ZoomIn, ZoomOut, Plus, Trash2, Pencil, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Empreendimento } from "@shared/schema";
+import type { Empreendimento, EmpreendimentoResponsavel } from "@shared/schema";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 interface Colaborador {
@@ -65,9 +65,19 @@ const projectSchema = z.object({
   coordenadorId: z.number().nullable().optional(),
   tipo: z.string().default("outro"),
   status: z.string().default("ativo"),
+  gestorNome: z.string().optional(),
+  gestorEmail: z.string().email("E-mail inválido").optional().or(z.literal("")),
+  gestorTelefone: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
+
+interface ResponsavelForm {
+  nome: string;
+  email: string;
+  whatsapp: string;
+  responsabilidade: string;
+}
 
 export default function EditProject() {
   const { id } = useParams();
@@ -80,6 +90,12 @@ export default function EditProject() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoZoom, setLogoZoom] = useState(1);
+
+  // Outros Responsáveis state
+  const [newResp, setNewResp] = useState<ResponsavelForm>({ nome: "", email: "", whatsapp: "", responsabilidade: "" });
+  const [editingResp, setEditingResp] = useState<EmpreendimentoResponsavel | null>(null);
+  const [editRespForm, setEditRespForm] = useState<ResponsavelForm>({ nome: "", email: "", whatsapp: "", responsabilidade: "" });
+  const [addingResp, setAddingResp] = useState(false);
 
   const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
     queryKey: ['/api/colaboradores'],
@@ -99,6 +115,55 @@ export default function EditProject() {
     },
   });
 
+  // Query responsáveis
+  const { data: responsaveis = [], isLoading: isLoadingResps } = useQuery<EmpreendimentoResponsavel[]>({
+    queryKey: ["/api/empreendimentos", id, "responsaveis"],
+    queryFn: async () => {
+      const response = await fetch(`/api/empreendimentos/${id}/responsaveis`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    },
+    enabled: !!id,
+  });
+
+  const addResponsavel = useMutation({
+    mutationFn: async (data: ResponsavelForm) => {
+      const res = await apiRequest("POST", `/api/empreendimentos/${id}/responsaveis`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", id, "responsaveis"] });
+      setNewResp({ nome: "", email: "", whatsapp: "", responsabilidade: "" });
+      setAddingResp(false);
+      toast({ title: "Responsável adicionado!" });
+    },
+    onError: () => toast({ title: "Erro ao adicionar responsável", variant: "destructive" }),
+  });
+
+  const updateResponsavel = useMutation({
+    mutationFn: async ({ rid, data }: { rid: number; data: ResponsavelForm }) => {
+      const res = await apiRequest("PUT", `/api/empreendimentos/${id}/responsaveis/${rid}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", id, "responsaveis"] });
+      setEditingResp(null);
+      toast({ title: "Responsável atualizado!" });
+    },
+    onError: () => toast({ title: "Erro ao atualizar responsável", variant: "destructive" }),
+  });
+
+  const deleteResponsavel = useMutation({
+    mutationFn: async (rid: number) => {
+      await apiRequest("DELETE", `/api/empreendimentos/${id}/responsaveis/${rid}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", id, "responsaveis"] });
+      toast({ title: "Responsável removido!" });
+    },
+    onError: () => toast({ title: "Erro ao remover responsável", variant: "destructive" }),
+  });
+
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -111,6 +176,9 @@ export default function EditProject() {
       responsavelInterno: "",
       tipo: "outro",
       status: "ativo",
+      gestorNome: "",
+      gestorEmail: "",
+      gestorTelefone: "",
     },
   });
 
@@ -128,6 +196,9 @@ export default function EditProject() {
         coordenadorId: project.coordenadorId || null,
         tipo: project.tipo || "outro",
         status: project.status || "ativo",
+        gestorNome: (project as any).gestorNome || "",
+        gestorEmail: (project as any).gestorEmail || "",
+        gestorTelefone: (project as any).gestorTelefone || "",
       });
       setLogoUrl((project as any).logoUrl || null);
     }
@@ -586,6 +657,118 @@ export default function EditProject() {
                   </FormItem>
                 )}
               />
+
+              {/* Gestor Responsável pelo Contrato */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  Gestor Responsável pelo Contrato
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <FormField control={form.control} name="gestorNome" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
+                      <FormControl><Input placeholder="Nome do gestor" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="gestorEmail" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>E-mail</FormLabel>
+                      <FormControl><Input type="email" placeholder="email@empresa.com" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="gestorTelefone" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl><Input placeholder="(00) 00000-0000" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
+
+              {/* Outros Responsáveis */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Outros Responsáveis
+                  </h3>
+                  {!addingResp && (
+                    <Button type="button" size="sm" variant="outline" onClick={() => setAddingResp(true)}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                    </Button>
+                  )}
+                </div>
+
+                {/* Existing responsáveis */}
+                {isLoadingResps ? (
+                  <p className="text-xs text-muted-foreground">Carregando...</p>
+                ) : responsaveis.length === 0 && !addingResp ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum responsável adicionado.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {responsaveis.map(r => (
+                      <div key={r.id} className="rounded-md border bg-background p-3">
+                        {editingResp?.id === r.id ? (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input placeholder="Nome*" value={editRespForm.nome} onChange={e => setEditRespForm(f => ({ ...f, nome: e.target.value }))} />
+                              <Input placeholder="Responsabilidade*" value={editRespForm.responsabilidade} onChange={e => setEditRespForm(f => ({ ...f, responsabilidade: e.target.value }))} />
+                              <Input type="email" placeholder="E-mail" value={editRespForm.email} onChange={e => setEditRespForm(f => ({ ...f, email: e.target.value }))} />
+                              <Input placeholder="WhatsApp" value={editRespForm.whatsapp} onChange={e => setEditRespForm(f => ({ ...f, whatsapp: e.target.value }))} />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button type="button" size="sm" onClick={() => updateResponsavel.mutate({ rid: r.id, data: editRespForm })} disabled={!editRespForm.nome || !editRespForm.responsabilidade || updateResponsavel.isPending}>
+                                <Save className="h-3.5 w-3.5 mr-1" /> Salvar
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => setEditingResp(null)}>Cancelar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">{r.nome} <span className="text-xs text-muted-foreground font-normal">— {r.responsabilidade}</span></p>
+                              <div className="flex flex-wrap gap-3 mt-0.5">
+                                {r.email && <span className="text-xs text-muted-foreground">✉️ {r.email}</span>}
+                                {r.whatsapp && <span className="text-xs text-muted-foreground">📱 {r.whatsapp}</span>}
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingResp(r); setEditRespForm({ nome: r.nome, email: r.email || "", whatsapp: r.whatsapp || "", responsabilidade: r.responsabilidade }); }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteResponsavel.mutate(r.id)} disabled={deleteResponsavel.isPending}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new responsável */}
+                {addingResp && (
+                  <div className="rounded-md border bg-background p-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input placeholder="Nome*" value={newResp.nome} onChange={e => setNewResp(f => ({ ...f, nome: e.target.value }))} />
+                      <Input placeholder="Responsabilidade*" value={newResp.responsabilidade} onChange={e => setNewResp(f => ({ ...f, responsabilidade: e.target.value }))} />
+                      <Input type="email" placeholder="E-mail" value={newResp.email} onChange={e => setNewResp(f => ({ ...f, email: e.target.value }))} />
+                      <Input placeholder="WhatsApp" value={newResp.whatsapp} onChange={e => setNewResp(f => ({ ...f, whatsapp: e.target.value }))} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" onClick={() => addResponsavel.mutate(newResp)} disabled={!newResp.nome || !newResp.responsabilidade || addResponsavel.isPending}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setAddingResp(false); setNewResp({ nome: "", email: "", whatsapp: "", responsabilidade: "" }); }}>Cancelar</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-between">
                 <Button 

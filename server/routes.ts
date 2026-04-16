@@ -4,7 +4,9 @@ import NodeCache from "node-cache";
 import { storage } from "./storage";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { 
-  insertEmpreendimentoSchema, 
+  insertEmpreendimentoSchema,
+  insertEmpreendimentoResponsavelSchema,
+  empreendimentoResponsaveis,
   insertLicencaAmbientalSchema,
   insertCondicionanteSchema,
   insertCondicionanteEvidenciaSchema,
@@ -86,7 +88,7 @@ import {
   insertWhatsappDemandaConfigSchema,
 } from "@shared/schema";
 import { db } from "./db";
-import { sql, eq, and, isNull, gte, lte, lt, sum, desc, or, ilike, SQL, inArray, ne } from "drizzle-orm";
+import { sql, eq, and, isNull, gte, lte, lt, sum, desc, asc, or, ilike, SQL, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -790,6 +792,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Delete empreendimento error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ─── Responsáveis do empreendimento ──────────────────────────────────────────
+  app.get("/api/empreendimentos/:id/responsaveis", requireAuth, async (req, res) => {
+    try {
+      const empId = parseInt(req.params.id);
+      const rows = await db.select().from(empreendimentoResponsaveis)
+        .where(eq(empreendimentoResponsaveis.empreendimentoId, empId))
+        .orderBy(asc(empreendimentoResponsaveis.criadoEm));
+      res.json(rows);
+    } catch (error) {
+      console.error("Get responsaveis error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/empreendimentos/:id/responsaveis", requireAuth, async (req, res) => {
+    try {
+      const empId = parseInt(req.params.id);
+      const data = insertEmpreendimentoResponsavelSchema.parse({ ...req.body, empreendimentoId: empId });
+      const [created] = await db.insert(empreendimentoResponsaveis).values(data).returning();
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Create responsavel error:", error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Erro ao criar responsável" });
+    }
+  });
+
+  app.put("/api/empreendimentos/:id/responsaveis/:rid", requireAuth, async (req, res) => {
+    try {
+      const rid = parseInt(req.params.rid);
+      const empId = parseInt(req.params.id);
+      const { nome, email, whatsapp, responsabilidade } = req.body;
+      const [updated] = await db.update(empreendimentoResponsaveis)
+        .set({ nome, email: email || null, whatsapp: whatsapp || null, responsabilidade })
+        .where(and(eq(empreendimentoResponsaveis.id, rid), eq(empreendimentoResponsaveis.empreendimentoId, empId)))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Responsável não encontrado" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Update responsavel error:", error);
+      res.status(400).json({ message: "Erro ao atualizar responsável" });
+    }
+  });
+
+  app.delete("/api/empreendimentos/:id/responsaveis/:rid", requireAuth, async (req, res) => {
+    try {
+      const rid = parseInt(req.params.rid);
+      const empId = parseInt(req.params.id);
+      await db.delete(empreendimentoResponsaveis)
+        .where(and(eq(empreendimentoResponsaveis.id, rid), eq(empreendimentoResponsaveis.empreendimentoId, empId)));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete responsavel error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

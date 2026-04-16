@@ -57,6 +57,16 @@ export const empreendimentos = pgTable("empreendimentos", {
   emp_visivel_idx: index("empreendimentos_visivel_idx").on(table.visivel),
 }));
 
+export const empreendimentoResponsaveis = pgTable("empreendimento_responsaveis", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id, { onDelete: "cascade" }).notNull(),
+  nome: text("nome").notNull(),
+  email: text("email"),
+  whatsapp: text("whatsapp"),
+  responsabilidade: text("responsabilidade").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+});
+
 export const licencasAmbientais = pgTable("licencas_ambientais", {
   id: serial("id").primaryKey(),
   numero: text("numero").notNull(),
@@ -672,6 +682,13 @@ export const insertEmpreendimentoSchema = createInsertSchema(empreendimentos).om
   atualizadoEm: true,
   deletedAt: true,
 });
+
+export const insertEmpreendimentoResponsavelSchema = createInsertSchema(empreendimentoResponsaveis).omit({
+  id: true,
+  criadoEm: true,
+});
+export type InsertEmpreendimentoResponsavel = z.infer<typeof insertEmpreendimentoResponsavelSchema>;
+export type EmpreendimentoResponsavel = typeof empreendimentoResponsaveis.$inferSelect;
 
 export const insertLicencaAmbientalSchema = createInsertSchema(licencasAmbientais).omit({
   id: true,
