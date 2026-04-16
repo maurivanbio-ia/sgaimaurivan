@@ -1267,6 +1267,7 @@ export const datasets = pgTable("datasets", {
   exigencias: text("exigencias"), // exigências extraídas pela IA
   resumoIA: text("resumo_ia"), // resumo gerado pela IA
   dataEmissao: text("data_emissao"), // data de emissão do documento (YYYY-MM-DD) — distinta da data de upload
+  dataValidade: text("data_validade"), // data de validade/vencimento da licença ou autorização (YYYY-MM-DD)
   licencaId: integer("licenca_id").references(() => licencasAmbientais.id), // Vínculo com licença específica
   licencaVinculoTipo: text("licenca_vinculo_tipo"), // requerimento, protocolo, notificacao, resposta, renovacao, complementacao, recurso, outro
 });

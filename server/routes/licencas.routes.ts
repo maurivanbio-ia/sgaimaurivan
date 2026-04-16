@@ -5,7 +5,7 @@
 import type { Express } from 'express';
 import NodeCache from 'node-cache';
 import { db } from '../db';
-import { eq, and, desc, sql, gte, inArray, ne } from 'drizzle-orm';
+import { eq, and, or, desc, sql, gte, inArray, ne } from 'drizzle-orm';
 import {
   insertLicencaAmbientalSchema,
   insertCondicionanteSchema,
@@ -642,16 +642,21 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
           a.status === 'vencida' || (a.dataValidade && a.dataValidade < today)
         );
 
-        // 2) Documentos da Gestão de Dados — tipos autorizativos com prazoAtendimento vencido
+        // 2) Documentos da Gestão de Dados — tipos autorizativos vencidos
+        // Considera vencido quando: prazoAtendimento < hoje OU dataValidade < hoje OU statusDocumental = 'vencido'
         const TIPOS_AUTORIZACAO = ['licenca', 'notificacao', 'documento_legal', 'auto_infracao'];
-        const conditionsDs: SQL[] = [
+        const baseConditionsDs: SQL[] = [
           inArray(datasets.tipoDocumental, TIPOS_AUTORIZACAO),
-          sql`${datasets.prazoAtendimento} IS NOT NULL`,
-          sql`${datasets.prazoAtendimento} != ''`,
-          sql`${datasets.prazoAtendimento} < ${today}`,
         ];
-        if (unidade) conditionsDs.push(eq(datasets.unidade, unidade));
-        if (empreendimentoId) conditionsDs.push(eq(datasets.empreendimentoId, empreendimentoId));
+        if (unidade) baseConditionsDs.push(eq(datasets.unidade, unidade));
+        if (empreendimentoId) baseConditionsDs.push(eq(datasets.empreendimentoId, empreendimentoId));
+
+        // OR: qualquer das três condições de vencimento
+        const vencimentoOr = or(
+          and(sql`${datasets.prazoAtendimento} IS NOT NULL`, sql`${datasets.prazoAtendimento} != ''`, sql`${datasets.prazoAtendimento} < ${today}`),
+          and(sql`${datasets.dataValidade} IS NOT NULL`, sql`${datasets.dataValidade} != ''`, sql`${datasets.dataValidade} < ${today}`),
+          eq(datasets.statusDocumental, 'vencido'),
+        );
 
         const vencidasDs = await db.select({
           id: datasets.id,
@@ -659,25 +664,30 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
           titulo: datasets.titulo,
           tipo: datasets.tipoDocumental,
           orgaoEmissor: datasets.orgaoEmissor,
-          dataValidade: datasets.prazoAtendimento,
+          dataValidade: datasets.dataValidade,
+          prazoAtendimento: datasets.prazoAtendimento,
           status: sql<string>`'vencida'`,
           empreendimentoId: datasets.empreendimentoId,
           fonte: sql<string>`'gestao_dados'`,
           nome: datasets.nome,
           codigoArquivo: datasets.codigoArquivo,
-        }).from(datasets).where(and(...conditionsDs));
+        }).from(datasets).where(and(...baseConditionsDs, vencimentoOr!));
 
-        const vencidasDsNorm = vencidasDs.map(d => ({
-          id: d.id,
-          numero: d.numero || d.codigoArquivo || d.nome || `DOC-${d.id}`,
-          titulo: d.titulo || d.nome || 'Documento sem título',
-          tipo: d.tipo || 'documento',
-          orgaoEmissor: d.orgaoEmissor,
-          dataValidade: d.dataValidade,
-          status: 'vencida',
-          empreendimentoId: d.empreendimentoId,
-          fonte: 'gestao_dados' as const,
-        }));
+        // Deduplicar por ID (caso um doc atenda múltiplas condições)
+        const seenIds = new Set<number>();
+        const vencidasDsNorm = vencidasDs
+          .filter(d => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true; })
+          .map(d => ({
+            id: d.id,
+            numero: d.numero || d.codigoArquivo || d.nome || `DOC-${d.id}`,
+            titulo: d.titulo || d.nome || 'Documento sem título',
+            tipo: d.tipo || 'documento',
+            orgaoEmissor: d.orgaoEmissor,
+            dataValidade: d.dataValidade || d.prazoAtendimento,
+            status: 'vencida',
+            empreendimentoId: d.empreendimentoId,
+            fonte: 'gestao_dados' as const,
+          }));
 
         return [...vencidasAut, ...vencidasDsNorm];
       };

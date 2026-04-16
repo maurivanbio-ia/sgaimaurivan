@@ -29,6 +29,7 @@ interface DatasetDoc {
   numeroDocumento?: string | null;
   orgaoEmissor?: string | null;
   prazoAtendimento?: string | null;
+  dataValidade?: string | null;
   statusDocumental?: string | null;
   dataEmissao?: string | null;
   resumoIA?: string | null;
@@ -124,6 +125,7 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
       orgaoEmissor: doc.orgaoEmissor || "",
       tipoDocumental: doc.tipoDocumental || "",
       dataEmissao: doc.dataEmissao || "",
+      dataValidade: doc.dataValidade || "",
       prazoAtendimento: doc.prazoAtendimento || "",
       statusDocumental: doc.statusDocumental || "recebido",
       descricao: doc.descricao || "",
@@ -140,9 +142,14 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
     document.body.removeChild(link);
   }
 
-  // KPIs
-  const vencidos = docs.filter(d => isExpired(d.prazoAtendimento)).length;
-  const aVencer = docs.filter(d => isExpiringSoon(d.prazoAtendimento)).length;
+  // Data efetiva de vencimento: preferir dataValidade, fallback para prazoAtendimento
+  function dataVencimento(doc: DatasetDoc): string | null | undefined {
+    return doc.dataValidade || doc.prazoAtendimento;
+  }
+
+  // KPIs — usar statusDocumental='vencido' como override manual
+  const vencidos = docs.filter(d => d.statusDocumental === 'vencido' || isExpired(dataVencimento(d))).length;
+  const aVencer = docs.filter(d => d.statusDocumental !== 'vencido' && !isExpired(dataVencimento(d)) && isExpiringSoon(dataVencimento(d))).length;
   const vigentes = docs.length - vencidos - aVencer;
 
   return (
@@ -201,9 +208,10 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
           {docs.map(doc => {
             const tipoInfo = TIPO_INFO[doc.tipoDocumental || ""] || { label: doc.tipoDocumental || "Documento", icon: "📄", color: "bg-gray-100 text-gray-800 border-gray-200" };
             const statusInfo = STATUS_DOC[doc.statusDocumental || ""] || null;
-            const dias = diasRestantes(doc.prazoAtendimento);
-            const expired = isExpired(doc.prazoAtendimento);
-            const expiringSoon = isExpiringSoon(doc.prazoAtendimento);
+            const dvenc = dataVencimento(doc);
+            const dias = diasRestantes(dvenc);
+            const expired = doc.statusDocumental === 'vencido' || isExpired(dvenc);
+            const expiringSoon = !expired && isExpiringSoon(dvenc);
 
             const borderClass = expired
               ? "border-red-300 bg-red-50/30"
@@ -265,8 +273,13 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
                         <Calendar className="h-3 w-3" /> Emissão: {formatDate(doc.dataEmissao)}
                       </span>
                     )}
-                    {doc.prazoAtendimento && (
+                    {doc.dataValidade && (
                       <span className={`flex items-center gap-1 ${expired ? "text-red-600 font-medium" : expiringSoon ? "text-orange-600 font-medium" : ""}`}>
+                        <Calendar className="h-3 w-3" /> Validade: {formatDate(doc.dataValidade)}
+                      </span>
+                    )}
+                    {doc.prazoAtendimento && (
+                      <span className={`flex items-center gap-1 ${!doc.dataValidade && expired ? "text-red-600 font-medium" : !doc.dataValidade && expiringSoon ? "text-orange-600 font-medium" : ""}`}>
                         <Calendar className="h-3 w-3" /> Prazo: {formatDate(doc.prazoAtendimento)}
                       </span>
                     )}
@@ -369,10 +382,18 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
                       <p className="font-medium">{formatDate(detailDoc.dataEmissao)}</p>
                     </div>
                   )}
+                  {detailDoc.dataValidade && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Data de Validade</p>
+                      <p className={`font-medium ${isExpired(detailDoc.dataValidade) ? "text-red-600" : isExpiringSoon(detailDoc.dataValidade) ? "text-orange-600" : ""}`}>
+                        {formatDate(detailDoc.dataValidade)}
+                      </p>
+                    </div>
+                  )}
                   {detailDoc.prazoAtendimento && (
                     <div>
                       <p className="text-xs text-muted-foreground">Prazo de Atendimento</p>
-                      <p className={`font-medium ${isExpired(detailDoc.prazoAtendimento) ? "text-red-600" : isExpiringSoon(detailDoc.prazoAtendimento) ? "text-orange-600" : ""}`}>
+                      <p className={`font-medium ${!detailDoc.dataValidade && isExpired(detailDoc.prazoAtendimento) ? "text-red-600" : !detailDoc.dataValidade && isExpiringSoon(detailDoc.prazoAtendimento) ? "text-orange-600" : ""}`}>
                         {formatDate(detailDoc.prazoAtendimento)}
                       </p>
                     </div>
@@ -477,7 +498,35 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Data de Emissão</Label>
+                <Input
+                  type="date"
+                  value={editForm.dataEmissao}
+                  onChange={e => setEditForm((f: any) => ({ ...f, dataEmissao: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-orange-700 font-semibold">Data de Validade ★</Label>
+                <Input
+                  type="date"
+                  value={editForm.dataValidade}
+                  onChange={e => setEditForm((f: any) => ({ ...f, dataValidade: e.target.value }))}
+                  className="border-orange-200 focus:border-orange-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Prazo de Atendimento</Label>
+                <Input
+                  type="date"
+                  value={editForm.prazoAtendimento}
+                  onChange={e => setEditForm((f: any) => ({ ...f, prazoAtendimento: e.target.value }))}
+                />
+              </div>
               <div className="space-y-1">
                 <Label>Status</Label>
                 <Select
@@ -494,22 +543,6 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
                     <SelectItem value="vencido">Vencido</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Data de Emissão</Label>
-                <Input
-                  type="date"
-                  value={editForm.dataEmissao}
-                  onChange={e => setEditForm((f: any) => ({ ...f, dataEmissao: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Prazo de Atendimento</Label>
-                <Input
-                  type="date"
-                  value={editForm.prazoAtendimento}
-                  onChange={e => setEditForm((f: any) => ({ ...f, prazoAtendimento: e.target.value }))}
-                />
               </div>
             </div>
 
