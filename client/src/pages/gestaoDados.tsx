@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  SelectGroup, SelectLabel, SelectSeparator,
 } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
@@ -61,11 +62,53 @@ const STATUS_DOCUMENTAIS = [
 ];
 
 const VINCULOS_TIPOS = [
-  { value: "resposta", label: "Resposta a documento" },
-  { value: "complemento", label: "Complementação" },
-  { value: "exigencia", label: "Exigência recebida" },
-  { value: "gerando_obrigacao", label: "Gera obrigação" },
+  // ── Solicitações e Pedidos ──────────────────────────────────────────
+  { value: "solicitacao",           label: "📬 Solicitação ao Órgão",       grupo: "Solicitações" },
+  { value: "requerimento_formal",   label: "📋 Requerimento Formal",         grupo: "Solicitações" },
+  // ── Protocolos ─────────────────────────────────────────────────────
+  { value: "protocolo_envio",       label: "📮 Protocolo de Envio",         grupo: "Protocolos" },
+  { value: "protocolo_recebimento", label: "📥 Protocolo de Recebimento",   grupo: "Protocolos" },
+  // ── Respostas e Atendimentos ────────────────────────────────────────
+  { value: "resposta",              label: "📩 Resposta a Documento",        grupo: "Respostas" },
+  { value: "atendimento_exigencia", label: "✅ Atendimento de Exigência",   grupo: "Respostas" },
+  { value: "esclarecimento",        label: "💬 Esclarecimento/Manifestação", grupo: "Respostas" },
+  { value: "recurso",               label: "⚖️ Recurso/Impugnação",         grupo: "Respostas" },
+  // ── Comunicações Oficiais ───────────────────────────────────────────
+  { value: "despacho",              label: "📄 Despacho do Órgão",          grupo: "Comunicações" },
+  { value: "parecer_tecnico",       label: "🔍 Parecer Técnico",            grupo: "Comunicações" },
+  { value: "intimacao",             label: "⚠️ Intimação",                  grupo: "Comunicações" },
+  // ── Técnicos ────────────────────────────────────────────────────────
+  { value: "laudo_embasamento",     label: "📊 Laudo/Embasamento Técnico",  grupo: "Técnicos" },
+  { value: "anexo_tecnico",         label: "📎 Anexo Técnico",              grupo: "Técnicos" },
+  { value: "complemento",           label: "➕ Complementação",             grupo: "Técnicos" },
+  // ── Modificações ────────────────────────────────────────────────────
+  { value: "substitui",             label: "🔄 Substitui Versão Anterior",  grupo: "Modificações" },
+  { value: "aditamento",            label: "✏️ Aditamento/Alteração",       grupo: "Modificações" },
+  // ── Obrigações ──────────────────────────────────────────────────────
+  { value: "exigencia",             label: "🔴 Exigência Recebida",         grupo: "Obrigações" },
+  { value: "gerando_obrigacao",     label: "📌 Gera Obrigação",             grupo: "Obrigações" },
+  // ── Autuações e Notificações ────────────────────────────────────────
+  { value: "auto_infracao",         label: "🚫 Auto de Infração",           grupo: "Autuações" },
+  { value: "notificacao_recebida",  label: "🔔 Notificação Recebida",       grupo: "Autuações" },
 ];
+
+// Renderiza o select de VINCULOS_TIPOS agrupado por categoria
+function VinculosTiposSelectContent() {
+  const grupos = Array.from(new Set(VINCULOS_TIPOS.map(v => v.grupo)));
+  return (
+    <SelectContent className="max-h-80">
+      {grupos.map((grupo, gi) => (
+        <SelectGroup key={grupo}>
+          <SelectLabel className="text-[11px] text-muted-foreground uppercase tracking-wide px-2 py-1">{grupo}</SelectLabel>
+          {VINCULOS_TIPOS.filter(v => v.grupo === grupo).map(v => (
+            <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+          ))}
+          {gi < grupos.length - 1 && <SelectSeparator />}
+        </SelectGroup>
+      ))}
+    </SelectContent>
+  );
+}
 
 const DICIONARIO_SIGLAS = {
   DISC: [
@@ -1251,7 +1294,7 @@ export default function GestaoDados() {
                       <Label className="text-xs">Tipo de Vínculo</Label>
                       <Select value={vinculoTipo} onValueChange={setVinculoTipo}>
                         <SelectTrigger className="h-8"><SelectValue placeholder="Como este documento se relaciona?" /></SelectTrigger>
-                        <SelectContent>{VINCULOS_TIPOS.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}</SelectContent>
+                        <VinculosTiposSelectContent />
                       </Select>
                     </div>
                   )}
