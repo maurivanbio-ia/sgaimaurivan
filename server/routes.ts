@@ -1297,7 +1297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const unidade = req.user?.unidade || '';
       const empreendimentoId = req.query.empreendimentoId ? parseInt(req.query.empreendimentoId as string) : undefined;
       
-      const defaultLicenseStats = { active: 0, expiring: 0, expired: 0, proxVencer: 0 };
+      const defaultLicenseStats = { active: 0, expiring: 0, expired: 0, emRenovacao: 0, proxVencer: 0 };
       const defaultCondStats = { pendentes: 0, cumpridas: 0, vencidas: 0 };
       const defaultEntregaStats = { pendentes: 0, entregues: 0, atrasadas: 0 };
       const defaultFrotaStats = { total: 0, disponiveis: 0, emUso: 0, manutencao: 0, alugados: 0 };

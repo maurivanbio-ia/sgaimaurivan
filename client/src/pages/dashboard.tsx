@@ -14,7 +14,7 @@ import ExpiryChart from "@/components/charts/expiry-chart";
 import { ExportButton } from "@/components/ExportButton";
 import { PlatformReportPDF } from "@/components/PlatformReportPDF";
 import MapComponent from "@/components/MapComponent";
-import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter, Map, CalendarDays } from "lucide-react";
+import { CheckCircle, TriangleAlert, XCircle, Building, Plus, Clock, FileText, Package, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, Truck, MapPin, Eye, Users, Briefcase, ListTodo, Filter, Map, CalendarDays, RefreshCcw } from "lucide-react";
 import type { Empreendimento } from "@shared/schema";
 
 interface AutorizacaoVencida {
@@ -49,7 +49,7 @@ interface CondicionanteAlerta {
 }
 
 interface DashboardStats {
-  licenses: { active: number; expiring: number; expired: number };
+  licenses: { active: number; expiring: number; expired: number; emRenovacao?: number };
   condicionantes: { pendentes: number; cumpridas: number; vencidas: number };
   entregas: { pendentes: number; entregues: number; atrasadas: number };
   agenda: Array<{ tipo: string; titulo: string; prazo: string; status: string; id: number; empreendimento?: string; orgaoEmissor?: string; }>;
@@ -112,7 +112,7 @@ export default function Dashboard() {
     },
   });
 
-  const licenses = dashboardStats?.licenses || { active: 0, expiring: 0, expired: 0 };
+  const licenses = dashboardStats?.licenses || { active: 0, expiring: 0, expired: 0, emRenovacao: 0 };
   const condicionantes = dashboardStats?.condicionantes || { pendentes: 0, cumpridas: 0, vencidas: 0 };
   const entregas = dashboardStats?.entregas || { pendentes: 0, entregues: 0, atrasadas: 0 };
   const prazos = dashboardStats?.agenda || [];
@@ -213,6 +213,24 @@ export default function Dashboard() {
                 <p className="text-xl font-bold text-destructive" data-testid="stat-expired">
                   {licenses.expired}
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Em Renovação */}
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 border-blue-200/60 dark:border-blue-700/40 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas")}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-500/10 rounded-md">
+                <RefreshCcw className="text-blue-600 dark:text-blue-400 h-5 w-5" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-muted-foreground">Em Renovação</p>
+                <p className="text-xl font-bold text-blue-600 dark:text-blue-400" data-testid="stat-em-renovacao">
+                  {licenses.emRenovacao ?? 0}
+                </p>
+                <p className="text-xs text-muted-foreground">licenças</p>
               </div>
             </div>
           </CardContent>
