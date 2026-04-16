@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SensitivePageWrapper } from "@/components/SensitivePageWrapper";
 import { Button } from "@/components/ui/button";
@@ -2112,11 +2112,14 @@ type DocTableProps = {
 };
 
 function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, onDelete, onDetail, onGerarDemanda }: DocTableProps) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-6 px-1"></TableHead>
             <TableHead>Código/Nome</TableHead>
             <TableHead>Tipo Documental</TableHead>
             <TableHead>Status Documental</TableHead>
@@ -2132,44 +2135,165 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
             const dias = diasParaVencer(d.prazoAtendimento);
             const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
             const tipoDoc = getTipoDocumentalInfo(d.tipoDocumental);
+            const isExpanded = expandedId === d.id;
+            const docRelacionado = d.documentoRelacionadoId
+              ? datasets.find(x => x.id === d.documentoRelacionadoId)
+              : null;
+            const temVinculos = !!(d.documentoRelacionadoId || (d as any).licencaId || d.exigencias);
             return (
-              <TableRow key={d.id} className="hover:bg-muted/40 cursor-pointer" onClick={() => onDetail(d)}>
-                <TableCell className="max-w-[200px]">
-                  <div className="truncate font-mono text-xs" title={d.codigoArquivo || d.nome}>{d.codigoArquivo || d.nome}</div>
-                  {d.titulo && <div className="text-xs text-muted-foreground truncate">{d.titulo}</div>}
-                  {(d as any).licencaId && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1 mt-0.5">
-                      🔗 Lic. #{(d as any).licencaId}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {tipoDoc ? <span className="text-xs">{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-xs text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell>
-                  <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-[100px] truncate">{d.orgaoEmissor || "—"}</TableCell>
-                <TableCell>
-                  {d.prazoAtendimento ? (
-                    <span className={`text-xs font-medium ${dias !== null && dias < 0 ? "text-red-600" : dias !== null && dias <= 7 ? "text-orange-600" : "text-muted-foreground"}`}>
-                      {dias !== null && dias < 0 ? `Venc. (${Math.abs(dias)}d)` : dias !== null ? `${dias}d` : "—"}
-                    </span>
-                  ) : <span className="text-xs text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell><Badge className={`text-xs ${getStatusBadge(d.status)}`}>{d.status || "N/A"}</Badge></TableCell>
-                <TableCell className="text-xs text-muted-foreground">{formatDate(d.dataUpload)}</TableCell>
-                <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                  <div className="flex justify-end gap-0.5">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onPreview(d)} title="Visualizar"><Eye className="h-3.5 w-3.5 text-blue-600" /></Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onHistory(d)} title="Histórico"><History className="h-3.5 w-3.5 text-purple-600" /></Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(d)} title="Editar"><Edit className="h-3.5 w-3.5 text-orange-600" /></Button>
-                    {d.exigencias && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onGerarDemanda(d)} title="Gerar Demanda"><Zap className="h-3.5 w-3.5 text-orange-500" /></Button>}
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDownload(d)} title="Baixar"><Download className="h-3.5 w-3.5" /></Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("Excluir este documento?")) onDelete(d.id); }} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <React.Fragment key={d.id}>
+                <TableRow className={`hover:bg-muted/40 cursor-pointer ${isExpanded ? "bg-blue-50/40" : ""}`} onClick={() => onDetail(d)}>
+                  <TableCell className="px-1" onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : d.id); }}>
+                    <Button size="icon" variant="ghost" className="h-6 w-6">
+                      {isExpanded
+                        ? <ChevronDown className="h-3.5 w-3.5 text-blue-600" />
+                        : <ChevronRight className={`h-3.5 w-3.5 ${temVinculos ? "text-indigo-500" : "text-muted-foreground/40"}`} />}
+                    </Button>
+                  </TableCell>
+                  <TableCell className="max-w-[200px]">
+                    <div className="truncate font-mono text-xs" title={d.codigoArquivo || d.nome}>{d.codigoArquivo || d.nome}</div>
+                    {d.titulo && <div className="text-xs text-muted-foreground truncate">{d.titulo}</div>}
+                    <div className="flex flex-wrap gap-0.5 mt-0.5">
+                      {(d as any).licencaId && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1">
+                          🔗 Lic. #{(d as any).licencaId}
+                        </span>
+                      )}
+                      {d.documentoRelacionadoId && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1">
+                          🔗 Doc vinculado
+                        </span>
+                      )}
+                      {d.exigencias && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded px-1">
+                          ⚠ Exigências
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {tipoDoc ? <span className="text-xs">{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-xs text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-[100px] truncate">{d.orgaoEmissor || "—"}</TableCell>
+                  <TableCell>
+                    {d.prazoAtendimento ? (
+                      <span className={`text-xs font-medium ${dias !== null && dias < 0 ? "text-red-600" : dias !== null && dias <= 7 ? "text-orange-600" : "text-muted-foreground"}`}>
+                        {dias !== null && dias < 0 ? `Venc. (${Math.abs(dias)}d)` : dias !== null ? `${dias}d` : "—"}
+                      </span>
+                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell><Badge className={`text-xs ${getStatusBadge(d.status)}`}>{d.status || "N/A"}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{formatDate(d.dataUpload)}</TableCell>
+                  <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-end gap-0.5">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onPreview(d)} title="Visualizar"><Eye className="h-3.5 w-3.5 text-blue-600" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onHistory(d)} title="Histórico"><History className="h-3.5 w-3.5 text-purple-600" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(d)} title="Editar"><Edit className="h-3.5 w-3.5 text-orange-600" /></Button>
+                      {d.exigencias && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onGerarDemanda(d)} title="Gerar Demanda"><Zap className="h-3.5 w-3.5 text-orange-500" /></Button>}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDownload(d)} title="Baixar"><Download className="h-3.5 w-3.5" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("Excluir este documento?")) onDelete(d.id); }} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+
+                {/* ── Painel de detalhes expansível ─────────────────────── */}
+                {isExpanded && (
+                  <TableRow key={`exp-${d.id}`} className="bg-blue-50/20 hover:bg-blue-50/20">
+                    <TableCell colSpan={9} className="py-3 px-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Órgão Emissor</p>
+                          <p className="font-medium">{d.orgaoEmissor || <span className="text-muted-foreground">—</span>}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Data de Emissão</p>
+                          <p className="font-medium">
+                            {d.dataEmissao
+                              ? new Intl.DateTimeFormat("pt-BR").format(new Date(d.dataEmissao + "T12:00:00"))
+                              : <span className="text-muted-foreground">—</span>}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Prazo de Atendimento</p>
+                          {d.prazoAtendimento ? (
+                            <p className={`font-medium ${dias !== null && dias < 0 ? "text-red-600" : dias !== null && dias <= 7 ? "text-orange-600" : ""}`}>
+                              {new Intl.DateTimeFormat("pt-BR").format(new Date(d.prazoAtendimento + "T12:00:00"))}
+                              {dias !== null && (
+                                <span className="ml-1 text-xs font-normal">
+                                  ({dias < 0 ? `vencido há ${Math.abs(dias)}d` : dias === 0 ? "vence hoje!" : `${dias}d restantes`})
+                                </span>
+                              )}
+                            </p>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Status Documental</p>
+                          <Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge>
+                        </div>
+
+                        {/* Documento relacionado */}
+                        {d.documentoRelacionadoId && (
+                          <div className="col-span-2 bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+                            <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wide mb-0.5">🔗 Documento Relacionado</p>
+                            <p className="text-sm font-medium text-indigo-900">
+                              {docRelacionado
+                                ? (docRelacionado.titulo || docRelacionado.codigoArquivo || docRelacionado.nome)
+                                : `Doc #${d.documentoRelacionadoId}`}
+                            </p>
+                            {d.vinculoTipo && (
+                              <p className="text-xs text-indigo-600 mt-0.5">
+                                Relação: {VINCULOS_TIPOS.find(v => v.value === d.vinculoTipo)?.label || d.vinculoTipo}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Licença vinculada */}
+                        {(d as any).licencaId && (
+                          <div className={`${d.documentoRelacionadoId ? "" : "col-span-2"} bg-green-50 border border-green-200 rounded-lg p-2`}>
+                            <p className="text-[10px] font-semibold text-green-600 uppercase tracking-wide mb-0.5">🔗 Licença Vinculada</p>
+                            <p className="text-sm font-medium text-green-900">Licença #{(d as any).licencaId}</p>
+                            {(d as any).licencaVinculoTipo && (
+                              <p className="text-xs text-green-600 mt-0.5">Relação: {(d as any).licencaVinculoTipo}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Exigências */}
+                        {d.exigencias && (
+                          <div className="col-span-2 md:col-span-4 bg-orange-50 border border-orange-200 rounded-lg p-2">
+                            <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide mb-0.5">⚠ Exigências Identificadas</p>
+                            <p className="text-xs text-orange-900 whitespace-pre-wrap line-clamp-3">{d.exigencias}</p>
+                            <Button size="sm" variant="outline" className="mt-1.5 h-6 text-xs gap-1 text-orange-700 border-orange-300"
+                              onClick={e => { e.stopPropagation(); onGerarDemanda(d); }}>
+                              <Zap className="h-3 w-3" />Converter em Demanda
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Resumo IA */}
+                        {d.resumoIA && (
+                          <div className="col-span-2 md:col-span-4 bg-purple-50 border border-purple-200 rounded-lg p-2">
+                            <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                              <Sparkles className="h-3 w-3" />Resumo IA
+                            </p>
+                            <p className="text-xs text-purple-900 line-clamp-2">{d.resumoIA}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-end mt-2 pt-2 border-t border-blue-100">
+                        <Button size="sm" variant="ghost" className="text-xs text-blue-600 h-7 gap-1"
+                          onClick={e => { e.stopPropagation(); onDetail(d); }}>
+                          <Eye className="h-3 w-3" />Ver detalhes completos
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
             );
           })}
         </TableBody>
