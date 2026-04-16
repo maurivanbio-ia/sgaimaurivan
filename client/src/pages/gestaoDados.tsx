@@ -204,7 +204,7 @@ export default function GestaoDados() {
   const [filterTipoDocumental, setFilterTipoDocumental] = useState("all");
   const [filterStatusDocumental, setFilterStatusDocumental] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [groupByEmp, setGroupByEmp] = useState(false);
+  const [groupByEmp, setGroupByEmp] = useState(true);
   const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
   const [dictionarySearch, setDictionarySearch] = useState("");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -1029,7 +1029,7 @@ export default function GestaoDados() {
                   <CardDescription>{filteredDatasets.length} documento(s) encontrado(s)</CardDescription>
                 </div>
                 <Button variant={groupByEmp ? "default" : "outline"} size="sm" onClick={() => setGroupByEmp(p => !p)} className="gap-2">
-                  <Building2 className="h-4 w-4" />{groupByEmp ? "Agrupado" : "Por Empreendimento"}
+                  <Building2 className="h-4 w-4" />{groupByEmp ? "Ver Lista" : "Por Empreendimento"}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -1038,7 +1038,7 @@ export default function GestaoDados() {
                 ) : filteredDatasets.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground"><FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />Nenhum documento encontrado.</div>
                 ) : groupByEmp ? (
-                  <DocumentosGrouped datasets={filteredDatasets} onPreview={d => { setPreviewDataset(d); setIsPreviewOpen(true); }} onHistory={d => { setHistoryDataset(d); setIsHistoryOpen(true); }} onEdit={handleEdit} onDownload={handleDownload} onDelete={id => deleteMutation.mutate(id)} onDetail={d => { setDetailDataset(d); setIsDetailOpen(true); }} onGerarDemanda={handleGerarDemanda} />
+                  <DocumentosGrouped datasets={filteredDatasets} empreendimentos={empreendimentos} onPreview={d => { setPreviewDataset(d); setIsPreviewOpen(true); }} onHistory={d => { setHistoryDataset(d); setIsHistoryOpen(true); }} onEdit={handleEdit} onDownload={handleDownload} onDelete={id => deleteMutation.mutate(id)} onDetail={d => { setDetailDataset(d); setIsDetailOpen(true); }} onGerarDemanda={handleGerarDemanda} />
                 ) : (
                   <DocumentosTable datasets={filteredDatasets} onPreview={d => { setPreviewDataset(d); setIsPreviewOpen(true); }} onHistory={d => { setHistoryDataset(d); setIsHistoryOpen(true); }} onEdit={handleEdit} onDownload={handleDownload} onDelete={id => deleteMutation.mutate(id)} onDetail={d => { setDetailDataset(d); setIsDetailOpen(true); }} onGerarDemanda={handleGerarDemanda} />
                 )}
@@ -1920,6 +1920,7 @@ export default function GestaoDados() {
 
 type DocTableProps = {
   datasets: DatasetExt[];
+  empreendimentos?: Empreendimento[];
   onPreview: (d: DatasetExt) => void;
   onHistory: (d: DatasetExt) => void;
   onEdit: (d: DatasetExt) => void;
@@ -1993,80 +1994,130 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
 
 // ─── Componente: Documentos Agrupados ─────────────────────────────────────────
 
-function DocumentosGrouped({ datasets, onPreview, onHistory, onEdit, onDownload, onDelete, onDetail, onGerarDemanda }: DocTableProps) {
+function DocumentosGrouped({ datasets, empreendimentos = [], onPreview, onHistory, onEdit, onDownload, onDelete, onDetail, onGerarDemanda }: DocTableProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
   const groups = datasets.reduce<Record<string, { name: string; docs: DatasetExt[] }>>((acc, d) => {
     const key = String(d.empreendimentoId ?? "sem");
-    const name = d.empreendimentoNome || `Empreendimento #${d.empreendimentoId}`;
-    if (!acc[key]) acc[key] = { name, docs: [] };
+    const empName = empreendimentos.find(e => e.id === d.empreendimentoId)?.nome
+      || d.empreendimentoNome
+      || (d.empreendimentoId ? `Empreendimento #${d.empreendimentoId}` : "Sem empreendimento");
+    if (!acc[key]) acc[key] = { name: empName, docs: [] };
     acc[key].docs.push(d);
     return acc;
   }, {});
+
   const sortedGroups = Object.entries(groups).sort(([, a], [, b]) => a.name.localeCompare(b.name, "pt-BR"));
   const toggle = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
   const isOpen = (key: string) => key in openGroups ? openGroups[key] : true;
+
+  const formatDataDocumento = (iso?: string | null) => {
+    if (!iso) return "—";
+    try { return new Intl.DateTimeFormat("pt-BR").format(new Date(iso)); } catch { return iso; }
+  };
+
   return (
     <div className="space-y-3">
-      {sortedGroups.map(([key, group]) => (
-        <Collapsible key={key} open={isOpen(key)} onOpenChange={() => toggle(key)}>
-          <CollapsibleTrigger className="w-full">
-            <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition cursor-pointer select-none">
-              <div className="flex items-center gap-2">
-                {isOpen(key) ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                <Building2 className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-sm text-left">{group.name}</span>
+      {sortedGroups.map(([key, group]) => {
+        const vencidos = group.docs.filter(d => {
+          const dias = diasParaVencer(d.prazoAtendimento);
+          return dias !== null && dias < 0;
+        }).length;
+        const alertas = group.docs.filter(d => {
+          const dias = diasParaVencer(d.prazoAtendimento);
+          return dias !== null && dias >= 0 && dias <= 30;
+        }).length;
+
+        return (
+          <Collapsible key={key} open={isOpen(key)} onOpenChange={() => toggle(key)}>
+            <CollapsibleTrigger className="w-full">
+              <div className={`flex items-center justify-between px-4 py-3 rounded-lg border-2 transition cursor-pointer select-none
+                ${vencidos > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : alertas > 0 ? "border-orange-200 bg-orange-50/40" : "border-primary/20 bg-primary/5 hover:bg-primary/10"}`}>
+                <div className="flex items-center gap-3">
+                  {isOpen(key) ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  <Building2 className={`h-4 w-4 ${vencidos > 0 ? "text-red-600" : "text-[#00599C]"}`} />
+                  <span className="font-semibold text-sm text-left">{group.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {vencidos > 0 && (
+                    <span className="text-[10px] font-bold bg-red-100 text-red-700 rounded-full px-2 py-0.5 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />{vencidos} vencido{vencidos !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {alertas > 0 && (
+                    <span className="text-[10px] font-bold bg-orange-100 text-orange-700 rounded-full px-2 py-0.5 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />{alertas} alerta{alertas !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  <Badge variant="secondary" className="font-bold text-xs">{group.docs.length} doc{group.docs.length !== 1 ? "s" : ""}</Badge>
+                </div>
               </div>
-              <Badge variant="secondary" className="font-bold">{group.docs.length} doc{group.docs.length !== 1 ? "s" : ""}</Badge>
-            </div>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-1 rounded-lg border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs">Código/Nome</TableHead>
-                    <TableHead className="text-xs">Tipo Documental</TableHead>
-                    <TableHead className="text-xs">Status Documental</TableHead>
-                    <TableHead className="text-xs">Prazo</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {group.docs.map(d => {
-                    const dias = diasParaVencer(d.prazoAtendimento);
-                    const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
-                    const tipoDoc = getTipoDocumentalInfo(d.tipoDocumental);
-                    return (
-                      <TableRow key={d.id} className="hover:bg-muted/40 cursor-pointer" onClick={() => onDetail(d)}>
-                        <TableCell className="max-w-[180px]">
-                          <div className="truncate font-mono text-xs">{d.codigoArquivo || d.nome}</div>
-                          {d.orgaoEmissor && <div className="text-xs text-muted-foreground">{d.orgaoEmissor}</div>}
-                        </TableCell>
-                        <TableCell className="text-xs">{tipoDoc ? <span>{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
-                        <TableCell><Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge></TableCell>
-                        <TableCell>
-                          {d.prazoAtendimento ? <span className={`text-xs font-medium ${dias !== null && dias < 0 ? "text-red-600" : dias !== null && dias <= 7 ? "text-orange-600" : "text-muted-foreground"}`}>{dias !== null && dias < 0 ? `Venc.(${Math.abs(dias)}d)` : `${dias}d`}</span> : <span className="text-xs text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell><Badge className={`text-xs ${getStatusBadge(d.status)}`}>{d.status || "N/A"}</Badge></TableCell>
-                        <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                          <div className="flex justify-end gap-0.5">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onPreview(d)}><Eye className="h-3.5 w-3.5 text-blue-600" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(d)}><Edit className="h-3.5 w-3.5 text-orange-600" /></Button>
-                            {d.exigencias && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onGerarDemanda(d)} title="Gerar Demanda"><Zap className="h-3.5 w-3.5 text-orange-500" /></Button>}
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDownload(d)}><Download className="h-3.5 w-3.5" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("Excluir?")) onDelete(d.id); }}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-1 rounded-b-lg border border-t-0 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs">Código/Nome</TableHead>
+                      <TableHead className="text-xs">Tipo Documental</TableHead>
+                      <TableHead className="text-xs">Status Documental</TableHead>
+                      <TableHead className="text-xs">Órgão</TableHead>
+                      <TableHead className="text-xs">Prazo</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                      <TableHead className="text-xs text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {group.docs.map(d => {
+                      const dias = diasParaVencer(d.prazoAtendimento);
+                      const statusDoc = getStatusDocumentalInfo(d.statusDocumental);
+                      const tipoDoc = getTipoDocumentalInfo(d.tipoDocumental);
+                      return (
+                        <TableRow key={d.id} className="hover:bg-muted/40 cursor-pointer" onClick={() => onDetail(d)}>
+                          <TableCell className="max-w-[200px]">
+                            <div className="truncate font-mono text-xs font-medium">{d.codigoArquivo || d.nome}</div>
+                            {d.titulo && d.titulo !== d.codigoArquivo && (
+                              <div className="truncate text-xs text-muted-foreground">{d.titulo.substring(0, 40)}</div>
+                            )}
+                            {d.numeroDocumento && (
+                              <div className="text-[10px] text-muted-foreground">Nº {d.numeroDocumento}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{tipoDoc ? <span>{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell><Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{d.orgaoEmissor || "—"}</TableCell>
+                          <TableCell>
+                            {d.prazoAtendimento
+                              ? <span className={`text-xs font-medium ${dias !== null && dias < 0 ? "text-red-600" : dias !== null && dias <= 7 ? "text-orange-600" : dias !== null && dias <= 30 ? "text-yellow-600" : "text-muted-foreground"}`}>
+                                  {dias !== null && dias < 0 ? `Venc.(${Math.abs(dias)}d)` : `${dias}d`}
+                                </span>
+                              : <span className="text-xs text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell><Badge className={`text-xs ${getStatusBadge(d.status)}`}>{d.status || "N/A"}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDataDocumento((d as any).dataDocumento || (d as any).dataEmissao || (d as any).criadoEm)}
+                          </TableCell>
+                          <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-end gap-0.5">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onPreview(d)}><Eye className="h-3.5 w-3.5 text-blue-600" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onHistory(d)}><History className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(d)}><Edit className="h-3.5 w-3.5 text-orange-600" /></Button>
+                              {d.exigencias && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onGerarDemanda(d)} title="Gerar Demanda"><Zap className="h-3.5 w-3.5 text-orange-500" /></Button>}
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDownload(d)}><Download className="h-3.5 w-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("Excluir?")) onDelete(d.id); }}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
     </div>
   );
 }
