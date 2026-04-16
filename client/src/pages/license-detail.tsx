@@ -169,7 +169,17 @@ function diasParaVencer(prazo: string | null): number | null {
 function getLicencaStatusColor(status: string) {
   if (status === "ativa") return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
   if (status === "a_vencer") return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+  if (status === "em_renovacao") return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
   return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+}
+
+function getLicencaStatusLabel(status: string) {
+  if (status === "ativa") return "Ativa";
+  if (status === "a_vencer") return "A Vencer";
+  if (status === "em_renovacao") return "Em Renovação";
+  if (status === "vencida") return "Vencida";
+  if (status === "cancelada") return "Cancelada";
+  return status;
 }
 
 // ─── Painel de Conformidade ───────────────────────────────────────────────────
@@ -1303,6 +1313,218 @@ function EvidenciasPanel({ condicionanteId }: { condicionanteId: number }) {
   );
 }
 
+// ─── Tab: Ciclo de Vida da Licença ────────────────────────────────────────────
+
+const VINCULO_EVENTO: Record<string, { label: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
+  requerimento:   { label: "Requerimento de Renovação",  icon: "📋", color: "text-blue-700",   bgColor: "bg-blue-50",   borderColor: "border-blue-300" },
+  protocolo:      { label: "Protocolo",                  icon: "📮", color: "text-indigo-700", bgColor: "bg-indigo-50", borderColor: "border-indigo-300" },
+  notificacao:    { label: "Notificação Recebida",       icon: "📬", color: "text-orange-700", bgColor: "bg-orange-50", borderColor: "border-orange-300" },
+  resposta:       { label: "Resposta / Ofício",          icon: "📩", color: "text-green-700",  bgColor: "bg-green-50",  borderColor: "border-green-300" },
+  renovacao:      { label: "Nova Licença Emitida",       icon: "✅", color: "text-teal-700",   bgColor: "bg-teal-50",   borderColor: "border-teal-300" },
+  complementacao: { label: "Complementação",             icon: "➕", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-300" },
+  recurso:        { label: "Recurso",                    icon: "⚖️", color: "text-red-700",    bgColor: "bg-red-50",    borderColor: "border-red-300" },
+  outro:          { label: "Documento Vinculado",        icon: "📄", color: "text-gray-700",   bgColor: "bg-gray-50",   borderColor: "border-gray-300" },
+};
+
+function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: number }) {
+  const { data: docsGestao = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/licencas", licencaId, "documentos"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/licencas/${licencaId}/documentos`);
+      return res.json();
+    },
+  });
+
+  // Construir eventos cronológicos
+  const eventos: Array<{ date: string | null; label: string; icon: string; color: string; bgColor: string; borderColor: string; doc?: any; type: "emissao" | "doc" | "validade" | "status" }> = [];
+
+  // 1) Emissão da licença
+  eventos.push({
+    date: licenca.dataEmissao || null,
+    label: `Licença ${licenca.numero} emitida`,
+    icon: "🛡️",
+    color: "text-green-700",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-400",
+    type: "emissao",
+  });
+
+  // 2) Documentos vinculados em ordem cronológica
+  const docsOrdenados = [...docsGestao].sort((a, b) => {
+    const da = a.dataEmissao || a.dataUpload || "";
+    const db2 = b.dataEmissao || b.dataUpload || "";
+    return da.localeCompare(db2);
+  });
+
+  for (const doc of docsOrdenados) {
+    const ev = VINCULO_EVENTO[doc.licencaVinculoTipo || "outro"] || VINCULO_EVENTO["outro"];
+    eventos.push({
+      date: doc.dataEmissao || doc.dataUpload || null,
+      label: ev.label,
+      icon: ev.icon,
+      color: ev.color,
+      bgColor: ev.bgColor,
+      borderColor: ev.borderColor,
+      doc,
+      type: "doc",
+    });
+  }
+
+  // 3) Status atual da licença (no final)
+  const statusAtual = licenca.status;
+  if (statusAtual === "em_renovacao") {
+    eventos.push({
+      date: null,
+      label: "Em Processo de Renovação",
+      icon: "⏳",
+      color: "text-blue-700",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-400",
+      type: "status",
+    });
+  } else if (statusAtual === "vencida") {
+    eventos.push({
+      date: licenca.validade || null,
+      label: "Licença Vencida",
+      icon: "🔴",
+      color: "text-red-700",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-400",
+      type: "validade",
+    });
+  } else if (statusAtual === "cancelada") {
+    eventos.push({
+      date: null,
+      label: "Licença Cancelada",
+      icon: "❌",
+      color: "text-gray-700",
+      bgColor: "bg-gray-50",
+      borderColor: "border-gray-400",
+      type: "status",
+    });
+  } else {
+    // vigente — mostra validade futura
+    eventos.push({
+      date: licenca.validade || null,
+      label: "Validade da Licença",
+      icon: "📅",
+      color: "text-gray-600",
+      bgColor: "bg-gray-50",
+      borderColor: "border-gray-300",
+      type: "validade",
+    });
+  }
+
+  function formatEvDate(d: string | null) {
+    if (!d) return "Data não informada";
+    try {
+      const [y, m, day] = d.split("T")[0].split("-");
+      return `${day}/${m}/${y}`;
+    } catch { return d; }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Cabeçalho */}
+      <div>
+        <h3 className="font-semibold text-base">Ciclo de Vida — {licenca.numero}</h3>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Linha do tempo de eventos e documentos vinculados a esta licença, em ordem cronológica.
+        </p>
+      </div>
+
+      {/* Como usar */}
+      <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-800">
+        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-500" />
+        <span>
+          Para registrar um evento (ex.: Requerimento de Renovação), vá em <strong>Gestão de Dados</strong>, edite o documento e selecione esta licença no campo <em>"Licença Vinculada"</em> com o tipo de relação <em>"Requerimento"</em>. O status da licença será atualizado automaticamente.
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10 text-muted-foreground text-sm gap-2">
+          <Clock className="h-4 w-4 animate-spin" />
+          Carregando...
+        </div>
+      ) : (
+        <div className="relative">
+          {/* Linha vertical central */}
+          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-green-300 via-blue-200 to-gray-200" />
+
+          <div className="space-y-0">
+            {eventos.map((ev, idx) => (
+              <div key={idx} className="relative flex gap-4 pb-6 last:pb-0">
+                {/* Bolinha na linha */}
+                <div className={`relative z-10 flex-shrink-0 h-12 w-12 rounded-full ${ev.bgColor} border-2 ${ev.borderColor} flex items-center justify-center text-xl shadow-sm`}>
+                  {ev.icon}
+                </div>
+
+                {/* Conteúdo do evento */}
+                <div className={`flex-1 rounded-lg border ${ev.borderColor} ${ev.bgColor} p-3 shadow-sm`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className={`font-semibold text-sm ${ev.color}`}>{ev.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{formatEvDate(ev.date)}</p>
+
+                      {/* Detalhes do documento vinculado */}
+                      {ev.doc && (
+                        <div className="mt-2 space-y-0.5">
+                          <p className="text-xs font-medium text-gray-900 truncate">
+                            {ev.doc.titulo || ev.doc.codigoArquivo || ev.doc.nome}
+                          </p>
+                          {ev.doc.numeroDocumento && (
+                            <p className="text-xs text-muted-foreground">Nº {ev.doc.numeroDocumento}</p>
+                          )}
+                          {ev.doc.orgaoEmissor && (
+                            <p className="text-xs text-muted-foreground">🏛 {ev.doc.orgaoEmissor}</p>
+                          )}
+                          {ev.doc.statusDocumental && (
+                            <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-xs bg-white border border-gray-200 text-gray-600">
+                              {ev.doc.statusDocumental}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Para eventos de validade */}
+                      {ev.type === "validade" && licenca.validade && (
+                        <p className="text-xs mt-1">
+                          {new Date(licenca.validade + "T00:00:00") > new Date()
+                            ? <span className="text-green-700">Ainda vigente</span>
+                            : <span className="text-red-600 font-medium">⚠ Vencida</span>
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Tipo badge */}
+                    {ev.type === "doc" && ev.doc?.licencaVinculoTipo && (
+                      <span className={`flex-shrink-0 text-[10px] font-semibold border rounded-full px-2 py-0.5 ${ev.bgColor} ${ev.color} ${ev.borderColor}`}>
+                        {VINCULO_EVENTO[ev.doc.licencaVinculoTipo]?.label || "Documento"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {docsGestao.length === 0 && !isLoading && (
+        <div className="border rounded-lg p-6 text-center text-muted-foreground bg-muted/20 mt-4">
+          <Link2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm font-medium">Nenhum evento registrado</p>
+          <p className="text-xs mt-1 opacity-70">Vincule documentos da Gestão de Dados a esta licença para construir o ciclo de vida.</p>
+          <a href="/gestao-dados" className="inline-flex items-center gap-1 mt-3 text-xs text-blue-600 hover:underline">
+            <ExternalLink className="h-3 w-3" /> Abrir Gestão de Dados
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab: Documentos e Evidências ─────────────────────────────────────────────
 
 const LICENCA_VINCULO_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -1663,7 +1885,7 @@ export default function LicenseDetail() {
                 {licenca.numero}
               </h1>
               <Badge className={`${getLicencaStatusColor(licencaStatus)}`}>
-                {licencaStatus === "ativa" ? "Ativa" : licencaStatus === "a_vencer" ? "A Vencer" : "Vencida"}
+                {getLicencaStatusLabel(licencaStatus)}
               </Badge>
               <Badge variant="outline">{licenca.tipo}</Badge>
             </div>
@@ -1728,6 +1950,32 @@ export default function LicenseDetail() {
         </Card>
       </div>
 
+      {/* Banner Em Renovação */}
+      {licenca.status === "em_renovacao" && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-700 p-4">
+          <div className="flex-shrink-0 mt-0.5">
+            <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+              <History className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-blue-800 dark:text-blue-300 text-sm">Processo de Renovação em Andamento</p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+              Um requerimento de renovação foi protocolado para esta licença. Consulte a aba <strong>Ciclo de Vida</strong> para ver o documento vinculado.
+            </p>
+          </div>
+          <button
+            className="text-xs text-blue-600 dark:text-blue-400 underline flex-shrink-0 hover:text-blue-800"
+            onClick={() => {
+              const tab = document.querySelector('[data-state][value="ciclovida"]') as HTMLElement;
+              if (tab) tab.click();
+            }}
+          >
+            Ver detalhes →
+          </button>
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="condicionantes" className="w-full">
         <TabsList className="w-full flex overflow-x-auto flex-nowrap h-auto">
@@ -1742,6 +1990,13 @@ export default function LicenseDetail() {
           <TabsTrigger value="documentos" className="flex-shrink-0 whitespace-nowrap gap-1.5">
             <FileText className="h-4 w-4" />
             Documentos e Evidências
+          </TabsTrigger>
+          <TabsTrigger value="ciclovida" className="flex-shrink-0 whitespace-nowrap gap-1.5">
+            <History className="h-4 w-4" />
+            Ciclo de Vida
+            {licenca.status === "em_renovacao" && (
+              <span className="ml-1 inline-flex h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+            )}
           </TabsTrigger>
           <TabsTrigger value="cronograma" className="flex-shrink-0 whitespace-nowrap gap-1.5">
             <CalendarDays className="h-4 w-4" />
@@ -1833,6 +2088,10 @@ export default function LicenseDetail() {
 
         <TabsContent value="documentos" className="mt-6">
           <DocumentosTab licencaId={licencaId} />
+        </TabsContent>
+
+        <TabsContent value="ciclovida" className="mt-6">
+          <CicloVidaTab licenca={licenca} licencaId={licencaId} />
         </TabsContent>
 
         <TabsContent value="cronograma" className="mt-6">

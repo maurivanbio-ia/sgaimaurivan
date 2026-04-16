@@ -4089,6 +4089,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Dataset not found' });
       }
 
+      // ── Auto-ciclo de vida da licença ──────────────────────────────────────
+      // Quando um documento é vinculado a uma licença com tipo 'requerimento',
+      // a licença passa automaticamente para 'em_renovacao'
+      const savedLicencaId = updated[0].licencaId ?? updateData.licencaId;
+      const savedVinculoTipo = updated[0].licencaVinculoTipo ?? updateData.licencaVinculoTipo;
+      if (savedLicencaId && savedVinculoTipo === 'requerimento') {
+        try {
+          await db.update(licencasAmbientais)
+            .set({ status: 'em_renovacao' })
+            .where(and(eq(licencasAmbientais.id, savedLicencaId), ne(licencasAmbientais.status, 'cancelada')));
+        } catch (licErr) {
+          console.error('[Auto ciclo-de-vida] Falha ao atualizar status da licença:', licErr);
+        }
+      }
+      // Quando vinculoTipo = 'renovacao', a licença anterior pode ser marcada como 'vencida'
+      // (opcional no futuro — por enquanto só 'requerimento' atualiza automaticamente)
+
       res.json(updated[0]);
     } catch (error) {
       console.error('Error updating dataset:', error);
