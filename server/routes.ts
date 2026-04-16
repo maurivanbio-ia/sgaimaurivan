@@ -1290,6 +1290,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const defaultDemandasStats = { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 };
       const defaultContratosStats = { total: 0, ativos: 0, valorTotal: 0 };
 
+      // Query condicionantes vencidas e em_andamento com contexto
+      const getCondicionantesAlerta = async () => {
+        const emps = unidade && unidade.trim() !== ''
+          ? await db.select({ id: empreendimentos.id, nome: empreendimentos.nome }).from(empreendimentos).where(eq(empreendimentos.unidade, unidade))
+          : await db.select({ id: empreendimentos.id, nome: empreendimentos.nome }).from(empreendimentos);
+        
+        const empIds = emps.map(e => e.id);
+        if (empIds.length === 0) return [];
+
+        const licencasData = empreendimentoId
+          ? await db.select({ id: licencasAmbientais.id, numero: licencasAmbientais.numero, empreendimentoId: licencasAmbientais.empreendimentoId }).from(licencasAmbientais).where(and(eq(licencasAmbientais.empreendimentoId, empreendimentoId), sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`))
+          : await db.select({ id: licencasAmbientais.id, numero: licencasAmbientais.numero, empreendimentoId: licencasAmbientais.empreendimentoId }).from(licencasAmbientais).where(sql`${licencasAmbientais.empreendimentoId} IN (${sql.join(empIds.map(id => sql`${id}`), sql`, `)})`);
+
+        const licencaIds = licencasData.map(l => l.id);
+        if (licencaIds.length === 0) return [];
+
+        const allConds = await db.select({
+          id: condicionantes.id,
+          titulo: condicionantes.titulo,
+          descricao: condicionantes.descricao,
+          codigo: condicionantes.codigo,
+          categoria: condicionantes.categoria,
+          status: condicionantes.status,
+          prazo: condicionantes.prazo,
+          progresso: condicionantes.progresso,
+          responsavelNome: condicionantes.responsavelNome,
+          licencaId: condicionantes.licencaId,
+        }).from(condicionantes).where(sql`${condicionantes.licencaId} IN (${sql.join(licencaIds.map(id => sql`${id}`), sql`, `)})`);
+
+        return allConds
+          .filter(c => c.status === 'vencida' || c.status === 'em_andamento')
+          .map(c => {
+            const lic = licencasData.find(l => l.id === c.licencaId);
+            const emp = lic ? emps.find(e => e.id === lic.empreendimentoId) : null;
+            return {
+              ...c,
+              licencaNumero: lic?.numero || '',
+              empreendimentoNome: emp?.nome || '',
+              empreendimentoId: lic?.empreendimentoId || null,
+            };
+          });
+      };
+
       // Query autorizações vencidas inline
       const getAutorizacoesVencidas = async () => {
         const today = new Date().toISOString().split('T')[0];
@@ -1325,7 +1368,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rhStats,
         demandasStats,
         contratosStats,
-        autorizacoesVencidas
+        autorizacoesVencidas,
+        condicionantesAlerta
       ] = await Promise.all([
         storage.getLicenseStats(unidade, empreendimentoId).catch(() => defaultLicenseStats),
         storage.getCondicionanteStats(unidade, empreendimentoId).catch(() => defaultCondStats),
@@ -1337,7 +1381,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getRhStats(unidade, empreendimentoId).catch(() => defaultRhStats),
         storage.getDemandasStats(unidade, empreendimentoId).catch(() => defaultDemandasStats),
         storage.getContratosStats(unidade, empreendimentoId).catch(() => defaultContratosStats),
-        getAutorizacoesVencidas().catch(() => [])
+        getAutorizacoesVencidas().catch(() => []),
+        getCondicionantesAlerta().catch(() => [])
       ]);
 
       res.json({
@@ -1351,7 +1396,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rh: rhStats || defaultRhStats,
         demandas: demandasStats || defaultDemandasStats,
         contratos: contratosStats || defaultContratosStats,
-        autorizacoesVencidas: autorizacoesVencidas || []
+        autorizacoesVencidas: autorizacoesVencidas || [],
+        condicionantesAlerta: condicionantesAlerta || []
       });
     } catch (error) {
       console.error("Get dashboard stats error:", error);
