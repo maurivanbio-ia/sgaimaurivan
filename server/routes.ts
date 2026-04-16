@@ -14770,6 +14770,36 @@ Regras:
   console.log('[CRON] Process monitoring job scheduled (every 6 hours)');
 
   // ========================================
+  // /api/team-members — lista de usuários acessível a todos (filtra pela unidade do usuário logado)
+  // Usado em dropdowns de seleção (projetos, gestão de dados, dashboard coordenador, etc.)
+  app.get('/api/team-members', requireAuth, async (req: any, res) => {
+    try {
+      const userUnidade = req.user?.unidade;
+      const isAdmin = req.user?.role === 'admin' || req.user?.cargo === 'admin' || (req.session as any).adminUnlocked === true;
+
+      // Admins veem todos; outros veem apenas sua unidade
+      const conditions: SQL[] = [];
+      if (!isAdmin && userUnidade) {
+        conditions.push(eq(users.unidade, userUnidade));
+      }
+
+      const result = await db.select({
+        id: users.id,
+        email: users.email,
+        cargo: users.cargo,
+        role: users.role,
+        unidade: users.unidade,
+        whatsapp: users.whatsapp,
+      }).from(users)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(users.email);
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // USER MANAGEMENT (admin only)
   // ========================================
   app.get('/api/users', requireAuth, async (req: any, res) => {
