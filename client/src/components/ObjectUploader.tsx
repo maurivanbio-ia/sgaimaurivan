@@ -11,7 +11,7 @@ interface ObjectUploaderProps {
     url: string;
     filePath?: string;
   }>;
-  onComplete?: (result: { uploadURL: string; filePath?: string }) => void;
+  onComplete?: (result: { uploadURL: string; filePath?: string; fileName?: string }) => void;
   buttonClassName?: string;
   children?: ReactNode;
   accept?: string;
@@ -76,7 +76,7 @@ export function ObjectUploader({
 
       // Call completion callback
       if (onComplete) {
-        onComplete({ uploadURL: url, filePath });
+        onComplete({ uploadURL: url, filePath, fileName: file.name });
       }
 
       toast({
