@@ -775,6 +775,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const dataset = await storage.createDataset(datasetData);
+
+      // ── Auto-ciclo de vida da licença ──────────────────────────────────────
+      // Quando um documento é vinculado a uma licença com tipo 'requerimento',
+      // a licença passa automaticamente para 'em_renovacao'
+      const licId = (dataset as any).licencaId ?? datasetData.licencaId;
+      const licVinculo = (dataset as any).licencaVinculoTipo ?? datasetData.licencaVinculoTipo;
+      if (licId && licVinculo === 'requerimento') {
+        try {
+          await db.update(licencasAmbientais)
+            .set({ status: 'em_renovacao' })
+            .where(and(eq(licencasAmbientais.id, Number(licId)), ne(licencasAmbientais.status, 'cancelada')));
+          websocketService.broadcastInvalidate('licencas');
+        } catch (licErr) {
+          console.error('[Auto ciclo-de-vida POST simples] Falha ao atualizar status da licença:', licErr);
+        }
+      }
+
       res.status(201).json(dataset);
     } catch (error) {
       console.error('Error creating dataset:', error);
@@ -832,6 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.update(licencasAmbientais)
             .set({ status: 'em_renovacao' })
             .where(and(eq(licencasAmbientais.id, savedLicencaId), ne(licencasAmbientais.status, 'cancelada')));
+          websocketService.broadcastInvalidate('licencas');
         } catch (licErr) {
           console.error('[Auto ciclo-de-vida] Falha ao atualizar status da licença:', licErr);
         }
