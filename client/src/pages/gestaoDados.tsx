@@ -1096,7 +1096,7 @@ export default function GestaoDados() {
 
           {/* ── TAB: Alertas ─────────────────────────────────────────────────── */}
           <TabsContent value="alertas" className="space-y-4">
-            <AlertasPanel alertas={alertas} isLoading={alertasLoading} onDetail={(id) => {
+            <AlertasPanel alertas={alertas} isLoading={alertasLoading} empreendimentos={empreendimentos} onDetail={(id) => {
               const doc = datasets.find(d => d.id === id);
               if (doc) { setDetailDataset(doc); setIsDetailOpen(true); }
             }} onGerarDemanda={(id) => {
@@ -2448,13 +2448,26 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
   );
 }
 
-// ─── Componente: Painel de Alertas ────────────────────────────────────────────
+// ─── Componente: Painel de Alertas (agrupado por empreendimento) ───────────────
 
-function AlertasPanel({ alertas, isLoading, onDetail, onGerarDemanda }: { alertas: any[]; isLoading: boolean; onDetail: (id: number) => void; onGerarDemanda: (id: number) => void }) {
-  const criticos = alertas.filter(a => a.risco === "critico");
-  const altos = alertas.filter(a => a.risco === "alto");
-  const medios = alertas.filter(a => a.risco === "medio");
-  const baixos = alertas.filter(a => a.risco === "baixo");
+const RISCO_CONFIG = {
+  critico: { label: "Crítico", color: "text-red-700", bg: "bg-red-50", border: "border-red-400", badge: "bg-red-100 text-red-700", icon: AlertCircle, borderLeft: "border-l-red-500" },
+  alto:    { label: "Alto",    color: "text-orange-700", bg: "bg-orange-50", border: "border-orange-400", badge: "bg-orange-100 text-orange-700", icon: AlertTriangle, borderLeft: "border-l-orange-500" },
+  medio:   { label: "Médio",   color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-400", badge: "bg-yellow-100 text-yellow-700", icon: Clock, borderLeft: "border-l-yellow-500" },
+  baixo:   { label: "Baixo",   color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-300", badge: "bg-blue-100 text-blue-700", icon: Info, borderLeft: "border-l-blue-400" },
+} as const;
+
+type RiscoKey = keyof typeof RISCO_CONFIG;
+
+function AlertasPanel({ alertas, isLoading, empreendimentos, onDetail, onGerarDemanda }: {
+  alertas: any[];
+  isLoading: boolean;
+  empreendimentos: Empreendimento[];
+  onDetail: (id: number) => void;
+  onGerarDemanda: (id: number) => void;
+}) {
+  const [expandedEmps, setExpandedEmps] = useState<Record<string, boolean>>({});
+  const [filterRisco, setFilterRisco] = useState<RiscoKey | "todos">("todos");
 
   if (isLoading) return <div className="text-center py-12"><Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-muted-foreground" /></div>;
 
@@ -2466,56 +2479,188 @@ function AlertasPanel({ alertas, isLoading, onDetail, onGerarDemanda }: { alerta
     </div>
   );
 
-  const RiscoSection = ({ title, items, color, icon }: { title: string; items: any[]; color: string; icon: any }) => {
-    if (items.length === 0) return null;
-    const Icon = icon;
-    return (
-      <div>
-        <div className={`flex items-center gap-2 mb-3 p-3 rounded-lg ${color}`}>
-          <Icon className="h-5 w-5" /><span className="font-semibold">{title}</span>
-          <Badge className="ml-auto">{items.length}</Badge>
-        </div>
-        <div className="space-y-2 mb-6">
-          {items.map(a => (
-            <div key={a.id} className="border rounded-lg p-3 hover:shadow-sm transition cursor-pointer" onClick={() => onDetail(a.id)}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{a.titulo || a.codigoArquivo || a.nome}</p>
-                  {a.numeroDocumento && <p className="text-xs text-muted-foreground">Nº {a.numeroDocumento}</p>}
-                  {a.orgaoEmissor && <p className="text-xs text-muted-foreground">{a.orgaoEmissor}</p>}
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className={`text-sm font-bold ${a.vencido ? "text-red-600" : "text-orange-600"}`}>
-                    {a.vencido ? `Vencido há ${Math.abs(a.diffDays)}d` : `Vence em ${a.diffDays}d`}
-                  </p>
-                  {a.prazoAtendimento && <p className="text-xs text-muted-foreground">{new Intl.DateTimeFormat("pt-BR").format(new Date(a.prazoAtendimento))}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                {a.responsavel && <span className="text-xs text-muted-foreground">Resp: {a.responsavel}</span>}
-                <Button size="sm" variant="outline" className="ml-auto h-6 text-xs gap-1 text-orange-600 border-orange-300" onClick={e => { e.stopPropagation(); onGerarDemanda(a.id); }}>
-                  <Zap className="h-3 w-3" />Gerar Demanda
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+  // Totais globais
+  const totalCriticos = alertas.filter(a => a.risco === "critico").length;
+  const totalAltos    = alertas.filter(a => a.risco === "alto").length;
+  const totalMedios   = alertas.filter(a => a.risco === "medio").length;
+  const totalBaixos   = alertas.filter(a => a.risco === "baixo").length;
+
+  // Agrupamento por empreendimento
+  const grouped: Record<string, { nome: string; items: any[] }> = {};
+  for (const a of alertas) {
+    const key = String(a.empreendimentoId ?? "sem");
+    if (!grouped[key]) {
+      const emp = empreendimentos.find(e => e.id === a.empreendimentoId);
+      grouped[key] = { nome: emp?.nome || (a.empreendimentoId ? `Empreendimento #${a.empreendimentoId}` : "Sem empreendimento"), items: [] };
+    }
+    grouped[key].items.push(a);
+  }
+
+  // Ordenar grupos pelo risco mais grave
+  const riscoOrder: Record<string, number> = { critico: 0, alto: 1, medio: 2, baixo: 3 };
+  const groupsSorted = Object.entries(grouped).sort(([, ga], [, gb]) => {
+    const maxA = Math.min(...ga.items.map(i => riscoOrder[i.risco] ?? 99));
+    const maxB = Math.min(...gb.items.map(i => riscoOrder[i.risco] ?? 99));
+    return maxA - maxB;
+  });
+
+  const toggleEmp = (key: string) =>
+    setExpandedEmps(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
+
+  const isExpanded = (key: string) => expandedEmps[key] !== false; // expanded by default
+
+  const formatDate = (iso: string) => {
+    try { return new Intl.DateTimeFormat("pt-BR").format(new Date(iso)); } catch { return iso; }
   };
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Card className="border-red-300 bg-red-50"><CardContent className="py-3 px-4"><div className="text-2xl font-bold text-red-700">{criticos.length}</div><div className="text-xs text-red-600">Crítico (Vencidos)</div></CardContent></Card>
-        <Card className="border-orange-300 bg-orange-50"><CardContent className="py-3 px-4"><div className="text-2xl font-bold text-orange-700">{altos.length}</div><div className="text-xs text-orange-600">Alto Risco (≤7 dias)</div></CardContent></Card>
-        <Card className="border-yellow-300 bg-yellow-50"><CardContent className="py-3 px-4"><div className="text-2xl font-bold text-yellow-700">{medios.length}</div><div className="text-xs text-yellow-600">Médio Risco (≤15 dias)</div></CardContent></Card>
-        <Card className="border-blue-300 bg-blue-50"><CardContent className="py-3 px-4"><div className="text-2xl font-bold text-blue-700">{baixos.length}</div><div className="text-xs text-blue-600">Baixo Risco (≤30 dias)</div></CardContent></Card>
+    <div className="space-y-4">
+      {/* ── KPI globais ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {(["critico","alto","medio","baixo"] as RiscoKey[]).map(r => {
+          const cfg = RISCO_CONFIG[r];
+          const count = r === "critico" ? totalCriticos : r === "alto" ? totalAltos : r === "medio" ? totalMedios : totalBaixos;
+          const Icon = cfg.icon;
+          const active = filterRisco === r;
+          return (
+            <button key={r} onClick={() => setFilterRisco(filterRisco === r ? "todos" : r)}
+              className={`rounded-xl border-2 p-3 text-left transition-all ${cfg.bg} ${active ? cfg.border + " shadow-md ring-2 ring-offset-1" : "border-transparent hover:border-gray-200"}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <Icon className={`h-4 w-4 ${cfg.color}`} />
+                <span className={`text-xs font-semibold uppercase tracking-wide ${cfg.color}`}>{cfg.label}</span>
+              </div>
+              <div className={`text-3xl font-black ${cfg.color}`}>{count}</div>
+              <div className={`text-[10px] mt-0.5 ${cfg.color} opacity-80`}>
+                {r === "critico" ? "Vencidos" : r === "alto" ? "≤ 7 dias" : r === "medio" ? "≤ 15 dias" : "≤ 30 dias"}
+              </div>
+            </button>
+          );
+        })}
       </div>
-      <RiscoSection title="Crítico — Prazos Vencidos" items={criticos} color="bg-red-100 text-red-800 border-l-4 border-red-500" icon={AlertCircle} />
-      <RiscoSection title="Alto Risco — Até 7 dias" items={altos} color="bg-orange-100 text-orange-800 border-l-4 border-orange-500" icon={AlertTriangle} />
-      <RiscoSection title="Médio Risco — Até 15 dias" items={medios} color="bg-yellow-100 text-yellow-800 border-l-4 border-yellow-400" icon={Clock} />
-      <RiscoSection title="Baixo Risco — Até 30 dias" items={baixos} color="bg-blue-100 text-blue-800 border-l-4 border-blue-400" icon={Info} />
+
+      {filterRisco !== "todos" && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Filtrando por: <strong className={RISCO_CONFIG[filterRisco].color}>{RISCO_CONFIG[filterRisco].label}</strong></span>
+          <button className="underline" onClick={() => setFilterRisco("todos")}>limpar filtro</button>
+        </div>
+      )}
+
+      {/* ── Cards por empreendimento ── */}
+      <div className="space-y-3">
+        {groupsSorted.map(([key, group]) => {
+          const filtered = filterRisco === "todos" ? group.items : group.items.filter(a => a.risco === filterRisco);
+          if (filtered.length === 0) return null;
+
+          const countByRisco = (r: string) => group.items.filter(a => a.risco === r).length;
+          const criticos = filtered.filter(a => a.risco === "critico");
+          const altos    = filtered.filter(a => a.risco === "alto");
+          const medios   = filtered.filter(a => a.risco === "medio");
+          const baixos   = filtered.filter(a => a.risco === "baixo");
+
+          // Borda esquerda baseada no risco mais grave
+          const topRisco = criticos.length > 0 ? "critico" : altos.length > 0 ? "alto" : medios.length > 0 ? "medio" : "baixo";
+          const borderLeftClass = RISCO_CONFIG[topRisco as RiscoKey].borderLeft;
+
+          const expanded = isExpanded(key);
+
+          return (
+            <Card key={key} className={`border-l-4 ${borderLeftClass} shadow-sm overflow-hidden`}>
+              {/* Header do empreendimento */}
+              <button
+                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/40 transition-colors"
+                onClick={() => toggleEmp(key)}
+              >
+                <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 flex-1 truncate">{group.nome}</span>
+                {/* Mini badges de contagem */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {countByRisco("critico") > 0 && (
+                    <span className="text-[10px] font-bold bg-red-100 text-red-700 rounded-full px-1.5 py-0.5">{countByRisco("critico")}🔴</span>
+                  )}
+                  {countByRisco("alto") > 0 && (
+                    <span className="text-[10px] font-bold bg-orange-100 text-orange-700 rounded-full px-1.5 py-0.5">{countByRisco("alto")}🟠</span>
+                  )}
+                  {countByRisco("medio") > 0 && (
+                    <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 rounded-full px-1.5 py-0.5">{countByRisco("medio")}🟡</span>
+                  )}
+                  {countByRisco("baixo") > 0 && (
+                    <span className="text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5">{countByRisco("baixo")}🔵</span>
+                  )}
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground ml-1 transition-transform ${expanded ? "" : "-rotate-90"}`} />
+                </div>
+              </button>
+
+              {/* Corpo colapsável */}
+              {expanded && (
+                <div className="px-4 pb-4 space-y-4 border-t">
+                  {([
+                    { key: "critico", items: criticos, title: "Crítico — Prazos Vencidos" },
+                    { key: "alto",    items: altos,    title: "Alto Risco — Até 7 dias" },
+                    { key: "medio",   items: medios,   title: "Médio Risco — Até 15 dias" },
+                    { key: "baixo",   items: baixos,   title: "Baixo Risco — Até 30 dias" },
+                  ] as { key: RiscoKey; items: any[]; title: string }[]).map(section => {
+                    if (section.items.length === 0) return null;
+                    const cfg = RISCO_CONFIG[section.key];
+                    const Icon = cfg.icon;
+                    return (
+                      <div key={section.key} className="pt-3">
+                        <div className={`flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md ${cfg.bg}`}>
+                          <Icon className={`h-3.5 w-3.5 ${cfg.color}`} />
+                          <span className={`text-xs font-semibold ${cfg.color}`}>{section.title}</span>
+                          <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cfg.badge}`}>{section.items.length}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {section.items.map(a => (
+                            <div key={a.id}
+                              className="flex items-start justify-between gap-2 border rounded-lg px-3 py-2 hover:shadow-sm hover:bg-muted/30 transition cursor-pointer"
+                              onClick={() => onDetail(a.id)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{a.titulo || a.codigoArquivo || a.nome}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {a.numeroDocumento && `Nº ${a.numeroDocumento}`}
+                                  {a.orgaoEmissor && ` · ${a.orgaoEmissor}`}
+                                </p>
+                                {a.responsavel && (
+                                  <p className="text-xs text-muted-foreground">👤 {a.responsavel}</p>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
+                                <p className={`text-xs font-bold ${a.vencido ? "text-red-600" : cfg.color}`}>
+                                  {a.vencido ? `Vencido há ${Math.abs(a.diffDays)}d` : `Vence em ${a.diffDays}d`}
+                                </p>
+                                {a.prazoAtendimento && (
+                                  <p className="text-[10px] text-muted-foreground">{formatDate(a.prazoAtendimento)}</p>
+                                )}
+                                <Button size="sm" variant="outline"
+                                  className="h-5 text-[10px] px-2 gap-1 text-orange-600 border-orange-300"
+                                  onClick={e => { e.stopPropagation(); onGerarDemanda(a.id); }}
+                                >
+                                  <Zap className="h-2.5 w-2.5" />Gerar Demanda
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+
+      {groupsSorted.every(([key, group]) => {
+        const filtered = filterRisco === "todos" ? group.items : group.items.filter(a => a.risco === filterRisco);
+        return filtered.length === 0;
+      }) && filterRisco !== "todos" && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">Nenhum alerta de nível <strong>{RISCO_CONFIG[filterRisco].label}</strong>.</p>
+          <button className="text-xs underline mt-1" onClick={() => setFilterRisco("todos")}>Ver todos</button>
+        </div>
+      )}
     </div>
   );
 }
