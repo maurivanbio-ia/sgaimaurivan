@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseDateSafe, formatDateBR } from "@/lib/date-utils";
-import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail } from "lucide-react";
+import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail, Tag, Activity, BarChart2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/RefreshButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,11 +61,30 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
           color: "text-green-600",
           bgColor: "bg-green-50 border-green-200"
         };
+      } else if (item.status === 'em_andamento') {
+        if (diffDays < 0) {
+          return { 
+            badge: <Badge className="bg-orange-100 text-orange-800 border-orange-200 flex items-center gap-1"><Activity className="h-3 w-3" />Em Andamento (vencida)</Badge>,
+            color: "text-orange-600",
+            bgColor: "bg-orange-50 border-orange-200"
+          };
+        }
+        return { 
+          badge: <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200 flex items-center gap-1"><Activity className="h-3 w-3" />Em Andamento ({diffDays}d)</Badge>,
+          color: "text-indigo-600",
+          bgColor: "bg-indigo-50 border-indigo-200"
+        };
       } else if (item.status === 'vencida' || diffDays < 0) {
         return { 
           badge: <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" />Vencida</Badge>,
           color: "text-red-600",
           bgColor: "bg-red-50 border-red-200"
+        };
+      } else if (diffDays <= 30) {
+        return { 
+          badge: <Badge className="bg-amber-100 text-amber-800 border-amber-200 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Vence em {diffDays}d</Badge>,
+          color: "text-amber-600",
+          bgColor: "bg-amber-50 border-amber-200"
         };
       } else {
         return { 
@@ -196,16 +215,38 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                             {getIcon()}
                           </div>
                           <div className="flex-1">
-                            <h3 className="font-semibold text-lg text-gray-900 leading-tight">
-                              {type === 'licenca' ? item.tipo :
-                               type === 'condicionante' ? item.descricao :
-                               item.titulo || item.descricao}
-                            </h3>
-                            {type === 'licenca' && (
-                              <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                                <Building className="h-3 w-3" />
-                                {item.orgaoEmissor}
-                              </p>
+                            {type === 'condicionante' ? (
+                              <>
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  {item.codigo && (
+                                    <Badge variant="outline" className="text-xs font-mono">{item.codigo}</Badge>
+                                  )}
+                                  {item.item && !item.codigo && (
+                                    <Badge variant="outline" className="text-xs">Item {item.item}</Badge>
+                                  )}
+                                  {item.tipoCondicionante && (
+                                    <span className="text-xs text-gray-500 capitalize">{item.tipoCondicionante.replace('_', ' ')}</span>
+                                  )}
+                                </div>
+                                <h3 className="font-semibold text-lg text-gray-900 leading-tight">
+                                  {item.titulo || item.descricao}
+                                </h3>
+                                {item.titulo && (
+                                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">{item.descricao}</p>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <h3 className="font-semibold text-lg text-gray-900 leading-tight">
+                                  {type === 'licenca' ? item.tipo : item.titulo || item.descricao}
+                                </h3>
+                                {type === 'licenca' && (
+                                  <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+                                    <Building className="h-3 w-3" />
+                                    {item.orgaoEmissor}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -295,15 +336,16 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                                 <Building className="h-3 w-3" />
                                 Empreendimento
                               </div>
-                              <p className="font-semibold text-gray-900">{item.empreendimentoNome}</p>
+                              <p className="font-semibold text-gray-900">{item.empreendimentoNome || '—'}</p>
                               <p className="text-sm text-gray-600">{item.empreendimentoCliente}</p>
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
                                 <FileText className="h-3 w-3" />
-                                Licença Relacionada
+                                Licença
                               </div>
                               <p className="font-semibold text-gray-900">{item.licencaTipo}</p>
+                              {item.licencaNumero && <p className="text-xs text-gray-500">Nº {item.licencaNumero}</p>}
                               <p className="text-sm text-gray-600">{item.licencaOrgaoEmissor}</p>
                             </div>
                             <div className="space-y-1">
@@ -313,27 +355,63 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                               </div>
                               <p className={`font-semibold ${statusInfo.color}`}>{formatDate(item.prazo)}</p>
                             </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
-                                <Hash className="h-3 w-3" />
-                                ID da Condicionante
+                            {item.categoria && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                  <Tag className="h-3 w-3" />
+                                  Categoria
+                                </div>
+                                <p className="font-semibold text-gray-900">{item.categoria}</p>
                               </div>
-                              <p className="font-mono text-sm text-gray-900">#{item.id}</p>
-                            </div>
-                            {(item.empreendimentoClienteEmail || item.empreendimentoClienteTelefone) && (
+                            )}
+                            {item.responsavelNome && (
                               <div className="space-y-1">
                                 <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
                                   <User className="h-3 w-3" />
-                                  Contato do Cliente
+                                  Responsável
                                 </div>
-                                {item.empreendimentoClienteEmail && (
-                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteEmail}</p>
-                                )}
-                                {item.empreendimentoClienteTelefone && (
-                                  <p className="text-sm text-gray-900">{item.empreendimentoClienteTelefone}</p>
-                                )}
+                                <p className="font-semibold text-gray-900">{item.responsavelNome}</p>
                               </div>
                             )}
+                            {item.progresso !== undefined && item.progresso !== null && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                  <BarChart2 className="h-3 w-3" />
+                                  Progresso
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-blue-500 h-2 rounded-full"
+                                      style={{ width: `${item.progresso}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">{item.progresso}%</span>
+                                </div>
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 uppercase tracking-wide">
+                                <ExternalLink className="h-3 w-3" />
+                                Ações
+                              </div>
+                              {item.licencaId && (
+                                <button
+                                  onClick={() => navigate(`/licenca/${item.licencaId}`)}
+                                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                >
+                                  <ExternalLink className="h-3 w-3" /> Ver licença
+                                </button>
+                              )}
+                              {item.empreendimentoId && (
+                                <button
+                                  onClick={() => navigate(`/projects/${item.empreendimentoId}`)}
+                                  className="text-xs text-green-700 hover:underline flex items-center gap-1"
+                                >
+                                  <ExternalLink className="h-3 w-3" /> Ver empreendimento
+                                </button>
+                              )}
+                            </div>
                           </>
                         )}
                         
