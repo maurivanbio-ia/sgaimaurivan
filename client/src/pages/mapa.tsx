@@ -450,11 +450,11 @@ export default function MapaEmpreendimentos() {
       });
       setUploadDialogOpen(false);
       refetchCamadas();
-      queryClient.invalidateQueries({ queryKey: ['/api/camadas-geoespaciais'] });
-    } catch (error: any) {
+      void queryClient.invalidateQueries({ queryKey: ['/api/camadas-geoespaciais'] });
+    } catch (error: unknown) {
       toast({
         title: "Erro",
-        description: error.message || "Erro ao fazer upload do arquivo",
+        description: (error as Error).message || "Erro ao fazer upload do arquivo",
         variant: "destructive",
       });
     } finally {

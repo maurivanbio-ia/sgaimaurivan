@@ -192,7 +192,7 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
       form.reset();
       onSuccess();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: "Não foi possível cadastrar o veículo. Tente novamente.",
@@ -214,7 +214,7 @@ function NovoVeiculoForm({ onSuccess, veiculo }: NovoVeiculoFormProps) {
       });
       onSuccess();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o veículo. Tente novamente.",
@@ -1007,7 +1007,7 @@ export default function FrotaPage() {
       });
       setVeiculoToDelete(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
         description: "Não foi possível deletar o veículo. Tente novamente.",

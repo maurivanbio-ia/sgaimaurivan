@@ -105,7 +105,7 @@ export default function BlogArtigoPage() {
       toast({ title: data.message || "Comentário enviado! Aguardando aprovação." });
       setNome("");
       setComentario("");
-      queryClient.invalidateQueries({ queryKey: ["/api/blog/public", params.slug, "comentarios"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/blog/public", params.slug, "comentarios"] });
     },
     onError: (error: Error) => {
       toast({ title: error.message || "Erro ao enviar comentário", variant: "destructive" });
@@ -133,7 +133,7 @@ export default function BlogArtigoPage() {
         toast({ title: "Você já curtiu este artigo" });
       } else {
         setHasLiked(true);
-        queryClient.invalidateQueries({ queryKey: ["/api/blog/public", params.slug] });
+        void queryClient.invalidateQueries({ queryKey: ["/api/blog/public", params.slug] });
       }
     },
   });
@@ -155,7 +155,7 @@ export default function BlogArtigoPage() {
         url: window.location.href,
       });
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      void navigator.clipboard.writeText(window.location.href);
       toast({ title: "Link copiado!" });
     }
   };

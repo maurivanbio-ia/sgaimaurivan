@@ -95,13 +95,13 @@ export default function BackupDropboxPage() {
       if (data.success) {
         const totalRecords = data.tables ? Object.values(data.tables).reduce((a, b) => a + b, 0) : 0;
         toast({ title: "Backup realizado com sucesso!", description: `${totalRecords.toLocaleString()} registros salvos` });
-        queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
+        void queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
         setShowPasswordDialog(false); setAdminPassword(""); setPasswordError("");
       } else {
         toast({ title: "Erro ao realizar backup", description: data.error, variant: "destructive" });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const msg = error.message || "Falha ao executar backup";
       if (msg.includes("Senha") || msg.includes("password") || msg.includes("incorreta")) {
         setPasswordError("Senha incorreta. Tente novamente.");
@@ -119,7 +119,7 @@ export default function BackupDropboxPage() {
       return response.json();
     },
     onSuccess: (data) => toast({ title: "Backup enviado ao Dropbox!", description: data.dropboxPath ? `Salvo em: ${data.dropboxPath}` : "Enviado com sucesso" }),
-    onError: (err: any) => toast({ title: "Erro ao enviar para Dropbox", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Erro ao enviar para Dropbox", description: err.message, variant: "destructive" }),
   });
 
   const handleDownload = async (fileName: string) => {
@@ -147,28 +147,28 @@ export default function BackupDropboxPage() {
       setIsSyncing(true);
       toast({ title: "Sincronização iniciada", description: "Os arquivos estão sendo enviados ao Dropbox em segundo plano." });
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] });
+        void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] });
+        void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] });
         setIsSyncing(false);
       }, 10000);
     },
-    onError: (err: any) => toast({ title: "Erro ao sincronizar", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Erro ao sincronizar", description: err.message, variant: "destructive" }),
   });
 
   const retryMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/dropbox/sync-retry"),
-    onSuccess: (data: any) => {
+    onSuccess: (data: { success: number; retried: number }) => {
       toast({ title: "Reprocessamento concluído", description: `${data.success} de ${data.retried} arquivos recuperados.` });
-      queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] });
     },
-    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
   const foldersMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/dropbox/folders/sync-all"),
-    onSuccess: (data: any) => toast({ title: "Pastas criadas", description: `${data.synced} empreendimentos sincronizados no Dropbox.` }),
-    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+    onSuccess: (data: { synced: number }) => toast({ title: "Pastas criadas", description: `${data.synced} empreendimentos sincronizados no Dropbox.` }),
+    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
   // ── Computed ─────────────────────────────────────────────────────────────
@@ -417,7 +417,7 @@ export default function BackupDropboxPage() {
                   </Button>
                 )}
 
-                <Button variant="ghost" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] }); queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] }); }} className="gap-2">
+                <Button variant="ghost" onClick={() => { void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] }); void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] }); }} className="gap-2">
                   <RefreshCw className="w-4 h-4" />Atualizar
                 </Button>
               </div>

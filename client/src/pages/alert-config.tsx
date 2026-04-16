@@ -90,7 +90,7 @@ export default function AlertConfigPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/demanda-config"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/demanda-config"] });
       setWpFormSynced(false);
       toast({ title: "Configuração salva com sucesso!" });
     },
@@ -103,7 +103,7 @@ export default function AlertConfigPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/demanda-config"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/demanda-config"] });
       setWpFormSynced(false);
       setWpForm({ groupJid: "", groupName: "", notifyNovaDemanda: true, notifyResumeSemanal: true, diaResumoSemanal: 1, horaResumoSemanal: "08:00", enabled: true });
       toast({ title: "Configuração removida" });
@@ -122,7 +122,7 @@ export default function AlertConfigPage() {
       return data;
     },
     onSuccess: (data) => toast({ title: data.message || "Resumo enviado!" }),
-    onError: (err: any) => toast({ title: err.message || "Erro ao enviar resumo", variant: "destructive" }),
+    onError: (err: Error) => toast({ title: err.message || "Erro ao enviar resumo", variant: "destructive" }),
   });
 
   const testarZapiDireto = useMutation({
@@ -145,7 +145,7 @@ export default function AlertConfigPage() {
         variant: data.ok ? "default" : "destructive",
       });
     },
-    onError: (err: any) => toast({ title: "Erro no teste Z-API", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Erro no teste Z-API", description: err.message, variant: "destructive" }),
   });
 
   const testarConexaoWp = useMutation({
@@ -208,7 +208,7 @@ export default function AlertConfigPage() {
         description: data.message || "Notificação de teste criada com sucesso!",
       });
       // Refresh notificações na nav
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     },
     onError: () => {
       toast({
@@ -229,7 +229,7 @@ export default function AlertConfigPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/alerts/configs"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/alerts/configs"] });
       toast({
         title: "Sucesso",
         description: "Configuração atualizada com sucesso!",

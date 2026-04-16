@@ -111,7 +111,7 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
       toast({ title: "Projeto criado", description: "O projeto foi cadastrado com sucesso." });
       handleCloseDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao criar", description: error.message, variant: "destructive" });
     },
   });
@@ -125,7 +125,7 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
       toast({ title: "Projeto atualizado", description: "O projeto foi atualizado com sucesso." });
       handleCloseDialog();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
     },
   });
@@ -140,7 +140,7 @@ export function ProjetosTab({ empreendimentoId }: ProjetosTabProps) {
       setDeleteDialogOpen(false);
       setProjetoToDelete(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     },
   });

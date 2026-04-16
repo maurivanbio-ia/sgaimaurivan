@@ -65,7 +65,7 @@ export default function ClienteDocumentos() {
       setSelectedFile(null);
       setSelectedEmpreendimento("");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao enviar",
         description: error.message || "Não foi possível enviar o documento",

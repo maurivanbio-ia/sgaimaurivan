@@ -82,7 +82,7 @@ export default function Projects() {
       setDeleteDialogOpen(false);
       setProjectToDelete(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao excluir",
         description: error?.message || "Não foi possível excluir o empreendimento.",

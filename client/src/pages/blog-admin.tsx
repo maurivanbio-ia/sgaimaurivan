@@ -202,7 +202,7 @@ export default function BlogAdminPage() {
       setSelectedFile(null);
       setImagePreview(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error("Erro ao criar artigo:", error);
       toast({ 
         title: "Erro ao criar artigo", 

@@ -28,7 +28,7 @@ export default function ClienteLogin() {
       });
       navigate("/cliente");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro no login",
         description: error?.message || "Email ou senha inválidos",

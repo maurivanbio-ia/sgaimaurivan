@@ -24,7 +24,7 @@ export default function AtivarAdminPage() {
       setSuccess(true);
       toast({ title: "Sucesso!", description: data.message });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: "Senha incorreta", description: err.message, variant: "destructive" });
     },
   });
