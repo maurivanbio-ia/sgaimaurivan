@@ -1358,14 +1358,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
       };
 
-      // Query autorizações vencidas inline
+      // Query autorizações vencidas inline — combina autorizacoes + datasets da Gestão de Dados
       const getAutorizacoesVencidas = async () => {
         const today = new Date().toISOString().split('T')[0];
-        const conditions: SQL[] = [ne(autorizacoes.status, 'cancelada')];
-        if (unidade) conditions.push(eq(autorizacoes.unidade, unidade));
-        if (empreendimentoId) conditions.push(eq(autorizacoes.empreendimentoId, empreendimentoId));
+
+        // 1) Autorizações formais
+        const conditionsAut: SQL[] = [ne(autorizacoes.status, 'cancelada')];
+        if (unidade) conditionsAut.push(eq(autorizacoes.unidade, unidade));
+        if (empreendimentoId) conditionsAut.push(eq(autorizacoes.empreendimentoId, empreendimentoId));
         
-        const all = await db.select({
+        const allAut = await db.select({
           id: autorizacoes.id,
           numero: autorizacoes.numero,
           titulo: autorizacoes.titulo,
@@ -1374,12 +1376,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dataValidade: autorizacoes.dataValidade,
           status: autorizacoes.status,
           empreendimentoId: autorizacoes.empreendimentoId,
-        }).from(autorizacoes).where(and(...conditions));
+          fonte: sql<string>`'autorizacao'`,
+        }).from(autorizacoes).where(and(...conditionsAut));
 
-        const vencidas = all.filter(a =>
+        const vencidasAut = allAut.filter(a =>
           a.status === 'vencida' || (a.dataValidade && a.dataValidade < today)
         );
-        return vencidas;
+
+        // 2) Documentos da Gestão de Dados com prazoAtendimento vencido
+        const conditionsDs: SQL[] = [
+          sql`${datasets.prazoAtendimento} IS NOT NULL`,
+          sql`${datasets.prazoAtendimento} < ${today}`,
+        ];
+        if (unidade) conditionsDs.push(eq(datasets.unidade, unidade));
+        if (empreendimentoId) conditionsDs.push(eq(datasets.empreendimentoId, empreendimentoId));
+
+        const vencidasDs = await db.select({
+          id: datasets.id,
+          numero: datasets.numeroDocumento,
+          titulo: datasets.titulo,
+          tipo: datasets.tipoDocumental,
+          orgaoEmissor: datasets.orgaoEmissor,
+          dataValidade: datasets.prazoAtendimento,
+          status: sql<string>`'vencida'`,
+          empreendimentoId: datasets.empreendimentoId,
+          fonte: sql<string>`'gestao_dados'`,
+          nome: datasets.nome,
+          codigoArquivo: datasets.codigoArquivo,
+        }).from(datasets).where(and(...conditionsDs));
+
+        // Normaliza datasets para o mesmo formato
+        const vencidasDsNorm = vencidasDs.map(d => ({
+          id: d.id,
+          numero: d.numero || d.codigoArquivo || d.nome || `DOC-${d.id}`,
+          titulo: d.titulo || d.nome || 'Documento sem título',
+          tipo: d.tipo || 'documento',
+          orgaoEmissor: d.orgaoEmissor,
+          dataValidade: d.dataValidade,
+          status: 'vencida',
+          empreendimentoId: d.empreendimentoId,
+          fonte: 'gestao_dados' as const,
+        }));
+
+        return [...vencidasAut, ...vencidasDsNorm];
       };
 
       const [
