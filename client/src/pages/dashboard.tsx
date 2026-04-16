@@ -283,71 +283,81 @@ export default function Dashboard() {
       {/* Autorizações Vencidas — Seção de Detalhe */}
       {autorizacoesVencidas.length > 0 && (
         <div className="mb-6" id="secao-autorizacoes-vencidas">
-          <h3 className="text-lg font-semibold text-card-foreground mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-orange-500" />
-            Autorizações com Documentos Vencidos
-            <span className="ml-1 text-xs font-normal bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-full px-2 py-0.5">
-              {autorizacoesVencidas.length} {autorizacoesVencidas.length === 1 ? "item" : "itens"}
-            </span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {autorizacoesVencidas.map((aut) => {
-              const emp = empreendimentos?.find(e => e.id === aut.empreendimentoId);
-              const hoje = new Date().toISOString().split('T')[0];
-              const diasVencido = aut.dataValidade
-                ? Math.floor((new Date(hoje).getTime() - new Date(aut.dataValidade).getTime()) / 86400000)
-                : null;
-              const isGestao = aut.fonte === 'gestao_dados';
-              return (
-                <Card
-                  key={`${aut.fonte || 'aut'}-${aut.id}`}
-                  className="border-l-4 border-l-orange-500 bg-orange-50/60 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => isGestao ? navigate('/gestao-dados') : (emp && navigate(`/empreendimentos/${emp.id}`))}
+          <Card className="border border-orange-200 dark:border-orange-800 shadow-sm">
+            <CardContent className="p-0">
+              {/* Cabeçalho */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-orange-100 dark:border-orange-900/40 bg-orange-50/60 dark:bg-orange-950/20 rounded-t-xl">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  <span className="font-semibold text-sm text-orange-800 dark:text-orange-300">Autorizações Vencidas</span>
+                  <span className="text-xs font-medium bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-full px-2 py-0.5">
+                    {autorizacoesVencidas.length}
+                  </span>
+                </div>
+                <button
+                  className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                  onClick={() => navigate("/licencas/vencidas")}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
+                  Ver todas →
+                </button>
+              </div>
+              {/* Lista compacta */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {autorizacoesVencidas.slice(0, 8).map((aut) => {
+                  const emp = empreendimentos?.find(e => e.id === aut.empreendimentoId);
+                  const hoje = new Date().toISOString().split('T')[0];
+                  const diasVencido = aut.dataValidade
+                    ? Math.floor((new Date(hoje).getTime() - new Date(aut.dataValidade).getTime()) / 86400000)
+                    : null;
+                  return (
+                    <div
+                      key={`aut-${aut.id}`}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/40 dark:hover:bg-orange-950/10 cursor-pointer transition-colors"
+                      onClick={() => emp && navigate(`/empreendimentos/${emp.id}`)}
+                    >
+                      {/* Tipo badge */}
+                      <span className="flex-shrink-0 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                        {(aut.tipo || 'doc').slice(0, 8)}
+                      </span>
+                      {/* Info central */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded px-1.5 py-0.5">
-                            {aut.tipo || 'documento'}
-                          </span>
-                          {isGestao && (
-                            <span className="text-[10px] font-medium bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
-                              Gestão de Dados
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground font-mono truncate">{aut.numero}</span>
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{aut.titulo}</p>
-                        {emp && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">📍 {emp.nome}</p>
-                        )}
-                        {aut.orgaoEmissor && (
-                          <p className="text-xs text-muted-foreground truncate">🏛 {aut.orgaoEmissor}</p>
-                        )}
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {aut.titulo || aut.numero || `#${aut.id}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {emp?.nome || '—'}
+                          {aut.orgaoEmissor ? ` · ${aut.orgaoEmissor}` : ''}
+                        </p>
                       </div>
+                      {/* Data + dias */}
                       <div className="text-right flex-shrink-0">
                         {aut.dataValidade ? (
                           <>
-                            <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">
                               {aut.dataValidade.split('-').reverse().join('/')}
                             </p>
                             {diasVencido !== null && diasVencido > 0 && (
-                              <p className="text-xs text-destructive font-semibold">
-                                {diasVencido}d vencida
-                              </p>
+                              <p className="text-[11px] font-semibold text-destructive">{diasVencido}d vencida</p>
                             )}
                           </>
                         ) : (
-                          <p className="text-xs text-muted-foreground">Sem validade</p>
+                          <p className="text-xs text-muted-foreground">—</p>
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  );
+                })}
+                {autorizacoesVencidas.length > 8 && (
+                  <div
+                    className="px-4 py-2 text-xs text-center text-muted-foreground hover:text-orange-600 cursor-pointer"
+                    onClick={() => navigate("/licencas/vencidas")}
+                  >
+                    + {autorizacoesVencidas.length - 8} item(s) não exibido(s) — clique para ver todos
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
