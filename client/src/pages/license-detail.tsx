@@ -1342,6 +1342,9 @@ const VINCULO_EVENTO: Record<string, { label: string; icon: string; color: strin
 };
 
 function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const { data: docsGestao = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/licencas", licencaId, "documentos"],
     queryFn: async () => {
@@ -1349,6 +1352,29 @@ function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: number 
       return res.json();
     },
   });
+
+  // Auto-sincronizar status: se há documento de requerimento vinculado e a licença está vencida → marcar como em_renovacao
+  const syncStatusMutation = useMutation({
+    mutationFn: () => apiRequest("PATCH", `/api/licencas/${licencaId}`, { status: "em_renovacao" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licencaId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas"] });
+      toast({
+        title: "Status sincronizado automaticamente",
+        description: "Licença marcada como Em Renovação pois possui requerimento vinculado.",
+      });
+    },
+  });
+
+  // Dispara a sincronização quando detecta requerimento + status vencida
+  useEffect(() => {
+    if (docsGestao.length === 0) return;
+    const temRequerimento = docsGestao.some((d: any) => d.licencaVinculoTipo === "requerimento");
+    if (temRequerimento && licenca.status === "vencida" && !syncStatusMutation.isPending && !syncStatusMutation.isSuccess) {
+      syncStatusMutation.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docsGestao, licenca.status]);
 
   // Construir eventos cronológicos
   const eventos: Array<{ date: string | null; label: string; icon: string; color: string; bgColor: string; borderColor: string; doc?: any; type: "emissao" | "doc" | "validade" | "status" }> = [];
