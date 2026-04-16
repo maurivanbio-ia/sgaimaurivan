@@ -22,7 +22,8 @@ import {
   ArrowLeft, Shield, AlertTriangle, CheckCircle2, Clock, XCircle,
   Plus, Pencil, Trash2, FileText, Eye, Link2, Flag, CalendarDays,
   History, BarChart3, Search, Filter, Download, ChevronRight,
-  CheckCheck, TrendingDown, AlertCircle, Upload, Star, ExternalLink
+  CheckCheck, TrendingDown, AlertCircle, Upload, Star, ExternalLink,
+  ClipboardList, RefreshCcw
 } from "lucide-react";
 import type { LicencaAmbiental, Condicionante, CondicionanteEvidencia } from "@shared/schema";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -1327,12 +1328,34 @@ const VINCULO_EVENTO: Record<string, { label: string; icon: string; color: strin
 };
 
 function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({ dataProtocolo: "", numeroProtocolo: "", orgao: "", observacoes: "" });
+
   const { data: docsGestao = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/licencas", licencaId, "documentos"],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/licencas/${licencaId}/documentos`);
       return res.json();
     },
+  });
+
+  const registrarRequerimento = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/licencas/${licencaId}/registrar-requerimento`, formData);
+      if (!res.ok) throw new Error("Erro ao registrar");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licencaId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licencaId, "documentos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas"] });
+      setShowForm(false);
+      setFormData({ dataProtocolo: "", numeroProtocolo: "", orgao: "", observacoes: "" });
+      toast({ title: "✅ Requerimento registrado!", description: "Licença marcada como Em Renovação." });
+    },
+    onError: () => toast({ title: "Erro ao registrar requerimento", variant: "destructive" }),
   });
 
   // Construir eventos cronológicos
@@ -1433,13 +1456,67 @@ function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: number 
         </p>
       </div>
 
-      {/* Como usar */}
-      <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-800">
-        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-500" />
-        <span>
-          Para registrar um evento (ex.: Requerimento de Renovação), vá em <strong>Gestão de Dados</strong>, edite o documento e selecione esta licença no campo <em>"Licença Vinculada"</em> com o tipo de relação <em>"Requerimento"</em>. O status da licença será atualizado automaticamente.
-        </span>
+      {/* Ações rápidas */}
+      <div className="flex flex-wrap gap-2">
+        {licenca.status !== "em_renovacao" && licenca.status !== "cancelada" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+            onClick={() => setShowForm(true)}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Registrar Requerimento de Renovação
+          </Button>
+        )}
+        {licenca.status === "em_renovacao" && (
+          <div className="flex items-center gap-1.5 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-1.5">
+            <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
+            Licença em processo de renovação
+          </div>
+        )}
       </div>
+
+      {/* Formulário de registro de requerimento */}
+      {showForm && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+              <ClipboardList className="h-4 w-4" />
+              Registrar Requerimento de Renovação
+            </h4>
+            <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground text-xs">✕ Cancelar</button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Data do Protocolo</label>
+              <Input type="date" value={formData.dataProtocolo} onChange={e => setFormData(f => ({ ...f, dataProtocolo: e.target.value }))} className="h-8 text-xs" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Número do Protocolo / Ofício</label>
+              <Input placeholder="Ex: 001/2025" value={formData.numeroProtocolo} onChange={e => setFormData(f => ({ ...f, numeroProtocolo: e.target.value }))} className="h-8 text-xs" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Órgão Ambiental</label>
+              <Input placeholder="Ex: INEMA, IBAMA" value={formData.orgao} onChange={e => setFormData(f => ({ ...f, orgao: e.target.value }))} className="h-8 text-xs" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Observações (opcional)</label>
+            <Textarea placeholder="Informações adicionais sobre o requerimento..." value={formData.observacoes} onChange={e => setFormData(f => ({ ...f, observacoes: e.target.value }))} className="text-xs min-h-[60px]" />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => registrarRequerimento.mutate()} disabled={registrarRequerimento.isPending} className="gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5" />
+              {registrarRequerimento.isPending ? "Registrando..." : "Confirmar Requerimento"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+          </div>
+          <p className="text-xs text-blue-600">
+            Isso registrará o requerimento no histórico e <strong>marcará a licença como Em Renovação</strong> automaticamente.
+          </p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-10 text-muted-foreground text-sm gap-2">
