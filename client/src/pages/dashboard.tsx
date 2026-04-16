@@ -38,10 +38,13 @@ interface CondicionanteAlerta {
   prazo: string;
   progresso: number;
   responsavelNome?: string | null;
+  responsavelId?: number | null;
   licencaId: number;
   licencaNumero: string;
   empreendimentoNome: string;
   empreendimentoId?: number | null;
+  empCliente: string;
+  tipoResponsavel: 'empreendedor' | 'ecobrasil' | 'sem_responsavel';
 }
 
 interface DashboardStats {
@@ -119,8 +122,19 @@ export default function Dashboard() {
   const contratos = dashboardStats?.contratos || { total: 0, ativos: 0, valorTotal: 0 };
   const autorizacoesVencidas = dashboardStats?.autorizacoesVencidas || [];
   const condicionantesAlerta = dashboardStats?.condicionantesAlerta || [];
-  const condicionantesVencidas = condicionantesAlerta.filter(c => c.status === 'vencida');
-  const condicionantesEmAndamento = condicionantesAlerta.filter(c => c.status === 'em_andamento');
+  const [filtroResponsavel, setFiltroResponsavel] = useState<'todos' | 'empreendedor' | 'ecobrasil'>('todos');
+
+  const condicionantesFiltradas = condicionantesAlerta.filter(c =>
+    filtroResponsavel === 'todos' ? true : c.tipoResponsavel === filtroResponsavel
+  );
+  const condicionantesVencidas = condicionantesFiltradas.filter(c => c.status === 'vencida');
+  const condicionantesEmAndamento = condicionantesFiltradas.filter(c => c.status === 'em_andamento');
+
+  // Totais globais para os badges dos botões de filtro
+  const totalEmpVencidas = condicionantesAlerta.filter(c => c.status === 'vencida' && c.tipoResponsavel === 'empreendedor').length;
+  const totalEmpAndamento = condicionantesAlerta.filter(c => c.status === 'em_andamento' && c.tipoResponsavel === 'empreendedor').length;
+  const totalEcoVencidas = condicionantesAlerta.filter(c => c.status === 'vencida' && c.tipoResponsavel === 'ecobrasil').length;
+  const totalEcoAndamento = condicionantesAlerta.filter(c => c.status === 'em_andamento' && c.tipoResponsavel === 'ecobrasil').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -331,22 +345,72 @@ export default function Dashboard() {
       )}
 
       {/* Condicionantes em Alerta (Vencidas + Em Andamento) */}
-      {(condicionantesVencidas.length > 0 || condicionantesEmAndamento.length > 0) && (
+      {condicionantesAlerta.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-card-foreground mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-500" />
-            Condicionantes em Atenção
-            {condicionantesVencidas.length > 0 && (
-              <span className="text-xs font-normal bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">
-                {condicionantesVencidas.length} vencida{condicionantesVencidas.length !== 1 ? "s" : ""}
-              </span>
-            )}
-            {condicionantesEmAndamento.length > 0 && (
-              <span className="text-xs font-normal bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded-full px-2 py-0.5">
-                {condicionantesEmAndamento.length} em andamento
-              </span>
-            )}
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-500" />
+              Condicionantes em Atenção
+              {condicionantesVencidas.length > 0 && (
+                <span className="text-xs font-normal bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">
+                  {condicionantesVencidas.length} vencida{condicionantesVencidas.length !== 1 ? "s" : ""}
+                </span>
+              )}
+              {condicionantesEmAndamento.length > 0 && (
+                <span className="text-xs font-normal bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded-full px-2 py-0.5">
+                  {condicionantesEmAndamento.length} em andamento
+                </span>
+              )}
+            </h3>
+
+            {/* Botões de filtro por responsável */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFiltroResponsavel('todos')}
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-all ${
+                  filtroResponsavel === 'todos'
+                    ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 border-transparent'
+                    : 'bg-white dark:bg-gray-900 text-muted-foreground border-border hover:border-gray-400'
+                }`}
+              >
+                Todos ({condicionantesAlerta.length})
+              </button>
+              <button
+                onClick={() => setFiltroResponsavel('empreendedor')}
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
+                  filtroResponsavel === 'empreendedor'
+                    ? 'bg-[#00599C] text-white border-transparent'
+                    : 'bg-white dark:bg-gray-900 text-[#00599C] border-[#00599C]/40 hover:border-[#00599C]'
+                }`}
+              >
+                🏢 Empreendedor
+                {(totalEmpVencidas + totalEmpAndamento) > 0 && (
+                  <span className={`rounded-full px-1.5 text-[10px] font-bold ${
+                    filtroResponsavel === 'empreendedor' ? 'bg-white/20' : 'bg-[#00599C]/10'
+                  }`}>
+                    {totalEmpVencidas + totalEmpAndamento}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setFiltroResponsavel('ecobrasil')}
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
+                  filtroResponsavel === 'ecobrasil'
+                    ? 'bg-[#1A7A45] text-white border-transparent'
+                    : 'bg-white dark:bg-gray-900 text-[#1A7A45] border-[#1A7A45]/40 hover:border-[#1A7A45]'
+                }`}
+              >
+                🌿 Ecobrasil
+                {(totalEcoVencidas + totalEcoAndamento) > 0 && (
+                  <span className={`rounded-full px-1.5 text-[10px] font-bold ${
+                    filtroResponsavel === 'ecobrasil' ? 'bg-white/20' : 'bg-[#1A7A45]/10'
+                  }`}>
+                    {totalEcoVencidas + totalEcoAndamento}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
 
           {/* Vencidas */}
           {condicionantesVencidas.length > 0 && (
@@ -369,7 +433,13 @@ export default function Dashboard() {
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {cond.tipoResponsavel === 'empreendedor' && (
+                                <span className="text-[10px] font-bold bg-[#00599C] text-white rounded-full px-2 py-0.5">🏢 Empreendedor</span>
+                              )}
+                              {cond.tipoResponsavel === 'ecobrasil' && (
+                                <span className="text-[10px] font-bold bg-[#1A7A45] text-white rounded-full px-2 py-0.5">🌿 Ecobrasil</span>
+                              )}
                               {cond.codigo && (
                                 <span className="text-xs font-semibold bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded px-1.5 py-0.5">
                                   {cond.codigo}
@@ -425,7 +495,13 @@ export default function Dashboard() {
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {cond.tipoResponsavel === 'empreendedor' && (
+                              <span className="text-[10px] font-bold bg-[#00599C] text-white rounded-full px-2 py-0.5">🏢 Empreendedor</span>
+                            )}
+                            {cond.tipoResponsavel === 'ecobrasil' && (
+                              <span className="text-[10px] font-bold bg-[#1A7A45] text-white rounded-full px-2 py-0.5">🌿 Ecobrasil</span>
+                            )}
                             {cond.codigo && (
                               <span className="text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded px-1.5 py-0.5">
                                 {cond.codigo}
@@ -466,6 +542,18 @@ export default function Dashboard() {
                   </Card>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Sem resultados para o filtro selecionado */}
+          {condicionantesVencidas.length === 0 && condicionantesEmAndamento.length === 0 && filtroResponsavel !== 'todos' && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">
+                Nenhuma condicionante {filtroResponsavel === 'empreendedor' ? 'do Empreendedor' : 'da Ecobrasil'} em atenção.
+              </p>
+              <button className="text-xs underline mt-1" onClick={() => setFiltroResponsavel('todos')}>
+                Ver todas
+              </button>
             </div>
           )}
         </div>
