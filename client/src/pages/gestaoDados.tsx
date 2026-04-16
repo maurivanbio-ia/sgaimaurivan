@@ -2564,6 +2564,108 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
               );
             })}
 
+            {/* ── Arcos SVG: vínculos entre documentos ─────────────────────── */}
+            {(() => {
+              // Pares de documentos vinculados que aparecem na timeline
+              type LinkArc = { src: EvSlot; tgt: EvSlot; tipo: string; color: string };
+              const arcs: LinkArc[] = [];
+              const LINK_COLORS: Record<string, string> = {
+                resposta: "#2563eb", atendimento_exigencia: "#16a34a", exigencia: "#dc2626",
+                gerando_obrigacao: "#ea580c", solicitacao: "#9333ea", requerimento_formal: "#9333ea",
+                protocolo_envio: "#0d9488", protocolo_recebimento: "#0d9488",
+                esclarecimento: "#ca8a04", recurso: "#dc2626", despacho: "#374151",
+                parecer_tecnico: "#db2777", intimacao: "#dc2626", laudo_embasamento: "#2563eb",
+                anexo_tecnico: "#6b7280", complemento: "#9333ea", substitui: "#ca8a04",
+                aditamento: "#ea580c", auto_infracao: "#991b1b", notificacao_recebida: "#dc2626",
+              };
+              slots.forEach(src => {
+                if (!src.d.documentoRelacionadoId) return;
+                const tgt = slots.find(s => s.d.id === src.d.documentoRelacionadoId);
+                if (!tgt) return;
+                arcs.push({
+                  src, tgt,
+                  tipo: src.d.vinculoTipo || "resposta",
+                  color: LINK_COLORS[src.d.vinculoTipo || ""] || "#6366f1",
+                });
+              });
+
+              if (arcs.length === 0) return null;
+              return (
+                <svg
+                  style={{ position: "absolute", left: 0, top: 0, width: containerWidth, height: CONTAINER_H, pointerEvents: "none", zIndex: 3 }}
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <defs>
+                    {arcs.map((arc, i) => (
+                      <marker
+                        key={i}
+                        id={`arrow-${i}`}
+                        markerWidth="8" markerHeight="8"
+                        refX="6" refY="3"
+                        orient="auto"
+                      >
+                        <path d="M0,0 L0,6 L8,3 z" fill={arc.color} opacity="0.85" />
+                      </marker>
+                    ))}
+                  </defs>
+                  {arcs.map((arc, i) => {
+                    // Centro X de cada evento no eixo
+                    const x1 = arc.src.x;
+                    const x2 = arc.tgt.x;
+                    // Curva dentro da barra do eixo: começa e termina no centro, bow suave
+                    const y1 = AXIS_CENTER;
+                    const y2 = AXIS_CENTER;
+                    const midX = (x1 + x2) / 2;
+                    // Arco sempre abaixo do eixo, mas raso (fica dentro da barra colorida)
+                    const cy = AXIS_CENTER + 10;
+                    const path = `M ${x1} ${y1} Q ${midX} ${cy} ${x2} ${y2}`;
+                    const vinculoLabel = VINCULOS_TIPOS.find(v => v.value === arc.tipo)?.label || arc.tipo;
+                    // Rótulo no ponto médio da curva, logo abaixo do eixo
+                    const labelX = midX;
+                    const labelY = AXIS_BOTTOM + 6;
+                    const lblW = Math.min(110, Math.max(60, Math.abs(x2 - x1) * 0.5));
+                    return (
+                      <g key={i}>
+                        {/* Arco com sombra */}
+                        <path
+                          d={path}
+                          fill="none"
+                          stroke={arc.color}
+                          strokeWidth={2}
+                          strokeDasharray="5,3"
+                          opacity={0.75}
+                          markerEnd={`url(#arrow-${i})`}
+                        />
+                        {/* Rótulo do vínculo */}
+                        <rect
+                          x={labelX - lblW / 2}
+                          y={labelY - 8}
+                          width={lblW}
+                          height={16}
+                          rx={4}
+                          fill="white"
+                          stroke={arc.color}
+                          strokeWidth={1}
+                          opacity={0.92}
+                        />
+                        <text
+                          x={labelX}
+                          y={labelY + 3}
+                          textAnchor="middle"
+                          fontSize={8}
+                          fontWeight={600}
+                          fill={arc.color}
+                          style={{ fontFamily: "system-ui, sans-serif" }}
+                        >
+                          {vinculoLabel.replace(/^[^\s]*\s/, "").slice(0, 16)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              );
+            })()}
+
             {/* Eventos */}
             {slots.map((ev, i) => {
               const labelTop = labelTopY(ev.above, ev.tier);
@@ -2576,6 +2678,12 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
               const tipoLabel = getTipoDocumentalInfo(ev.d.tipoDocumental)?.label || "Documento";
               const titulo = (ev.d.titulo || ev.d.codigoArquivo || ev.d.nome || "").slice(0, 32);
               const dataFmt = ev.date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+
+              // Verifica se este documento tem um vínculo
+              const temVinculo = !!ev.d.documentoRelacionadoId || slots.some(s => s.d.documentoRelacionadoId === ev.d.id);
+              const vinculoLabel = ev.d.vinculoTipo
+                ? VINCULOS_TIPOS.find(v => v.value === ev.d.vinculoTipo)?.label || ev.d.vinculoTipo
+                : null;
 
               return (
                 <div key={ev.d.id}>
@@ -2594,7 +2702,7 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
                       width: diamondR * 2, height: diamondR * 2,
                       background: ev.color, transform: "rotate(45deg)",
                       cursor: "pointer", zIndex: 5,
-                      boxShadow: "0 0 0 2px white",
+                      boxShadow: temVinculo ? `0 0 0 3px white, 0 0 0 5px #6366f1` : "0 0 0 2px white",
                     }}
                   />
 
@@ -2617,7 +2725,9 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
                     {/* Título */}
                     <div style={{
                       background: ev.fallback ? "#f9fafb" : "white",
-                      border: ev.fallback ? `1.5px dashed #9ca3af` : `1.5px solid ${ev.color}`,
+                      border: temVinculo
+                        ? `2px solid #6366f1`
+                        : ev.fallback ? `1.5px dashed #9ca3af` : `1.5px solid ${ev.color}`,
                       borderRadius: 8,
                       padding: "4px 6px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                       transition: "box-shadow 0.15s",
@@ -2629,6 +2739,25 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
                         {ev.icon} {titulo}
                       </p>
                       <p style={{ fontSize: 9, color: "#6b7280", lineHeight: 1.2 }}>{tipoLabel}</p>
+                      {/* Badge de vínculo */}
+                      {vinculoLabel && (
+                        <p style={{
+                          fontSize: 8, color: "#6366f1", lineHeight: 1.2, marginTop: 2,
+                          background: "#eef2ff", borderRadius: 3, padding: "1px 3px",
+                          fontWeight: 600, display: "inline-block",
+                        }}>
+                          🔗 {vinculoLabel.replace(/^[^\s]*\s/, "").slice(0, 14)}
+                        </p>
+                      )}
+                      {!vinculoLabel && slots.some(s => s.d.documentoRelacionadoId === ev.d.id) && (
+                        <p style={{
+                          fontSize: 8, color: "#6366f1", lineHeight: 1.2, marginTop: 2,
+                          background: "#eef2ff", borderRadius: 3, padding: "1px 3px",
+                          fontWeight: 600, display: "inline-block",
+                        }}>
+                          🔗 referenciado
+                        </p>
+                      )}
                       {ev.d.empreendimentoNome && (
                         <p style={{ fontSize: 8, color: ev.color, lineHeight: 1.2, marginTop: 2, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           🏗 {ev.d.empreendimentoNome.slice(0, 22)}
@@ -2664,11 +2793,25 @@ function TimelineView({ datasets, empreendimentos, onDetail, modo: modoProp }: {
             <span>{getTipoDocumentalInfo(tipo)?.label || tipo}</span>
           </div>
         ))}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground ml-auto">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground ml-auto flex-wrap">
           {fallbackCount > 0 && (
             <div className="flex items-center gap-1">
               <div style={{ width: 14, height: 10, border: "1.5px dashed #9ca3af", borderRadius: 2, background: "#f9fafb" }} />
               <span>Sem data de emissão</span>
+            </div>
+          )}
+          {/* Legenda de vínculo */}
+          {datasets.some(d => (d as any).documentoRelacionadoId) && (
+            <div className="flex items-center gap-1">
+              <svg width="28" height="10" viewBox="0 0 28 10">
+                <path d="M2 5 Q14 9 26 5" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="3,2" fill="none" markerEnd="url(#arr-leg)" />
+                <defs>
+                  <marker id="arr-leg" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+                    <path d="M0,0 L0,5 L5,2.5 z" fill="#6366f1" />
+                  </marker>
+                </defs>
+              </svg>
+              <span>Vínculo entre docs</span>
             </div>
           )}
           <div className="flex items-center gap-1"><div style={{ width: 14, height: 10, background: ECO_BLUE, borderRadius: 2 }} /><span>Jan–Jun</span></div>
