@@ -594,7 +594,7 @@ export default function GestaoDados() {
       if (!res.ok) throw new Error("Erro ao enviar arquivo");
       return res.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/datasets"] }); refetch(); toast({ title: "Documento enviado com código padronizado!" }); resetForm(); setIsUploadDialogOpen(false); setIsUploading(false); if (demandaPendente) concluirDemandaPendente(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/datasets"] }); queryClient.invalidateQueries({ queryKey: ["/api/licencas"] }); queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] }); refetch(); toast({ title: "Documento enviado com código padronizado!" }); resetForm(); setIsUploadDialogOpen(false); setIsUploading(false); if (demandaPendente) concluirDemandaPendente(); },
     onError: () => { toast({ title: "Erro ao enviar documento", variant: "destructive" }); setIsUploading(false); },
   });
 
@@ -604,7 +604,7 @@ export default function GestaoDados() {
       if (!res.ok) throw new Error("Erro ao enviar arquivo");
       return res.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/datasets"] }); refetch(); toast({ title: "Arquivo enviado!" }); resetForm(); setIsUploadDialogOpen(false); setIsUploading(false); if (demandaPendente) concluirDemandaPendente(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/datasets"] }); queryClient.invalidateQueries({ queryKey: ["/api/licencas"] }); queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] }); refetch(); toast({ title: "Arquivo enviado!" }); resetForm(); setIsUploadDialogOpen(false); setIsUploading(false); if (demandaPendente) concluirDemandaPendente(); },
     onError: () => { toast({ title: "Erro ao enviar", variant: "destructive" }); setIsUploading(false); },
   });
 
@@ -624,7 +624,7 @@ export default function GestaoDados() {
       if (!res.ok) throw new Error("Erro ao atualizar");
       return res.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/datasets"] }); refetch(); toast({ title: "Documento atualizado!" }); setIsEditDialogOpen(false); setEditingDataset(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/datasets"] }); queryClient.invalidateQueries({ queryKey: ["/api/licencas"] }); queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] }); refetch(); toast({ title: "Documento atualizado!" }); setIsEditDialogOpen(false); setEditingDataset(null); },
     onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }),
   });
 
