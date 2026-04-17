@@ -901,9 +901,13 @@ export class DatabaseStorage implements IStorage {
     return { ...condicionante, status: this.resolveCondicionanteStatus(condicionante) };
   }
 
-  async getCondicionantesByLicenca(licencaId: number): Promise<Condicionante[]> {
+  async getCondicionantesByLicenca(licencaId: number): Promise<any[]> {
     const condicionantesData = await db
-      .select()
+      .select({
+        ...condicionantes,
+        evidenciasCount: sql<number>`(SELECT COUNT(*) FROM condicionante_evidencias WHERE condicionante_id = ${condicionantes.id})::int`,
+        evidenciasAprovadas: sql<number>`(SELECT COUNT(*) FROM condicionante_evidencias WHERE condicionante_id = ${condicionantes.id} AND aprovado = true)::int`,
+      })
       .from(condicionantes)
       .where(eq(condicionantes.licencaId, licencaId))
       .orderBy(asc(condicionantes.prazo));

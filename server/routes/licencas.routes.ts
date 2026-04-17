@@ -234,6 +234,45 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
     }
   });
 
+  // Helper: recalcula progresso do condicionante com base nas evidências
+  async function recalcularProgressoCondicionante(condicionanteId: number) {
+    const [totRow] = await db
+      .select({ total: sql<number>`COUNT(*)::int` })
+      .from(condicionanteEvidencias)
+      .where(eq(condicionanteEvidencias.condicionanteId, condicionanteId));
+    const [aprRow] = await db
+      .select({ aprovadas: sql<number>`COUNT(*)::int` })
+      .from(condicionanteEvidencias)
+      .where(and(eq(condicionanteEvidencias.condicionanteId, condicionanteId), eq(condicionanteEvidencias.aprovado, true)));
+
+    const total = Number(totRow?.total ?? 0);
+    const aprovadas = Number(aprRow?.aprovadas ?? 0);
+
+    const [cond] = await db.select({ status: condicionantes.status })
+      .from(condicionantes).where(eq(condicionantes.id, condicionanteId));
+
+    if (total === 0) {
+      // Sem evidências — reseta progresso para 0 e status para pendente (se estava em andamento)
+      const newStatus = cond?.status === 'em_andamento' ? 'pendente' : cond?.status;
+      await db.update(condicionantes)
+        .set({ progresso: 0, status: newStatus, atualizadoEm: new Date() })
+        .where(eq(condicionantes.id, condicionanteId));
+      return;
+    }
+
+    // Progresso: aprovadas/total * 100. Se há docs mas nenhum aprovado → pelo menos 10%
+    const progresso = aprovadas > 0
+      ? Math.round((aprovadas / total) * 100)
+      : Math.min(10 * total, 50); // 10% por evidência inserida, max 50% sem aprovação
+
+    // Muda status para em_andamento se estava pendente
+    const newStatus = cond?.status === 'pendente' ? 'em_andamento' : cond?.status;
+
+    await db.update(condicionantes)
+      .set({ progresso, status: newStatus, atualizadoEm: new Date() })
+      .where(eq(condicionantes.id, condicionanteId));
+  }
+
   // Condicionante routes
   app.get("/api/condicionantes", requireAuth, async (req, res) => {
     try {
@@ -356,6 +395,11 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
         criadoPor: user?.email || user?.nome,
       });
       const [evidencia] = await db.insert(condicionanteEvidencias).values(data).returning();
+
+      // Auto-calcular progresso e mudar status para em_andamento se estava pendente
+      await recalcularProgressoCondicionante(condicionanteId);
+
+      websocketService.broadcastInvalidate('condicionantes');
       res.status(201).json(evidencia);
     } catch (error) {
       console.error("Create evidencia error:", error);
@@ -389,6 +433,13 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
         })
         .where(eq(condicionanteEvidencias.id, id))
         .returning();
+
+      // Recalcula progresso com base nas aprovações
+      if (evidencia?.condicionanteId) {
+        await recalcularProgressoCondicionante(evidencia.condicionanteId);
+        websocketService.broadcastInvalidate('condicionantes');
+      }
+
       res.json(evidencia);
     } catch (error) {
       console.error("Approve evidencia error:", error);
@@ -399,7 +450,14 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
   app.delete("/api/condicionantes/evidencias/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      // Buscar condicionanteId antes de deletar
+      const [ev] = await db.select({ condicionanteId: condicionanteEvidencias.condicionanteId })
+        .from(condicionanteEvidencias).where(eq(condicionanteEvidencias.id, id));
       await db.delete(condicionanteEvidencias).where(eq(condicionanteEvidencias.id, id));
+      if (ev?.condicionanteId) {
+        await recalcularProgressoCondicionante(ev.condicionanteId);
+        websocketService.broadcastInvalidate('condicionantes');
+      }
       res.status(204).send();
     } catch (error) {
       console.error("Delete evidencia error:", error);
