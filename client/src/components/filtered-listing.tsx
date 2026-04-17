@@ -421,7 +421,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                               </div>
                               {item.licencaId && (
                                 <button
-                                  onClick={() => navigate(`/licenca/${item.licencaId}`)}
+                                  onClick={() => navigate(`/licencas/${item.licencaId}`)}
                                   className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                                 >
                                   <ExternalLink className="h-3 w-3" /> Ver licença
@@ -429,7 +429,7 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
                               )}
                               {item.empreendimentoId && (
                                 <button
-                                  onClick={() => navigate(`/projects/${item.empreendimentoId}`)}
+                                  onClick={() => navigate(`/empreendimentos/${item.empreendimentoId}`)}
                                   className="text-xs text-green-700 hover:underline flex items-center gap-1"
                                 >
                                   <ExternalLink className="h-3 w-3" /> Ver empreendimento
