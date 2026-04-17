@@ -16,6 +16,26 @@ import {
 
 interface Props { empreendimentoId: number; }
 
+function TextList({ text, color = "orange" }: { text: string; color?: "orange" | "blue" }) {
+  const lines = text.split(/\n|\r\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const items = lines.map(l =>
+    l.startsWith(". ") || l.startsWith("• ")
+      ? { text: l.replace(/^[.•]\s+/, ""), sub: true }
+      : { text: l, sub: false }
+  );
+  const bullet = color === "blue" ? { main: "text-blue-600", sub: "text-blue-400" } : { main: "text-orange-600", sub: "text-orange-400" };
+  return (
+    <ul className="space-y-0.5">
+      {items.map((item, i) => (
+        <li key={i} className={`flex items-start gap-1.5 text-xs ${item.sub ? "ml-4 text-[0.9em]" : ""}`}>
+          <span className={`mt-0.5 shrink-0 ${item.sub ? bullet.sub : bullet.main}`}>{item.sub ? "◦" : "•"}</span>
+          <span>{item.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 interface DatasetDoc {
   id: number;
   nome: string;
@@ -409,17 +429,17 @@ export function AutorizacoesTab({ empreendimentoId }: Props) {
 
                 {detailDoc.resumoIA && (
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <p className="text-xs font-medium text-blue-700 mb-1 flex items-center gap-1">
-                      <FileSearch className="h-3 w-3" /> Resumo IA
+                    <p className="text-xs font-medium text-blue-700 mb-2 flex items-center gap-1">
+                      <FileSearch className="h-3 w-3" /> Resumo Técnico
                     </p>
-                    <p className="text-xs text-blue-800 whitespace-pre-wrap">{detailDoc.resumoIA.substring(0, 500)}{detailDoc.resumoIA.length > 500 ? "..." : ""}</p>
+                    <TextList text={detailDoc.resumoIA} color="blue" />
                   </div>
                 )}
 
                 {detailDoc.exigencias && (
                   <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
-                    <p className="text-xs font-medium text-orange-700 mb-1">Exigências extraídas</p>
-                    <p className="text-xs text-orange-800 whitespace-pre-wrap">{detailDoc.exigencias.substring(0, 400)}{detailDoc.exigencias.length > 400 ? "..." : ""}</p>
+                    <p className="text-xs font-medium text-orange-700 mb-2">Exigências Identificadas</p>
+                    <TextList text={detailDoc.exigencias} color="orange" />
                   </div>
                 )}
 
