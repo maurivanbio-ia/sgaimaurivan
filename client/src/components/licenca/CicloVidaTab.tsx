@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Link2, RefreshCcw, ExternalLink, ClipboardList } from "lucide-react";
+import { Clock, Link2, RefreshCcw, ExternalLink, ClipboardList, RefreshCw, X, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const VINCULO_EVENTO: Record<string, { label: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
   requerimento:   { label: "Requerimento de Renovação",  icon: "📋", color: "text-blue-700",   bgColor: "bg-blue-50",   borderColor: "border-blue-300" },
@@ -23,7 +24,7 @@ function formatEvDate(d: string | null) {
   } catch { return d; }
 }
 
-export function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: number }) {
+export function CicloVidaTab({ licenca, licencaId, onRenovar }: { licenca: any; licencaId: number; onRenovar?: () => void }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -44,6 +45,18 @@ export function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: 
         title: "Status sincronizado automaticamente",
         description: "Licença marcada como Em Renovação pois possui requerimento vinculado.",
       });
+    },
+  });
+
+  const cancelarRenovacaoMutation = useMutation({
+    mutationFn: () => apiRequest("PUT", `/api/licencas/${licencaId}`, { status: "vencida" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licencaId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas"] });
+      toast({ title: "Renovação cancelada", description: "Licença voltou ao status Vencida." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível cancelar a renovação.", variant: "destructive" });
     },
   });
 
@@ -112,9 +125,40 @@ export function CicloVidaTab({ licenca, licencaId }: { licenca: any; licencaId: 
       </div>
 
       {licenca.status === "em_renovacao" && (
-        <div className="flex items-center gap-1.5 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
-          <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
-          Licença em processo de renovação
+        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-700 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
+            <RefreshCcw className="h-4 w-4 animate-spin" />
+            Licença em processo de renovação
+          </div>
+          <p className="text-xs text-blue-600 dark:text-blue-400">
+            Quando a nova licença for emitida, registre-a no sistema para encerrar este ciclo.
+            Caso o processo seja cancelado, reporte abaixo.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {onRenovar ? (
+              <Button size="sm" onClick={onRenovar} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Nova Licença Emitida
+              </Button>
+            ) : (
+              <Button size="sm" asChild className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+                <a href={`/empreendimentos/${licenca.empreendimentoId}`}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Ir para o Empreendimento
+                </a>
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={cancelarRenovacaoMutation.isPending}
+              onClick={() => cancelarRenovacaoMutation.mutate()}
+              className="gap-1.5 text-slate-600 border-slate-300 hover:bg-slate-100"
+            >
+              <X className="h-3.5 w-3.5" />
+              Cancelar Renovação
+            </Button>
+          </div>
         </div>
       )}
 

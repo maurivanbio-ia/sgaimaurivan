@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload, RefreshCw, Archive, RefreshCcw } from "lucide-react";
+import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload, RefreshCw, Archive, RefreshCcw, X } from "lucide-react";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
 import type { LicencaAmbiental } from "@shared/schema";
 import { ExportButton } from "@/components/ExportButton";
@@ -147,6 +147,21 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "licencas"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/licenses"] });
       toast({ title: "Status atualizado", description: "Licença marcada como Em Renovação." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível atualizar o status.", variant: "destructive" });
+    },
+  });
+
+  const cancelarRenovacao = useMutation({
+    mutationFn: async (licId: number) => {
+      const response = await apiRequest("PUT", `/api/licencas/${licId}`, { status: 'vencida' });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "licencas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/licenses"] });
+      toast({ title: "Renovação cancelada", description: "Licença voltou ao status Vencida." });
     },
     onError: () => {
       toast({ title: "Erro", description: "Não foi possível atualizar o status.", variant: "destructive" });
@@ -837,6 +852,31 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                         >
                           <RefreshCw className="h-4 w-4" />
                           Renovar
+                        </Button>
+                      </>
+                    )}
+                    {license.status === 'em_renovacao' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRenovar(license)}
+                          className="gap-1 text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950"
+                          title="Nova licença emitida — registra a renovação e finaliza esta"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Nova Licença Emitida
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={cancelarRenovacao.isPending}
+                          onClick={() => cancelarRenovacao.mutate(license.id)}
+                          className="gap-1 text-slate-500 border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                          title="Cancelar renovação — volta para Vencida"
+                        >
+                          <X className="h-4 w-4" />
+                          Cancelar Renovação
                         </Button>
                       </>
                     )}
