@@ -221,7 +221,7 @@ export interface IStorage {
   updateNotificationStatus(id: number, status: string, enviadoEm?: Date): Promise<Notification>;
 
   // Filtered data operations  
-  getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<any[]>;
+  getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired', unidade?: string): Promise<any[]>;
   getLicencasEmRenovacao(): Promise<any[]>;
   getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida', unidade?: string): Promise<any[]>;
   getEntregasDoMes(): Promise<any[]>;
@@ -1510,10 +1510,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Filtered data operations
-  async getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<any[]> {
+  async getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired', unidade?: string): Promise<any[]> {
     try {
       const hoje = new Date();
-      const licencas = await db
+      const query = db
         .select({
           id: licencasAmbientais.id,
           tipo: licencasAmbientais.tipo,
@@ -1530,33 +1530,54 @@ export class DatabaseStorage implements IStorage {
           empreendimentoClienteEmail: empreendimentos.clienteEmail,
           empreendimentoClienteTelefone: empreendimentos.clienteTelefone,
           empreendimentoLocalizacao: empreendimentos.localizacao,
+          empreendimentoUnidade: empreendimentos.unidade,
         })
         .from(licencasAmbientais)
         .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
         .orderBy(desc(licencasAmbientais.criadoEm));
-      
+
+      const allLicencas = await query;
+
       const todayStr = hoje.toISOString().slice(0, 10);
       const today = new Date(todayStr + "T00:00:00");
 
       // Statuses that override date-based classification
       const manualOverrideStatuses = ['em_renovacao', 'cancelada'];
 
-      return licencas.filter(licenca => {
+      const result = allLicencas.filter(licenca => {
+        // Filtrar por unidade se fornecida
+        if (unidade && unidade.trim() !== '' && licenca.empreendimentoUnidade !== unidade) return false;
         if (!licenca.validade) return false;
         // Licenças com status manual não entram nos filtros de data
         if (manualOverrideStatuses.includes(licenca.status || '')) return false;
-        const validadeStr = String(licenca.validade).slice(0, 10);
-        const dataVencimento = new Date(validadeStr + "T00:00:00");
+
+        // Parse seguro: handle both Date objects and strings
+        const valStr = licenca.validade instanceof Date
+          ? licenca.validade.toISOString().slice(0, 10)
+          : String(licenca.validade).slice(0, 10);
+        if (!valStr || valStr.length < 10) return false;
+
+        const dataVencimento = new Date(valStr + "T00:00:00");
+        if (isNaN(dataVencimento.getTime())) {
+          console.warn(`[getLicencasByStatus] Data inválida para licença ${licenca.id}: "${valStr}"`);
+          return false;
+        }
+
         const diffDays = Math.ceil((dataVencimento.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         if (status === 'expired') {
           return diffDays < 0;
         } else if (status === 'expiring') {
-          return diffDays >= 0 && diffDays <= 90;
+          // A vencer: 0 a 130 dias (alinhado com o threshold do dashboard)
+          return diffDays >= 0 && diffDays <= 130;
         } else { // ativa
-          return diffDays > 90;
+          // Ativa: mais de 130 dias OU status explicitamente 'ativa' e não vencida
+          return diffDays > 130 || (licenca.status === 'ativa' && diffDays >= 0);
         }
       });
+
+      console.log(`[getLicencasByStatus] status=${status} unidade="${unidade}" total=${allLicencas.length} filtrado=${result.length}`);
+      return result;
     } catch (error) {
       console.error('Error getting licenças by status:', error);
       return [];

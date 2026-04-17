@@ -45,7 +45,10 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
   // Filtered data routes (must be before /:id routes)
   app.get("/api/licencas/ativas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('ativa');
+      const user = (req.session as any)?.user;
+      const unidade = user?.unidade || '';
+      const licencas = await storage.getLicencasByStatus('ativa', unidade);
+      console.log(`[licencas/ativas] unidade=${unidade} → ${licencas.length} encontradas`);
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças ativas error:", error);
@@ -55,7 +58,9 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
 
   app.get("/api/licencas/vencer", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('expiring');
+      const user = (req.session as any)?.user;
+      const unidade = user?.unidade || '';
+      const licencas = await storage.getLicencasByStatus('expiring', unidade);
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças a vencer error:", error);
@@ -65,7 +70,9 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
 
   app.get("/api/licencas/vencidas", requireAuth, async (req, res) => {
     try {
-      const licencas = await storage.getLicencasByStatus('expired');
+      const user = (req.session as any)?.user;
+      const unidade = user?.unidade || '';
+      const licencas = await storage.getLicencasByStatus('expired', unidade);
       res.json(licencas);
     } catch (error) {
       console.error("Get licenças vencidas error:", error);
@@ -436,8 +443,17 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
     try {
       const condicionanteId = parseInt(req.params.condicionanteId);
       const user = (req.session as any)?.user;
+
+      // Sanitizar campos opcionais: string vazia → null (evita erro de validação de date)
+      const body = { ...req.body };
+      if (!body.dataEmissao) body.dataEmissao = null;
+      if (!body.url) body.url = null;
+      if (!body.descricao) body.descricao = null;
+      if (!body.emitidoPor) body.emitidoPor = null;
+      if (!body.aprovadoPor) body.aprovadoPor = null;
+
       const data = insertCondicionanteEvidenciaSchema.parse({
-        ...req.body,
+        ...body,
         condicionanteId,
         criadoPor: user?.email || user?.nome,
       });
@@ -448,9 +464,10 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
 
       websocketService.broadcastInvalidate('condicionantes');
       res.status(201).json(evidencia);
-    } catch (error) {
-      console.error("Create evidencia error:", error);
-      res.status(400).json({ message: "Invalid request" });
+    } catch (error: any) {
+      console.error("Create evidencia error:", error?.message || error);
+      if (error?.issues) console.error("Zod issues:", JSON.stringify(error.issues));
+      res.status(400).json({ message: "Invalid request", detail: error?.message });
     }
   });
 
