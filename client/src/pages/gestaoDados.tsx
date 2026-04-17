@@ -291,6 +291,7 @@ export default function GestaoDados() {
   const [dataEmissao, setDataEmissao] = useState("");
   const [licencaVinculadaId, setLicencaVinculadaId] = useState<string>("");
   const [licencaVinculoTipoUpload, setLicencaVinculoTipoUpload] = useState<string>("");
+  const [condicionanteSelecionadaId, setCondicionanteSelecionadaId] = useState<string>("");
   const [selectedResponsavel, setSelectedResponsavel] = useState("");
   const [isExtractingIA, setIsExtractingIA] = useState(false);
 
@@ -388,6 +389,18 @@ export default function GestaoDados() {
       return res.json();
     },
     enabled: !!selectedEmpreendimento && selectedEmpreendimento !== "",
+  });
+
+  // Condicionantes da licença selecionada no upload (para auto-evidência)
+  const { data: condicionantesDaLicenca = [] } = useQuery<any[]>({
+    queryKey: ["/api/licencas", licencaVinculadaId, "condicionantes"],
+    queryFn: async () => {
+      if (!licencaVinculadaId || licencaVinculadaId === "") return [];
+      const res = await fetch(`/api/licencas/${licencaVinculadaId}/condicionantes`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!licencaVinculadaId && licencaVinculadaId !== "" && licencaVinculoTipoUpload === "cumprimento_condicionante",
   });
 
   // Licenças do empreendimento do documento sendo editado
@@ -649,6 +662,7 @@ export default function GestaoDados() {
     setTipoDocumental(""); setNumeroDocumento(""); setOrgaoEmissor("");
     setPrazoAtendimento(""); setStatusDocumental("recebido"); setDataEmissao("");
     setDocumentoRelacionadoId(""); setVinculoTipo(""); setExigencias(""); setResumoIA("");
+    setLicencaVinculadaId(""); setLicencaVinculoTipoUpload(""); setCondicionanteSelecionadaId("");
   };
 
   const handleUpload = () => {
@@ -666,6 +680,7 @@ export default function GestaoDados() {
         vinculoTipo, exigencias, resumoIA, dataEmissao: dataEmissao || null,
         licencaId: licencaVinculadaId ? parseInt(licencaVinculadaId) : null,
         licencaVinculoTipo: licencaVinculoTipoUpload || null,
+        condicionanteId: condicionanteSelecionadaId ? parseInt(condicionanteSelecionadaId) : null,
       };
       if (useAdvancedForm) {
         uploadAdvancedMutation.mutate({
@@ -1328,7 +1343,7 @@ export default function GestaoDados() {
                   {licencaVinculadaId && licencaVinculadaId !== "__none__" && (
                     <div>
                       <Label className="text-xs">Tipo de Relação com a Licença</Label>
-                      <Select value={licencaVinculoTipoUpload} onValueChange={setLicencaVinculoTipoUpload}>
+                      <Select value={licencaVinculoTipoUpload} onValueChange={v => { setLicencaVinculoTipoUpload(v); setCondicionanteSelecionadaId(""); }}>
                         <SelectTrigger className="h-8"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="requerimento">📋 Requerimento</SelectItem>
@@ -1338,9 +1353,39 @@ export default function GestaoDados() {
                           <SelectItem value="renovacao">🔄 Pedido de Renovação</SelectItem>
                           <SelectItem value="complementacao">➕ Complementação</SelectItem>
                           <SelectItem value="recurso">⚖️ Recurso</SelectItem>
+                          <SelectItem value="cumprimento_condicionante">✅ Cumprimento de Condicionante</SelectItem>
                           <SelectItem value="outro">📄 Outro</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  )}
+                  {licencaVinculoTipoUpload === "cumprimento_condicionante" && licencaVinculadaId && (
+                    <div className="col-span-2">
+                      <Label className="text-xs flex items-center gap-1">
+                        <span>📌</span> Condicionante Atendida
+                        <span className="text-muted-foreground font-normal">(será registrada como evidência automaticamente)</span>
+                      </Label>
+                      <Select value={condicionanteSelecionadaId || "__none__"} onValueChange={v => setCondicionanteSelecionadaId(v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-8 border-green-300 focus:ring-green-400">
+                          <SelectValue placeholder="Selecione a condicionante..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhuma selecionada</SelectItem>
+                          {condicionantesDaLicenca.length === 0 && (
+                            <SelectItem value="__loading__" disabled>Carregando condicionantes...</SelectItem>
+                          )}
+                          {condicionantesDaLicenca.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id.toString()}>
+                              {c.codigo ? `[${c.codigo}] ` : ""}{c.titulo || c.descricao?.substring(0, 60) || `Condicionante #${c.id}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {condicionanteSelecionadaId && condicionanteSelecionadaId !== "__none__" && (
+                        <p className="text-xs text-green-700 mt-1 flex items-center gap-1">
+                          ✅ O documento será automaticamente registrado como evidência nesta condicionante.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1988,15 +2033,19 @@ export default function GestaoDados() {
                   )}
                   {/* Vínculo com licença */}
                   {(detailDataset as any).licencaId && (
-                    <div className="col-span-2 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-2">
-                      <span className="text-lg">🔗</span>
+                    <div className={`col-span-2 flex items-center gap-2 ${(detailDataset as any).licencaVinculoTipo === "cumprimento_condicionante" ? "bg-teal-50 border-teal-200" : "bg-green-50 border-green-200"} border rounded-lg p-2`}>
+                      <span className="text-lg">{(detailDataset as any).licencaVinculoTipo === "cumprimento_condicionante" ? "✅" : "🔗"}</span>
                       <div>
-                        <p className="text-xs text-muted-foreground">Licença Vinculada</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(detailDataset as any).licencaVinculoTipo === "cumprimento_condicionante" ? "Evidência de Condicionante" : "Licença Vinculada"}
+                        </p>
                         <p className="text-sm font-medium text-green-800">
                           Licença #{(detailDataset as any).licencaId}
                           {(detailDataset as any).licencaVinculoTipo && (
                             <span className="ml-2 text-xs font-normal text-green-600">
-                              ({(detailDataset as any).licencaVinculoTipo})
+                              {(detailDataset as any).licencaVinculoTipo === "cumprimento_condicionante"
+                                ? `· Condicionante #${(detailDataset as any).condicionanteId || "—"} (evidência auto-registrada)`
+                                : `(${(detailDataset as any).licencaVinculoTipo})`}
                             </span>
                           )}
                         </p>
@@ -2253,11 +2302,17 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
 
                         {/* Licença vinculada */}
                         {(d as any).licencaId && (
-                          <div className={`${d.documentoRelacionadoId ? "" : "col-span-2"} bg-green-50 border border-green-200 rounded-lg p-2`}>
-                            <p className="text-[10px] font-semibold text-green-600 uppercase tracking-wide mb-0.5">🔗 Licença Vinculada</p>
+                          <div className={`${d.documentoRelacionadoId ? "" : "col-span-2"} ${(d as any).licencaVinculoTipo === "cumprimento_condicionante" ? "bg-teal-50 border-teal-200" : "bg-green-50 border-green-200"} border rounded-lg p-2`}>
+                            <p className="text-[10px] font-semibold text-green-600 uppercase tracking-wide mb-0.5">
+                              {(d as any).licencaVinculoTipo === "cumprimento_condicionante" ? "✅ Evidência de Condicionante" : "🔗 Licença Vinculada"}
+                            </p>
                             <p className="text-sm font-medium text-green-900">Licença #{(d as any).licencaId}</p>
                             {(d as any).licencaVinculoTipo && (
-                              <p className="text-xs text-green-600 mt-0.5">Relação: {(d as any).licencaVinculoTipo}</p>
+                              <p className="text-xs text-green-600 mt-0.5">
+                                {(d as any).licencaVinculoTipo === "cumprimento_condicionante"
+                                  ? `Condicionante #${(d as any).condicionanteId || "—"} · Evidência registrada automaticamente`
+                                  : `Relação: ${(d as any).licencaVinculoTipo}`}
+                              </p>
                             )}
                           </div>
                         )}

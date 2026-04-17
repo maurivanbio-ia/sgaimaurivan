@@ -1269,7 +1269,8 @@ export const datasets = pgTable("datasets", {
   dataEmissao: text("data_emissao"), // data de emissão do documento (YYYY-MM-DD) — distinta da data de upload
   dataValidade: text("data_validade"), // data de validade/vencimento da licença ou autorização (YYYY-MM-DD)
   licencaId: integer("licenca_id").references(() => licencasAmbientais.id), // Vínculo com licença específica
-  licencaVinculoTipo: text("licenca_vinculo_tipo"), // requerimento, protocolo, notificacao, resposta, renovacao, complementacao, recurso, outro
+  licencaVinculoTipo: text("licenca_vinculo_tipo"), // requerimento, protocolo, notificacao, resposta, renovacao, complementacao, recurso, cumprimento_condicionante, outro
+  condicionanteId: integer("condicionante_id").references(() => condicionantes.id), // Vínculo direto com condicionante (quando licencaVinculoTipo = cumprimento_condicionante)
 });
 
 export const datasetsRelations = relations(datasets, ({ one, many }) => ({
