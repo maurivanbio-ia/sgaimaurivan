@@ -211,6 +211,40 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
+function getDocSelectLabel(d: any): { primary: string; secondary: string } {
+  const tipo = getTipoDocumentalInfo(d.tipoDocumental);
+  const tipoLabel = tipo ? `${tipo.icon} ${tipo.label}` : null;
+
+  // Primary text: usa titulo > descricao > versão curta do código
+  let primary = '';
+  if (d.titulo && d.titulo !== d.codigoArquivo && d.titulo.trim().length > 0) {
+    primary = d.titulo.length > 70 ? d.titulo.substring(0, 70) + '…' : d.titulo;
+  } else if (d.descricao && d.descricao.trim().length > 0) {
+    primary = d.descricao.length > 70 ? d.descricao.substring(0, 70) + '…' : d.descricao;
+  } else {
+    // Extrai partes do código padronizado: remove prefixo ECOBRASIL-CLIENTE-UF
+    const code = (d.codigoArquivo || d.nome || '').replace(/\.(pdf|docx?|xlsx?|txt|png|jpg|zip)$/i, '');
+    const parts = code.split('-');
+    const short = parts.length > 3 ? parts.slice(2).join('-') : code;
+    primary = short.length > 70 ? short.substring(0, 70) + '…' : short;
+  }
+
+  // Linha secundária: tipo + órgão + data + status
+  const secondaryParts: string[] = [];
+  if (tipoLabel) secondaryParts.push(tipoLabel);
+  if (d.orgaoEmissor) secondaryParts.push(d.orgaoEmissor);
+  if (d.dataEmissao) {
+    const parts = String(d.dataEmissao).split('-');
+    if (parts.length === 3) secondaryParts.push(`${parts[2]}/${parts[1]}/${parts[0]}`);
+  } else if (d.dataUpload) {
+    const dt = new Date(d.dataUpload);
+    if (!isNaN(dt.getTime())) secondaryParts.push(dt.toLocaleDateString('pt-BR'));
+  }
+  if (d.status) secondaryParts.push(d.status);
+
+  return { primary, secondary: secondaryParts.join(' · ') };
+}
+
 function formatDate(d: any) {
   if (!d) return "—";
   return new Intl.DateTimeFormat("pt-BR").format(new Date(d));
@@ -1311,7 +1345,20 @@ export default function GestaoDados() {
                     <Label className="text-xs">Documento Relacionado</Label>
                     <Select value={documentoRelacionadoId || "__none__"} onValueChange={v => setDocumentoRelacionadoId(v === "__none__" ? "" : v)}>
                       <SelectTrigger className="h-8"><SelectValue placeholder="Selecionar (opcional)" /></SelectTrigger>
-                      <SelectContent><SelectItem value="__none__">Nenhum</SelectItem>{datasets.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.codigoArquivo || d.nome}</SelectItem>)}</SelectContent>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="__none__">Nenhum</SelectItem>
+                        {datasets.map(d => {
+                          const lbl = getDocSelectLabel(d);
+                          return (
+                            <SelectItem key={d.id} value={d.id.toString()} textValue={lbl.primary}>
+                              <div className="flex flex-col py-0.5 max-w-[380px]">
+                                <span className="text-sm leading-snug truncate">{lbl.primary}</span>
+                                {lbl.secondary && <span className="text-[11px] text-muted-foreground truncate">{lbl.secondary}</span>}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
                     </Select>
                   </div>
                   {documentoRelacionadoId && (
