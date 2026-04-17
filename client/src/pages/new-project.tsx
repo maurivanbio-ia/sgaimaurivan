@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User, Users, Wand2, Camera, Building2, ZoomIn, ZoomOut } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Users, Wand2, Camera, Building2, ZoomIn, ZoomOut, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Colaborador {
@@ -22,6 +22,13 @@ interface Colaborador {
   cargo: string | null;
   email: string | null;
   tipo: string;
+}
+
+interface ResponsavelLocal {
+  nome: string;
+  email: string;
+  whatsapp: string;
+  responsabilidade: string;
 }
 
 const tipologiaOptions = [
@@ -83,6 +90,12 @@ export default function NewProject() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoZoom, setLogoZoom] = useState(1);
+  const [responsaveis, setResponsaveis] = useState<ResponsavelLocal[]>([]);
+  const [addingResp, setAddingResp] = useState(false);
+  const [editingRespIdx, setEditingRespIdx] = useState<number | null>(null);
+  const emptyResp: ResponsavelLocal = { nome: "", email: "", whatsapp: "", responsabilidade: "" };
+  const [newResp, setNewResp] = useState<ResponsavelLocal>(emptyResp);
+  const [editRespForm, setEditRespForm] = useState<ResponsavelLocal>(emptyResp);
 
   const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
     queryKey: ['/api/colaboradores'],
@@ -135,7 +148,14 @@ export default function NewProject() {
         ...data,
         unidade: unidadeSelecionada,
       });
-      return response.json();
+      const project = await response.json();
+      // Save additional contacts right after project creation
+      if (responsaveis.length > 0) {
+        await Promise.all(responsaveis.map(r =>
+          apiRequest("POST", `/api/empreendimentos/${project.id}/responsaveis`, r)
+        ));
+      }
+      return project;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos"] });
@@ -651,6 +671,96 @@ export default function NewProject() {
                     </FormItem>
                   )} />
                 </div>
+              </div>
+
+              {/* Outros Responsáveis */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Outros Responsáveis
+                    <span className="text-xs font-normal text-muted-foreground">(Financeiro, Ambiental, Jurídico…)</span>
+                  </h3>
+                  {!addingResp && (
+                    <Button type="button" size="sm" variant="outline" onClick={() => setAddingResp(true)}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                    </Button>
+                  )}
+                </div>
+
+                {responsaveis.length === 0 && !addingResp ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum responsável adicionado. Clique em Adicionar para incluir.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {responsaveis.map((r, idx) => (
+                      <div key={idx} className="rounded-md border bg-background p-3">
+                        {editingRespIdx === idx ? (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input placeholder="Nome*" value={editRespForm.nome} onChange={e => setEditRespForm(f => ({ ...f, nome: e.target.value }))} />
+                              <Input placeholder="Responsabilidade* (ex: Financeiro)" value={editRespForm.responsabilidade} onChange={e => setEditRespForm(f => ({ ...f, responsabilidade: e.target.value }))} />
+                              <Input type="email" placeholder="E-mail" value={editRespForm.email} onChange={e => setEditRespForm(f => ({ ...f, email: e.target.value }))} />
+                              <Input placeholder="WhatsApp" value={editRespForm.whatsapp} onChange={e => setEditRespForm(f => ({ ...f, whatsapp: e.target.value }))} />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button type="button" size="sm" disabled={!editRespForm.nome || !editRespForm.responsabilidade}
+                                onClick={() => {
+                                  setResponsaveis(prev => prev.map((item, i) => i === idx ? editRespForm : item));
+                                  setEditingRespIdx(null);
+                                }}>
+                                <Save className="h-3.5 w-3.5 mr-1" /> Salvar
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => setEditingRespIdx(null)}>Cancelar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">{r.nome} <span className="text-xs text-muted-foreground font-normal">— {r.responsabilidade}</span></p>
+                              <div className="flex flex-wrap gap-3 mt-0.5">
+                                {r.email && <span className="text-xs text-muted-foreground">✉️ {r.email}</span>}
+                                {r.whatsapp && <span className="text-xs text-muted-foreground">📱 {r.whatsapp}</span>}
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button type="button" size="icon" variant="ghost" className="h-7 w-7"
+                                onClick={() => { setEditingRespIdx(idx); setEditRespForm(r); }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => setResponsaveis(prev => prev.filter((_, i) => i !== idx))}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new form */}
+                {addingResp && (
+                  <div className="rounded-md border bg-background p-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input placeholder="Nome*" value={newResp.nome} onChange={e => setNewResp(f => ({ ...f, nome: e.target.value }))} />
+                      <Input placeholder="Responsabilidade* (ex: Financeiro)" value={newResp.responsabilidade} onChange={e => setNewResp(f => ({ ...f, responsabilidade: e.target.value }))} />
+                      <Input type="email" placeholder="E-mail" value={newResp.email} onChange={e => setNewResp(f => ({ ...f, email: e.target.value }))} />
+                      <Input placeholder="WhatsApp" value={newResp.whatsapp} onChange={e => setNewResp(f => ({ ...f, whatsapp: e.target.value }))} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" disabled={!newResp.nome || !newResp.responsabilidade}
+                        onClick={() => {
+                          setResponsaveis(prev => [...prev, newResp]);
+                          setNewResp(emptyResp);
+                          setAddingResp(false);
+                        }}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setAddingResp(false); setNewResp(emptyResp); }}>Cancelar</Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex space-x-4">
