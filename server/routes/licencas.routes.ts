@@ -201,11 +201,30 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
       console.log(`[PUT /api/licencas/${id}] body.arquivoPdf =`, req.body?.arquivoPdf);
       const data = insertLicencaAmbientalSchema.partial().parse(req.body);
       console.log(`[PUT /api/licencas/${id}] parsed.arquivoPdf =`, data?.arquivoPdf);
+      // Preserve explicit status updates (status is omitted from insertSchema but valid for updates)
+      if (req.body.status) {
+        (data as any).status = req.body.status;
+      }
       const licenca = await storage.updateLicenca(id, data);
       websocketService.broadcastInvalidate('licencas');
       res.json(licenca);
     } catch (error) {
       console.error("Update licenca error:", error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  // PATCH /api/licencas/:id — status-only update (used by CicloVidaTab and quick actions)
+  app.patch("/api/licencas/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ message: "status é obrigatório" });
+      const licenca = await storage.updateLicenca(id, { status } as any);
+      websocketService.broadcastInvalidate('licencas');
+      res.json(licenca);
+    } catch (error) {
+      console.error("Patch licenca error:", error);
       res.status(400).json({ message: "Invalid request" });
     }
   });
