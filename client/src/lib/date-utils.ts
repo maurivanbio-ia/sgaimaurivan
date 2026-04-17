@@ -48,16 +48,21 @@ export function getStatusLabel(status: string): string {
   switch (status) {
     case 'ativa':
     case 'ativo':
+    case 'vigente':
       return 'Ativa';
     case 'a_vencer':
       return 'A Vencer';
     case 'vencida':
     case 'vencido':
       return 'Vencida';
+    case 'em_renovacao':
+      return 'Em Renovação';
+    case 'cancelada':
+      return 'Cancelada';
     case 'finalizada':
       return 'Finalizada';
     default:
-      return 'Desconhecido';
+      return status || 'Desconhecido';
   }
 }
 
@@ -65,12 +70,17 @@ export function getStatusClass(status: string): string {
   switch (status) {
     case 'ativa':
     case 'ativo':
+    case 'vigente':
       return 'status-active';
     case 'a_vencer':
       return 'status-expiring';
     case 'vencida':
     case 'vencido':
       return 'status-expired';
+    case 'em_renovacao':
+      return 'status-renovacao';
+    case 'cancelada':
+      return 'status-cancelada';
     case 'finalizada':
       return 'status-finalizada';
     default:

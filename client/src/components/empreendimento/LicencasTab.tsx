@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload, RefreshCw, Archive } from "lucide-react";
+import { Plus, FileText, Calendar, Building, Download, Shield, AlertCircle, CheckCircle, Save, Pencil, Trash2, AlertTriangle, Loader2, Upload, RefreshCw, Archive, RefreshCcw } from "lucide-react";
 import { formatDate, getStatusLabel, getStatusClass } from "@/lib/date-utils";
 import type { LicencaAmbiental } from "@shared/schema";
 import { ExportButton } from "@/components/ExportButton";
@@ -70,6 +70,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
   const licencasVencidas = licencas.filter(l => l.status === 'vencida');
   const licencasAVencer = licencas.filter(l => l.status === 'a_vencer');
   const licencasFinalizadas = licencas.filter(l => l.status === 'finalizada');
+  const licencasEmRenovacao = licencas.filter(l => l.status === 'em_renovacao');
 
   const form = useForm<LicenseFormData>({
     resolver: zodResolver(licenseSchema),
@@ -556,6 +557,20 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
           </CardContent>
         </Card>
 
+        {licencasEmRenovacao.length > 0 && (
+          <Card className="shadow-sm border-blue-200">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4 text-blue-500" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Em Renovação</p>
+                  <p className="text-2xl font-bold text-blue-700">{licencasEmRenovacao.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -714,7 +729,7 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
       {licencas.length > 0 ? (
         <div className="space-y-4">
           {licencas.map((license) => (
-            <Card key={license.id} className={`shadow-sm hover:shadow-md transition-shadow ${license.status === 'finalizada' ? 'opacity-70 border-slate-200 dark:border-slate-700' : ''}`}>
+            <Card key={license.id} className={`shadow-sm hover:shadow-md transition-shadow ${license.status === 'finalizada' ? 'opacity-70 border-slate-200 dark:border-slate-700' : license.status === 'em_renovacao' ? 'border-blue-300 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-950/20' : ''}`}>
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
