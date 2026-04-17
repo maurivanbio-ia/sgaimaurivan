@@ -265,6 +265,69 @@ function getRiscoColor(diffDays: number | null): string {
   return "text-yellow-600 bg-yellow-50 border-yellow-200";
 }
 
+// ─── FormattedTextList ─────────────────────────────────────────────────────────
+// Renderiza texto com itens em tópicos (linhas que começam com ". " viram sub-itens)
+
+function FormattedTextList({ text, className = "", maxLines }: { text: string; className?: string; maxLines?: number }) {
+  const lines = text.split(/\n|\r\n/).map(l => l.trim()).filter(l => l.length > 0);
+
+  const items: { text: string; sub: boolean }[] = [];
+  for (const line of lines) {
+    if (line.startsWith(". ") || line.startsWith("• ")) {
+      items.push({ text: line.replace(/^[.•]\s+/, ""), sub: true });
+    } else {
+      items.push({ text: line, sub: false });
+    }
+  }
+
+  const visibleItems = maxLines ? items.slice(0, maxLines) : items;
+  const hasMore = maxLines ? items.length > maxLines : false;
+
+  return (
+    <ul className={`space-y-0.5 ${className}`}>
+      {visibleItems.map((item, i) => (
+        <li key={i} className={`flex items-start gap-1.5 ${item.sub ? "ml-4 text-[0.8em]" : ""}`}>
+          <span className={`mt-1 shrink-0 ${item.sub ? "text-orange-400" : "text-orange-600"}`}>
+            {item.sub ? "◦" : "•"}
+          </span>
+          <span>{item.text}</span>
+        </li>
+      ))}
+      {hasMore && <li className="text-muted-foreground text-[0.8em] ml-1">...e mais {items.length - maxLines!} item(s)</li>}
+    </ul>
+  );
+}
+
+function FormattedTextListPurple({ text, className = "", maxLines }: { text: string; className?: string; maxLines?: number }) {
+  const lines = text.split(/\n|\r\n/).map(l => l.trim()).filter(l => l.length > 0);
+
+  const items: { text: string; sub: boolean }[] = [];
+  for (const line of lines) {
+    if (line.startsWith(". ") || line.startsWith("• ")) {
+      items.push({ text: line.replace(/^[.•]\s+/, ""), sub: true });
+    } else {
+      items.push({ text: line, sub: false });
+    }
+  }
+
+  const visibleItems = maxLines ? items.slice(0, maxLines) : items;
+  const hasMore = maxLines ? items.length > maxLines : false;
+
+  return (
+    <ul className={`space-y-0.5 ${className}`}>
+      {visibleItems.map((item, i) => (
+        <li key={i} className={`flex items-start gap-1.5 ${item.sub ? "ml-4 text-[0.8em]" : ""}`}>
+          <span className={`mt-1 shrink-0 ${item.sub ? "text-purple-400" : "text-purple-600"}`}>
+            {item.sub ? "◦" : "•"}
+          </span>
+          <span>{item.text}</span>
+        </li>
+      ))}
+      {hasMore && <li className="text-muted-foreground text-[0.8em] ml-1">...e mais {items.length - maxLines!} item(s)</li>}
+    </ul>
+  );
+}
+
 // ─── Componente Principal ──────────────────────────────────────────────────────
 
 type DatasetExt = Dataset & { empreendimentoNome?: string };
@@ -1973,16 +2036,16 @@ export default function GestaoDados() {
                 {/* Resumo IA */}
                 {detailDataset.resumoIA && (
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                    <p className="text-xs font-medium text-purple-700 mb-1 flex items-center gap-1"><Sparkles className="h-3 w-3" />Resumo Técnico</p>
-                    <p className="text-sm text-purple-900">{detailDataset.resumoIA}</p>
+                    <p className="text-xs font-medium text-purple-700 mb-2 flex items-center gap-1"><Sparkles className="h-3 w-3" />Resumo Técnico</p>
+                    <FormattedTextListPurple text={detailDataset.resumoIA} className="text-sm text-purple-900" />
                   </div>
                 )}
 
                 {/* Exigências */}
                 {detailDataset.exigencias && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                    <p className="text-xs font-medium text-orange-700 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Exigências Identificadas</p>
-                    <p className="text-sm text-orange-900 whitespace-pre-wrap">{detailDataset.exigencias}</p>
+                    <p className="text-xs font-medium text-orange-700 mb-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Exigências Identificadas</p>
+                    <FormattedTextList text={detailDataset.exigencias} className="text-sm text-orange-900" />
                     <Button size="sm" variant="outline" className="mt-2 gap-1 text-orange-700 border-orange-300" onClick={() => { setIsDetailOpen(false); handleGerarDemanda(detailDataset); }}>
                       <Zap className="h-3 w-3" />Converter em Demanda
                     </Button>
@@ -2175,7 +2238,8 @@ export default function GestaoDados() {
             <div className="space-y-4">
               {demandaDoc?.exigencias && (
                 <div className="bg-orange-50 border border-orange-200 rounded p-3 text-sm text-orange-800">
-                  <strong>Exigências do documento:</strong><br />{demandaDoc.exigencias}
+                  <p className="font-semibold mb-1">Exigências do documento:</p>
+                  <FormattedTextList text={demandaDoc.exigencias} className="text-sm text-orange-900" />
                 </div>
               )}
               <div><Label>Título da Demanda *</Label><Input value={novaDemandaTitulo} onChange={e => setNovaDemandaTitulo(e.target.value)} /></div>
@@ -2376,8 +2440,8 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
                         {/* Exigências */}
                         {d.exigencias && (
                           <div className="col-span-2 md:col-span-4 bg-orange-50 border border-orange-200 rounded-lg p-2">
-                            <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide mb-0.5">⚠ Exigências Identificadas</p>
-                            <p className="text-xs text-orange-900 whitespace-pre-wrap line-clamp-3">{d.exigencias}</p>
+                            <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide mb-1">⚠ Exigências Identificadas</p>
+                            <FormattedTextList text={d.exigencias} className="text-xs text-orange-900" maxLines={5} />
                             <Button size="sm" variant="outline" className="mt-1.5 h-6 text-xs gap-1 text-orange-700 border-orange-300"
                               onClick={e => { e.stopPropagation(); onGerarDemanda(d); }}>
                               <Zap className="h-3 w-3" />Converter em Demanda
@@ -2388,10 +2452,10 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
                         {/* Resumo IA */}
                         {d.resumoIA && (
                           <div className="col-span-2 md:col-span-4 bg-purple-50 border border-purple-200 rounded-lg p-2">
-                            <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                            <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide mb-1 flex items-center gap-1">
                               <Sparkles className="h-3 w-3" />Resumo IA
                             </p>
-                            <p className="text-xs text-purple-900 line-clamp-2">{d.resumoIA}</p>
+                            <FormattedTextListPurple text={d.resumoIA} className="text-xs text-purple-900" maxLines={3} />
                           </div>
                         )}
                       </div>
