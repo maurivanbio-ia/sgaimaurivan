@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date-utils";
 import {
   Plus, Pencil, Trash2, FileText, Link2, Flag, CalendarDays,
-  CheckCheck, Shield, Search,
+  CheckCheck, Shield, Search, RotateCcw,
 } from "lucide-react";
 import type { LicencaAmbiental, Condicionante } from "@shared/schema";
 import {
@@ -251,7 +251,6 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
     },
   });
 
-  const progressoValue = form.watch("progresso") ?? 0;
   const tipoCondWatch = form.watch("tipoCondicionante");
   const periodicidadeWatch = form.watch("periodicidade");
   const prazoWatch = form.watch("prazo");
@@ -306,6 +305,28 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
     onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
   });
 
+  const recalcularProgresso = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/licencas/${licencaId}/condicionantes/recalcular`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licencas", licencaId, "condicionantes"] });
+      toast({ title: "Progresso recalculado", description: `${data.recalculados} condicionante(s) atualizados.` });
+    },
+    onError: () => toast({ title: "Erro ao recalcular", variant: "destructive" }),
+  });
+
+  // Auto-recalculate on first load so manually-set values are corrected
+  useEffect(() => {
+    if (licencaId) {
+      void apiRequest("POST", `/api/licencas/${licencaId}/condicionantes/recalcular`).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/licencas", licencaId, "condicionantes"] });
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [licencaId]);
+
   const handleEdit = (cond: Condicionante) => {
     setEditingCond(cond);
     const respNome = (cond as any).responsavelNome || "";
@@ -340,8 +361,10 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
   };
 
   const onSubmit = (data: CondicionanteFormData) => {
-    if (editingCond) updateCond.mutate(data);
-    else createCond.mutate(data);
+    // progresso is auto-calculated server-side from evidências — never send manually
+    const { progresso: _p, ...dataWithoutProgresso } = data;
+    if (editingCond) updateCond.mutate(dataWithoutProgresso as CondicionanteFormData);
+    else createCond.mutate(dataWithoutProgresso as CondicionanteFormData);
   };
 
   const filtered = condicionantes.filter(c => {
@@ -394,6 +417,17 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
           </Select>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={recalcularProgresso.isPending}
+            onClick={() => recalcularProgresso.mutate()}
+            title="Recalcular progresso de todas as condicionantes com base nas evidências"
+            className="gap-1.5 text-muted-foreground"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${recalcularProgresso.isPending ? 'animate-spin' : ''}`} />
+            Recalcular
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleNew} className="gap-2">
@@ -569,19 +603,6 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
                       </FormItem>
                     )} />
                   </div>
-
-                  <FormField control={form.control} name="progresso" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Progresso: {progressoValue}%</FormLabel>
-                      <FormControl>
-                        <input type="range" min={0} max={100} step={5}
-                          value={field.value ?? 0}
-                          onChange={e => field.onChange(parseInt(e.target.value))}
-                          className="w-full accent-primary"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )} />
 
                   <FormField control={form.control} name="observacoes" render={({ field }) => (
                     <FormItem>
