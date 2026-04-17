@@ -292,6 +292,22 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
       .where(eq(condicionantes.id, condicionanteId));
   }
 
+  // Recalcular progresso de todos os condicionantes de uma licença
+  app.post("/api/licencas/:licencaId/condicionantes/recalcular", requireAuth, async (req, res) => {
+    try {
+      const licencaId = parseInt(req.params.licencaId);
+      const conds = await db.select({ id: condicionantes.id })
+        .from(condicionantes)
+        .where(eq(condicionantes.licencaId, licencaId));
+      await Promise.all(conds.map(c => recalcularProgressoCondicionante(c.id)));
+      websocketService.broadcastInvalidate('condicionantes');
+      res.json({ recalculados: conds.length });
+    } catch (error) {
+      console.error("Recalcular progresso error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Condicionante routes
   app.get("/api/condicionantes", requireAuth, async (req, res) => {
     try {
@@ -369,6 +385,8 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
     try {
       const id = parseInt(req.params.id);
       const data = insertCondicionanteSchema.partial().parse(req.body);
+      // progresso is always auto-calculated from evidências — never allow manual override
+      delete (data as any).progresso;
       const condicionante = await storage.updateCondicionante(id, data);
       websocketService.broadcastInvalidate('condicionantes');
       res.json(condicionante);
