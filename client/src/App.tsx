@@ -25,6 +25,7 @@ import AlertConfig from "./pages/alert-config";
 import LicencasAtivas from "./pages/licencas-ativas";
 import LicencasVencer from "./pages/licencas-vencer";
 import LicencasVencidas from "./pages/licencas-vencidas";
+import LicencasEmRenovacao from "./pages/licencas-em-renovacao";
 import LicenseDetail from "./pages/license-detail";
 import CondicionantesPendentes from "./pages/condicionantes-pendentes";
 import EntregasMes from "./pages/entregas-mes";
@@ -182,6 +183,7 @@ function Router() {
                     <Route path="/licencas/ativas" component={LicencasAtivas} />
                     <Route path="/licencas/vencer" component={LicencasVencer} />
                     <Route path="/licencas/vencidas" component={LicencasVencidas} />
+                    <Route path="/licencas/em-renovacao" component={LicencasEmRenovacao} />
                     <Route path="/licencas/:id" component={LicenseDetail} />
                     <Route path="/condicionantes/pendentes" component={CondicionantesPendentes} />
                     <Route path="/entregas/mes" component={EntregasMes} />

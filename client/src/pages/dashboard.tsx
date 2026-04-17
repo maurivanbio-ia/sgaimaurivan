@@ -219,7 +219,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Em Renovação */}
-        <Card className="shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 border-blue-200/60 dark:border-blue-700/40 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas")}>
+        <Card className="shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-2 border-blue-200/60 dark:border-blue-700/40 cursor-pointer hover:shadow-xl hover:scale-105 transition-all" onClick={() => navigate("/licencas/em-renovacao")}>
           <CardContent className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-blue-500/10 rounded-md">

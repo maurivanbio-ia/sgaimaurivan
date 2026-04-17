@@ -222,6 +222,7 @@ export interface IStorage {
 
   // Filtered data operations  
   getLicencasByStatus(status: 'ativa' | 'expiring' | 'expired'): Promise<any[]>;
+  getLicencasEmRenovacao(): Promise<any[]>;
   getCondicionantesByStatus(status: 'pendente' | 'cumprida' | 'vencida', unidade?: string): Promise<any[]>;
   getEntregasDoMes(): Promise<any[]>;
 
@@ -1536,8 +1537,13 @@ export class DatabaseStorage implements IStorage {
       const todayStr = hoje.toISOString().slice(0, 10);
       const today = new Date(todayStr + "T00:00:00");
 
+      // Statuses that override date-based classification
+      const manualOverrideStatuses = ['em_renovacao', 'cancelada'];
+
       return licencas.filter(licenca => {
         if (!licenca.validade) return false;
+        // Licenças com status manual não entram nos filtros de data
+        if (manualOverrideStatuses.includes(licenca.status || '')) return false;
         const validadeStr = String(licenca.validade).slice(0, 10);
         const dataVencimento = new Date(validadeStr + "T00:00:00");
         const diffDays = Math.ceil((dataVencimento.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -1552,6 +1558,37 @@ export class DatabaseStorage implements IStorage {
       });
     } catch (error) {
       console.error('Error getting licenças by status:', error);
+      return [];
+    }
+  }
+
+  async getLicencasEmRenovacao(): Promise<any[]> {
+    try {
+      const result = await db
+        .select({
+          id: licencasAmbientais.id,
+          numero: licencasAmbientais.numero,
+          tipo: licencasAmbientais.tipo,
+          orgaoEmissor: licencasAmbientais.orgaoEmissor,
+          dataEmissao: licencasAmbientais.dataEmissao,
+          validade: licencasAmbientais.validade,
+          status: licencasAmbientais.status,
+          arquivoPdf: licencasAmbientais.arquivoPdf,
+          empreendimentoId: licencasAmbientais.empreendimentoId,
+          criadoEm: licencasAmbientais.criadoEm,
+          empreendimentoNome: empreendimentos.nome,
+          empreendimentoCliente: empreendimentos.cliente,
+          empreendimentoClienteEmail: empreendimentos.clienteEmail,
+          empreendimentoClienteTelefone: empreendimentos.clienteTelefone,
+          empreendimentoLocalizacao: empreendimentos.localizacao,
+        })
+        .from(licencasAmbientais)
+        .leftJoin(empreendimentos, eq(licencasAmbientais.empreendimentoId, empreendimentos.id))
+        .where(eq(licencasAmbientais.status, 'em_renovacao'))
+        .orderBy(desc(licencasAmbientais.criadoEm));
+      return result;
+    } catch (error) {
+      console.error('Error getting licenças em renovação:', error);
       return [];
     }
   }
