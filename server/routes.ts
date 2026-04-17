@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerObjectStorageRoutes(app);
 
   // Authentication middleware - also attaches user info to request
-  const requireAuth = async (req: any, res: any, next: any) => {
+  const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Admin authorization middleware
-  const requireAdmin = async (req: any, res: any, next: any) => {
+  const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -271,7 +271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Admin-only edit/delete middleware (checks cargo field)
-  const requireAdminEdit = async (req: any, res: any, next: any) => {
+  const requireAdminEdit = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -287,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Blog admin authorization middleware (admin, diretor, coordenador only OR unlocked with password)
-  const requireBlogAdmin = async (req: any, res: any, next: any) => {
+  const requireBlogAdmin = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -308,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Sensitive areas access middleware
-  const requireSensitiveUnlock = async (req: any, res: any, next: any) => {
+  const requireSensitiveUnlock = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -325,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Middleware for Gestão de Dados (pastas): coordinators and above bypass the sensitive lock
-  const requireGestaoAcesso = async (req: any, res: any, next: any) => {
+  const requireGestaoAcesso = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -349,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Client portal authentication middleware
-  const requireClienteAuth = async (req: any, res: any, next: any) => {
+  const requireClienteAuth = async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.clienteUsuarioId || !req.session.clienteId) {
       return res.status(401).json({ message: "Acesso não autorizado. Faça login no portal do cliente." });
     }
