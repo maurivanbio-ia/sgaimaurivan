@@ -2173,6 +2173,7 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
           <TableRow>
             <TableHead className="w-6 px-1"></TableHead>
             <TableHead>Código/Nome</TableHead>
+            <TableHead>Descrição</TableHead>
             <TableHead>Tipo Documental</TableHead>
             <TableHead>Status Documental</TableHead>
             <TableHead>Órgão</TableHead>
@@ -2222,6 +2223,11 @@ function DocumentosTable({ datasets, onPreview, onHistory, onEdit, onDownload, o
                         </span>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell className="max-w-[180px]">
+                    {d.descricao
+                      ? <span className="text-xs text-muted-foreground line-clamp-2" title={d.descricao}>{d.descricao}</span>
+                      : <span className="text-xs text-muted-foreground/40">—</span>}
                   </TableCell>
                   <TableCell>
                     {tipoDoc ? <span className="text-xs">{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-xs text-muted-foreground">—</span>}
@@ -2427,6 +2433,7 @@ function DocumentosGrouped({ datasets, empreendimentos = [], onPreview, onHistor
                   <TableHeader>
                     <TableRow className="bg-muted/30">
                       <TableHead className="text-xs">Código/Nome</TableHead>
+                      <TableHead className="text-xs">Descrição</TableHead>
                       <TableHead className="text-xs">Tipo Documental</TableHead>
                       <TableHead className="text-xs">Status Documental</TableHead>
                       <TableHead className="text-xs">Órgão</TableHead>
@@ -2456,6 +2463,11 @@ function DocumentosGrouped({ datasets, empreendimentos = [], onPreview, onHistor
                                 🔗 Lic. #{(d as any).licencaId}
                               </span>
                             )}
+                          </TableCell>
+                          <TableCell className="max-w-[160px]">
+                            {d.descricao
+                              ? <span className="text-xs text-muted-foreground line-clamp-2" title={d.descricao}>{d.descricao}</span>
+                              : <span className="text-xs text-muted-foreground/40">—</span>}
                           </TableCell>
                           <TableCell className="text-xs">{tipoDoc ? <span>{tipoDoc.icon} {tipoDoc.label}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell><Badge className={`text-xs ${statusDoc.color}`}>{statusDoc.label}</Badge></TableCell>
