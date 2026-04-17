@@ -392,7 +392,7 @@ export default function GestaoDados() {
   });
 
   // Condicionantes da licença selecionada no upload (para auto-evidência)
-  const { data: condicionantesDaLicenca = [] } = useQuery<any[]>({
+  const { data: condicionantesDaLicenca = [], isFetching: isFetchingCondicionantes } = useQuery<any[]>({
     queryKey: ["/api/licencas", licencaVinculadaId, "condicionantes"],
     queryFn: async () => {
       if (!licencaVinculadaId || licencaVinculadaId === "") return [];
@@ -1371,8 +1371,11 @@ export default function GestaoDados() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Nenhuma selecionada</SelectItem>
-                          {condicionantesDaLicenca.length === 0 && (
-                            <SelectItem value="__loading__" disabled>Carregando condicionantes...</SelectItem>
+                          {isFetchingCondicionantes && (
+                            <SelectItem value="__loading__" disabled>⏳ Buscando condicionantes...</SelectItem>
+                          )}
+                          {!isFetchingCondicionantes && condicionantesDaLicenca.length === 0 && (
+                            <SelectItem value="__empty__" disabled>⚠ Nenhuma condicionante cadastrada para esta licença</SelectItem>
                           )}
                           {condicionantesDaLicenca.map((c: any) => (
                             <SelectItem key={c.id} value={c.id.toString()}>

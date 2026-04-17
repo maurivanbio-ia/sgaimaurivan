@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseDateSafe, formatDateBR } from "@/lib/date-utils";
-import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail, Tag, Activity, BarChart2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Calendar, Building, FileText, Package, Clock, CheckCircle, AlertTriangle, XCircle, MapPin, User, Hash, Mail, Tag, Activity, BarChart2, ExternalLink, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/RefreshButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,30 @@ export function FilteredListing({ title, description, apiEndpoint, type, emptyMe
     
     if (type === 'licenca') {
       hoje.setHours(0, 0, 0, 0);
+
+      // Respeitar o status explícito do banco antes de calcular pela data
+      if (item.status === 'em_renovacao') {
+        return {
+          badge: <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1"><RefreshCcw className="h-3 w-3" />Em Renovação</Badge>,
+          color: "text-blue-600",
+          bgColor: "bg-blue-50 border-blue-200"
+        };
+      }
+      if (item.status === 'cancelada') {
+        return {
+          badge: <Badge className="bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-1"><XCircle className="h-3 w-3" />Cancelada</Badge>,
+          color: "text-gray-600",
+          bgColor: "bg-gray-50 border-gray-200"
+        };
+      }
+      if (item.status === 'finalizada') {
+        return {
+          badge: <Badge className="bg-slate-100 text-slate-700 border-slate-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Finalizada</Badge>,
+          color: "text-slate-600",
+          bgColor: "bg-slate-50 border-slate-200"
+        };
+      }
+
       const dataVencimento = parseDateSafe(item.validade);
       const diffDays = Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       
