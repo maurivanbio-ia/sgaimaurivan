@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,6 +24,7 @@ import { HistoricoTab } from "@/components/licenca/HistoricoTab";
 export default function LicenseDetail() {
   const [, params] = useRoute("/licencas/:id");
   const licencaId = parseInt(params?.id || "0");
+  const [activeTab, setActiveTab] = useState("condicionantes");
 
   const { data: licenca, isLoading } = useQuery<LicencaComEmpreendimento>({
     queryKey: ["/api/licencas", licencaId],
@@ -178,10 +180,7 @@ export default function LicenseDetail() {
           </div>
           <button
             className="text-xs text-blue-600 dark:text-blue-400 underline flex-shrink-0 hover:text-blue-800"
-            onClick={() => {
-              const tab = document.querySelector('[data-state][value="ciclovida"]') as HTMLElement;
-              if (tab) tab.click();
-            }}
+            onClick={() => setActiveTab("ciclovida")}
           >
             Ver detalhes →
           </button>
@@ -189,7 +188,7 @@ export default function LicenseDetail() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="condicionantes" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full flex overflow-x-auto flex-nowrap h-auto">
           <TabsTrigger value="detalhes" className="flex-shrink-0 whitespace-nowrap gap-1.5">
             <Shield className="h-4 w-4" />
