@@ -138,6 +138,21 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
     },
   });
 
+  const marcarEmRenovacao = useMutation({
+    mutationFn: async (licId: number) => {
+      const response = await apiRequest("PUT", `/api/licencas/${licId}`, { status: 'em_renovacao' });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/empreendimentos", empreendimentoId, "licencas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/licenses"] });
+      toast({ title: "Status atualizado", description: "Licença marcada como Em Renovação." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível atualizar o status.", variant: "destructive" });
+    },
+  });
+
   const deleteLicense = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/licencas/${id}`);
@@ -801,16 +816,29 @@ export function LicencasTab({ empreendimentoId }: LicencasTabProps) {
                       </Button>
                     </Link>
                     {license.status === 'vencida' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRenovar(license)}
-                        className="gap-1 text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950"
-                        title="Renovar licença — cria nova licença e marca esta como finalizada"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Renovar
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={marcarEmRenovacao.isPending}
+                          onClick={() => marcarEmRenovacao.mutate(license.id)}
+                          className="gap-1 text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950"
+                          title="Marcar como Em Renovação — processo de renovação iniciado"
+                        >
+                          <RefreshCcw className="h-4 w-4" />
+                          Em Renovação
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRenovar(license)}
+                          className="gap-1 text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950"
+                          title="Renovar licença — cria nova licença e marca esta como finalizada"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Renovar
+                        </Button>
+                      </>
                     )}
                     {license.status !== 'finalizada' && (
                       <Button

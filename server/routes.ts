@@ -780,12 +780,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ── Auto-ciclo de vida da licença ──────────────────────────────────────
       const licId = (dataset as any).licencaId ?? datasetData.licencaId;
       const licVinculo = (dataset as any).licencaVinculoTipo ?? datasetData.licencaVinculoTipo;
-      if (licId && licVinculo === 'requerimento') {
+      const isRenovacaoVinculo = licVinculo === 'requerimento' || licVinculo === 'renovacao';
+      if (licId && isRenovacaoVinculo) {
         try {
           await db.update(licencasAmbientais)
             .set({ status: 'em_renovacao' })
             .where(and(eq(licencasAmbientais.id, Number(licId)), ne(licencasAmbientais.status, 'cancelada')));
           websocketService.broadcastInvalidate('licencas');
+          console.log(`[Auto ciclo-de-vida] Licença ${licId} → em_renovacao (vinculo: ${licVinculo})`);
         } catch (licErr) {
           console.error('[Auto ciclo-de-vida POST simples] Falha ao atualizar status da licença:', licErr);
         }
@@ -878,22 +880,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // ── Auto-ciclo de vida da licença ──────────────────────────────────────
-      // Quando um documento é vinculado a uma licença com tipo 'requerimento',
+      // Quando um documento é vinculado a uma licença com tipo 'requerimento' ou 'renovacao',
       // a licença passa automaticamente para 'em_renovacao'
       const savedLicencaId = updated[0].licencaId ?? updateData.licencaId;
       const savedVinculoTipo = updated[0].licencaVinculoTipo ?? updateData.licencaVinculoTipo;
-      if (savedLicencaId && savedVinculoTipo === 'requerimento') {
+      const isRenovacaoEdit = savedVinculoTipo === 'requerimento' || savedVinculoTipo === 'renovacao';
+      if (savedLicencaId && isRenovacaoEdit) {
         try {
           await db.update(licencasAmbientais)
             .set({ status: 'em_renovacao' })
             .where(and(eq(licencasAmbientais.id, savedLicencaId), ne(licencasAmbientais.status, 'cancelada')));
           websocketService.broadcastInvalidate('licencas');
+          console.log(`[Auto ciclo-de-vida PUT] Licença ${savedLicencaId} → em_renovacao (vinculo: ${savedVinculoTipo})`);
         } catch (licErr) {
-          console.error('[Auto ciclo-de-vida] Falha ao atualizar status da licença:', licErr);
+          console.error('[Auto ciclo-de-vida PUT] Falha ao atualizar status da licença:', licErr);
         }
       }
-      // Quando vinculoTipo = 'renovacao', a licença anterior pode ser marcada como 'vencida'
-      // (opcional no futuro — por enquanto só 'requerimento' atualiza automaticamente)
 
       res.json(updated[0]);
     } catch (error) {
@@ -2435,14 +2437,17 @@ REGRAS FINAIS:
         detalhes: { versao, pastaDestino, codigoArquivo },
       });
 
-      // ── Auto-ciclo de vida da licença (POST) ────────────────────────────────
-      if (dataset.licencaId && dataset.licencaVinculoTipo === 'requerimento') {
+      // ── Auto-ciclo de vida da licença (POST avançado) ────────────────────────────────
+      const isRenovacaoAvancado = dataset.licencaVinculoTipo === 'requerimento' || dataset.licencaVinculoTipo === 'renovacao';
+      if (dataset.licencaId && isRenovacaoAvancado) {
         try {
           await db.update(licencasAmbientais)
             .set({ status: 'em_renovacao' })
             .where(and(eq(licencasAmbientais.id, dataset.licencaId), ne(licencasAmbientais.status, 'cancelada')));
+          websocketService.broadcastInvalidate('licencas');
+          console.log(`[Auto ciclo-de-vida POST avançado] Licença ${dataset.licencaId} → em_renovacao (vinculo: ${dataset.licencaVinculoTipo})`);
         } catch (licErr) {
-          console.error('[Auto ciclo-de-vida POST] Falha ao atualizar status da licença:', licErr);
+          console.error('[Auto ciclo-de-vida POST avançado] Falha ao atualizar status da licença:', licErr);
         }
       }
 
