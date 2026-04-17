@@ -10,6 +10,7 @@ import {
   insertCondicionanteSchema,
   insertCondicionanteEvidenciaSchema,
   condicionanteEvidencias,
+  condicionantes,
   insertEntregaSchema,
   insertNotificationSchema,
   insertEquipamentoSchema,
@@ -777,8 +778,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dataset = await storage.createDataset(datasetData);
 
       // ── Auto-ciclo de vida da licença ──────────────────────────────────────
-      // Quando um documento é vinculado a uma licença com tipo 'requerimento',
-      // a licença passa automaticamente para 'em_renovacao'
       const licId = (dataset as any).licencaId ?? datasetData.licencaId;
       const licVinculo = (dataset as any).licencaVinculoTipo ?? datasetData.licencaVinculoTipo;
       if (licId && licVinculo === 'requerimento') {
@@ -789,6 +788,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           websocketService.broadcastInvalidate('licencas');
         } catch (licErr) {
           console.error('[Auto ciclo-de-vida POST simples] Falha ao atualizar status da licença:', licErr);
+        }
+      }
+
+      // ── Auto-evidência de condicionante ────────────────────────────────────
+      const condId = (dataset as any).condicionanteId ?? datasetData.condicionanteId;
+      if (condId && licVinculo === 'cumprimento_condicionante') {
+        try {
+          const user = req.user as any;
+          await db.insert(condicionanteEvidencias).values({
+            condicionanteId: Number(condId),
+            nome: (dataset as any).nome || datasetData.nome || 'Documento',
+            tipo: 'documento',
+            url: (dataset as any).url || datasetData.url || null,
+            descricao: `Documento vinculado automaticamente via Gestão de Dados (ID: ${dataset.id})`,
+            criadoPor: user?.email || 'Sistema',
+          });
+          // Recalcular progresso da condicionante (mesma lógica de licencas.routes.ts)
+          const [totRow] = await db
+            .select({ total: sql<number>`COUNT(*)::int` })
+            .from(condicionanteEvidencias)
+            .where(eq(condicionanteEvidencias.condicionanteId, Number(condId)));
+          const [aprRow] = await db
+            .select({ aprovadas: sql<number>`COUNT(*)::int` })
+            .from(condicionanteEvidencias)
+            .where(and(eq(condicionanteEvidencias.condicionanteId, Number(condId)), eq(condicionanteEvidencias.aprovado, true)));
+          const [condRow] = await db.select({ status: condicionantes.status })
+            .from(condicionantes).where(eq(condicionantes.id, Number(condId)));
+          const total = Number(totRow?.total ?? 0);
+          const aprovadas = Number(aprRow?.aprovadas ?? 0);
+          const progresso = total === 0 ? 0 : aprovadas > 0
+            ? Math.round((aprovadas / total) * 100)
+            : Math.min(10 * total, 50);
+          const newStatus = condRow?.status === 'pendente' ? 'em_andamento' : condRow?.status;
+          await db.update(condicionantes)
+            .set({ progresso, status: newStatus, atualizadoEm: new Date() })
+            .where(eq(condicionantes.id, Number(condId)));
+          websocketService.broadcastInvalidate('condicionantes');
+        } catch (evErr) {
+          console.error('[Auto-evidência POST simples] Falha ao criar evidência:', evErr);
         }
       }
 
@@ -2331,6 +2369,7 @@ REGRAS FINAIS:
         tipoDocumental, numeroDocumento, orgaoEmissor, prazoAtendimento,
         statusDocumental, documentoRelacionadoId, vinculoTipo, exigencias, resumoIA, dataEmissao,
         licencaId: licencaIdAvancado, licencaVinculoTipo: licencaVinculoTipoAvancado,
+        condicionanteId: condicionanteIdAvancado,
       } = req.body;
 
       // Criar dataset
@@ -2372,6 +2411,7 @@ REGRAS FINAIS:
         dataEmissao: dataEmissao || null,
         licencaId: licencaIdAvancado ? parseInt(licencaIdAvancado) : null,
         licencaVinculoTipo: licencaVinculoTipoAvancado || null,
+        condicionanteId: condicionanteIdAvancado ? parseInt(condicionanteIdAvancado) : null,
       }).returning();
       
       // Criar registro de versão
@@ -2403,6 +2443,42 @@ REGRAS FINAIS:
             .where(and(eq(licencasAmbientais.id, dataset.licencaId), ne(licencasAmbientais.status, 'cancelada')));
         } catch (licErr) {
           console.error('[Auto ciclo-de-vida POST] Falha ao atualizar status da licença:', licErr);
+        }
+      }
+
+      // ── Auto-evidência de condicionante (POST avançado) ──────────────────────
+      if (dataset.condicionanteId && dataset.licencaVinculoTipo === 'cumprimento_condicionante') {
+        try {
+          await db.insert(condicionanteEvidencias).values({
+            condicionanteId: dataset.condicionanteId,
+            nome: dataset.nome || 'Documento',
+            tipo: 'documento',
+            url: dataset.url || null,
+            descricao: `Documento vinculado automaticamente via Gestão de Dados (ID: ${dataset.id})`,
+            criadoPor: user?.email || 'Sistema',
+          });
+          const [totRow] = await db
+            .select({ total: sql<number>`COUNT(*)::int` })
+            .from(condicionanteEvidencias)
+            .where(eq(condicionanteEvidencias.condicionanteId, dataset.condicionanteId));
+          const [aprRow] = await db
+            .select({ aprovadas: sql<number>`COUNT(*)::int` })
+            .from(condicionanteEvidencias)
+            .where(and(eq(condicionanteEvidencias.condicionanteId, dataset.condicionanteId), eq(condicionanteEvidencias.aprovado, true)));
+          const [condRow] = await db.select({ status: condicionantes.status })
+            .from(condicionantes).where(eq(condicionantes.id, dataset.condicionanteId));
+          const total = Number(totRow?.total ?? 0);
+          const aprovadas = Number(aprRow?.aprovadas ?? 0);
+          const progresso = total === 0 ? 0 : aprovadas > 0
+            ? Math.round((aprovadas / total) * 100)
+            : Math.min(10 * total, 50);
+          const newStatus = condRow?.status === 'pendente' ? 'em_andamento' : condRow?.status;
+          await db.update(condicionantes)
+            .set({ progresso, status: newStatus, atualizadoEm: new Date() })
+            .where(eq(condicionantes.id, dataset.condicionanteId));
+          websocketService.broadcastInvalidate('condicionantes');
+        } catch (evErr) {
+          console.error('[Auto-evidência POST avançado] Falha ao criar evidência:', evErr);
         }
       }
       
