@@ -1040,10 +1040,10 @@ export class DatabaseStorage implements IStorage {
     let proxVencer = 0;
 
     licencas.forEach((licenca: any) => {
-      // Licenças em renovação são contadas à parte (status armazenado no banco)
-      if (licenca.status === 'em_renovacao') {
-        emRenovacao++;
-      }
+      // Status manuais sobrescrevem classificação por data — contar separado e não incluir nos demais
+      if (licenca.status === 'em_renovacao') { emRenovacao++; return; }
+      if (licenca.status === 'cancelada') return;
+
       const validadeStr = String(licenca.validade || '').slice(0, 10);
       if (!validadeStr) return;
       const validadeDate = new Date(validadeStr + "T00:00:00");
@@ -1078,9 +1078,10 @@ export class DatabaseStorage implements IStorage {
     let proxVencer = 0;
 
     licencas.forEach((licenca: any) => {
-      if (licenca.status === 'em_renovacao') {
-        emRenovacao++;
-      }
+      // Status manuais sobrescrevem classificação por data
+      if (licenca.status === 'em_renovacao') { emRenovacao++; return; }
+      if (licenca.status === 'cancelada') return;
+
       const validadeStr = String(licenca.validade || '').slice(0, 10);
       if (!validadeStr) return;
       const validadeDate = new Date(validadeStr + "T00:00:00");
