@@ -73,6 +73,16 @@ export function registerLicencasRoutes(app: Express, { storage, requireAuth }: L
     }
   });
 
+  app.get("/api/licencas/em-renovacao", requireAuth, async (req, res) => {
+    try {
+      const licencas = await storage.getLicencasEmRenovacao();
+      res.json(licencas);
+    } catch (error) {
+      console.error("Get licenças em renovação error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/licencas/calendar", requireAuth, async (req, res) => {
     try {
       const userUnidade = req.user?.unidade || '';
