@@ -694,7 +694,7 @@ export class DatabaseStorage implements IStorage {
 
     const licencas = licencasData.map(licenca => ({
       ...licenca,
-      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
+      status: this.resolveStatus(licenca)
     }));
 
     return { ...empreendimento, licencas };
@@ -824,7 +824,7 @@ export class DatabaseStorage implements IStorage {
     const licencas = await db.select().from(licencasAmbientais).orderBy(desc(licencasAmbientais.criadoEm));
     return licencas.map(licenca => ({
       ...licenca,
-      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
+      status: this.resolveStatus(licenca)
     }));
   }
 
@@ -833,7 +833,7 @@ export class DatabaseStorage implements IStorage {
     if (!licenca) return undefined;
     return {
       ...licenca,
-      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
+      status: this.resolveStatus(licenca)
     };
   }
 
@@ -1216,7 +1216,7 @@ export class DatabaseStorage implements IStorage {
     const allCondicionantes = await this.getCondicionantes();
     const allEntregas = await this.getEntregas();
     
-    const licencas = allLicencas.map(l => ({ ...l, status: (l as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(l.validade) }));
+    const licencas = allLicencas.map(l => ({ ...l, status: this.resolveStatus(l) }));
     const condicionantesFiltradas = allCondicionantes.filter(c => licencaIds.includes(c.licencaId));
     const entregasFiltradas = allEntregas.filter(e => licencaIds.includes(e.licencaId));
 
@@ -1365,7 +1365,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(licencasAmbientais.criadoEm));
     return licencas.map(licenca => ({
       ...licenca,
-      status: (licenca as any).finalizada ? 'finalizada' : this.calculateLicenseStatus(licenca.validade)
+      status: this.resolveStatus(licenca)
     }));
   }
 
@@ -1387,6 +1387,14 @@ export class DatabaseStorage implements IStorage {
       return 'atrasada';
     }
     return 'pendente';
+  }
+
+  private resolveStatus(licenca: any): string {
+    if (licenca.finalizada) return 'finalizada';
+    // Statuses set manually — never override with date calculation
+    const manualStatuses = ['em_renovacao', 'cancelada'];
+    if (licenca.status && manualStatuses.includes(licenca.status)) return licenca.status;
+    return this.calculateLicenseStatus(licenca.validade);
   }
 
   private calculateLicenseStatus(validade: string): string {
