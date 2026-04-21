@@ -3625,3 +3625,76 @@ export const publicacoes = pgTable("publicacoes", {
 export const insertPublicacaoSchema = createInsertSchema(publicacoes).omit({ id: true, criadoEm: true, atualizadoEm: true });
 export type InsertPublicacao = z.infer<typeof insertPublicacaoSchema>;
 export type Publicacao = typeof publicacoes.$inferSelect;
+
+// ═══════════════════════════════════════════════════════
+// REGISTRO DE RISCOS
+// ═══════════════════════════════════════════════════════
+export const riscos = pgTable("riscos", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  categoria: text("categoria").notNull().default("tecnico"), // tecnico, ambiental, legal, financeiro, social, outro
+  probabilidade: text("probabilidade").notNull().default("media"), // baixa, media, alta, muito_alta
+  impacto: text("impacto").notNull().default("medio"), // baixo, medio, alto, critico
+  nivelRisco: text("nivel_risco").notNull().default("medio"), // baixo, medio, alto, critico
+  status: text("status").notNull().default("identificado"), // identificado, monitorando, mitigado, aceito, encerrado
+  planoMitigacao: text("plano_mitigacao"),
+  planoContingencia: text("plano_contingencia"),
+  responsavel: text("responsavel"),
+  prazo: date("prazo"),
+  criadoPor: text("criado_por"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertRiscoSchema = createInsertSchema(riscos).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertRisco = z.infer<typeof insertRiscoSchema>;
+export type Risco = typeof riscos.$inferSelect;
+
+// ═══════════════════════════════════════════════════════
+// REGISTRO DE DECISÕES
+// ═══════════════════════════════════════════════════════
+export const decisoes = pgTable("decisoes", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  decisaoTomada: text("decisao_tomada").notNull(),
+  decididoPor: text("decidido_por"),
+  dataDecisao: date("data_decisao").notNull(),
+  racional: text("racional"),
+  alternativasConsideradas: text("alternativas_consideradas"),
+  impacto: text("impacto"),
+  status: text("status").notNull().default("aprovada"), // aprovada, revisao, cancelada
+  criadoPor: text("criado_por"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertDecisaoSchema = createInsertSchema(decisoes).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertDecisao = z.infer<typeof insertDecisaoSchema>;
+export type Decisao = typeof decisoes.$inferSelect;
+
+// ═══════════════════════════════════════════════════════
+// CHECKLIST DE ENTREGÁVEIS
+// ═══════════════════════════════════════════════════════
+export const entregaveis = pgTable("entregaveis", {
+  id: serial("id").primaryKey(),
+  empreendimentoId: integer("empreendimento_id").references(() => empreendimentos.id).notNull(),
+  titulo: text("titulo").notNull(),
+  tipo: text("tipo").notNull().default("documento"), // relatorio, documento, apresentacao, produto, plano, outros
+  descricao: text("descricao"),
+  prazo: date("prazo").notNull(),
+  responsavel: text("responsavel"),
+  status: text("status").notNull().default("pendente"), // pendente, em_andamento, entregue, aprovado, atrasado
+  observacoes: text("observacoes"),
+  arquivoUrl: text("arquivo_url"),
+  criadoPor: text("criado_por"),
+  criadoEm: timestamp("criado_em").defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
+});
+
+export const insertEntregavelSchema = createInsertSchema(entregaveis).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertEntregavel = z.infer<typeof insertEntregavelSchema>;
+export type Entregavel = typeof entregaveis.$inferSelect;

@@ -86,6 +86,9 @@ import {
   campoFotos,
   whatsappDemandaConfig,
   insertWhatsappDemandaConfigSchema,
+  riscos, insertRiscoSchema,
+  decisoes, insertDecisaoSchema,
+  entregaveis, insertEntregavelSchema,
 } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and, isNull, gte, lte, lt, sum, desc, asc, or, ilike, SQL, inArray, ne } from "drizzle-orm";
@@ -12131,6 +12134,104 @@ Retorne APENAS o JSON, sem markdown.`;
   app.delete("/api/atas-reuniao/:id", requireAuth, async (req, res) => {
     try {
       await db.delete(atasReuniao).where(eq(atasReuniao.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── RISCOS ──────────────────────────────────────────────────────────────
+  app.get("/api/riscos", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(riscos).where(eq(riscos.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(riscos.criadoEm))
+        : await db.select().from(riscos).orderBy(desc(riscos.criadoEm));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/riscos", requireAuth, async (req: any, res) => {
+    try {
+      const data = insertRiscoSchema.parse({ ...req.body, criadoPor: req.user?.email });
+      const [item] = await db.insert(riscos).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/riscos/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(riscos).set({ ...req.body, atualizadoEm: new Date() }).where(eq(riscos.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/riscos/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(riscos).where(eq(riscos.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── DECISÕES ────────────────────────────────────────────────────────────
+  app.get("/api/decisoes", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(decisoes).where(eq(decisoes.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(desc(decisoes.dataDecisao))
+        : await db.select().from(decisoes).orderBy(desc(decisoes.dataDecisao));
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/decisoes", requireAuth, async (req: any, res) => {
+    try {
+      const data = insertDecisaoSchema.parse({ ...req.body, criadoPor: req.user?.email });
+      const [item] = await db.insert(decisoes).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/decisoes/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(decisoes).set({ ...req.body, atualizadoEm: new Date() }).where(eq(decisoes.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/decisoes/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(decisoes).where(eq(decisoes.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ─── ENTREGÁVEIS ─────────────────────────────────────────────────────────
+  app.get("/api/entregaveis", requireAuth, async (req, res) => {
+    try {
+      const { empreendimentoId } = req.query;
+      const items = empreendimentoId
+        ? await db.select().from(entregaveis).where(eq(entregaveis.empreendimentoId, parseInt(empreendimentoId as string))).orderBy(entregaveis.prazo)
+        : await db.select().from(entregaveis).orderBy(entregaveis.prazo);
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.get("/api/entregaveis/todos", requireAuth, async (req: any, res) => {
+    try {
+      const items = await db.select().from(entregaveis)
+        .innerJoin(empreendimentos, eq(entregaveis.empreendimentoId, empreendimentos.id))
+        .orderBy(entregaveis.prazo);
+      res.json(items.map(r => ({ ...r.entregaveis, empreendimentoNome: r.empreendimentos.nome })));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/entregaveis", requireAuth, async (req: any, res) => {
+    try {
+      const data = insertEntregavelSchema.parse({ ...req.body, criadoPor: req.user?.email });
+      const [item] = await db.insert(entregaveis).values(data).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.put("/api/entregaveis/:id", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(entregaveis).set({ ...req.body, atualizadoEm: new Date() }).where(eq(entregaveis.id, parseInt(req.params.id))).returning();
+      res.json(item);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/entregaveis/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(entregaveis).where(eq(entregaveis.id, parseInt(req.params.id)));
       res.json({ success: true });
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
