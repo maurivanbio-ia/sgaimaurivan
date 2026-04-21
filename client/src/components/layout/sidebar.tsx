@@ -56,7 +56,6 @@ import {
   BellRing
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 interface NavCategory {
   label: string;
@@ -222,15 +221,14 @@ export default function Sidebar() {
         <Link
           href="/"
           aria-label="Ir para o início"
-          className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity py-1"
         >
-          <img
-            src={logoEcoBrasil}
-            alt="EcoBrasil"
-            className={cn("h-auto transition-all", collapsed ? "w-8" : "w-24")}
-            loading="lazy"
-            decoding="async"
-          />
+          {!collapsed && (
+            <span className="text-base font-extrabold tracking-tight text-foreground">SGAI</span>
+          )}
+          {collapsed && (
+            <span className="text-xs font-extrabold text-foreground">S</span>
+          )}
         </Link>
       </div>
 
@@ -405,7 +403,7 @@ export default function Sidebar() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
         <div className="flex items-center justify-between p-4">
           <Link href="/" className="flex items-center">
-            <img src={logoEcoBrasil} alt="EcoBrasil" className="h-8 w-auto" />
+            <span className="text-base font-extrabold tracking-tight text-foreground">SGAI</span>
           </Link>
           <div className="flex items-center gap-2">
             <NotificationsCenter />

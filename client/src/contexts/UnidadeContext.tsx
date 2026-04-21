@@ -35,7 +35,7 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
   };
 
   const getNomeUnidade = (): string => {
-    return 'ECOBRASIL Salvador';
+    return 'Plataforma Pessoal';
   };
 
   return (
