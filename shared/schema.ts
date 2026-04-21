@@ -47,6 +47,12 @@ export const empreendimentos = pgTable("empreendimentos", {
   valorContratado: decimal("valor_contratado", { precision: 15, scale: 2 }).default("0"), // Valor hipotético (contrato)
   valorRecebido: decimal("valor_recebido", { precision: 15, scale: 2 }).default("0"), // Valor real (efetivamente recebido)
   orcamentoPrevisto: decimal("orcamento_previsto", { precision: 15, scale: 2 }).default("0"), // Orçamento de gastos previsto
+  // Empresa executora (separada do cliente contratante)
+  empresaExecutora: text("empresa_executora"),
+  cnpjExecutora: text("cnpj_executora"),
+  enderecoSede: text("endereco_sede"),
+  // Campos personalizados por projeto (JSON livre: [{chave, valor}])
+  camposCustomizados: json("campos_customizados").$type<{ chave: string; valor: string }[]>(),
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),

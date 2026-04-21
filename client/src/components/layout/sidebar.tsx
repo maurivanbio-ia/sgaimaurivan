@@ -31,7 +31,6 @@ import {
   UserCog,
   CheckSquare,
   MessageCircle,
-  Trophy,
   FileText,
   Settings,
   Briefcase,
@@ -41,7 +40,6 @@ import {
   Truck,
   GraduationCap,
   BookOpen,
-  Megaphone,
   Phone,
   Link2,
   FileSearch,
@@ -140,9 +138,7 @@ export default function Sidebar() {
       items: [
         { href: "/gestao-equipe", label: "Gestão de Equipe", icon: UserCog, testid: "nav-gestao-equipe" },
         { href: "/minhas-tarefas", label: "Minhas Tarefas", icon: CheckSquare, testid: "nav-minhas-tarefas" },
-        { href: "/comunicacao", label: "Comunicação Interna", icon: Megaphone, testid: "nav-comunicacao" },
         { href: "/rh", label: "RH", icon: Users, testid: "nav-rh" },
-        { href: "/gamificacao", label: "Gamificação", icon: Trophy, testid: "nav-gamificacao" },
       ]
     },
     {
