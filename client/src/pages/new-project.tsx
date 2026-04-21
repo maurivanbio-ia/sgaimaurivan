@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { Save, ArrowLeft, ChevronsUpDown, Check, User, Users, Wand2, Camera, Building2, ZoomIn, ZoomOut, Plus, Pencil, Trash2 } from "lucide-react";
+import { Save, ArrowLeft, ChevronsUpDown, Check, User, Users, Wand2, Camera, Building2, ZoomIn, ZoomOut, Plus, Pencil, Trash2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Colaborador {
@@ -76,6 +76,9 @@ const projectSchema = z.object({
   gestorNome: z.string().optional(),
   gestorEmail: z.string().email("E-mail inválido").optional().or(z.literal("")),
   gestorTelefone: z.string().optional(),
+  empresaExecutora: z.string().optional(),
+  cnpjExecutora: z.string().optional(),
+  enderecoSede: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -96,6 +99,11 @@ export default function NewProject() {
   const emptyResp: ResponsavelLocal = { nome: "", email: "", whatsapp: "", responsabilidade: "" };
   const [newResp, setNewResp] = useState<ResponsavelLocal>(emptyResp);
   const [editRespForm, setEditRespForm] = useState<ResponsavelLocal>(emptyResp);
+
+  // Campos customizados
+  const [camposCustomizados, setCamposCustomizados] = useState<{ chave: string; valor: string }[]>([]);
+  const [newCampo, setNewCampo] = useState({ chave: "", valor: "" });
+  const [addingCampo, setAddingCampo] = useState(false);
 
   const { data: colaboradores = [], isLoading: isLoadingColabs } = useQuery<Colaborador[]>({
     queryKey: ['/api/colaboradores'],
@@ -134,6 +142,9 @@ export default function NewProject() {
       gestorNome: "",
       gestorEmail: "",
       gestorTelefone: "",
+      empresaExecutora: "",
+      cnpjExecutora: "",
+      enderecoSede: "",
     },
   });
 
@@ -196,7 +207,7 @@ export default function NewProject() {
   };
 
   const onSubmit = (data: ProjectFormData) => {
-    createProject.mutate({ ...data, logoUrl } as any);
+    createProject.mutate({ ...data, logoUrl, camposCustomizados: camposCustomizados.length > 0 ? camposCustomizados : undefined } as any);
   };
 
   return (
@@ -671,6 +682,98 @@ export default function NewProject() {
                     </FormItem>
                   )} />
                 </div>
+              </div>
+
+              {/* Empresa Executora */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  Empresa Executora
+                </h3>
+                <FormField control={form.control} name="empresaExecutora" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome da Empresa Executora</FormLabel>
+                    <FormControl><Input placeholder="Razão social da empresa executora" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FormField control={form.control} name="cnpjExecutora" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CNPJ</FormLabel>
+                      <FormControl><Input placeholder="00.000.000/0000-00" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="enderecoSede" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endereço da Sede</FormLabel>
+                      <FormControl><Input placeholder="Rua, nº, bairro, cidade – UF" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
+
+              {/* Campos Personalizados */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-primary" />
+                    Campos Personalizados
+                    <span className="text-xs font-normal text-muted-foreground">(informações específicas deste projeto)</span>
+                  </h3>
+                  {!addingCampo && (
+                    <Button type="button" size="sm" variant="outline" onClick={() => setAddingCampo(true)}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                    </Button>
+                  )}
+                </div>
+
+                {camposCustomizados.length === 0 && !addingCampo ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum campo adicionado. Ex: Nº Contrato, Prazo de Vigência, Área Total…</p>
+                ) : (
+                  <div className="space-y-2">
+                    {camposCustomizados.map((campo, idx) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+                        <span className="text-xs font-semibold text-muted-foreground shrink-0">{campo.chave}:</span>
+                        <span className="text-xs flex-1 truncate">{campo.valor}</span>
+                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => setCamposCustomizados(prev => prev.filter((_, i) => i !== idx))}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {addingCampo && (
+                  <div className="rounded-md border bg-background p-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Nome do campo (ex: Nº Contrato)"
+                        value={newCampo.chave}
+                        onChange={e => setNewCampo(f => ({ ...f, chave: e.target.value }))}
+                      />
+                      <Input
+                        placeholder="Valor"
+                        value={newCampo.valor}
+                        onChange={e => setNewCampo(f => ({ ...f, valor: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" disabled={!newCampo.chave || !newCampo.valor}
+                        onClick={() => {
+                          setCamposCustomizados(prev => [...prev, newCampo]);
+                          setNewCampo({ chave: "", valor: "" });
+                          setAddingCampo(false);
+                        }}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setAddingCampo(false); setNewCampo({ chave: "", valor: "" }); }}>Cancelar</Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Outros Responsáveis */}
