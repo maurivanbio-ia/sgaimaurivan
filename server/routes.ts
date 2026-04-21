@@ -4472,6 +4472,26 @@ Retorne o texto extraído de forma estruturada e organizada.`
   });
 
   // ==== CAMPANHA ROUTES ====
+  app.get('/api/campanhas', requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      let result;
+      if (user.role === 'admin') {
+        result = await db.select().from(campanhas).orderBy(campanhas.periodoFim);
+      } else {
+        result = await db
+          .select({ id: campanhas.id, nome: campanhas.nome, empreendimentoId: campanhas.empreendimentoId, periodoInicio: campanhas.periodoInicio, periodoFim: campanhas.periodoFim, descricao: campanhas.descricao, criadoEm: campanhas.criadoEm })
+          .from(campanhas)
+          .innerJoin(empreendimentos, eq(campanhas.empreendimentoId, empreendimentos.id))
+          .where(eq(empreendimentos.unidade, user.unidade))
+          .orderBy(campanhas.periodoFim);
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get('/api/empreendimentos/:empreendimentoId/campanhas', requireAuth, async (req, res) => {
     try {
       const empreendimentoId = parseInt(req.params.empreendimentoId);
