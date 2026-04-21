@@ -169,9 +169,15 @@ export default function DashboardCoordenador() {
 
   const isLoading = userLoading || projectsLoading;
 
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'diretor';
+
   const empreendimentoMap = useMemo(() => new Map(empreendimentos.map(e => [e.id, e])), [empreendimentos]);
-  const myProjects = useMemo(() => projetos.filter(p => p.coordenadorId === user?.id), [projetos, user]);
-  const myEmpreendimentos = useMemo(() => empreendimentos.filter(e => e.coordenadorId === user?.id), [empreendimentos, user]);
+  const myProjects = useMemo(() =>
+    isAdminOrDirector ? projetos : projetos.filter(p => p.coordenadorId === user?.id),
+  [projetos, user, isAdminOrDirector]);
+  const myEmpreendimentos = useMemo(() =>
+    isAdminOrDirector ? empreendimentos : empreendimentos.filter(e => e.coordenadorId === user?.id),
+  [empreendimentos, user, isAdminOrDirector]);
   const allMyEmprIds = useMemo(() => new Set([
     ...myProjects.map(p => p.empreendimentoId),
     ...myEmpreendimentos.map(e => e.id),
@@ -182,13 +188,13 @@ export default function DashboardCoordenador() {
   const agendaItems: AgendaItem[] = useMemo(() => {
     const items: AgendaItem[] = [];
 
-    campanhas.filter(c => allMyEmprIds.has(c.empreendimentoId)).forEach(c => {
+    campanhas.filter(c => isAdminOrDirector || allMyEmprIds.has(c.empreendimentoId)).forEach(c => {
       const dias = daysUntil(c.periodoFim);
       if (dias > 180 || dias < -30) return;
       items.push({ id: c.id, source: 'campanha', titulo: c.nome, tipo: 'campanha', empreendimentoId: c.empreendimentoId, empreendimentoNome: emprNome(c.empreendimentoId), prazo: c.periodoFim, dias, status: 'ativo', descricao: c.descricao });
     });
 
-    cronograma.filter(c => !c.concluido && c.status !== 'concluido' && c.dataFim && (c.empreendimentoId ? allMyEmprIds.has(c.empreendimentoId) : true)).forEach(c => {
+    cronograma.filter(c => !c.concluido && c.status !== 'concluido' && c.dataFim && (isAdminOrDirector || c.empreendimentoId ? allMyEmprIds.has(c.empreendimentoId!) : true)).forEach(c => {
       const dias = daysUntil(c.dataFim);
       if (dias > 180) return;
       items.push({ id: c.id, source: 'cronograma', titulo: c.titulo, tipo: c.tipo || 'etapa', empreendimentoId: c.empreendimentoId, empreendimentoNome: emprNome(c.empreendimentoId), prazo: c.dataFim!, dias, status: c.status, descricao: c.descricao });
@@ -200,14 +206,14 @@ export default function DashboardCoordenador() {
       items.push({ id: d.id, source: 'demanda', titulo: d.titulo, tipo: 'tarefa', empreendimentoId: d.empreendimentoId, empreendimentoNome: emprNome(d.empreendimentoId), prazo: d.dataEntrega!, dias, status: d.status, descricao: d.descricao });
     });
 
-    entregaveis.filter(e => e.status !== 'aprovado' && e.status !== 'cancelado' && (e.empreendimentoId ? allMyEmprIds.has(e.empreendimentoId) : true)).forEach(e => {
+    entregaveis.filter(e => e.status !== 'aprovado' && e.status !== 'cancelado' && (isAdminOrDirector || e.empreendimentoId ? allMyEmprIds.has(e.empreendimentoId!) : true)).forEach(e => {
       const dias = daysUntil(e.prazo);
       if (dias > 180) return;
       items.push({ id: e.id, source: 'entregavel', titulo: e.titulo, tipo: e.tipo || 'documento', empreendimentoId: e.empreendimentoId, empreendimentoNome: emprNome(e.empreendimentoId), prazo: e.prazo, dias, status: e.status, descricao: e.descricao });
     });
 
     return items.sort((a, b) => a.dias - b.dias);
-  }, [campanhas, cronograma, demandas, entregaveis, allMyEmprIds, empreendimentoMap]);
+  }, [campanhas, cronograma, demandas, entregaveis, allMyEmprIds, empreendimentoMap, isAdminOrDirector]);
 
   const filtered = useMemo(() => {
     let res = agendaItems;
@@ -257,20 +263,6 @@ export default function DashboardCoordenador() {
         <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
         <Skeleton className="h-10 w-full rounded-xl" />
         <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
-      </div>
-    );
-  }
-
-  if (user?.cargo !== 'coordenador') {
-    return (
-      <div className="min-h-screen p-6 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
-            <h2 className="text-xl font-bold mb-2">Acesso Restrito</h2>
-            <p className="text-muted-foreground text-sm">Este painel é exclusivo para coordenadores.</p>
-          </CardContent>
-        </Card>
       </div>
     );
   }
