@@ -44,11 +44,8 @@ import {
   Megaphone,
   Phone,
   Link2,
-  Shield,
   FileSearch,
-  Newspaper,
   Cloud,
-  Globe,
   Bot,
   Sparkles,
   Microscope,
@@ -204,11 +201,8 @@ export default function Sidebar() {
       items: [
         { href: "/ia", label: "EcoGestor AI", icon: Bot, testid: "nav-ia" },
         { href: "/alertas", label: "Alertas & WhatsApp", icon: BellRing, testid: "nav-alertas" },
-        { href: "/conformidade-iso", label: "Conformidade ISO", icon: Shield, testid: "nav-conformidade-iso" },
         { href: "/processos-monitorados", label: "Processos SEIA", icon: FileSearch, testid: "nav-processos-monitorados" },
         { href: "/relatorios-automaticos", label: "Relatórios Auto", icon: FileText, testid: "nav-relatorios-automaticos" },
-        { href: "/newsletter", label: "Newsletter", icon: Newspaper, testid: "nav-newsletter" },
-        { href: "/blog-admin", label: "Blog Institucional", icon: Globe, testid: "nav-blog-admin" },
         { href: "/onedrive-backups", label: "Backup & Dropbox", icon: Cloud, testid: "nav-onedrive-backups" },
         { href: "/admin/usuarios", label: "Gerenciar Usuários", icon: UserCog, testid: "nav-admin-usuarios" },
       ]
