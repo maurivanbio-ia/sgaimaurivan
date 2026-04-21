@@ -2,7 +2,6 @@ import { useLocation } from 'wouter';
 import { MapPin } from 'lucide-react';
 import { useUnidade, Unidade } from '@/contexts/UnidadeContext';
 import backgroundImage from '@assets/image_1767715712640.png';
-const logoEcoBrasil = "http://ecobrasil.bio.br/wp-content/uploads/2017/02/Logo-Retina-a.png";
 
 const CerradoIcon = () => (
   <svg viewBox="0 0 120 120" className="w-24 h-24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -81,12 +80,7 @@ export default function SelecionarUnidade() {
       <div className="relative z-10 flex flex-col items-center justify-center w-full">
         <div className="text-center mb-16">
           <div className="inline-block mb-6">
-            <img
-              src={logoEcoBrasil}
-              alt="ECOBRASIL"
-              className="h-24 md:h-32 w-auto mx-auto mb-4"
-              loading="eager"
-            />
+            <p className="text-5xl font-extrabold tracking-tight text-white drop-shadow mb-4">SGAI</p>
             <div className="h-1 w-full bg-gradient-to-r from-transparent via-green-400 to-transparent"></div>
           </div>
           <p className="text-2xl md:text-3xl text-white font-light mb-3">

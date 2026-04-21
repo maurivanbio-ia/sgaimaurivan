@@ -65,7 +65,7 @@ export default function DashboardExecutivo() {
             </div>
             <div>
               <h1 className="text-4xl font-bold">Dashboard Executivo</h1>
-              <p className="text-white/90 text-lg">Visão Consolidada de Todas as Unidades ECOBRASIL</p>
+              <p className="text-white/90 text-lg">Visão Consolidada do Sistema SGAI</p>
             </div>
           </div>
           
@@ -171,7 +171,7 @@ export default function DashboardExecutivo() {
                   <div className="flex items-center justify-between">
                     <h3 className="flex items-center gap-3 text-2xl font-bold text-gray-900 dark:text-white">
                       <Building2 className="h-7 w-7" />
-                      ECOBRASIL {unidade.unidade}
+                      SGAI — {unidade.unidade}
                     </h3>
                     <span className="text-sm bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold">
                       {unidadeInfo.estado}

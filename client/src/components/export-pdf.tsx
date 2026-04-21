@@ -121,7 +121,7 @@ export function ExportPDF({ data, type, filename }: ExportPDFProps) {
           doc.internal.pageSize.height - 10
         );
         doc.text(
-          'Gerado por LicençaFácil - EcoBrasil',
+          'Gerado por SGAI - Sistema de Gestão Ambiental Integrada',
           20,
           doc.internal.pageSize.height - 10
         );

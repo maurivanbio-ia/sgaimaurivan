@@ -174,7 +174,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@ecobrasil.bio.br"
+                placeholder="seu@email.com.br"
                 className="bg-black/40 border-white/20 text-white placeholder:text-neutral-300
                            focus-visible:ring-2 focus-visible:ring-[#1E6146]/70 focus-visible:border-[#1E6146]/60"
                 required
@@ -290,7 +290,7 @@ export default function Login() {
             type="email"
             value={forgotEmail}
             onChange={(e) => setForgotEmail(e.target.value)}
-            placeholder="seu@ecobrasil.bio.br"
+            placeholder="seu@email.com.br"
             className="bg-white/5 border-white/10 text-neutral-50 placeholder:text-neutral-400
                        focus-visible:ring-2 focus-visible:ring-[#1E6146]/50 focus-visible:border-[#1E6146]/40"
           />

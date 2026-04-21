@@ -128,7 +128,7 @@ export default function Register() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="seu@ecobrasil.bio.br"
+                  placeholder="seu@email.com.br"
                   className="w-full bg-white/20 backdrop-blur-sm border-white/30 text-white placeholder:text-white/70 focus:bg-white/30 focus:border-white/50"
                   data-testid="input-email"
                 />

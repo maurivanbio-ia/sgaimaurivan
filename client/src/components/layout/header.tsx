@@ -11,7 +11,6 @@ import { useUnidade } from "@/contexts/UnidadeContext";
 import { Building2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 export default function Header() {
   const [location] = useLocation();
@@ -78,13 +77,7 @@ export default function Header() {
             aria-label="Ir para o início"
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity -ml-2"
           >
-            <img
-              src={logoEcoBrasil}
-              alt="EcoBrasil"
-              className="h-auto w-40"
-              loading="lazy"
-              decoding="async"
-            />
+            <span className="text-lg font-extrabold tracking-tight text-foreground">SGAI</span>
           </Link>
 
           {/* Busca desktop */}

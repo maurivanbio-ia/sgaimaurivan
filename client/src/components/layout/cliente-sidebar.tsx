@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
-import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
 
 interface ClienteUser {
   id: number;
@@ -72,11 +71,7 @@ export default function ClienteSidebar() {
           href="/cliente"
           className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <img
-            src={logoEcoBrasil}
-            alt="EcoBrasil"
-            className={cn("h-auto transition-all", collapsed ? "w-10" : "w-32")}
-          />
+          <span className={cn("font-extrabold tracking-tight text-foreground transition-all", collapsed ? "text-xs" : "text-base")}>SGAI</span>
         </Link>
       </div>
 
@@ -173,7 +168,7 @@ export default function ClienteSidebar() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
         <div className="flex items-center justify-between p-4">
           <Link href="/cliente" className="flex items-center">
-            <img src={logoEcoBrasil} alt="EcoBrasil" className="h-8 w-auto" />
+            <span className="text-base font-extrabold tracking-tight text-foreground">SGAI</span>
           </Link>
           <Button
             variant="ghost"
