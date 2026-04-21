@@ -534,7 +534,7 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
                           <button type="button"
                             onClick={() => { setTipoResponsavel("ecobrasil"); field.onChange(""); }}
                             className={`flex-1 text-xs py-2 px-3 rounded-md border font-medium transition-all ${tipoResponsavel === "ecobrasil" ? "bg-[#1A7A45] text-white border-[#1A7A45]" : "bg-background text-muted-foreground border-border hover:border-[#1A7A45] hover:text-[#1A7A45]"}`}>
-                            🌿 Ecobrasil
+                            🌿 Consultora
                           </button>
                         </div>
                         {tipoResponsavel === "empreendedor" && (
@@ -544,7 +544,7 @@ export function CondicionantesTab({ licencaId, licenca, empreendimentoId, empree
                         )}
                         {tipoResponsavel === "ecobrasil" && (
                           <Select onValueChange={(val) => field.onChange(val)} value={field.value}>
-                            <SelectTrigger><SelectValue placeholder="Selecione o colaborador Ecobrasil" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Selecione o colaborador responsável" /></SelectTrigger>
                             <SelectContent>
                               {colaboradores.map((col: any) => (
                                 <SelectItem key={col.id} value={col.nome || col.email}>

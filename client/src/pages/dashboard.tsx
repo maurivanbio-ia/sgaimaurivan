@@ -435,7 +435,7 @@ export default function Dashboard() {
                     : 'bg-white dark:bg-gray-900 text-[#1A7A45] border-[#1A7A45]/40 hover:border-[#1A7A45]'
                 }`}
               >
-                🌿 Ecobrasil
+                🌿 Consultora
                 {(totalEcoVencidas + totalEcoAndamento) > 0 && (
                   <span className={`rounded-full px-1.5 text-[10px] font-bold ${
                     filtroResponsavel === 'ecobrasil' ? 'bg-white/20' : 'bg-[#1A7A45]/10'
@@ -473,7 +473,7 @@ export default function Dashboard() {
                                 <span className="text-[10px] font-bold bg-[#00599C] text-white rounded-full px-2 py-0.5">🏢 Empreendedor</span>
                               )}
                               {cond.tipoResponsavel === 'ecobrasil' && (
-                                <span className="text-[10px] font-bold bg-[#1A7A45] text-white rounded-full px-2 py-0.5">🌿 Ecobrasil</span>
+                                <span className="text-[10px] font-bold bg-[#1A7A45] text-white rounded-full px-2 py-0.5">🌿 Consultora</span>
                               )}
                               {cond.codigo && (
                                 <span className="text-xs font-semibold bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded px-1.5 py-0.5">
@@ -535,7 +535,7 @@ export default function Dashboard() {
                               <span className="text-[10px] font-bold bg-[#00599C] text-white rounded-full px-2 py-0.5">🏢 Empreendedor</span>
                             )}
                             {cond.tipoResponsavel === 'ecobrasil' && (
-                              <span className="text-[10px] font-bold bg-[#1A7A45] text-white rounded-full px-2 py-0.5">🌿 Ecobrasil</span>
+                              <span className="text-[10px] font-bold bg-[#1A7A45] text-white rounded-full px-2 py-0.5">🌿 Consultora</span>
                             )}
                             {cond.codigo && (
                               <span className="text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded px-1.5 py-0.5">
@@ -584,7 +584,7 @@ export default function Dashboard() {
           {condicionantesVencidas.length === 0 && condicionantesEmAndamento.length === 0 && filtroResponsavel !== 'todos' && (
             <div className="text-center py-8 text-muted-foreground">
               <p className="text-sm">
-                Nenhuma condicionante {filtroResponsavel === 'empreendedor' ? 'do Empreendedor' : 'da Ecobrasil'} em atenção.
+                Nenhuma condicionante {filtroResponsavel === 'empreendedor' ? 'do Empreendedor' : 'da Consultora'} em atenção.
               </p>
               <button className="text-xs underline mt-1" onClick={() => setFiltroResponsavel('todos')}>
                 Ver todas

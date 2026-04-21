@@ -359,10 +359,10 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
       } catch {
         doc.setFontSize(26);
         doc.setTextColor(...ECOBRASIL_COLORS.green);
-        doc.text('EcoBrasil', pageWidth / 2, 50, { align: 'center' });
+        doc.text('SGAI', pageWidth / 2, 50, { align: 'center' });
         doc.setFontSize(11);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
-        doc.text('consultoria ambiental', pageWidth / 2, 58, { align: 'center' });
+        doc.text('Sistema de Gestão Ambiental Integrada', pageWidth / 2, 58, { align: 'center' });
         yPos = 75;
       }
 
@@ -1045,7 +1045,7 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
         doc.setFontSize(7);
         doc.setTextColor(150, 150, 150);
         doc.text(
-          `EcoGestor - Relatório 360° EcoBrasil | Página ${i} de ${totalPages}`,
+          `SGAI - Relatório 360° | Página ${i} de ${totalPages}`,
           pageWidth / 2,
           pageHeight - 8,
           { align: 'center' }
@@ -1057,7 +1057,7 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
       }
 
       // Save the PDF
-      const fileName = `Relatorio_360_EcoBrasil_${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`;
+      const fileName = `Relatorio_360_SGAI_${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`;
       doc.save(fileName);
 
       setIsDialogOpen(false);
@@ -1150,7 +1150,7 @@ export function PlatformReportPDF({ buttonVariant = "default", buttonSize = "def
             </div>
 
             <p className="text-xs text-muted-foreground">
-              O relatório será gerado em formato PDF com a identidade visual da EcoBrasil.
+              O relatório será gerado em formato PDF com a identidade visual do SGAI.
             </p>
           </div>
 

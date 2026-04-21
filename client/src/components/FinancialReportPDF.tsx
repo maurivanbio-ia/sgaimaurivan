@@ -215,10 +215,10 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         // Fallback to text if logo fails
         doc.setFontSize(24);
         doc.setTextColor(...ECOBRASIL_COLORS.green);
-        doc.text('EcoBrasil', pageWidth / 2, 20, { align: 'center' });
+        doc.text('SGAI', pageWidth / 2, 20, { align: 'center' });
         doc.setFontSize(10);
         doc.setTextColor(...ECOBRASIL_COLORS.blue);
-        doc.text('consultoria ambiental', pageWidth / 2, 28, { align: 'center' });
+        doc.text('Sistema de Gestão Ambiental Integrada', pageWidth / 2, 28, { align: 'center' });
       }
 
       doc.setFontSize(22);
@@ -554,7 +554,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
         
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
-        doc.text('EcoBrasil - Consultoria Ambiental', 20, pageHeight - 8);
+        doc.text('SGAI - Sistema de Gestão Ambiental Integrada', 20, pageHeight - 8);
         doc.text(`Página ${i} de ${totalPages}`, pageWidth - 20, pageHeight - 8, { align: 'right' });
       }
 

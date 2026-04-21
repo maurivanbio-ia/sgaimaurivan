@@ -177,7 +177,7 @@ function AdminUsuariosContent() {
     mutationFn: async (phone: string) => {
       const res = await apiRequest("POST", "/api/whatsapp/teste-zapi", {
         phone,
-        message: "✅ *Teste EcoGestor*\n\nSe você recebeu esta mensagem, as notificações de demandas estão configuradas corretamente!\n\n_EcoBrasil · EcoGestor® · Sistema de Gestão Ambiental_",
+        message: "✅ *Teste SGAI*\n\nSe você recebeu esta mensagem, as notificações de demandas estão configuradas corretamente!\n\n_SGAI · Sistema de Gestão Ambiental Integrada_",
       });
       const data = await res.json();
       return { ok: res.ok, data };
