@@ -25,7 +25,10 @@ import {
   FilePlus2,
   ShieldCheck,
   BookOpen,
-  MessageSquare
+  MessageSquare,
+  ShieldAlert,
+  Lightbulb,
+  PackageCheck
 } from "lucide-react";
 import type { Empreendimento, EmpreendimentoResponsavel } from "@shared/schema";
 import { LicencasTab } from "@/components/empreendimento/LicencasTab";
@@ -42,6 +45,9 @@ import { AditivosTab } from "@/components/empreendimento/AditivosTab";
 import { AutorizacoesTab } from "@/components/empreendimento/AutorizacoesTab";
 import { AtasReuniaoTab } from "@/components/empreendimento/AtasReuniaoTab";
 import { DocumentosTecnicosTab } from "@/components/empreendimento/DocumentosTecnicosTab";
+import { RiscosTab } from "@/components/empreendimento/RiscosTab";
+import { DecisoesTab } from "@/components/empreendimento/DecisoesTab";
+import { EntregaveisTab } from "@/components/empreendimento/EntregaveisTab";
 import { useUnidade } from "@/contexts/UnidadeContext";
 
 const getTipoLabel = (tipo: string) => {
@@ -307,6 +313,18 @@ export default function ProjectDetail() {
             <MessageSquare className="h-4 w-4 flex-shrink-0" />
             <span>Reuniões</span>
           </TabsTrigger>
+          <TabsTrigger value="riscos" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-riscos">
+            <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+            <span>Riscos</span>
+          </TabsTrigger>
+          <TabsTrigger value="decisoes" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-decisoes">
+            <Lightbulb className="h-4 w-4 flex-shrink-0" />
+            <span>Decisões</span>
+          </TabsTrigger>
+          <TabsTrigger value="entregaveis" className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap px-3" data-testid="tab-entregaveis">
+            <PackageCheck className="h-4 w-4 flex-shrink-0" />
+            <span>Entregáveis</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="licencas">
@@ -363,6 +381,18 @@ export default function ProjectDetail() {
 
         <TabsContent value="atas-reuniao">
           <AtasReuniaoTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="riscos">
+          <RiscosTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="decisoes">
+          <DecisoesTab empreendimentoId={parseInt(id!)} />
+        </TabsContent>
+
+        <TabsContent value="entregaveis">
+          <EntregaveisTab empreendimentoId={parseInt(id!)} />
         </TabsContent>
       </Tabs>
     </div>

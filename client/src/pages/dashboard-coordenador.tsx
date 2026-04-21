@@ -8,9 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import {
   AlertTriangle, Calendar, Clock, CheckCircle2,
-  FileText, ListTodo, BarChart3, FolderKanban,
-  Bell, ChevronRight, Search, Filter, Megaphone,
-  ClipboardList, Activity, AlertCircle
+  ListTodo, FolderKanban, Bell, ChevronRight, Search,
+  Megaphone, ClipboardList, Activity, AlertCircle, PackageCheck,
+  ShieldAlert, TrendingUp, TrendingDown, Minus
 } from "lucide-react";
 
 interface User { id: number; email: string; role: string; cargo: string; unidade: string; nome?: string }
@@ -27,34 +27,32 @@ interface Demanda {
   dataEntrega: string | null; descricao: string | null;
   empreendimentoId: number | null; responsavelId: number | null;
 }
-
-type SourceType = 'campanha' | 'cronograma' | 'demanda';
-
-interface AgendaItem {
-  id: number;
-  source: SourceType;
-  titulo: string;
-  tipo: string;
-  empreendimentoId: number | null;
-  empreendimentoNome: string;
-  prazo: string;
-  dias: number;
-  prioridade: string;
-  status: string;
-  descricao: string | null;
+interface Entregavel {
+  id: number; titulo: string; tipo: string; prazo: string; status: string;
+  responsavel: string | null; empreendimentoId: number | null; descricao: string | null;
+}
+interface Risco {
+  id: number; titulo: string; nivelRisco: string; status: string; empreendimentoId: number;
 }
 
-function daysUntil(dateStr: string | null | undefined): number {
-  if (!dateStr) return 9999;
+type SourceType = 'campanha' | 'cronograma' | 'demanda' | 'entregavel';
+
+interface AgendaItem {
+  id: number; source: SourceType; titulo: string; tipo: string;
+  empreendimentoId: number | null; empreendimentoNome: string;
+  prazo: string; dias: number; status: string; descricao: string | null;
+}
+
+function daysUntil(d: string | null | undefined): number {
+  if (!d) return 9999;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr + 'T00:00:00');
+  const target = new Date(d + 'T00:00:00');
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function formatDate(d: string | null): string {
+function formatDate(d: string | null) {
   if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
+  return d.split('-').reverse().join('/');
 }
 
 function urgencyLevel(dias: number): 'overdue' | 'urgent' | 'soon' | 'upcoming' | 'ok' {
@@ -66,22 +64,43 @@ function urgencyLevel(dias: number): 'overdue' | 'urgent' | 'soon' | 'upcoming' 
 }
 
 const urgencyConfig = {
-  overdue: { label: 'Vencido', dot: 'bg-red-600', badge: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400', border: 'border-l-red-500' },
-  urgent:  { label: 'Esta semana', dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400', border: 'border-l-orange-400' },
-  soon:    { label: '30 dias', dot: 'bg-yellow-400', badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400', border: 'border-l-yellow-400' },
-  upcoming:{ label: '90 dias', dot: 'bg-blue-400', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400', border: 'border-l-blue-400' },
-  ok:      { label: 'Ok', dot: 'bg-emerald-400', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400', border: 'border-l-emerald-400' },
+  overdue:  { label: 'Vencido',     dot: 'bg-red-600',    badge: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',       border: 'border-l-red-500' },
+  urgent:   { label: 'Esta semana', dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400', border: 'border-l-orange-400' },
+  soon:     { label: '30 dias',     dot: 'bg-yellow-400', badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400', border: 'border-l-yellow-400' },
+  upcoming: { label: '90 dias',     dot: 'bg-blue-400',   badge: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400',     border: 'border-l-blue-400' },
+  ok:       { label: 'Ok',          dot: 'bg-emerald-400',badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400', border: 'border-l-emerald-400' },
 };
 
 const sourceConfig: Record<SourceType, { icon: any; label: string; color: string }> = {
   campanha:   { icon: Megaphone,     label: 'Campanha',   color: 'text-violet-600 dark:text-violet-400' },
   cronograma: { icon: ClipboardList, label: 'Cronograma', color: 'text-blue-600 dark:text-blue-400' },
   demanda:    { icon: ListTodo,      label: 'Demanda',    color: 'text-emerald-600 dark:text-emerald-400' },
+  entregavel: { icon: PackageCheck,  label: 'Entregável', color: 'text-orange-600 dark:text-orange-400' },
 };
 
 const tipoLabels: Record<string, string> = {
   campanha: 'Campanha', relatorio: 'Relatório', marco: 'Marco', etapa: 'Etapa',
   tarefa: 'Tarefa', aprovacao: 'Aprovação', reuniao: 'Reunião',
+  documento: 'Documento', apresentacao: 'Apresentação', produto: 'Produto', plano: 'Plano',
+};
+
+type HealthLevel = 'critico' | 'atencao' | 'ok';
+
+function calcHealth(emprId: number, agendaItems: AgendaItem[], riscos: Risco[]): HealthLevel {
+  const myItems = agendaItems.filter(i => i.empreendimentoId === emprId);
+  const overdue = myItems.filter(i => i.dias < 0).length;
+  const urgent  = myItems.filter(i => i.dias >= 0 && i.dias <= 7).length;
+  const critRisks = riscos.filter(r => r.empreendimentoId === emprId && r.nivelRisco === 'critico' && r.status !== 'encerrado' && r.status !== 'mitigado').length;
+  const highRisks = riscos.filter(r => r.empreendimentoId === emprId && r.nivelRisco === 'alto'    && r.status !== 'encerrado' && r.status !== 'mitigado').length;
+  if (overdue > 2 || critRisks > 0) return 'critico';
+  if (overdue > 0 || urgent > 2 || highRisks > 0) return 'atencao';
+  return 'ok';
+}
+
+const healthConfig: Record<HealthLevel, { label: string; icon: any; color: string; bg: string }> = {
+  critico: { label: 'Crítico',  icon: TrendingDown, color: 'text-red-600 dark:text-red-400',     bg: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' },
+  atencao: { label: 'Atenção',  icon: Minus,        color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' },
+  ok:      { label: 'No prazo', icon: TrendingUp,   color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' },
 };
 
 function DiasBadge({ dias }: { dias: number }) {
@@ -97,19 +116,12 @@ function AgendaCard({ item, onClick }: { item: AgendaItem; onClick: () => void }
   const src = sourceConfig[item.source];
   const Icon = src.icon;
   return (
-    <div
-      className={`flex items-start gap-3 p-3.5 rounded-xl border border-border/60 border-l-4 ${cfg.border} bg-white dark:bg-gray-900 hover:shadow-sm transition-shadow cursor-pointer`}
-      onClick={onClick}
-    >
-      <div className="flex-shrink-0 mt-0.5">
-        <Icon className={`h-4 w-4 ${src.color}`} />
-      </div>
+    <div className={`flex items-start gap-3 p-3.5 rounded-xl border border-border/60 border-l-4 ${cfg.border} bg-white dark:bg-gray-900 hover:shadow-sm transition-shadow cursor-pointer`} onClick={onClick}>
+      <Icon className={`h-4 w-4 flex-shrink-0 mt-0.5 ${src.color}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{item.titulo}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
-            {tipoLabels[item.tipo] || item.tipo}
-          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">{tipoLabels[item.tipo] || item.tipo}</span>
         </div>
         <p className="text-xs text-muted-foreground truncate">{item.empreendimentoNome}</p>
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -122,11 +134,19 @@ function AgendaCard({ item, onClick }: { item: AgendaItem; onClick: () => void }
   );
 }
 
-function EmptyState({ label }: { label: string }) {
+function SectionGroup({ label, dot, count, items, onClick }: {
+  label: string; dot: string; count: number; items: AgendaItem[]; onClick: (i: AgendaItem) => void;
+}) {
+  if (items.length === 0) return null;
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-      <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-      <p className="text-sm">{label}</p>
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`w-2 h-2 rounded-full ${dot} flex-shrink-0`} />
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label} ({count})</span>
+      </div>
+      <div className="space-y-2">
+        {items.map(item => <AgendaCard key={`${item.source}-${item.id}`} item={item} onClick={() => onClick(item)} />)}
+      </div>
     </div>
   );
 }
@@ -141,69 +161,53 @@ export default function DashboardCoordenador() {
   const { data: user, isLoading: userLoading } = useQuery<User>({ queryKey: ['/api/auth/me'] });
   const { data: projetos = [], isLoading: projectsLoading } = useQuery<Projeto[]>({ queryKey: ['/api/projetos'] });
   const { data: empreendimentos = [] } = useQuery<Empreendimento[]>({ queryKey: ['/api/empreendimentos'] });
-  const { data: campanhas = [], isLoading: campanhasLoading } = useQuery<Campanha[]>({ queryKey: ['/api/campanhas'] });
-  const { data: cronograma = [], isLoading: cronogramaLoading } = useQuery<CronogramaItem[]>({ queryKey: ['/api/cronograma'] });
-  const { data: demandas = [], isLoading: demandasLoading } = useQuery<Demanda[]>({ queryKey: ['/api/minhas-demandas'] });
+  const { data: campanhas = [] } = useQuery<Campanha[]>({ queryKey: ['/api/campanhas'] });
+  const { data: cronograma = [] } = useQuery<CronogramaItem[]>({ queryKey: ['/api/cronograma'] });
+  const { data: demandas = [] } = useQuery<Demanda[]>({ queryKey: ['/api/minhas-demandas'] });
+  const { data: entregaveis = [] } = useQuery<Entregavel[]>({ queryKey: ['/api/entregaveis'] });
+  const { data: riscos = [] } = useQuery<Risco[]>({ queryKey: ['/api/riscos'] });
 
-  const isLoading = userLoading || projectsLoading || campanhasLoading || cronogramaLoading || demandasLoading;
+  const isLoading = userLoading || projectsLoading;
 
   const empreendimentoMap = useMemo(() => new Map(empreendimentos.map(e => [e.id, e])), [empreendimentos]);
   const myProjects = useMemo(() => projetos.filter(p => p.coordenadorId === user?.id), [projetos, user]);
   const myEmpreendimentos = useMemo(() => empreendimentos.filter(e => e.coordenadorId === user?.id), [empreendimentos, user]);
-  const allMyEmprIds = useMemo(() => {
-    const ids = new Set([
-      ...myProjects.map(p => p.empreendimentoId),
-      ...myEmpreendimentos.map(e => e.id),
-    ]);
-    return ids;
-  }, [myProjects, myEmpreendimentos]);
+  const allMyEmprIds = useMemo(() => new Set([
+    ...myProjects.map(p => p.empreendimentoId),
+    ...myEmpreendimentos.map(e => e.id),
+  ]), [myProjects, myEmpreendimentos]);
 
-  const emprNome = (id: number | null) => id ? (empreendimentoMap.get(id)?.nome || `Empr. #${id}`) : '—';
+  const emprNome = (id: number | null) => id ? (empreendimentoMap.get(id)?.nome || `Projeto #${id}`) : '—';
 
   const agendaItems: AgendaItem[] = useMemo(() => {
     const items: AgendaItem[] = [];
 
-    // Campanhas
-    campanhas
-      .filter(c => allMyEmprIds.has(c.empreendimentoId))
-      .forEach(c => {
-        const dias = daysUntil(c.periodoFim);
-        items.push({
-          id: c.id, source: 'campanha', titulo: c.nome, tipo: 'campanha',
-          empreendimentoId: c.empreendimentoId, empreendimentoNome: emprNome(c.empreendimentoId),
-          prazo: c.periodoFim, dias, prioridade: 'media', status: 'ativo', descricao: c.descricao,
-        });
-      });
+    campanhas.filter(c => allMyEmprIds.has(c.empreendimentoId)).forEach(c => {
+      const dias = daysUntil(c.periodoFim);
+      if (dias > 180 || dias < -30) return;
+      items.push({ id: c.id, source: 'campanha', titulo: c.nome, tipo: 'campanha', empreendimentoId: c.empreendimentoId, empreendimentoNome: emprNome(c.empreendimentoId), prazo: c.periodoFim, dias, status: 'ativo', descricao: c.descricao });
+    });
 
-    // Cronograma
-    cronograma
-      .filter(c => !c.concluido && c.status !== 'concluido' && c.dataFim &&
-        (c.empreendimentoId ? allMyEmprIds.has(c.empreendimentoId) : true))
-      .forEach(c => {
-        const dias = daysUntil(c.dataFim);
-        if (dias > 180) return; // só mostra próximos 6 meses
-        items.push({
-          id: c.id, source: 'cronograma', titulo: c.titulo, tipo: c.tipo || 'etapa',
-          empreendimentoId: c.empreendimentoId, empreendimentoNome: emprNome(c.empreendimentoId),
-          prazo: c.dataFim!, dias, prioridade: c.prioridade || 'media', status: c.status, descricao: c.descricao,
-        });
-      });
+    cronograma.filter(c => !c.concluido && c.status !== 'concluido' && c.dataFim && (c.empreendimentoId ? allMyEmprIds.has(c.empreendimentoId) : true)).forEach(c => {
+      const dias = daysUntil(c.dataFim);
+      if (dias > 180) return;
+      items.push({ id: c.id, source: 'cronograma', titulo: c.titulo, tipo: c.tipo || 'etapa', empreendimentoId: c.empreendimentoId, empreendimentoNome: emprNome(c.empreendimentoId), prazo: c.dataFim!, dias, status: c.status, descricao: c.descricao });
+    });
 
-    // Demandas
-    demandas
-      .filter(d => d.status !== 'concluida' && d.status !== 'cancelada' && d.dataEntrega)
-      .forEach(d => {
-        const dias = daysUntil(d.dataEntrega);
-        if (dias > 180) return;
-        items.push({
-          id: d.id, source: 'demanda', titulo: d.titulo, tipo: 'tarefa',
-          empreendimentoId: d.empreendimentoId, empreendimentoNome: emprNome(d.empreendimentoId),
-          prazo: d.dataEntrega!, dias, prioridade: d.prioridade || 'media', status: d.status, descricao: d.descricao,
-        });
-      });
+    demandas.filter(d => d.status !== 'concluida' && d.status !== 'cancelada' && d.dataEntrega).forEach(d => {
+      const dias = daysUntil(d.dataEntrega);
+      if (dias > 180) return;
+      items.push({ id: d.id, source: 'demanda', titulo: d.titulo, tipo: 'tarefa', empreendimentoId: d.empreendimentoId, empreendimentoNome: emprNome(d.empreendimentoId), prazo: d.dataEntrega!, dias, status: d.status, descricao: d.descricao });
+    });
+
+    entregaveis.filter(e => e.status !== 'aprovado' && e.status !== 'cancelado' && (e.empreendimentoId ? allMyEmprIds.has(e.empreendimentoId) : true)).forEach(e => {
+      const dias = daysUntil(e.prazo);
+      if (dias > 180) return;
+      items.push({ id: e.id, source: 'entregavel', titulo: e.titulo, tipo: e.tipo || 'documento', empreendimentoId: e.empreendimentoId, empreendimentoNome: emprNome(e.empreendimentoId), prazo: e.prazo, dias, status: e.status, descricao: e.descricao });
+    });
 
     return items.sort((a, b) => a.dias - b.dias);
-  }, [campanhas, cronograma, demandas, allMyEmprIds, empreendimentoMap]);
+  }, [campanhas, cronograma, demandas, entregaveis, allMyEmprIds, empreendimentoMap]);
 
   const filtered = useMemo(() => {
     let res = agendaItems;
@@ -223,23 +227,36 @@ export default function DashboardCoordenador() {
   const overdueItems  = agendaItems.filter(i => urgencyLevel(i.dias) === 'overdue');
   const urgentItems   = agendaItems.filter(i => urgencyLevel(i.dias) === 'urgent');
   const soonItems     = agendaItems.filter(i => urgencyLevel(i.dias) === 'soon');
-  const upcomingItems = agendaItems.filter(i => urgencyLevel(i.dias) === 'upcoming');
 
-  const handleItemClick = (item: AgendaItem) => {
+  const projectHealthList = useMemo(() =>
+    myProjects.map(p => {
+      const health = calcHealth(p.empreendimentoId, agendaItems, riscos);
+      const myItems = agendaItems.filter(i => i.empreendimentoId === p.empreendimentoId);
+      const myRiscos = riscos.filter(r => r.empreendimentoId === p.empreendimentoId && r.status !== 'encerrado' && r.status !== 'mitigado');
+      return {
+        ...p,
+        empreendimento: empreendimentoMap.get(p.empreendimentoId)?.nome || p.nome,
+        health,
+        overdueCount: myItems.filter(i => i.dias < 0).length,
+        urgentCount: myItems.filter(i => i.dias >= 0 && i.dias <= 7).length,
+        totalPendentes: myItems.length,
+        riscoCritico: myRiscos.filter(r => r.nivelRisco === 'critico').length,
+        riscoAlto: myRiscos.filter(r => r.nivelRisco === 'alto').length,
+      };
+    }),
+  [myProjects, agendaItems, riscos, empreendimentoMap]);
+
+  function handleItemClick(item: AgendaItem) {
     if (item.empreendimentoId) navigate(`/empreendimentos/${item.empreendimentoId}`);
-  };
+  }
 
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
         <Skeleton className="h-20 w-full rounded-xl" />
-        <div className="grid grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
-        </div>
+        <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
         <Skeleton className="h-10 w-full rounded-xl" />
-        <div className="space-y-2">
-          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
-        </div>
+        <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
       </div>
     );
   }
@@ -259,7 +276,6 @@ export default function DashboardCoordenador() {
   }
 
   const userName = user?.nome || user?.email?.split('@')[0] || 'Coordenador';
-  const totalPendentes = agendaItems.length;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-6">
@@ -269,7 +285,7 @@ export default function DashboardCoordenador() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Meu Painel</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Olá, {userName}. Aqui está o resumo do que precisa da sua atenção.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Olá, {userName}. Acompanhe seus projetos e pendências.</p>
           </div>
           {overdueItems.length > 0 && (
             <div className="flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-2 text-sm text-red-700 dark:text-red-400 font-semibold">
@@ -282,12 +298,12 @@ export default function DashboardCoordenador() {
         {/* ─── RESUMO ─── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Projetos', value: myProjects.length + myEmpreendimentos.length, icon: FolderKanban, active: selectedProjeto !== 'todos' },
+            { label: 'Projetos', value: myProjects.length + myEmpreendimentos.length, icon: FolderKanban, highlight: false },
             { label: 'Vencidos', value: overdueItems.length, icon: AlertCircle, highlight: overdueItems.length > 0 },
             { label: 'Esta semana', value: urgentItems.length, icon: Clock, highlight: urgentItems.length > 0 },
-            { label: 'Próx. 30 dias', value: soonItems.length, icon: Calendar },
+            { label: 'Próx. 30 dias', value: soonItems.length, icon: Calendar, highlight: false },
           ].map(s => (
-            <Card key={s.label} className="border shadow-none">
+            <Card key={s.label} className="border shadow-none bg-white dark:bg-gray-900">
               <CardContent className="p-4 flex items-center gap-3">
                 <s.icon className={`h-5 w-5 flex-shrink-0 ${s.highlight ? 'text-red-500' : 'text-muted-foreground'}`} />
                 <div>
@@ -299,50 +315,78 @@ export default function DashboardCoordenador() {
           ))}
         </div>
 
+        {/* ─── SAÚDE DOS PROJETOS ─── */}
+        {projectHealthList.length > 0 && (
+          <Card className="border-0 shadow-none bg-white dark:bg-gray-900 border border-border/60">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4 text-violet-500" />
+                Saúde dos Projetos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {projectHealthList.map(p => {
+                  const hCfg = healthConfig[p.health];
+                  const HIcon = hCfg.icon;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`border rounded-xl p-3 cursor-pointer hover:shadow-sm transition-shadow ${hCfg.bg}`}
+                      onClick={() => navigate(`/empreendimentos/${p.empreendimentoId}`)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">{p.empreendimento}</p>
+                          <p className="text-xs text-muted-foreground truncate">{p.nome}</p>
+                        </div>
+                        <div className={`flex items-center gap-1 flex-shrink-0 text-xs font-bold ${hCfg.color}`}>
+                          <HIcon className="h-3.5 w-3.5" />
+                          {hCfg.label}
+                        </div>
+                      </div>
+                      <div className="flex gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
+                        {p.overdueCount > 0 && <span className="text-red-600 font-semibold">🔴 {p.overdueCount} vencidos</span>}
+                        {p.urgentCount > 0 && <span className="text-orange-500 font-semibold">🟠 {p.urgentCount} esta semana</span>}
+                        {p.riscoCritico > 0 && <span className="text-red-600 font-semibold flex items-center gap-0.5"><ShieldAlert className="h-3 w-3" />{p.riscoCritico} risco crítico</span>}
+                        {p.riscoAlto > 0 && <span className="text-orange-500 font-semibold flex items-center gap-0.5"><ShieldAlert className="h-3 w-3" />{p.riscoAlto} risco alto</span>}
+                        {p.overdueCount === 0 && p.urgentCount === 0 && p.riscoCritico === 0 && p.riscoAlto === 0 && (
+                          <span className="text-emerald-600">✓ {p.totalPendentes} pendência{p.totalPendentes !== 1 ? 's' : ''} sob controle</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ─── FILTROS ─── */}
         <div className="flex gap-2 flex-wrap items-center">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar item..."
-              className="pl-9 h-9 text-sm bg-white dark:bg-gray-900"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+            <Input placeholder="Buscar item..." className="pl-9 h-9 text-sm bg-white dark:bg-gray-900" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div className="flex gap-1 flex-wrap">
-            {(['all', 'campanha', 'cronograma', 'demanda'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setFilterSource(s)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
-                  filterSource === s
-                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent'
-                    : 'bg-white dark:bg-gray-900 text-muted-foreground border-border hover:border-gray-400'
-                }`}
-              >
-                {s === 'all' ? 'Tudo' : s === 'campanha' ? 'Campanhas' : s === 'cronograma' ? 'Cronograma' : 'Demandas'}
+            {(['all', 'campanha', 'cronograma', 'demanda', 'entregavel'] as const).map(s => (
+              <button key={s} onClick={() => setFilterSource(s)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${filterSource === s ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-white dark:bg-gray-900 text-muted-foreground border-border hover:border-gray-400'}`}>
+                {s === 'all' ? 'Tudo' : s === 'campanha' ? 'Campanhas' : s === 'cronograma' ? 'Cronograma' : s === 'demanda' ? 'Demandas' : 'Entregáveis'}
               </button>
             ))}
           </div>
           <div className="flex gap-1 flex-wrap">
             {(['all', 'overdue', 'urgent', 'soon', 'upcoming'] as const).map(u => (
-              <button
-                key={u}
-                onClick={() => setFilterUrgency(u)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
-                  filterUrgency === u
-                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent'
-                    : 'bg-white dark:bg-gray-900 text-muted-foreground border-border hover:border-gray-400'
-                }`}
-              >
+              <button key={u} onClick={() => setFilterUrgency(u)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${filterUrgency === u ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-white dark:bg-gray-900 text-muted-foreground border-border hover:border-gray-400'}`}>
                 {u === 'all' ? 'Todas urgências' : u === 'overdue' ? '🔴 Vencidos' : u === 'urgent' ? '🟠 Semana' : u === 'soon' ? '🟡 30 dias' : '🔵 90 dias'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* ─── ABAS: VISÃO GERAL / POR PROJETO ─── */}
+        {/* ─── ABAS POR PROJETO ─── */}
         <Tabs value={selectedProjeto} onValueChange={setSelectedProjeto}>
           <TabsList className="flex-wrap h-auto gap-1 bg-transparent p-0">
             <TabsTrigger value="todos" className="text-xs data-[state=active]:bg-gray-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-gray-900">
@@ -351,94 +395,31 @@ export default function DashboardCoordenador() {
             {myProjects.map(p => {
               const empr = empreendimentoMap.get(p.empreendimentoId);
               const count = agendaItems.filter(i => i.empreendimentoId === p.empreendimentoId).length;
+              const health = projectHealthList.find(ph => ph.id === p.id)?.health || 'ok';
+              const dot = health === 'critico' ? '🔴' : health === 'atencao' ? '🟡' : '🟢';
+              const label = (empr?.nome || p.nome).length > 18 ? (empr?.nome || p.nome).slice(0, 18) + '…' : (empr?.nome || p.nome);
               return (
                 <TabsTrigger key={p.id} value={String(p.empreendimentoId)} className="text-xs data-[state=active]:bg-gray-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-gray-900">
-                  {(empr?.nome || p.nome).length > 20 ? (empr?.nome || p.nome).slice(0, 20) + '…' : (empr?.nome || p.nome)}
+                  {dot} {label}
                   {count > 0 && <span className="ml-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5">{count}</span>}
                 </TabsTrigger>
               );
             })}
           </TabsList>
 
-          {/* Conteúdo unificado para todas as abas */}
           {['todos', ...myProjects.map(p => String(p.empreendimentoId))].map(tabVal => (
             <TabsContent key={tabVal} value={tabVal} className="mt-4">
               {filtered.length === 0 ? (
-                <EmptyState label={
-                  search ? 'Nenhum item encontrado para essa busca.' :
-                  filterSource !== 'all' || filterUrgency !== 'all'
-                    ? 'Nenhum item para esse filtro.'
-                    : 'Tudo em dia! Nenhum lembrete pendente.'
-                } />
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                  <p className="text-sm">{search ? 'Nenhum item encontrado.' : 'Tudo em dia! Nenhum lembrete pendente.'}</p>
+                </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Vencidos */}
-                  {filtered.filter(i => urgencyLevel(i.dias) === 'overdue').length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">
-                          Vencidos ({filtered.filter(i => urgencyLevel(i.dias) === 'overdue').length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {filtered.filter(i => urgencyLevel(i.dias) === 'overdue').map(item => (
-                          <AgendaCard key={`${item.source}-${item.id}`} item={item} onClick={() => handleItemClick(item)} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Esta semana */}
-                  {filtered.filter(i => urgencyLevel(i.dias) === 'urgent').length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
-                          Esta semana ({filtered.filter(i => urgencyLevel(i.dias) === 'urgent').length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {filtered.filter(i => urgencyLevel(i.dias) === 'urgent').map(item => (
-                          <AgendaCard key={`${item.source}-${item.id}`} item={item} onClick={() => handleItemClick(item)} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Próximos 30 dias */}
-                  {filtered.filter(i => urgencyLevel(i.dias) === 'soon').length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase tracking-wider">
-                          Próximos 30 dias ({filtered.filter(i => urgencyLevel(i.dias) === 'soon').length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {filtered.filter(i => urgencyLevel(i.dias) === 'soon').map(item => (
-                          <AgendaCard key={`${item.source}-${item.id}`} item={item} onClick={() => handleItemClick(item)} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Próximos 90 dias */}
-                  {filtered.filter(i => urgencyLevel(i.dias) === 'upcoming').length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                          Próximos 90 dias ({filtered.filter(i => urgencyLevel(i.dias) === 'upcoming').length})
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {filtered.filter(i => urgencyLevel(i.dias) === 'upcoming').map(item => (
-                          <AgendaCard key={`${item.source}-${item.id}`} item={item} onClick={() => handleItemClick(item)} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <SectionGroup label="Vencidos" dot="bg-red-600" count={filtered.filter(i => urgencyLevel(i.dias) === 'overdue').length} items={filtered.filter(i => urgencyLevel(i.dias) === 'overdue')} onClick={handleItemClick} />
+                  <SectionGroup label="Esta semana" dot="bg-orange-500" count={filtered.filter(i => urgencyLevel(i.dias) === 'urgent').length} items={filtered.filter(i => urgencyLevel(i.dias) === 'urgent')} onClick={handleItemClick} />
+                  <SectionGroup label="Próximos 30 dias" dot="bg-yellow-400" count={filtered.filter(i => urgencyLevel(i.dias) === 'soon').length} items={filtered.filter(i => urgencyLevel(i.dias) === 'soon')} onClick={handleItemClick} />
+                  <SectionGroup label="Próximos 90 dias" dot="bg-blue-400" count={filtered.filter(i => urgencyLevel(i.dias) === 'upcoming').length} items={filtered.filter(i => urgencyLevel(i.dias) === 'upcoming')} onClick={handleItemClick} />
                 </div>
               )}
             </TabsContent>
