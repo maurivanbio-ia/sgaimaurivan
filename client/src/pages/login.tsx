@@ -15,8 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
-import loginBackground from "@assets/login-background-correct.jpg";
+import loginBackground from "@assets/bahia-de-todos-os-santos-grou-turismio_1776732662219.jpg";
 
 /**
  * EcoGestor — Tela de Login (Card 100% Transparente)
@@ -52,7 +51,7 @@ export default function Login() {
 
       toast({
         title: "Login realizado",
-        description: "Bem-vindo ao sistema EcoGestor.",
+        description: "Bem-vindo ao sistema SGAI.",
       });
 
       rememberMe
@@ -146,16 +145,6 @@ export default function Login() {
         <div className="absolute inset-0 rounded-3xl border border-white/10 backdrop-blur-2xl" />
 
         <CardContent className="p-8 md:p-10 relative z-10">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <img
-              src={logoEcoBrasil}
-              alt="EcoBrasil Consultoria"
-              className="w-52 h-auto md:w-56 select-none drop-shadow-[0_0_20px_rgba(30,97,70,0.35)]"
-              draggable={false}
-            />
-          </div>
-
           {/* Título */}
           <div className="text-center mb-8">
             <h1
@@ -164,7 +153,7 @@ export default function Login() {
                 textShadow: "0 2px 10px rgba(0,0,0,0.9), 0 0 25px rgba(255,255,255,0.25)",
               }}
             >
-              EcoGestor
+              SGAI
             </h1>
             <p className="text-sm text-white/90 font-medium">
               Sistema de Gestão Ambiental Integrada
@@ -315,21 +304,6 @@ export default function Login() {
             {isSending ? "Enviando..." : "Enviar link de recuperação"}
           </Button>
         </DialogContent>
-        {/* Créditos no canto inferior direito */}
-        <div className="absolute bottom-6 right-8 z-20 text-right select-none">
-          <p
-            className="text-[13px] font-semibold tracking-wide text-white/90 uppercase"
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 0 6px rgba(255,255,255,0.25)",
-              letterSpacing: "0.6px",
-            }}
-          >
-            Guigó-da-caatinga (<span className="italic">Callicebus barbarabrownae</span>)<br />
-            <span className="text-[11px] text-white/70 font-normal not-italic">Foto: Patrick Rodrigues</span>
-          </p>
-        </div>
-
       </Dialog>
     </div>
   );

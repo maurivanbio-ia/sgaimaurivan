@@ -6,10 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff, ArrowLeft, Building2, UserCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft, UserCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import logoEcoBrasil from "@assets/Logo-padrao-a_1760382841154.png";
-import registerBackground from "@assets/register-background-puma.png";
+import registerBackground from "@assets/bahia-de-todos-os-santos-grou-turismio_1776732662219.jpg";
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -84,28 +83,14 @@ export default function Register() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40" />
       </div>
 
-      {/* Créditos da foto no rodapé direito */}
-      <div className="absolute bottom-4 right-4 z-20 text-right">
-        <p className="text-white/90 text-xs drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-          <em>Puma concolor</em> - onça-parda
-        </p>
-        <p className="text-white/80 text-xs drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-          Foto: Patrick Rodrigues
-        </p>
-      </div>
-
       <div className="relative z-10 w-full max-w-md">
         <Card className="w-full shadow-2xl backdrop-blur-lg bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
           <CardContent className="pt-8 pb-8 px-8">
             <div className="text-center mb-8">
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 mx-auto w-fit mb-6 shadow-lg">
-                <img
-                  src={logoEcoBrasil}
-                  alt="EcoBrasil Logo"
-                  className="h-14 mx-auto"
-                />
-              </div>
-              <p className="text-white/90 font-medium drop-shadow">
+              <p className="text-white/90 font-medium drop-shadow text-lg font-semibold">
+                SGAI
+              </p>
+              <p className="text-white/80 text-sm drop-shadow">
                 Criar Nova Conta
               </p>
               <div className="w-20 h-1 bg-gradient-to-r from-[#00599C] to-[#B2CDE1] mx-auto mt-4 rounded-full shadow-sm"></div>
