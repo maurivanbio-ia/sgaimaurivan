@@ -90,7 +90,7 @@ import {
   decisoes, insertDecisaoSchema,
   entregaveis, insertEntregavelSchema,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { sql, eq, and, isNull, gte, lte, lt, sum, desc, asc, or, ilike, SQL, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import session from "express-session";
