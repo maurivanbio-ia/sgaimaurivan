@@ -81,16 +81,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-(async () => {
-  const server = await registerRoutes(app);
+const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
-  });
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message });
+  throw err;
+});
 
+if (process.env.VERCEL) {
+  // Em ambiente Vercel Serverless, exportamos o app para que a Vercel cuide de lidar com as requisições API
+  // A parte estática do frontend será gerenciada pela Vercel através das configurações no vercel.json
+} else {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
@@ -101,4 +104,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   server.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
     log(`serving on port ${port}`);
   });
-})();
+}
+
+export default app;
