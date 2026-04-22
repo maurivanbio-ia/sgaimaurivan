@@ -1,0 +1,139 @@
+[1mnpm[22m [33mwarn[39m [94musing --force[39m Recommended protections disabled.
+[1G[0K⠙[1G[0K
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K⠙[1G[0KInicializando serviço de alertas automáticos...
+Iniciando serviço de alertas automáticos...
+Serviço de alertas configurado para executar a cada 240 minutos
+[Automação] Cron de rotinas diárias agendado para 06:00 BRT
+[Automação] → Alerta 150 dias para licenças
+[Automação] → Criação de instâncias de demandas recorrentes
+[Automação] → Recalcular status de pagamentos
+[CRON] Auto-archive comunicados job scheduled (daily at midnight)
+[CRON] Histórico de movimentações cleanup scheduled (daily at 1 AM, removes records older than 30 days)
+[WhatsApp Cron] Resumo semanal de demandas agendado (verifica diariamente às 08:00 BRT)
+[CRON] Process monitoring job scheduled (every 6 hours)
+[n8n Webhooks] Rotas registradas com sucesso
+[Evolution Webhooks] Rotas registradas com sucesso
+WebSocket server initialized for real-time notifications
+Inicializando serviço de relatórios agendados...
+[Scheduled Reports] Inicializando serviço de envio automático de relatórios...
+[Scheduled Reports] Relatório 360° agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Relatório Financeiro agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Resumo Semanal de Demandas agendado: 0 9 * * 1 (toda segunda às 9h)
+[Relatório Anual] Agendado para 30 e 31 de dezembro às 9h
+[Scheduled Reports] Serviço iniciado com sucesso
+[Backup] Inicializando serviço de backup automático...
+[Backup] Backup automático agendado para 00:00 (horário de Brasília)
+[Backup] Sincronização de arquivos agendada para domingos às 02:00 (horário de Brasília)
+2 relatórios agendados carregados
+Newsletter agendada: 0 9 * * 0 (Brasília)
+Newsletter service initialized
+6:44:25 PM [express] serving on port 5000
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+6:44:54 PM [express] GET /api/auth/user 304 in 30ms
+6:44:54 PM [express] GET /api/notifications 304 in 12ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+6:44:54 PM [express] GET /api/stats/expiry-monthly 304 in 40ms
+6:44:54 PM [express] GET /api/empreendimentos 304 in 64ms
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+6:44:54 PM [express] GET /api/dashboard/stats 304 in 96ms
+6:48:03 PM [express] GET /api/auth/user 304 in 67ms
+6:48:03 PM [express] GET /api/notifications 304 in 67ms
+6:48:03 PM [express] GET /api/empreendimentos 304 in 66ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+6:48:03 PM [express] GET /api/stats/expiry-monthly 304 in 38ms
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+6:48:03 PM [express] GET /api/dashboard/stats 304 in 58ms
+[21/04/2026, 18:49:25] Executando verificação de alertas...
+Iniciando verificação de alertas...
+Verificação de alertas concluída
+6:50:52 PM [express] GET /api/notifications 304 in 69ms
+6:50:52 PM [express] GET /api/auth/me 304 in 74ms
+6:50:52 PM [express] GET /api/projetos 304 in 83ms
+6:50:52 PM [express] GET /api/empreendimentos 304 in 10ms
+6:50:52 PM [express] GET /api/campanhas 304 in 71ms
+6:50:52 PM [express] GET /api/cronograma 304 in 77ms
+6:50:52 PM [express] GET /api/minhas-demandas 304 in 9ms
+6:50:52 PM [express] GET /api/entregaveis 304 in 10ms
+6:50:52 PM [express] GET /api/riscos 304 in 9ms
+6:55:52 PM [express] GET /api/notifications 304 in 62ms
+7:00:53 PM [express] GET /api/notifications 304 in 61ms
+7:05:54 PM [express] GET /api/notifications 304 in 68ms
+7:10:55 PM [express] GET /api/notifications 304 in 60ms
+7:15:56 PM [express] GET /api/notifications 304 in 60ms
+7:20:57 PM [express] GET /api/notifications 304 in 161ms
+7:25:58 PM [express] GET /api/notifications 304 in 157ms
+7:30:59 PM [express] GET /api/notifications 304 in 140ms
+7:36:00 PM [express] GET /api/notifications 304 in 66ms
+7:41:02 PM [express] GET /api/notifications 304 in 60ms
+7:46:02 PM [express] GET /api/notifications 304 in 62ms
+7:51:03 PM [express] GET /api/notifications 304 in 58ms
+7:56:04 PM [express] GET /api/notifications 304 in 59ms
+8:01:05 PM [express] GET /api/notifications 304 in 57ms
+8:06:06 PM [express] GET /api/notifications 304 in 57ms
+8:11:08 PM [express] GET /api/notifications 304 in 204ms
+8:16:09 PM [express] GET /api/notifications 304 in 56ms
+8:21:09 PM [express] GET /api/notifications 304 in 46ms
+8:26:10 PM [express] GET /api/notifications 304 in 64ms
+8:31:11 PM [express] GET /api/notifications 304 in 58ms
+8:36:12 PM [express] GET /api/notifications 304 in 64ms
+8:41:13 PM [express] GET /api/notifications 304 in 65ms
+8:46:14 PM [express] GET /api/notifications 304 in 69ms
+8:51:15 PM [express] GET /api/notifications 304 in 62ms
+8:56:16 PM [express] GET /api/notifications 304 in 71ms
+9:01:17 PM [express] GET /api/notifications 304 in 67ms
+9:06:18 PM [express] GET /api/notifications 304 in 69ms
+9:11:19 PM [express] GET /api/notifications 304 in 58ms
+9:16:19 PM [express] GET /api/notifications 304 in 65ms
+9:21:20 PM [express] GET /api/notifications 304 in 61ms
+9:26:21 PM [express] GET /api/notifications 304 in 66ms
+9:31:22 PM [express] GET /api/notifications 304 in 57ms
+9:36:23 PM [express] GET /api/notifications 304 in 59ms
+9:41:24 PM [express] GET /api/notifications 304 in 57ms
+[21/04/2026, 22:44:25] Executando verificação de alertas...
+Iniciando verificação de alertas...
+Verificação de alertas concluída
+11:33:24 PM [express] GET /api/auth/user 304 in 19ms
+11:33:24 PM [express] GET /api/notifications 304 in 7ms
+11:33:25 PM [express] GET /api/empreendimentos 304 in 12ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+11:33:25 PM [express] GET /api/stats/expiry-monthly 304 in 43ms
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+11:33:25 PM [express] GET /api/dashboard/stats 304 in 56ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+11:41:38 PM [express] GET /api/notifications 304 in 91ms
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+11:41:39 PM [express] GET /api/auth/user 304 in 116ms
+11:41:39 PM [express] GET /api/empreendimentos 304 in 120ms
+11:41:39 PM [express] GET /api/stats/expiry-monthly 304 in 122ms
+11:41:39 PM [express] GET /api/dashboard/stats 304 in 124ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+11:45:13 PM [express] GET /api/notifications 304 in 70ms
+11:45:13 PM [express] GET /api/stats/expiry-monthly 304 in 71ms
+11:45:13 PM [express] GET /api/auth/user 304 in 74ms
+11:45:13 PM [express] GET /api/empreendimentos 304 in 74ms
+11:45:13 PM [express] GET /api/dashboard/stats 304 in 80ms
+11:50:16 PM [express] GET /api/notifications 304 in 35ms
+11:55:17 PM [express] GET /api/notifications 304 in 30ms
+[CRON] Starting automatic process monitoring check...
+[CRON] Found 0 processes to check
+[CRON] Process monitoring check completed
+12:00:29 AM [express] GET /api/notifications 304 in 29ms
+12:05:38 AM [express] GET /api/notifications 304 in 63ms
+12:10:54 AM [express] GET /api/notifications 304 in 59ms

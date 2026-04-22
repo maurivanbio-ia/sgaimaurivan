@@ -1,0 +1,171 @@
+[1mnpm[22m [33mwarn[39m [94musing --force[39m Recommended protections disabled.
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KInicializando serviço de alertas automáticos...
+Iniciando serviço de alertas automáticos...
+Serviço de alertas configurado para executar a cada 240 minutos
+[Automação] Cron de rotinas diárias agendado para 06:00 BRT
+[Automação] → Alerta 150 dias para licenças
+[Automação] → Criação de instâncias de demandas recorrentes
+[Automação] → Recalcular status de pagamentos
+[CRON] Auto-archive comunicados job scheduled (daily at midnight)
+[CRON] Histórico de movimentações cleanup scheduled (daily at 1 AM, removes records older than 30 days)
+[WhatsApp Cron] Resumo semanal de demandas agendado (verifica diariamente às 08:00 BRT)
+[CRON] Process monitoring job scheduled (every 6 hours)
+[n8n Webhooks] Rotas registradas com sucesso
+[Evolution Webhooks] Rotas registradas com sucesso
+WebSocket server initialized for real-time notifications
+Inicializando serviço de relatórios agendados...
+[Scheduled Reports] Inicializando serviço de envio automático de relatórios...
+[Scheduled Reports] Relatório 360° agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Relatório Financeiro agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Resumo Semanal de Demandas agendado: 0 9 * * 1 (toda segunda às 9h)
+[Relatório Anual] Agendado para 30 e 31 de dezembro às 9h
+[Scheduled Reports] Serviço iniciado com sucesso
+[Backup] Inicializando serviço de backup automático...
+[Backup] Backup automático agendado para 00:00 (horário de Brasília)
+[Backup] Sincronização de arquivos agendada para domingos às 02:00 (horário de Brasília)
+2 relatórios agendados carregados
+Newsletter agendada: 0 9 * * 0 (Brasília)
+Newsletter service initialized
+1:30:49 AM [express] serving on port 5000
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+1:31:02 AM [express] GET /api/auth/user 304 in 24ms
+1:31:03 AM [express] GET /api/notifications 304 in 10ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+1:31:03 AM [express] GET /api/empreendimentos 304 in 57ms
+[DEBUG getDemandas] Results count: [33m0[39m
+1:31:03 AM [express] GET /api/stats/expiry-monthly 304 in 45ms
+1:31:03 AM [express] GET /api/dashboard/stats 304 in 63ms
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:31:32 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/project-detail.tsx, /src/index.css?v=_i8-y2ZTZ21jZA54xwm3X[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:31:35 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/project-detail.tsx, /src/index.css?v=_i8-y2ZTZ21jZA54xwm3X[22m [33m(x2)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:31:45 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/project-detail.tsx, /src/index.css?v=_i8-y2ZTZ21jZA54xwm3X[22m [33m(x3)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:31:52 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/project-detail.tsx, /src/index.css?v=_i8-y2ZTZ21jZA54xwm3X[22m [33m(x4)[39m
+1:32:35 AM [express] GET /api/auth/me 304 in 55ms
+1:32:35 AM [express] GET /api/campanhas 304 in 59ms
+1:32:35 AM [express] GET /api/projetos 304 in 56ms
+1:32:35 AM [express] GET /api/minhas-demandas 304 in 61ms
+1:32:35 AM [express] GET /api/cronograma 304 in 65ms
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:33:46 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard-coordenador.tsx, /src/index.css?v=_i8-y2ZTZ21jZA54xwm3X[22m

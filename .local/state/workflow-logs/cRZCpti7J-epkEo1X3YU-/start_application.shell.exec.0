@@ -1,0 +1,229 @@
+[1mnpm[22m [33mwarn[39m [94musing --force[39m Recommended protections disabled.
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KInicializando serviço de alertas automáticos...
+Iniciando serviço de alertas automáticos...
+Serviço de alertas configurado para executar a cada 240 minutos
+[Automação] Cron de rotinas diárias agendado para 06:00 BRT
+[Automação] → Alerta 150 dias para licenças
+[Automação] → Criação de instâncias de demandas recorrentes
+[Automação] → Recalcular status de pagamentos
+[CRON] Auto-archive comunicados job scheduled (daily at midnight)
+[CRON] Histórico de movimentações cleanup scheduled (daily at 1 AM, removes records older than 30 days)
+[WhatsApp Cron] Resumo semanal de demandas agendado (verifica diariamente às 08:00 BRT)
+[CRON] Process monitoring job scheduled (every 6 hours)
+[n8n Webhooks] Rotas registradas com sucesso
+[Evolution Webhooks] Rotas registradas com sucesso
+WebSocket server initialized for real-time notifications
+Inicializando serviço de relatórios agendados...
+[Scheduled Reports] Inicializando serviço de envio automático de relatórios...
+[Scheduled Reports] Relatório 360° agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Relatório Financeiro agendado: 0 9 * * 1 (toda segunda às 9h)
+[Scheduled Reports] Resumo Semanal de Demandas agendado: 0 9 * * 1 (toda segunda às 9h)
+[Relatório Anual] Agendado para 30 e 31 de dezembro às 9h
+[Scheduled Reports] Serviço iniciado com sucesso
+[Backup] Inicializando serviço de backup automático...
+[Backup] Backup automático agendado para 00:00 (horário de Brasília)
+[Backup] Sincronização de arquivos agendada para domingos às 02:00 (horário de Brasília)
+2 relatórios agendados carregados
+1:36:19 AM [express] serving on port 5000
+Newsletter agendada: 0 9 * * 0 (Brasília)
+Newsletter service initialized
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:36:32 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard-coordenador.tsx, /src/index.css?v=KF6_gB1x47rxG06lN57o_[22m
+1:36:35 AM [express] GET /api/auth/user 304 in 22ms
+1:36:35 AM [express] GET /api/notifications 304 in 9ms
+1:36:35 AM [express] GET /api/empreendimentos 304 in 23ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+1:36:35 AM [express] GET /api/stats/expiry-monthly 304 in 44ms
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+1:36:35 AM [express] GET /api/dashboard/stats 304 in 95ms
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:36:40 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard-coordenador.tsx, /src/index.css?v=KF6_gB1x47rxG06lN57o_[22m [33m(x2)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:36:43 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard-coordenador.tsx, /src/index.css?v=KF6_gB1x47rxG06lN57o_[22m [33m(x3)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:36:45 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard-coordenador.tsx, /src/index.css?v=KF6_gB1x47rxG06lN57o_[22m [33m(x4)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m1:36:51 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard-coordenador.tsx, /src/index.css?v=KF6_gB1x47rxG06lN57o_[22m [33m(x5)[39m
+1:37:06 AM [express] [ERR] GET /api/auth/user 401 in 1ms
+[21/04/2026, 01:41:19] Executando verificação de alertas...
+Iniciando verificação de alertas...
+Verificação de alertas concluída
+1:41:36 AM [express] GET /api/notifications 304 in 61ms
+1:42:07 AM [express] GET /api/auth/user 304 in 22ms
+1:42:07 AM [express] GET /api/notifications 304 in 12ms
+1:42:07 AM [express] GET /api/stats/expiry-monthly 304 in 15ms
+[DEBUG getDemandas] Filters received: {"unidade":"salvador"}
+1:42:07 AM [express] GET /api/empreendimentos 304 in 38ms
+[DEBUG getDemandas] Filtering by unidade: salvador with legacy fallback
+[DEBUG getDemandas] Conditions count: [33m1[39m
+[DEBUG getDemandas] Results count: [33m0[39m
+1:42:07 AM [express] GET /api/dashboard/stats 304 in 75ms
+1:42:09 AM [express] GET /api/entregaveis 304 in 12ms
+1:42:09 AM [express] GET /api/auth/me 304 in 17ms
+1:42:09 AM [express] GET /api/riscos 304 in 16ms
+1:42:09 AM [express] GET /api/cronograma 304 in 19ms
+1:42:09 AM [express] GET /api/campanhas 304 in 13ms
+1:42:09 AM [express] GET /api/projetos 304 in 18ms
+1:42:09 AM [express] GET /api/minhas-demandas 304 in 9ms
+1:42:16 AM [express] GET /api/cronograma 304 in 10ms
+1:42:17 AM [express] GET /api/equipe 200 in 11ms
+Error fetching reimbursement: error: invalid input syntax for type integer: "NaN"
+    at [90mfile:///home/runner/workspace/[39mnode_modules/[4m@neondatabase/serverless[24m/index.mjs:1345:74
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+    at async NeonPreparedQuery.execute [90m(/home/runner/workspace/[39mnode_modules/[4msrc[24m/neon-serverless/session.ts:102:18[90m)[39m
+    at async DatabaseStorage.getPedidoReembolsoById [90m(/home/runner/workspace/[39mserver/storage.ts:4046:22[90m)[39m
+    at async <anonymous> [90m(/home/runner/workspace/[39mserver/routes.ts:7379:22[90m)[39m {
+  length: [33m146[39m,
+  severity: [32m'ERROR'[39m,
+  code: [32m'22P02'[39m,
+  detail: [90mundefined[39m,
+  hint: [90mundefined[39m,
+  position: [90mundefined[39m,
+  internalPosition: [90mundefined[39m,
+  internalQuery: [90mundefined[39m,
+  where: [32m"unnamed portal parameter $1 = '...'"[39m,
+  schema: [90mundefined[39m,
+  table: [90mundefined[39m,
+  column: [90mundefined[39m,
+  dataType: [90mundefined[39m,
+  constraint: [90mundefined[39m,
+  file: [32m'numutils.c'[39m,
+  line: [32m'620'[39m,
+  routine: [32m'pg_strtoint32_safe'[39m
+}
+1:42:17 AM [express] GET /api/rh 304 in 40ms
+1:42:17 AM [express] [ERR] GET /api/reembolsos/[object%20Object] 500 in 41ms
+1:42:17 AM [express] GET /api/tarefas 304 in 42ms
+1:42:17 AM [express] GET /api/tarefas-stats 200 in 43ms
+1:42:18 AM [express] GET /api/minhas-tarefas-hoje 200 in 17ms
+1:42:18 AM [express] GET /api/tarefas-atrasadas 200 in 12ms
+1:42:18 AM [express] GET /api/reembolsos 200 in 11ms
+1:42:21 AM [express] GET /api/datasets/alertas 304 in 14ms
+[MultiModelOCR] URL api-inference legada detectada — migrando automaticamente para router.huggingface.co/v1
+[MultiModelOCR] QWEN_VL_BASE_URL contém URL de exemplo. Configure o endereço real do servidor.
+[MultiModelOCR] GLM_OCR_BASE_URL contém URL de exemplo. Configure o endereço real do servidor.
+1:42:21 AM [express] GET /api/datasets 304 in 43ms
+1:42:21 AM [express] GET /api/auth/sensitive-status 304 in 40ms
+1:42:21 AM [express] GET /api/datasets/ai-models-status 304 in 48ms
+1:42:21 AM [express] GET /api/team-members 304 in 40ms
+1:42:21 AM [express] GET /api/pastas 304 in 50ms
