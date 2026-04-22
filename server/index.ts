@@ -2,8 +2,17 @@ import express, { type Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
 import { textNormalizationMiddleware } from "./middleware/normalizeText";
+
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
 
 const app = express();
 app.set("trust proxy", 1);
@@ -110,8 +119,10 @@ if (!process.env.VERCEL) {
     });
 
     if (app.get("env") === "development") {
+      const { setupVite } = await import("./vite");
       await setupVite(app, serverInstance);
     } else {
+      const { serveStatic } = await import("./vite");
       serveStatic(app);
     }
 
