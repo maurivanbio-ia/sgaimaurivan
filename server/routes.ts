@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const PgSession = connectPgSimple(session);
   app.use(session({
     store: new PgSession({
-      conString: process.env.DATABASE_URL,
+      pool: pool as any, // Usa o pool do Neon serverless em vez de exigir a biblioteca 'pg' nativa
       tableName: 'session',
       createTableIfMissing: true,
       pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
