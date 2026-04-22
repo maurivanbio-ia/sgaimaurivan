@@ -94,18 +94,27 @@ let initialized = false;
 let serverInstance: any = null;
 
 export default async function handler(req: Request, res: Response) {
-  if (!initialized) {
-    serverInstance = await registerRoutes(app);
-    
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
+  try {
+    if (!initialized) {
+      serverInstance = await registerRoutes(app);
+      
+      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || "Internal Server Error";
+        res.status(status).json({ message });
+      });
+      
+      initialized = true;
+    }
+    return app(req, res);
+  } catch (error: any) {
+    console.error("Vercel Server Initialization Error:", error);
+    return res.status(500).json({
+      error: "Erro na inicialização do servidor",
+      details: error?.message || String(error),
+      stack: error?.stack
     });
-    
-    initialized = true;
   }
-  return app(req, res);
 }
 
 if (!process.env.VERCEL) {
