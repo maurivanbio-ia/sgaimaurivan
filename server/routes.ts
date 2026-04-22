@@ -225,13 +225,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Session middleware — PostgreSQL store for persistence across restarts
   const PgSession = connectPgSimple(session);
+  const store = new PgSession({
+    pool: pool as any, // Usa o pool do Neon serverless em vez de exigir a biblioteca 'pg' nativa
+    tableName: 'session',
+    createTableIfMissing: true,
+    pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
+  });
+
+  store.on('error', (err: any) => {
+    console.error('PgSession store error:', err);
+  });
+
   app.use(session({
-    store: new PgSession({
-      pool: pool as any, // Usa o pool do Neon serverless em vez de exigir a biblioteca 'pg' nativa
-      tableName: 'session',
-      createTableIfMissing: true,
-      pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
-    }),
+    store,
     secret: process.env.SESSION_SECRET || 'licenca-facil-secret-key',
     resave: false,
     saveUninitialized: false,
