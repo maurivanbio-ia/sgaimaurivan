@@ -95,7 +95,7 @@ import { sql, eq, and, isNull, gte, lte, lt, sum, desc, asc, or, ilike, SQL, inA
 import { z } from "zod";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { cronService } from "./cronService";
 import { inicializarAutomacoes } from "./services/automacaoService";
 import { exportService } from "./exportService";
