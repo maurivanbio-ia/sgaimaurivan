@@ -119,10 +119,12 @@ if (!process.env.VERCEL) {
     });
 
     if (app.get("env") === "development") {
-      const { setupVite } = await import("./vite");
+      const vitePath = "./vite";
+      const { setupVite } = await import(vitePath);
       await setupVite(app, serverInstance);
     } else {
-      const { serveStatic } = await import("./vite");
+      const vitePath = "./vite";
+      const { serveStatic } = await import(vitePath);
       serveStatic(app);
     }
 
