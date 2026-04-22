@@ -38,9 +38,9 @@ interface FinancialReportPDFProps {
   stats: FinancialStats | undefined;
   empreendimentos: Empreendimento[];
   lineChartRef?: React.RefObject<any>;
-  pieChartRef?: React.RefObject<any>;
+  pieChartRef?: React.RefObject<unknown>;
   barChartRef?: React.RefObject<any>;
-  expenseEvolutionChartRef?: React.RefObject<any>;
+  expenseEvolutionChartRef?: React.RefObject<unknown>;
 }
 
 const ECOBRASIL_COLORS = {
@@ -671,7 +671,7 @@ export function FinancialReportPDF({ stats, empreendimentos, lineChartRef, pieCh
                 <Input
                   type="date"
                   value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  onChange={(e) => { setCustomEndDate(e.target.value); }}
                   data-testid="input-data-fim-pdf"
                 />
               </div>

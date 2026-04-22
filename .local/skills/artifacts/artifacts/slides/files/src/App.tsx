@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+<<<<<<< HEAD
 import { useLocation } from "wouter";
+=======
+import { useLocation, useNavigate } from "react-router-dom";
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
 
 import { slides } from "@/slideLoader";
 
@@ -11,8 +15,14 @@ function getSlideIndex(pathname: string): number {
 }
 
 function SlideEditor() {
+<<<<<<< HEAD
   const [location, navigate] = useLocation();
   const currentIndex = getSlideIndex(location);
+=======
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentIndex = getSlideIndex(location.pathname);
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
 
   // In the workspace, the slide iframe is nested inside another iframe,
   // so window.parent !== window.parent.parent. In the deployed SlideViewer,
@@ -193,21 +203,36 @@ function SlideViewer() {
 }
 
 export default function App() {
+<<<<<<< HEAD
   const [location, navigate] = useLocation();
+=======
+  const location = useLocation();
+  const navigate = useNavigate();
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
 
   // DO NOT edit this useEffect - redirects unknown routes to the first slide.
   // The "/" and "/allslides" routes are handled separately below.
   useEffect(() => {
     if (
+<<<<<<< HEAD
       location !== "/" &&
       location !== "/allslides" &&
       getSlideIndex(location) === -1
+=======
+      location.pathname !== "/" &&
+      location.pathname !== "/allslides" &&
+      getSlideIndex(location.pathname) === -1
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
     ) {
       if (slides.length > 0) {
         navigate(`/slide${slides[0].position}`, { replace: true });
       }
     }
+<<<<<<< HEAD
   }, [location, navigate]);
+=======
+  }, [location.pathname, navigate]);
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
 
   // DO NOT edit this useEffect - allows the parent frame to navigate
   // between slides via postMessage so it can avoid changing the iframe
@@ -227,7 +252,12 @@ export default function App() {
     return () => window.removeEventListener("message", onMessage);
   }, [navigate]);
 
+<<<<<<< HEAD
   if (location === "/") return <SlideViewer />;
   if (location === "/allslides") return <AllSlides />;
+=======
+  if (location.pathname === "/") return <SlideViewer />;
+  if (location.pathname === "/allslides") return <AllSlides />;
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
   return <SlideEditor />;
 }

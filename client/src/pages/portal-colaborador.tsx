@@ -584,7 +584,7 @@ export default function PortalColaboradorPage() {
         </CardContent>
         {showQuickActions && tarefa.status !== 'concluida' && tarefa.status !== 'cancelada' && (
           <CardFooter className="pt-2 border-t">
-            <div className="flex gap-2 w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-2 w-full" onClick={(e) => { e.stopPropagation(); }}>
               {tarefa.status === 'pendente' && (
                 <Button 
                   size="sm" 
@@ -624,7 +624,7 @@ export default function PortalColaboradorPage() {
     return (
       <Card 
         className="cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => handleViewReembolso(reembolso)}
+        onClick={() => { handleViewReembolso(reembolso); }}
         data-testid={`card-reembolso-${reembolso.id}`}
       >
         <CardHeader className="pb-2">
@@ -926,7 +926,7 @@ export default function PortalColaboradorPage() {
             </Card>
             <Card className="flex items-center justify-center">
               <Button 
-                onClick={() => setIsReembolsoDialogOpen(true)} 
+                onClick={() => { setIsReembolsoDialogOpen(true); }} 
                 className="w-full h-full"
                 data-testid="button-novo-reembolso"
               >

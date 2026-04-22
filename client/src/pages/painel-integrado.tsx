@@ -238,7 +238,7 @@ function FinanceiroPanel() {
             <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {((stats?.receitas || 0) - (stats?.despesas || 0)).toLocaleString('pt-BR')}</div>
+            <div className="text-2xl font-bold">R$ {((stats.receitas || 0) - (stats?.despesas || 0)).toLocaleString('pt-BR')}</div>
             <p className="text-xs text-muted-foreground">Receitas - Despesas</p>
           </CardContent>
         </Card>
@@ -249,7 +249,7 @@ function FinanceiroPanel() {
             <CreditCard className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalLancamentos || 0}</div>
+            <div className="text-2xl font-bold">{stats.totalLancamentos || 0}</div>
             <p className="text-xs text-muted-foreground">Total de transações</p>
           </CardContent>
         </Card>

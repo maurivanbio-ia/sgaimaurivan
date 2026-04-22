@@ -144,7 +144,7 @@ export default function MapaEmpreendimentos() {
   }, [empreendimentosComCoordenadas, statusFilter, tipoFilter]);
 
   const tipos = useMemo(() => {
-    const uniqueTipos = new Set(empreendimentos.map(emp => emp.tipo?.toLowerCase() || 'outro'));
+    const uniqueTipos = new Set(empreendimentos.map(emp => emp.tipo.toLowerCase() || 'outro'));
     return Array.from(uniqueTipos);
   }, [empreendimentos]);
 
@@ -606,7 +606,7 @@ export default function MapaEmpreendimentos() {
               </form>
             </DialogContent>
           </Dialog>
-          <Button variant="outline" onClick={() => { refetch(); refetchCamadas(); }} data-testid="button-refresh">
+          <Button variant="outline" onClick={() => { void refetch(); refetchCamadas(); }} data-testid="button-refresh">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
@@ -698,7 +698,7 @@ export default function MapaEmpreendimentos() {
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0"
-                              onClick={() => toggleLayer(camada.id)}
+                              onClick={() => { toggleLayer(camada.id); }}
                             >
                               {visibleLayers.has(camada.id) ? (
                                 <Eye className="h-3 w-3" />

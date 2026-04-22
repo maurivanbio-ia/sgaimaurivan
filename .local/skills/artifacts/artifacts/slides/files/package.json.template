@@ -21,10 +21,17 @@
     "@vitejs/plugin-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+<<<<<<< HEAD
     "tailwindcss": "catalog:",
     "tsx": "catalog:",
     "vite": "catalog:",
     "wouter": "catalog:",
+=======
+    "react-router-dom": "^7.9.5",
+    "tailwindcss": "catalog:",
+    "tsx": "catalog:",
+    "vite": "catalog:",
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
     "zod": "catalog:"
   }
 }

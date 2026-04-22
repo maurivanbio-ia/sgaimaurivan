@@ -57,11 +57,18 @@ export default defineConfig({
   },
   server: {
     port,
+<<<<<<< HEAD
     strictPort: true,
+=======
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
     host: "0.0.0.0",
     allowedHosts: true,
     fs: {
       strict: true,
+<<<<<<< HEAD
+=======
+      deny: ["**/.*"],
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
     },
   },
   preview: {

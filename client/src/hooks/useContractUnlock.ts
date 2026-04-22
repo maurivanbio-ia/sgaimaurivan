@@ -23,7 +23,7 @@ export function useContractUnlock() {
   const [unlocked, setUnlocked] = useState(_unlocked);
 
   useEffect(() => {
-    const listener = () => setUnlocked(true);
+    const listener = () => { setUnlocked(true); };
     _listeners.add(listener);
     return () => {
       _listeners.delete(listener);

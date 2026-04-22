@@ -1,0 +1,303 @@
+diff --git a/client/src/pages/cronograma.tsx b/client/src/pages/cronograma.tsx
+--- a/client/src/pages/cronograma.tsx
++++ b/client/src/pages/cronograma.tsx
+@@ -426,1 +426,1 @@
+-                onEdit={() => onEdit(item)}
++                onEdit={() => { onEdit(item); }}
+@@ -1241,1 +1241,1 @@
+-              <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
++              <Select value={filters.status} onValueChange={(v) => { setFilters(prev => ({ ...prev, status: v })); }}>
+@@ -1343,1 +1343,1 @@
+-          onConfirm={(obs) => executeMutation.mutate({ id: executeModal.id, concluido: true, obs })}
++          onConfirm={(obs) => { executeMutation.mutate({ id: executeModal.id, concluido: true, obs }); }}
+@@ -1423,1 +1423,1 @@
+-          <Select value={formData.status} onValueChange={(v) => setFormData(prev => ({ ...prev, status: v }))}>
++          <Select value={formData.status} onValueChange={(v) => { setFormData(prev => ({ ...prev, status: v })); }}>
+@@ -1434,1 +1434,1 @@
+-            onChange={(e) => setFormData(prev => ({ ...prev, dataInicio: e.target.value }))}
++            onChange={(e) => { setFormData(prev => ({ ...prev, dataInicio: e.target.value })); }}
+@@ -1441,1 +1441,1 @@
+-            onChange={(e) => setFormData(prev => ({ ...prev, dataFim: e.target.value }))}
++            onChange={(e) => { setFormData(prev => ({ ...prev, dataFim: e.target.value })); }}
+@@ -1464,1 +1464,1 @@
+-          <Select value={formData.empreendimentoId} onValueChange={(v) => setFormData(prev => ({ ...prev, empreendimentoId: v, projetoId: "" }))}>
++          <Select value={formData.empreendimentoId} onValueChange={(v) => { setFormData(prev => ({ ...prev, empreendimentoId: v, projetoId: "" })); }}>
+diff --git a/client/src/pages/gamificacao.tsx b/client/src/pages/gamificacao.tsx
+--- a/client/src/pages/gamificacao.tsx
++++ b/client/src/pages/gamificacao.tsx
+@@ -149,1 +149,1 @@
+-    onSuccess: (data: any) => {
++    onSuccess: (data: unknown) => {
+@@ -235,1 +235,1 @@
+-                <p className="text-2xl font-bold">{desempenho?.pontuacao?.tarefasConcluidas || 0}</p>
++                <p className="text-2xl font-bold">{desempenho?.pontuacao.tarefasConcluidas || 0}</p>
+diff --git a/client/src/pages/alert-config.tsx b/client/src/pages/alert-config.tsx
+--- a/client/src/pages/alert-config.tsx
++++ b/client/src/pages/alert-config.tsx
+@@ -137,1 +137,1 @@
+-      let data: any;
++      let data: unknown;
+@@ -211,1 +211,1 @@
+-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
++      void queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+@@ -384,1 +384,1 @@
+-                    onChange={e => setWpForm(f => ({ ...f, groupJid: e.target.value }))}
++                    onChange={e => { setWpForm(f => ({ ...f, groupJid: e.target.value })); }}
+@@ -446,1 +446,1 @@
+-                    onCheckedChange={v => setWpForm(f => ({ ...f, notifyNovaDemanda: v }))}
++                    onCheckedChange={v => { setWpForm(f => ({ ...f, notifyNovaDemanda: v })); }}
+@@ -467,1 +467,1 @@
+-                      onValueChange={v => setWpForm(f => ({ ...f, diaResumoSemanal: Number(v) }))}
++                      onValueChange={v => { setWpForm(f => ({ ...f, diaResumoSemanal: Number(v) })); }}
+@@ -485,1 +485,1 @@
+-                      onChange={e => setWpForm(f => ({ ...f, horaResumoSemanal: e.target.value }))}
++                      onChange={e => { setWpForm(f => ({ ...f, horaResumoSemanal: e.target.value })); }}
+@@ -569,1 +569,1 @@
+-            onOpenChange={() => handleToggleExpanded(tipo)}
++            onOpenChange={() => { handleToggleExpanded(tipo); }}
+diff --git a/client/src/components/empreendimento/SstTab.tsx b/client/src/components/empreendimento/SstTab.tsx
+--- a/client/src/components/empreendimento/SstTab.tsx
++++ b/client/src/components/empreendimento/SstTab.tsx
+@@ -475,1 +475,1 @@
+-                  <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
++                  <Select value={formData.tipo} onValueChange={(v) => { setFormData({ ...formData, tipo: v }); }}>
+@@ -526,1 +526,1 @@
+-                  <Input value={formData.responsavelTecnico} onChange={(e) => setFormData({ ...formData, responsavelTecnico: e.target.value })} />
++                  <Input value={formData.responsavelTecnico} onChange={(e) => { setFormData({ ...formData, responsavelTecnico: e.target.value }); }} />
+@@ -540,1 +540,1 @@
+-                  <Input type="date" value={formData.dataValidade} onChange={(e) => setFormData({ ...formData, dataValidade: e.target.value })} />
++                  <Input type="date" value={formData.dataValidade} onChange={(e) => { setFormData({ ...formData, dataValidade: e.target.value }); }} />
+@@ -583,1 +583,1 @@
+-                    <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(p.id)}>
++                    <Button variant="ghost" size="icon" onClick={() => { deleteMutation.mutate(p.id); }}>
+@@ -686,1 +686,1 @@
+-                  <Select value={formData.resultado} onValueChange={(v) => setFormData({ ...formData, resultado: v })}>
++                  <Select value={formData.resultado} onValueChange={(v) => { setFormData({ ...formData, resultado: v }); }}>
+@@ -699,1 +699,1 @@
+-                  <Input type="date" value={formData.dataExame} onChange={(e) => setFormData({ ...formData, dataExame: e.target.value })} />
++                  <Input type="date" value={formData.dataExame} onChange={(e) => { setFormData({ ...formData, dataExame: e.target.value }); }} />
+@@ -1171,1 +1171,1 @@
+-                  <Input type="date" value={formData.dataIncidente} onChange={(e) => setFormData({ ...formData, dataIncidente: e.target.value })} />
++                  <Input type="date" value={formData.dataIncidente} onChange={(e) => { setFormData({ ...formData, dataIncidente: e.target.value }); }} />
+@@ -1175,1 +1175,1 @@
+-                  <Input value={formData.localIncidente} onChange={(e) => setFormData({ ...formData, localIncidente: e.target.value })} />
++                  <Input value={formData.localIncidente} onChange={(e) => { setFormData({ ...formData, localIncidente: e.target.value }); }} />
+@@ -1355,1 +1355,1 @@
+-  const { data: listaPresenca, refetch: refetchListaPresenca } = useQuery<any>({
++  const { data: listaPresenca, refetch: refetchListaPresenca } = useQuery<unknown>({
+diff --git a/client/src/pages/gestao-equipe.tsx b/client/src/pages/gestao-equipe.tsx
+--- a/client/src/pages/gestao-equipe.tsx
++++ b/client/src/pages/gestao-equipe.tsx
+@@ -211,1 +211,1 @@
+-  const { data: membroEmpreendimentosVinculados = [] } = useQuery<any[]>({
++  const { data: membroEmpreendimentosVinculados = [] } = useQuery<unknown[]>({
+@@ -790,1 +790,1 @@
+-                                onClick={() => handleEditTarefa(tarefa)}
++                                onClick={() => { handleEditTarefa(tarefa); }}
+@@ -1449,1 +1449,1 @@
+-                  membroEmpreendimentosVinculados.map((vinculo: any) => {
++                  membroEmpreendimentosVinculados.map((vinculo: unknown) => {
+@@ -1450,1 +1450,1 @@
+-                    const emp = empreendimentos.find((e: any) => e.id === vinculo.empreendimentoId);
++                    const emp = empreendimentos.find((e: unknown) => e.id === vinculo.empreendimentoId);
+diff --git a/client/src/pages/segurancaTrabalho.tsx b/client/src/pages/segurancaTrabalho.tsx
+--- a/client/src/pages/segurancaTrabalho.tsx
++++ b/client/src/pages/segurancaTrabalho.tsx
+@@ -216,1 +216,1 @@
+-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
++    mutationFn: async ({ id, data }: { id: number; data: unknown }) => {
+@@ -836,1 +836,1 @@
+-                        onChange={(e) => setColaboradorForm({ ...colaboradorForm, cargo: e.target.value })}
++                        onChange={(e) => { setColaboradorForm({ ...colaboradorForm, cargo: e.target.value }); }}
+@@ -1347,1 +1347,1 @@
+-                  <Button variant="outline" onClick={() => setIsDocumentoDialogOpen(false)} data-testid="button-cancel-documento">
++                  <Button variant="outline" onClick={() => { setIsDocumentoDialogOpen(false); }} data-testid="button-cancel-documento">
+@@ -1390,1 +1390,1 @@
+-                          {(doc as any).empreendimentoNome || "Geral"}
++                          {(doc as unknown).empreendimentoNome || "Geral"}
+diff --git a/client/src/pages/projects.tsx b/client/src/pages/projects.tsx
+--- a/client/src/pages/projects.tsx
++++ b/client/src/pages/projects.tsx
+@@ -46,1 +46,1 @@
+-  const expandAll = (ids: number[]) => setExpandedCards(new Set(ids));
++  const expandAll = (ids: number[]) => { setExpandedCards(new Set(ids)); };
+@@ -200,1 +200,1 @@
+-                <Button variant="outline" size="sm" onClick={() => expandAll(projects?.map(p => p.id) ?? [])} className="text-xs gap-1">
++                <Button variant="outline" size="sm" onClick={() => { expandAll(projects?.map(p => p.id) ?? []); }} className="text-xs gap-1">
+@@ -285,1 +285,1 @@
+-                            onClick={() => visivelMutation.mutate({ id: project.id, visivel: project.visivel === false })}
++                            onClick={() => { visivelMutation.mutate({ id: project.id, visivel: project.visivel === false }); }}
+@@ -378,1 +378,1 @@
+-      <AlertDialog open={!!suggestHideDialog} onOpenChange={() => setSuggestHideDialog(null)}>
++      <AlertDialog open={!!suggestHideDialog} onOpenChange={() => { setSuggestHideDialog(null); }}>
+diff --git a/client/src/pages/ecoassistente.tsx b/client/src/pages/ecoassistente.tsx
+--- a/client/src/pages/ecoassistente.tsx
++++ b/client/src/pages/ecoassistente.tsx
+@@ -322,1 +322,1 @@
+-                      onClick={() => setInput(sug)}>
++                      onClick={() => { setInput(sug); }}>
+diff --git a/client/src/pages/campo.tsx b/client/src/pages/campo.tsx
+--- a/client/src/pages/campo.tsx
++++ b/client/src/pages/campo.tsx
+@@ -693,1 +693,1 @@
+-                          <Badge className={`text-xs ${GRUPO_CONFIG[r.grupoTaxonomico]?.bg || "bg-gray-100 text-gray-800"}`}>
++                          <Badge className={`text-xs ${GRUPO_CONFIG[r.grupoTaxonomico].bg || "bg-gray-100 text-gray-800"}`}>
+diff --git a/client/src/pages/mapa.tsx b/client/src/pages/mapa.tsx
+--- a/client/src/pages/mapa.tsx
++++ b/client/src/pages/mapa.tsx
+@@ -147,1 +147,1 @@
+-    const uniqueTipos = new Set(empreendimentos.map(emp => emp.tipo?.toLowerCase() || 'outro'));
++    const uniqueTipos = new Set(empreendimentos.map(emp => emp.tipo.toLowerCase() || 'outro'));
+@@ -609,1 +609,1 @@
+-          <Button variant="outline" onClick={() => { refetch(); refetchCamadas(); }} data-testid="button-refresh">
++          <Button variant="outline" onClick={() => { void refetch(); refetchCamadas(); }} data-testid="button-refresh">
+@@ -701,1 +701,1 @@
+-                              onClick={() => toggleLayer(camada.id)}
++                              onClick={() => { toggleLayer(camada.id); }}
+diff --git a/client/src/hooks/useNotifications.ts b/client/src/hooks/useNotifications.ts
+--- a/client/src/hooks/useNotifications.ts
++++ b/client/src/hooks/useNotifications.ts
+@@ -59,1 +59,1 @@
+-          refetchUnreadCount();
++          void refetchUnreadCount();
+diff --git a/client/src/components/PlatformReportPDF.tsx b/client/src/components/PlatformReportPDF.tsx
+--- a/client/src/components/PlatformReportPDF.tsx
++++ b/client/src/components/PlatformReportPDF.tsx
+@@ -70,1 +70,1 @@
+-      img.onload = () => resolve(img);
++      img.onload = () => { resolve(img); };
+@@ -957,1 +957,1 @@
+-          body: data.contratos.lista.slice(0, 10).map((c: any) => [
++          body: data.contratos.lista.slice(0, 10).map((c: unknown) => [
+@@ -1027,1 +1027,1 @@
+-          body: data.empreendimentos.lista.slice(0, 12).map((e: any) => [
++          body: data.empreendimentos.lista.slice(0, 12).map((e: unknown) => [
+diff --git a/client/src/pages/blog-artigo.tsx b/client/src/pages/blog-artigo.tsx
+--- a/client/src/pages/blog-artigo.tsx
++++ b/client/src/pages/blog-artigo.tsx
+@@ -158,1 +158,1 @@
+-      navigator.clipboard.writeText(window.location.href);
++      void navigator.clipboard.writeText(window.location.href);
+diff --git a/client/src/pages/painel-integrado.tsx b/client/src/pages/painel-integrado.tsx
+--- a/client/src/pages/painel-integrado.tsx
++++ b/client/src/pages/painel-integrado.tsx
+@@ -241,1 +241,1 @@
+-            <div className="text-2xl font-bold">R$ {((stats?.receitas || 0) - (stats?.despesas || 0)).toLocaleString('pt-BR')}</div>
++            <div className="text-2xl font-bold">R$ {((stats.receitas || 0) - (stats?.despesas || 0)).toLocaleString('pt-BR')}</div>
+@@ -252,1 +252,1 @@
+-            <div className="text-2xl font-bold">{stats?.totalLancamentos || 0}</div>
++            <div className="text-2xl font-bold">{stats.totalLancamentos || 0}</div>
+diff --git a/client/src/pages/fornecedores.tsx b/client/src/pages/fornecedores.tsx
+--- a/client/src/pages/fornecedores.tsx
++++ b/client/src/pages/fornecedores.tsx
+@@ -188,1 +188,1 @@
+-    onError: (e: any) => {
++    onError: (e: unknown) => {
+@@ -889,1 +889,1 @@
+-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
++                <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); }}>
+diff --git a/client/src/pages/ramais-contatos.tsx b/client/src/pages/ramais-contatos.tsx
+--- a/client/src/pages/ramais-contatos.tsx
++++ b/client/src/pages/ramais-contatos.tsx
+@@ -212,1 +212,1 @@
+-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(contato)}>
++                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { handleEdit(contato); }}>
+@@ -329,1 +329,1 @@
+-                  onChange={(e) => setContatoForm({ ...contatoForm, telefone: e.target.value })}
++                  onChange={(e) => { setContatoForm({ ...contatoForm, telefone: e.target.value }); }}
+diff --git a/client/src/pages/publicacoes.tsx b/client/src/pages/publicacoes.tsx
+--- a/client/src/pages/publicacoes.tsx
++++ b/client/src/pages/publicacoes.tsx
+@@ -129,1 +129,1 @@
+-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(pub)} title="Editar">
++            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { onEdit(pub); }} title="Editar">
+diff --git a/client/src/components/empreendimento/LicencasTab.tsx b/client/src/components/empreendimento/LicencasTab.tsx
+--- a/client/src/components/empreendimento/LicencasTab.tsx
++++ b/client/src/components/empreendimento/LicencasTab.tsx
+@@ -201,1 +201,1 @@
+-      tipoOutorga: (license as any).tipoOutorga || "",
++      tipoOutorga: (license as unknown).tipoOutorga || "",
+diff --git a/client/src/pages/frota.tsx b/client/src/pages/frota.tsx
+--- a/client/src/pages/frota.tsx
++++ b/client/src/pages/frota.tsx
+@@ -155,1 +155,1 @@
+-      combustivel: veiculo.combustivel as any,
++      combustivel: veiculo.combustivel as unknown,
+@@ -1335,1 +1335,1 @@
+-                    <p className="font-medium capitalize">{TIPO_CONFIG[selectedVeiculo.tipo as keyof typeof TIPO_CONFIG]?.label || selectedVeiculo.tipo}</p>
++                    <p className="font-medium capitalize">{TIPO_CONFIG[selectedVeiculo.tipo as keyof typeof TIPO_CONFIG].label || selectedVeiculo.tipo}</p>
+diff --git a/client/src/components/FinancialReportPDF.tsx b/client/src/components/FinancialReportPDF.tsx
+--- a/client/src/components/FinancialReportPDF.tsx
++++ b/client/src/components/FinancialReportPDF.tsx
+@@ -41,1 +41,1 @@
+-  pieChartRef?: React.RefObject<any>;
++  pieChartRef?: React.RefObject<unknown>;
+@@ -43,1 +43,1 @@
+-  expenseEvolutionChartRef?: React.RefObject<any>;
++  expenseEvolutionChartRef?: React.RefObject<unknown>;
+@@ -674,1 +674,1 @@
+-                  onChange={(e) => setCustomEndDate(e.target.value)}
++                  onChange={(e) => { setCustomEndDate(e.target.value); }}
+diff --git a/client/src/components/empreendimento/ProjetosTab.tsx b/client/src/components/empreendimento/ProjetosTab.tsx
+--- a/client/src/components/empreendimento/ProjetosTab.tsx
++++ b/client/src/components/empreendimento/ProjetosTab.tsx
+@@ -120,1 +120,1 @@
+-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
++    mutationFn: async ({ id, data }: { id: number; data: unknown }) => {
+diff --git a/client/src/pages/demandas.tsx b/client/src/pages/demandas.tsx
+--- a/client/src/pages/demandas.tsx
++++ b/client/src/pages/demandas.tsx
+@@ -345,1 +345,1 @@
+-  const { data: licencasEmp = [] } = useQuery<any[]>({
++  const { data: licencasEmp = [] } = useQuery<unknown[]>({
+@@ -422,1 +422,1 @@
+-        <Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} required />
++        <Input value={form.titulo} onChange={(e) => { setForm({ ...form, titulo: e.target.value }); }} required />
+@@ -450,1 +450,1 @@
+-          <Select value={form.licencaId || ""} onValueChange={(v) => setForm({ ...form, licencaId: v, condicionanteId: "" })}>
++          <Select value={form.licencaId || ""} onValueChange={(v) => { setForm({ ...form, licencaId: v, condicionanteId: "" }); }}>
+@@ -479,1 +479,1 @@
+-              {ensureArray<any>(condicionantesLic).map((cond: any, idx: number) => {
++              {ensureArray<unknown>(condicionantesLic).map((cond: any, idx: number) => {
+diff --git a/client/src/pages/onedrive-backups.tsx b/client/src/pages/onedrive-backups.tsx
+--- a/client/src/pages/onedrive-backups.tsx
++++ b/client/src/pages/onedrive-backups.tsx
+@@ -98,1 +98,1 @@
+-        queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
++        void queryClient.invalidateQueries({ queryKey: ["/api/backups"] });
+@@ -104,1 +104,1 @@
+-    onError: (error: any) => {
++    onError: (error: unknown) => {
+@@ -122,1 +122,1 @@
+-    onError: (err: any) => toast({ title: "Erro ao enviar para Dropbox", description: err.message, variant: "destructive" }),
++    onError: (err: unknown) => toast({ title: "Erro ao enviar para Dropbox", description: err.message, variant: "destructive" }),
+@@ -160,1 +160,1 @@
+-    onSuccess: (data: any) => {
++    onSuccess: (data: unknown) => {
+@@ -403,1 +403,1 @@
+-                <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || isSyncing || !dropboxConn?.success} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
++                <Button onClick={() => { syncMutation.mutate(); }} disabled={syncMutation.isPending || isSyncing || !dropboxConn?.success} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+@@ -414,1 +414,1 @@
+-                  <Button variant="outline" onClick={() => retryMutation.mutate()} disabled={retryMutation.isPending} className="border-red-200 text-red-600 hover:bg-red-50 gap-2">
++                  <Button variant="outline" onClick={() => { retryMutation.mutate(); }} disabled={retryMutation.isPending} className="border-red-200 text-red-600 hover:bg-red-50 gap-2">
+@@ -420,1 +420,1 @@
+-                <Button variant="ghost" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] }); queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] }); }} className="gap-2">
++                <Button variant="ghost" onClick={() => { void queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-status"] }); queryClient.invalidateQueries({ queryKey: ["/api/dropbox/sync-log"] }); }} className="gap-2">
+diff --git a/client/src/pages/portal-colaborador.tsx b/client/src/pages/portal-colaborador.tsx
+--- a/client/src/pages/portal-colaborador.tsx
++++ b/client/src/pages/portal-colaborador.tsx
+@@ -587,1 +587,1 @@
+-            <div className="flex gap-2 w-full" onClick={(e) => e.stopPropagation()}>
++            <div className="flex gap-2 w-full" onClick={(e) => { e.stopPropagation(); }}>
+@@ -627,1 +627,1 @@
+-        onClick={() => handleViewReembolso(reembolso)}
++        onClick={() => { handleViewReembolso(reembolso); }}
+@@ -929,1 +929,1 @@
+-                onClick={() => setIsReembolsoDialogOpen(true)} 
++                onClick={() => { setIsReembolsoDialogOpen(true); }} 
+diff --git a/client/src/hooks/useContractUnlock.ts b/client/src/hooks/useContractUnlock.ts
+--- a/client/src/hooks/useContractUnlock.ts
++++ b/client/src/hooks/useContractUnlock.ts
+@@ -26,1 +26,1 @@
+-    const listener = () => setUnlocked(true);
++    const listener = () => { setUnlocked(true); };

@@ -81,14 +81,21 @@ Create a flowchart, decision tree, gantt chart, sequence diagram, or state diagr
 - `mermaidSyntax` (string, required): Mermaid.js code for the diagram. Keep diagrams simple, unless the user has detailed requirements. Only the following diagram types are supported: graph, flowchart, sequenceDiagram, stateDiagram, stateDiagram-v2, and gantt. Make sure to use correct Mermaid.js syntax. For graph or flowchart diagrams, use LR direction by default and put all shape and edge text in quotes (eg. ["Text"], -->|"Edge Text"|, --"Edge Text"-->). Do not use emojis in the Mermaid.js code. Do not use 
  to represent new lines. Feel free to use the full range of shapes and connectors that Mermaid.js syntax offers. For graph and flowchart diagrams only, you can use color styling--but do so sparingly unless the user asks for it. In gantt charts, do not use color styling. In sequence diagrams, do not use notes. Do not use the word "end" in classNames.
 - `userIntent` (string, optional): A description of what the user is trying to accomplish with this tool call. Important: Do not add extraneous information other than what the user provides.
+<<<<<<< HEAD
 - `planKey` (string, optional): Optional. The team or organization key where the generated diagram file should be saved. The key must start with "team::" or "org::", but do not use these abbreviations in user-facing messages. If the user already provided a planKey, use it directly. Otherwise, call the whoami tool first to get the list of plans. If the user has one plan, use its "key" field. If multiple, ask the user which team or organization to use.
+=======
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
 
 **Returns:** Object with `status`, `content`, and optional metadata.
 
 **Example:**
 
 ```javascript
+<<<<<<< HEAD
 const result = await mcpFigma_generateDiagram({ name: "", mermaidSyntax: "", userIntent: "", planKey: "" });
+=======
+const result = await mcpFigma_generateDiagram({ name: "", mermaidSyntax: "", userIntent: "" });
+>>>>>>> 0009a6ab6f604bab51f2f46e71f61cc3092b36d1
 console.log(result);
 ```
 
