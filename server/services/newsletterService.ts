@@ -8,13 +8,13 @@ import { ECOBRASIL_LOGO_BASE64, BRASILEIRINHO_BASE64, HIDROELETRICA_BG_BASE64 } 
 
 // Usa DeepSeek como provedor principal de IA (compatível com API OpenAI)
 const deepseek = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY,
+  apiKey: process.env.DEEPSEEK_API_KEY || 'missing-key',
   baseURL: "https://api.deepseek.com",
 });
 
 // Fallback para OpenAI/Replit AI se DeepSeek não estiver configurado
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || 'missing-key',
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
 });
 

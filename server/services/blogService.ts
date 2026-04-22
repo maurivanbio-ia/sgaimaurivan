@@ -3,11 +3,11 @@ import { db } from "../db";
 import { blogArtigos, blogComentarios, blogReacoes, newsletterDestaques, empreendimentos } from "@shared/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing-key" });
 
 const deepseek = new OpenAI({
   baseURL: "https://api.deepseek.com/v1",
-  apiKey: process.env.DEEPSEEK_API_KEY || "",
+  apiKey: process.env.DEEPSEEK_API_KEY || "missing-key",
 });
 
 // Note: Manus API is task-based (async) and not compatible with OpenAI chat.completions format
